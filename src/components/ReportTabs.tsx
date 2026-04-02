@@ -1849,25 +1849,36 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
 
   const allTabKeys = ['optimizer', ...tabKeys] as const;
 
+  // Split tabs into two rows matching the screenshot layout
+  const row1Keys = ['optimizer', 'aiReport', 'priorities', 'blueprint', 'semanticMap', 'tfidf', 'ngrams', 'implementationPlan'] as const;
+  const row2Keys = ['zipf', 'images', 'anchors', 'pageSpeed', 'stealth', 'dataSources', 'verification'] as const;
+
+  const renderTrigger = (key: string) => (
+    <TabsTrigger
+      key={key}
+      value={key}
+      className={`px-3 py-2 text-[13px] font-medium whitespace-nowrap transition-colors
+        text-muted-foreground hover:text-foreground
+        data-[state=active]:text-primary data-[state=active]:bg-transparent
+        data-[state=active]:shadow-none
+        rounded-none border-b-2 border-transparent data-[state=active]:border-primary`}
+    >
+      {key === 'optimizer' && <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5 inline-block animate-pulse" />}
+      {key === 'aiReport' && <span className="w-1.5 h-1.5 rounded-full bg-accent mr-1.5 inline-block" />}
+      {labels[key as keyof typeof labels]}
+    </TabsTrigger>
+  );
+
   return (
     <Tabs defaultValue="optimizer" className="w-full">
-      <TabsList className="w-full h-auto flex flex-wrap gap-1 bg-secondary/50 p-1.5 rounded-xl">
-        {allTabKeys.map((key) => (
-          <TabsTrigger
-            key={key}
-            value={key}
-            className={`px-2.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-all
-              text-muted-foreground hover:text-foreground/80
-              data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm
-              data-[state=active]:border-b-2 data-[state=active]:border-primary
-              ${key === 'optimizer' ? 'data-[state=active]:bg-primary/20 data-[state=active]:text-primary' : ''}`}
-          >
-            {key === 'optimizer' && <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5 inline-block animate-pulse" />}
-            {key === 'aiReport' && <span className="w-1.5 h-1.5 rounded-full bg-accent mr-1.5 inline-block" />}
-            {labels[key as keyof typeof labels]}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      <div className="bg-card/60 border border-border/50 rounded-lg overflow-hidden">
+        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent p-0 rounded-none border-b border-border/30">
+          {row1Keys.map(renderTrigger)}
+        </TabsList>
+        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent p-0 rounded-none">
+          {row2Keys.map(renderTrigger)}
+        </TabsList>
+      </div>
 
       <TabsContent value="optimizer" className="mt-6">
         <AiOptimizer analysisId={analysisId} />
