@@ -23,14 +23,16 @@ type TabKey = typeof tabKeys[number];
 
 const tabLabels: Record<string, Record<TabKey, string>> = {
   ru: {
-    aiReport: 'ИИ-отчёт', priorities: 'Приоритеты', blueprint: 'Golden Blueprint',
+    aiReport: 'ИИ-отчёт', priorities: 'Приоритеты', implementationPlan: '📋 Пошаговое ТЗ',
+    blueprint: 'Golden Blueprint',
     semanticMap: '🧬 Семантическая карта',
     tfidf: 'TF-IDF', ngrams: 'N-граммы', zipf: 'Закон Ципфа',
     images: 'Изображения', anchors: 'Анкоры', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
     dataSources: '📋 Источники', verification: '✅ До/После',
   },
   en: {
-    aiReport: 'AI Report', priorities: 'Priorities', blueprint: 'Golden Blueprint',
+    aiReport: 'AI Report', priorities: 'Priorities', implementationPlan: '📋 Implementation Plan',
+    blueprint: 'Golden Blueprint',
     semanticMap: '🧬 Semantic Map',
     tfidf: 'TF-IDF', ngrams: 'N-grams', zipf: "Zipf's Law",
     images: 'Images', anchors: 'Anchors', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
