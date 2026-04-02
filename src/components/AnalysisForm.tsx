@@ -23,9 +23,10 @@ interface AnalysisFormProps {
     competitors: string[];
     aiContext: string;
     clusterMode: boolean;
+    projectId?: string;
   }) => void;
   loading: boolean;
-  projects?: { name: string; domain: string }[];
+  projects?: { id?: string; name: string; domain: string }[];
   onNewProject?: () => void;
 }
 
@@ -38,6 +39,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   const [clusterMode, setClusterMode] = useState(false);
   const [speedEnabled, setSpeedEnabled] = useState(true);
   const [semanticsEnabled, setSemanticsEnabled] = useState(true);
+  const [selectedProjectIdx, setSelectedProjectIdx] = useState(0);
 
   const addCompetitor = () => {
     if (competitors.length < 5) setCompetitors([...competitors, '']);
@@ -61,6 +63,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
       competitors: competitors.filter(c => c.trim()),
       aiContext,
       clusterMode,
+      projectId: projects[selectedProjectIdx]?.id,
     });
   };
 
@@ -75,9 +78,13 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
           <button onClick={onNewProject} className="text-sm text-accent hover:underline font-medium">{tr.projectSection.newProject}</button>
         </div>
         <div className="flex gap-3">
-          <select className="flex-1 h-11 rounded-lg bg-secondary border border-border/50 px-4 text-sm text-foreground focus:border-primary outline-none">
+          <select
+            value={selectedProjectIdx}
+            onChange={(e) => setSelectedProjectIdx(Number(e.target.value))}
+            className="flex-1 h-11 rounded-lg bg-secondary border border-border/50 px-4 text-sm text-foreground focus:border-primary outline-none"
+          >
             {projects.map((p, i) => (
-              <option key={i} value={p.name}>{p.name} — {p.domain || 'без домена'}</option>
+              <option key={i} value={i}>{p.name} — {p.domain || 'без домена'}</option>
             ))}
           </select>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLang } from '@/contexts/LangContext';
 import { LangToggle } from '@/components/LangToggle';
@@ -11,6 +11,7 @@ import { Zap, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Project {
+  id: string;
   name: string;
   domain: string;
 }
@@ -20,22 +21,125 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [analyzedUrl, setAnalyzedUrl] = useState<string | null>(null);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
 
-  const hasProjects = projects.length > 0;
+  // Load projects from DB
+  useEffect(() => {
+    const loadProjects = async () => {
+      const { data } = await supabase
+        .from('projects')
+        .select('id, name, domain')
+        .order('created_at', { ascending: false });
+      if (data) setProjects(data.map(p => ({ id: p.id, name: p.name, domain: p.domain || '' })));
+      setProjectsLoaded(true);
+    };
+    loadProjects();
+  }, []);
 
-  const handleCreateProject = (project: Project) => {
-    setProjects([...projects, project]);
-    setShowNewProject(false);
-    toast({ title: `Проект "${project.name}" создан` });
+  const handleCreateProject = async (project: { name: string; domain: string }) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('projects')
+      .insert({ name: project.name, domain: project.domain, user_id: user.id })
+      .select('id, name, domain')
+      .single();
+
+    if (error) {
+      toast({ title: error.message, variant: 'destructive' });
+      return;
+    }
+    if (data) {
+      setProjects(prev => [{ id: data.id, name: data.name, domain: data.domain || '' }, ...prev]);
+      setShowNewProject(false);
+      toast({ title: `Проект "${data.name}" создан` });
+    }
   };
 
-  const handleStartAnalysis = (data: any) => {
+  const handleStartAnalysis = async (data: {
+    url: string;
+    pageType: string;
+    competitors: string[];
+    aiContext: string;
+    clusterMode: boolean;
+    projectId?: string;
+  }) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const projectId = data.projectId || projects[0]?.id;
+    if (!projectId) {
+      toast({ title: 'Сначала создайте проект', variant: 'destructive' });
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+
+    // Create analysis in DB
+    const { data: analysis, error } = await supabase
+      .from('analyses')
+      .insert({
+        user_id: user.id,
+        project_id: projectId,
+        url: data.url,
+        page_type: data.pageType,
+        competitors: data.competitors,
+        ai_context: data.aiContext,
+        cluster_mode: data.clusterMode,
+        status: 'running',
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      toast({ title: error.message, variant: 'destructive' });
       setLoading(false);
-      setAnalyzedUrl(data.url);
+      return;
+    }
+
+    // Simulate analysis completion and save mock results
+    setTimeout(async () => {
+      if (analysis) {
+        // Save mock results
+        await supabase.from('analysis_results').insert({
+          analysis_id: analysis.id,
+          scores: {
+            seoHealth: 48,
+            llmFriendly: 60,
+            humanTouch: 65,
+            sgeAdapt: 55,
+          },
+          modules: [
+            { name: 'Go Parser', time: '2.1s', done: true },
+            { name: 'Код-аналитика', time: '8.4s', done: true },
+            { name: 'Semantic Relevance', time: '8.3s', done: true },
+            { name: 'Topical Authority', time: '11.2s', done: true },
+            { name: 'LLM Readiness', time: '6.7s', done: true },
+            { name: 'Content Recs', time: '9.1s', done: true },
+            { name: 'Technical Fixes', time: '5.8s', done: true },
+          ],
+          quick_wins: [
+            { text: 'Внедрить семантические теги <main> и <section> для улучшения структуры.' },
+            { text: 'Прописать осмысленные alt-тексты для всех 18 изображений.' },
+            { text: 'Заполнить и внедрить OpenGraph теги (og:title, og:description, og:image).' },
+            { text: 'Внедрить микроразметку Schema.org для LocalBusiness и Service.' },
+            { text: 'Переписать Title и Description, добавив УТП и гео-привязку.' },
+            { text: 'Разместить на видном месте номера телефонов и CTA-кнопку «Рассчитать стоимость».' },
+          ],
+          tab_data: {},
+        });
+
+        // Update analysis status
+        await supabase.from('analyses').update({ status: 'completed' }).eq('id', analysis.id);
+
+        setAnalysisId(analysis.id);
+        setAnalyzedUrl(data.url);
+      }
+      setLoading(false);
       toast({ title: `Анализ завершён: ${data.url}` });
     }, 2500);
   };
@@ -46,10 +150,10 @@ export default function DashboardPage() {
 
   // Show report page
   if (analyzedUrl) {
-    return <ReportPage url={analyzedUrl} onBack={() => setAnalyzedUrl(null)} />;
+    return <ReportPage url={analyzedUrl} analysisId={analysisId} onBack={() => { setAnalyzedUrl(null); setAnalysisId(null); }} />;
   }
 
-  // Header component (shared)
+  // Header
   const header = (
     <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
       <div className="container flex items-center justify-between h-14">
@@ -78,18 +182,18 @@ export default function DashboardPage() {
     </header>
   );
 
-  // Show create project if no projects
-  if (!hasProjects && !showNewProject) {
+  if (!projectsLoaded) {
     return (
       <div className="min-h-screen">
         {header}
-        <CreateProjectDialog onCreated={handleCreateProject} />
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 rounded-lg btn-gradient animate-pulse" />
+        </div>
       </div>
     );
   }
 
-  // Show new project form overlay
-  if (showNewProject) {
+  if (projects.length === 0 || showNewProject) {
     return (
       <div className="min-h-screen">
         {header}
