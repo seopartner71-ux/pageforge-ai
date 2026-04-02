@@ -1,55 +1,60 @@
 import { supabase } from '@/integrations/supabase/client';
+import { pdf } from '@react-pdf/renderer';
+import { createElement } from 'react';
+import { PdfReportDocument } from '@/components/pdf/PdfReport';
 
 interface DownloadPdfOptions {
   analysisId: string;
   lang: string;
   template?: any;
-  logoUrl?: string;
   companyName?: string;
-  sections?: string[];
 }
 
 /**
- * Calls the generate-pdf edge function, receives HTML,
- * opens it in a new window and triggers the browser print dialog (Save as PDF).
+ * Generates a PDF using @react-pdf/renderer and triggers download.
  */
 export async function downloadPdf(opts: DownloadPdfOptions): Promise<void> {
-  const { data, error } = await supabase.functions.invoke('generate-pdf', {
-    body: {
-      analysisId: opts.analysisId,
-      sections: opts.sections,
-      logoUrl: opts.logoUrl,
-      companyName: opts.companyName,
-      lang: opts.lang,
-      template: opts.template,
-    },
+  // Fetch analysis and results from the database
+  const { data: analysis } = await supabase
+    .from('analyses')
+    .select('*')
+    .eq('id', opts.analysisId)
+    .single();
+
+  if (!analysis) throw new Error('Analysis not found');
+
+  const { data: results } = await supabase
+    .from('analysis_results')
+    .select('*')
+    .eq('analysis_id', opts.analysisId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!results) throw new Error('No results found');
+
+  const companyName = opts.template?.company_name || opts.companyName || '';
+
+  // Generate blob
+  const doc = createElement(PdfReportDocument, {
+    analysis,
+    results,
+    template: opts.template,
+    companyName,
+    lang: opts.lang,
   });
 
-  if (error) throw new Error(error.message || 'PDF generation failed');
-  if (data?.error) throw new Error(data.error);
+  const blob = await pdf(doc as any).toBlob();
 
-  const html: string = data?.html;
-  if (!html) throw new Error('Empty PDF response');
-
-  // Open HTML in a new window and trigger print (Save as PDF)
-  const win = window.open('', '_blank');
-  if (!win) throw new Error('Popup blocked — please allow popups for this site');
-
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-
-  // Wait for fonts to load, then trigger print
-  win.onload = () => {
-    setTimeout(() => {
-      win.print();
-    }, 800);
-  };
-
-  // Fallback if onload already fired
-  setTimeout(() => {
-    try { win.print(); } catch {}
-  }, 2000);
+  // Trigger download
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `SEO-Report-${new URL(analysis.url).hostname}-${new Date().toISOString().slice(0, 10)}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /**
