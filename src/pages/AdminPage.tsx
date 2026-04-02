@@ -8,7 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Settings, Users, BarChart3, Save, Loader2, Eye, EyeOff, ScrollText } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  Settings, Users, BarChart3, Save, Loader2, Eye, EyeOff, ScrollText,
+  ShieldCheck, CheckCircle2, XCircle, Activity, Zap, Clock,
+} from 'lucide-react';
 
 interface ApiSetting {
   id: string;
@@ -27,7 +31,6 @@ interface UserProfile {
 export default function AdminPage() {
   const { isAdmin, loading: roleLoading } = useAdminRole();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) navigate('/dashboard', { replace: true });
@@ -47,12 +50,14 @@ export default function AdminPage() {
             <TabsTrigger value="users" className="gap-1.5"><Users className="w-4 h-4" /> Пользователи</TabsTrigger>
             <TabsTrigger value="stats" className="gap-1.5"><BarChart3 className="w-4 h-4" /> Статистика</TabsTrigger>
             <TabsTrigger value="logs" className="gap-1.5"><ScrollText className="w-4 h-4" /> Логи анализов</TabsTrigger>
+            <TabsTrigger value="system" className="gap-1.5"><ShieldCheck className="w-4 h-4" /> Системная проверка</TabsTrigger>
           </TabsList>
 
           <TabsContent value="api"><ApiSettingsTab /></TabsContent>
           <TabsContent value="users"><UsersTab /></TabsContent>
           <TabsContent value="stats"><StatsTab /></TabsContent>
           <TabsContent value="logs"><AnalysisLogsTab /></TabsContent>
+          <TabsContent value="system"><SystemCheckTab /></TabsContent>
         </Tabs>
       </main>
     </div>
@@ -205,7 +210,7 @@ function StatsTab() {
         supabase.from('analyses').select('id, status', { count: 'exact' }),
         supabase.from('profiles').select('id', { count: 'exact' }),
       ]);
-      const completed = (analysesRes.data || []).filter((a: any) => a.status === 'done').length;
+      const completed = (analysesRes.data || []).filter((a: any) => a.status === 'done' || a.status === 'completed').length;
       setStats({
         totalAnalyses: analysesRes.count || 0,
         completedAnalyses: completed,
@@ -272,30 +277,42 @@ function AnalysisLogsTab() {
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">Полные JSON-ответы для отладки точности. Последние 50 анализов.</p>
       <div className="space-y-2">
-        {logs.map(log => (
-          <div key={log.id} className="glass-card p-4 flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{log.url}</p>
-              <div className="flex gap-3 mt-1">
-                <span className={`text-xs ${log.status === 'completed' ? 'text-green-500' : log.status === 'failed' ? 'text-red-500' : 'text-muted-foreground'}`}>
-                  {log.status}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(log.created_at).toLocaleString('ru')}
-                </span>
+        {logs.map(log => {
+          const perfTiming = (log.result?.tab_data as any)?.perfTiming;
+          const totalSec = perfTiming?.total_ms ? (perfTiming.total_ms / 1000).toFixed(1) : null;
+          const isSlow = perfTiming?.total_ms > 30000;
+
+          return (
+            <div key={log.id} className="glass-card p-4 flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{log.url}</p>
+                <div className="flex gap-3 mt-1 items-center">
+                  <span className={`text-xs ${log.status === 'completed' || log.status === 'done' ? 'text-green-500' : log.status === 'failed' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                    {log.status}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(log.created_at).toLocaleString('ru')}
+                  </span>
+                  {totalSec && (
+                    <Badge variant={isSlow ? 'destructive' : 'secondary'} className="text-[10px] h-5">
+                      {isSlow ? <Clock className="w-3 h-3 mr-1" /> : <Zap className="w-3 h-3 mr-1" />}
+                      {totalSec}s
+                    </Badge>
+                  )}
+                </div>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5"
+                disabled={!log.result}
+                onClick={() => setSelectedLog(log)}
+              >
+                <Eye className="w-3.5 h-3.5" /> JSON
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1.5"
-              disabled={!log.result}
-              onClick={() => setSelectedLog(log)}
-            >
-              <Eye className="w-3.5 h-3.5" /> JSON
-            </Button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
@@ -309,15 +326,17 @@ function AnalysisLogsTab() {
             <TabsList className="mb-2">
               <TabsTrigger value="scores">Scores</TabsTrigger>
               <TabsTrigger value="modules">Modules</TabsTrigger>
+              <TabsTrigger value="perf">Perf Timing</TabsTrigger>
               <TabsTrigger value="tabData">Tab Data</TabsTrigger>
               <TabsTrigger value="quickWins">Quick Wins</TabsTrigger>
             </TabsList>
-            {['scores', 'modules', 'tabData', 'quickWins'].map(key => (
+            {['scores', 'modules', 'perf', 'tabData', 'quickWins'].map(key => (
               <TabsContent key={key} value={key} className="flex-1 overflow-auto">
                 <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-4 rounded-md max-h-[60vh] overflow-auto">
                   {JSON.stringify(
                     key === 'scores' ? selectedLog?.result?.scores :
                     key === 'modules' ? selectedLog?.result?.modules :
+                    key === 'perf' ? (selectedLog?.result?.tab_data as any)?.perfTiming :
                     key === 'tabData' ? selectedLog?.result?.tab_data :
                     selectedLog?.result?.quick_wins,
                     null, 2
@@ -328,6 +347,114 @@ function AnalysisLogsTab() {
           </Tabs>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/* ─── System Check Tab ─── */
+function SystemCheckTab() {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  const runCheck = async () => {
+    setChecking(true);
+    setResult(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const res = await supabase.functions.invoke('system-check', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (res.error) throw res.error;
+      setResult(res.data);
+    } catch (e: any) {
+      setResult({ overall: 'error', checks: [{ name: 'System', status: 'error', message: e.message, time_ms: 0 }] });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Стресс-тест системы</h2>
+          <p className="text-sm text-muted-foreground">Проверка соединений с API и базой данных</p>
+        </div>
+        <Button onClick={runCheck} disabled={checking} className="btn-gradient border-0 gap-2">
+          {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+          Run System Check
+        </Button>
+      </div>
+
+      {result && (
+        <div className="space-y-4">
+          {/* Overall status */}
+          <div className={`glass-card p-6 text-center ${result.overall === 'ok' ? 'border-green-500/30' : 'border-red-500/30'}`}>
+            {result.overall === 'ok' ? (
+              <div className="flex items-center justify-center gap-3">
+                <CheckCircle2 className="w-8 h-8 text-green-500" />
+                <span className="text-xl font-bold text-green-500">Все системы OK</span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-3">
+                <XCircle className="w-8 h-8 text-red-500" />
+                <span className="text-xl font-bold text-red-500">Обнаружены ошибки</span>
+              </div>
+            )}
+          </div>
+
+          {/* Individual checks */}
+          <div className="space-y-2">
+            {result.checks?.map((check: any, i: number) => (
+              <div key={i} className="glass-card p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {check.status === 'ok' ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-500 shrink-0" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{check.name}</p>
+                    <p className="text-xs text-muted-foreground">{check.message}</p>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-[10px]">
+                  {check.time_ms}ms
+                </Badge>
+              </div>
+            ))}
+          </div>
+
+          {/* Performance stats */}
+          {result.performance && (
+            <div className="glass-card p-5 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                Производительность (последние 20 анализов)
+              </h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-foreground">{result.performance.avgAnalysisTime}</div>
+                  <div className="text-xs text-muted-foreground">Среднее время</div>
+                </div>
+                <div className="text-center">
+                  <div className={`text-2xl font-bold ${result.performance.slowAnalyses > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                    {result.performance.slowAnalyses}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Slow (&gt;30s)</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-foreground">{result.performance.totalRecent}</div>
+                  <div className="text-xs text-muted-foreground">Всего проверено</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
