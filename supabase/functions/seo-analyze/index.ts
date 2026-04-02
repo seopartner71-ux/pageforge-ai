@@ -235,11 +235,21 @@ function calculateZipf(words: string[]) {
 }
 
 // ─── N-grams: sliding window ───
+// ─── N-gram sanity check: reject if ANY component is junk ───
+function isCleanNgram(parts: string[]): boolean {
+  for (const p of parts) {
+    if (p.length <= 2) return false;
+    if (TECH_BLACKLIST.has(p)) return false;
+    if (isNumericJunk(p)) return false;
+  }
+  return true;
+}
+
 function extractNgrams(words: string[], n: number) {
   const grams: Record<string, number> = {};
   for (let i = 0; i <= words.length - n; i++) {
     const w = words.slice(i, i + n);
-    if (w.some(x => x.length <= 2)) continue;
+    if (!isCleanNgram(w)) continue;
     const gram = w.join(" ");
     grams[gram] = (grams[gram] || 0) + 1;
   }
