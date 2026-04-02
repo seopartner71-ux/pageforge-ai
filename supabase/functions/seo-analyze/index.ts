@@ -892,6 +892,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
 P1 = Критично (техошибки, пустые Alt, Missing Entities, NavBoost нарушения, Content Effort = low). P2 = Важно для роста (структура, переспам, Semantic Chunking). P3 = Для лидерства (таблицы, FAQ, GEO, Information Gain).
 Будь хирургически точен в implementationPlan: пиши 'Замени А на Б', 'Добавь 3 картинки с Alt такими-то'. Избегай общих фраз. Минимум 8-15 задач.
 КРИТИЧНО: Программный парсер уже посчитал все теги (H1, img, JSON-LD, OG). НИКОГДА не пересчитывай их сам — доверяй ТОЛЬКО входным данным парсера.
+ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) — ЗАПРЕЩЁН. Все рекомендации — только на кириллице.
 Будь конкретен. Пиши на русском.`;
 
       userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
