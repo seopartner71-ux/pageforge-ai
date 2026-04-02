@@ -48,6 +48,7 @@ const App = () => (
             <Route path="/report/:id" element={<AuthGate><ReportRouterPage /></AuthGate>} />
             <Route path="/account" element={<AuthGate><AccountPage /></AuthGate>} />
             <Route path="/pdf-editor" element={<AuthGate><PdfEditorPage /></AuthGate>} />
+            <Route path="/admin" element={<AuthGate><AdminPage /></AuthGate>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

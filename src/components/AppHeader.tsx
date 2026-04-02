@@ -22,6 +22,7 @@ export function AppHeader() {
     { label: tr.nav.history, path: '/history' },
     { label: tr.nav.account, path: '/account' },
     { label: tr.nav.pdfEditor, path: '/pdf-editor' },
+    ...(isAdmin ? [{ label: '⚙ Админ', path: '/admin' }] : []),
   ];
 
   return (
