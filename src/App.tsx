@@ -14,6 +14,7 @@ import HistoryPage from "./pages/HistoryPage.tsx";
 import AccountPage from "./pages/AccountPage.tsx";
 import PdfEditorPage from "./pages/PdfEditorPage.tsx";
 import ReportRouterPage from "./pages/ReportRouterPage.tsx";
+import AdminPage from "./pages/AdminPage.tsx";
 
 const queryClient = new QueryClient();
 
