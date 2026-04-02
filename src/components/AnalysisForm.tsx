@@ -82,6 +82,10 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
       toast({ title: 'Сначала введите URL страницы', variant: 'destructive' });
       return;
     }
+    if (!region.trim()) {
+      toast({ title: 'Выберите регион для точного анализа', variant: 'destructive' });
+      return;
+    }
     setFindingCompetitors(true);
     setFindSuccess(false);
     try {
@@ -93,7 +97,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
             'Content-Type': 'application/json',
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ url: url.trim() }),
+          body: JSON.stringify({ url: url.trim(), region: region.trim() }),
         }
       );
       if (!res.ok) {
