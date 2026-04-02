@@ -840,6 +840,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
       const c = j.choices?.[0]?.message?.content;
       if (c) { try { aiParsed = JSON.parse(c); } catch { console.error("AI JSON parse fail"); } }
     } else { console.error("OpenRouter error:", aiRes.status, await aiRes.text()); }
+    perfTiming.ai_ms = Date.now() - t7;
     await setStage(si, aiParsed.scores ? "done" : "error", `${((Date.now() - t7) / 1000).toFixed(1)}s`);
     si++;
 
