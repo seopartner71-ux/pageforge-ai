@@ -46,7 +46,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   const [findSuccess, setFindSuccess] = useState(false);
 
   const addCompetitor = () => {
-    if (competitors.length < 5) setCompetitors([...competitors, '']);
+    if (competitors.length < 10) setCompetitors([...competitors, '']);
   };
 
   const removeCompetitor = (index: number) => {
