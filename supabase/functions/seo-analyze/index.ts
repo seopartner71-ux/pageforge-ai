@@ -395,7 +395,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode } = await req.json();
+    const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode, region } = await req.json();
     if (!url || !analysisId) {
       return new Response(JSON.stringify({ error: "url and analysisId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
