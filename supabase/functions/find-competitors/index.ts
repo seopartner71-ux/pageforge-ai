@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { url, query } = await req.json();
+    const { url, query, region } = await req.json();
     const serperKey = Deno.env.get("SERPER_API_KEY");
     if (!serperKey) {
       return new Response(JSON.stringify({ error: "SERPER_API_KEY not configured" }), {
@@ -48,13 +48,11 @@ Deno.serve(async (req) => {
     // Determine search query: use provided query, or extract from URL
     let searchQuery = query?.trim();
     if (!searchQuery && url) {
-      // Fetch page title via Jina
       try {
         const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
           headers: { Accept: "text/plain" },
         });
         const text = await jinaRes.text();
-        // Extract title from first line (Jina format: "Title: ...")
         const titleMatch = text.match(/^Title:\s*(.+)/m);
         searchQuery = titleMatch?.[1]?.trim() || extractDomain(url);
       } catch {
@@ -70,6 +68,12 @@ Deno.serve(async (req) => {
 
     const sourceDomain = url ? extractDomain(url) : "";
 
+    // Build Serper request with optional location
+    const serperBody: any = { q: searchQuery, num: 20, gl: "ru", hl: "ru" };
+    if (region?.trim()) {
+      serperBody.location = `${region.trim()}, Russia`;
+    }
+
     // Call Serper.dev
     const serperRes = await fetch("https://google.serper.dev/search", {
       method: "POST",
@@ -77,7 +81,7 @@ Deno.serve(async (req) => {
         "X-API-KEY": serperKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ q: searchQuery, num: 20, gl: "ru", hl: "ru" }),
+      body: JSON.stringify(serperBody),
     });
 
     if (!serperRes.ok) {
