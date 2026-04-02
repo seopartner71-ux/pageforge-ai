@@ -25,6 +25,7 @@ interface UserProfile {
   user_id: string;
   email: string | null;
   credits: number;
+  is_approved: boolean;
   created_at: string;
 }
 
