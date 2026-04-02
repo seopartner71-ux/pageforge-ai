@@ -46,11 +46,13 @@ export default function AdminPage() {
             <TabsTrigger value="api" className="gap-1.5"><Settings className="w-4 h-4" /> Настройки API</TabsTrigger>
             <TabsTrigger value="users" className="gap-1.5"><Users className="w-4 h-4" /> Пользователи</TabsTrigger>
             <TabsTrigger value="stats" className="gap-1.5"><BarChart3 className="w-4 h-4" /> Статистика</TabsTrigger>
+            <TabsTrigger value="logs" className="gap-1.5"><ScrollText className="w-4 h-4" /> Логи анализов</TabsTrigger>
           </TabsList>
 
           <TabsContent value="api"><ApiSettingsTab /></TabsContent>
           <TabsContent value="users"><UsersTab /></TabsContent>
           <TabsContent value="stats"><StatsTab /></TabsContent>
+          <TabsContent value="logs"><AnalysisLogsTab /></TabsContent>
         </Tabs>
       </main>
     </div>
