@@ -33,6 +33,7 @@ interface AnalysisFormProps {
 
 export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewProject }: AnalysisFormProps) {
   const { tr } = useLang();
+  const { toast } = useToast();
   const [url, setUrl] = useState('');
   const [pageType, setPageType] = useState('');
   const [competitors, setCompetitors] = useState(['']);
@@ -40,6 +41,9 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   const [clusterMode, setClusterMode] = useState(false);
   const [speedEnabled, setSpeedEnabled] = useState(true);
   const [semanticsEnabled, setSemanticsEnabled] = useState(true);
+  const [selectedProjectIdx, setSelectedProjectIdx] = useState(0);
+  const [findingCompetitors, setFindingCompetitors] = useState(false);
+  const [findSuccess, setFindSuccess] = useState(false);
   const [selectedProjectIdx, setSelectedProjectIdx] = useState(0);
 
   const addCompetitor = () => {
