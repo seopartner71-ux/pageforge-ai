@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ─── Russian stop-words ───
+// ─── Russian + English stop-words ───
 const STOP_WORDS = new Set([
   "и","в","на","с","по","не","что","это","как","а","но","для","из","к","от","до","за","о","у",
   "же","бы","то","все","его","её","их","мы","вы","они","он","она","оно","так","уже","тоже",
@@ -30,63 +30,163 @@ function tokenize(text: string): string[] {
   return text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
 }
 
-function computeTfIdf(targetWords: string[], competitorWordArrays: string[][]) {
-  const targetLen = targetWords.length || 1;
-  const tf: Record<string, number> = {};
-  for (const w of targetWords) tf[w] = (tf[w] || 0) + 1;
-  for (const w in tf) tf[w] /= targetLen;
-
-  // Median TF across competitors
-  const compTfs: Record<string, number[]> = {};
-  for (const words of competitorWordArrays) {
-    const len = words.length || 1;
-    const ctf: Record<string, number> = {};
-    for (const w of words) ctf[w] = (ctf[w] || 0) + 1;
-    for (const w in ctf) {
-      ctf[w] /= len;
-      if (!compTfs[w]) compTfs[w] = [];
-      compTfs[w].push(ctf[w]);
-    }
+// ─── TF-IDF with proper IDF calculation ───
+function calculateTFIDF(
+  targetWords: string[],
+  competitorWordArrays: string[][]
+) {
+  const totalDocs = competitorWordArrays.length; // number of competitor documents
+  if (totalDocs === 0) {
+    // No competitors — return simple TF
+    const targetLen = targetWords.length || 1;
+    const tf: Record<string, number> = {};
+    for (const w of targetWords) tf[w] = (tf[w] || 0) + 1;
+    return Object.entries(tf)
+      .map(([term, count]) => ({
+        term,
+        tf: count / targetLen,
+        idf: 1,
+        tfidf: count / targetLen,
+        competitorMedianTfidf: 0,
+        status: "OK" as const,
+      }))
+      .sort((a, b) => b.tfidf - a.tfidf)
+      .slice(0, 30);
   }
+
+  // Step 1: Calculate TF for the target page
+  const targetLen = targetWords.length || 1;
+  const targetTfRaw: Record<string, number> = {};
+  for (const w of targetWords) targetTfRaw[w] = (targetTfRaw[w] || 0) + 1;
+  const targetTf: Record<string, number> = {};
+  for (const w in targetTfRaw) targetTf[w] = targetTfRaw[w] / targetLen;
+
+  // Step 2: Calculate TF for each competitor
+  const compTfs: Record<string, number>[] = competitorWordArrays.map(words => {
+    const len = words.length || 1;
+    const tf: Record<string, number> = {};
+    for (const w of words) tf[w] = (tf[w] || 0) + 1;
+    for (const w in tf) tf[w] /= len;
+    return tf;
+  });
+
+  // Step 3: Collect all unique terms from target + competitors
+  const allTerms = new Set<string>();
+  for (const w of Object.keys(targetTf)) allTerms.add(w);
+  for (const ctf of compTfs) for (const w of Object.keys(ctf)) allTerms.add(w);
+
+  // Step 4: Calculate IDF — log(totalDocs / docsContainingTerm)
+  // Use totalDocs+1 as corpus (competitors + the target page conceptually)
+  const docFrequency: Record<string, number> = {};
+  for (const term of allTerms) {
+    let count = 0;
+    for (const ctf of compTfs) {
+      if (ctf[term]) count++;
+    }
+    docFrequency[term] = count;
+  }
+
+  // Step 5: Compute TF-IDF scores for target and median for competitors
   const median = (arr: number[]) => {
+    if (arr.length === 0) return 0;
     const s = arr.slice().sort((a, b) => a - b);
     const m = Math.floor(s.length / 2);
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
   };
-  const compMedian: Record<string, number> = {};
-  for (const w in compTfs) compMedian[w] = median(compTfs[w]);
 
-  // Merge all terms, pick top-30 by target frequency
-  const allTerms = new Set([...Object.keys(tf), ...Object.keys(compMedian)]);
-  const results: { term: string; page: number; competitors: number; status: string }[] = [];
+  const results: {
+    term: string;
+    tf: number;
+    idf: number;
+    tfidf: number;
+    competitorMedianTfidf: number;
+    status: "Missing" | "OK" | "Overoptimized";
+    density: number;
+  }[] = [];
+
   for (const term of allTerms) {
-    const pageTf = tf[term] || 0;
-    const compMed = compMedian[term] || 0;
-    let status = "OK";
-    if (pageTf > 0.03 && pageTf > compMed * 1.5) status = "SPAM";
-    else if (pageTf < compMed * 0.5 && compMed > 0.001) status = "LOW";
-    results.push({ term, page: pageTf, competitors: compMed, status });
+    const df = docFrequency[term] || 0;
+    // IDF = log(totalDocs / (df + 1)) + 1 — smoothed to avoid division by zero
+    const idf = Math.log((totalDocs + 1) / (df + 1)) + 1;
+
+    const userTf = targetTf[term] || 0;
+    const userTfidf = userTf * idf;
+
+    // Competitor TF-IDF scores
+    const compScores = compTfs.map(ctf => (ctf[term] || 0) * idf);
+    const compMedian = median(compScores);
+
+    // Determine status
+    let status: "Missing" | "OK" | "Overoptimized" = "OK";
+    if (userTf === 0 && compMedian > 0.0005) {
+      status = "Missing";
+    } else if (compMedian > 0 && userTfidf > compMedian * 1.3) {
+      status = "Overoptimized";
+    } else if (userTf === 0 && df >= Math.floor(totalDocs * 0.5)) {
+      // Term appears in majority of competitors but not on target
+      status = "Missing";
+    }
+
+    // Density as percentage
+    const density = userTf * 100;
+
+    results.push({
+      term,
+      tf: userTf,
+      idf,
+      tfidf: userTfidf,
+      competitorMedianTfidf: compMedian,
+      status,
+      density,
+    });
   }
-  results.sort((a, b) => (b.page + b.competitors) - (a.page + a.competitors));
-  return results.slice(0, 30);
+
+  // Sort: Missing entities first (by competitor median desc), then by combined score
+  results.sort((a, b) => {
+    if (a.status === "Missing" && b.status !== "Missing") return -1;
+    if (b.status === "Missing" && a.status !== "Missing") return 1;
+    return (b.tfidf + b.competitorMedianTfidf) - (a.tfidf + a.competitorMedianTfidf);
+  });
+
+  return results.slice(0, 40);
 }
 
-function computeZipf(words: string[]) {
+// ─── Zipf's Law with ideal curve ───
+function calculateZipf(words: string[]) {
   const freq: Record<string, number> = {};
   for (const w of words) freq[w] = (freq[w] || 0) + 1;
   const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
-  return sorted.slice(0, 50).map(([word, count], i) => ({
-    rank: i + 1,
-    word,
-    frequency: count,
-    idealFrequency: Math.round(sorted[0][1] / (i + 1)),
-  }));
+
+  if (sorted.length === 0) return [];
+
+  const maxFreq = sorted[0][1]; // C = frequency of the most common word
+
+  return sorted.slice(0, 50).map(([word, count], i) => {
+    const rank = i + 1;
+    const idealFrequency = Math.round(maxFreq / rank); // P(r) = C / r
+    const deviation = idealFrequency > 0
+      ? ((count - idealFrequency) / idealFrequency * 100)
+      : 0;
+
+    return {
+      rank,
+      word,
+      frequency: count,
+      idealFrequency,
+      deviation: Math.round(deviation), // % deviation from ideal
+      isSpam: count > idealFrequency * 1.5 && rank > 3, // spike above ideal = suspicious
+    };
+  });
 }
 
-function computeNgrams(words: string[], n: number) {
+// ─── N-grams with sliding window ───
+function extractNgrams(words: string[], n: number) {
   const grams: Record<string, number> = {};
   for (let i = 0; i <= words.length - n; i++) {
-    const gram = words.slice(i, i + n).join(" ");
+    const window = words.slice(i, i + n);
+    // Skip if any word in the gram is a stop word (already filtered, but double-check length)
+    if (window.some(w => w.length <= 2)) continue;
+    const gram = window.join(" ");
     grams[gram] = (grams[gram] || 0) + 1;
   }
   return Object.entries(grams)
@@ -96,6 +196,59 @@ function computeNgrams(words: string[], n: number) {
     .map(([text, count]) => ({ text, count }));
 }
 
+// ─── N-gram comparison with competitors (Topical Gap) ───
+function compareNgrams(
+  targetWords: string[],
+  competitorWordArrays: string[][],
+  n: number
+) {
+  // Get target n-grams
+  const targetGrams: Record<string, number> = {};
+  for (let i = 0; i <= targetWords.length - n; i++) {
+    const gram = targetWords.slice(i, i + n).join(" ");
+    targetGrams[gram] = (targetGrams[gram] || 0) + 1;
+  }
+
+  // Get competitor n-grams and count how many competitors have each
+  const compGramCounts: Record<string, number> = {};
+  const compGramFreqs: Record<string, number[]> = {};
+  for (const words of competitorWordArrays) {
+    const seen = new Set<string>();
+    for (let i = 0; i <= words.length - n; i++) {
+      const gram = words.slice(i, i + n).join(" ");
+      if (!seen.has(gram)) {
+        compGramCounts[gram] = (compGramCounts[gram] || 0) + 1;
+        seen.add(gram);
+      }
+      if (!compGramFreqs[gram]) compGramFreqs[gram] = [];
+    }
+    // Count frequencies per competitor
+    const freqMap: Record<string, number> = {};
+    for (let i = 0; i <= words.length - n; i++) {
+      const gram = words.slice(i, i + n).join(" ");
+      freqMap[gram] = (freqMap[gram] || 0) + 1;
+    }
+    for (const [gram, freq] of Object.entries(freqMap)) {
+      if (!compGramFreqs[gram]) compGramFreqs[gram] = [];
+      compGramFreqs[gram].push(freq);
+    }
+  }
+
+  // Find topical gaps: n-grams common in competitors but missing from target
+  const gaps: { text: string; competitorCount: number; avgFreq: number }[] = [];
+  for (const [gram, count] of Object.entries(compGramCounts)) {
+    if (count >= 2 && !targetGrams[gram]) {
+      const freqs = compGramFreqs[gram] || [];
+      const avg = freqs.reduce((s, v) => s + v, 0) / (freqs.length || 1);
+      gaps.push({ text: gram, competitorCount: count, avgFreq: Math.round(avg * 10) / 10 });
+    }
+  }
+  gaps.sort((a, b) => b.competitorCount - a.competitorCount || b.avgFreq - a.avgFreq);
+
+  return gaps.slice(0, 15);
+}
+
+// ─── Technical Audit ───
 function technicalAudit(markdown: string) {
   const h1Matches = markdown.match(/^# .+$/gm) || [];
   const imgMatches = markdown.match(/!\[([^\]]*)\]\([^)]+\)/g) || [];
@@ -128,7 +281,7 @@ async function fetchPageContent(url: string): Promise<string> {
     });
     if (!res.ok) return "";
     const text = await res.text();
-    return text.slice(0, 50000); // limit
+    return text.slice(0, 50000);
   } catch {
     return "";
   }
@@ -218,14 +371,14 @@ Deno.serve(async (req) => {
     const SERPER_API_KEY = Deno.env.get("SERPER_API_KEY");
 
     if (competitorUrls.length === 0 && SERPER_API_KEY) {
-      // Extract keyword from first heading or first line
       const titleMatch = targetContent.match(/^#\s+(.+)$/m);
       const keyword = titleMatch?.[1]?.slice(0, 100) || url;
       console.log("Finding competitors for keyword:", keyword);
       const startSerper = Date.now();
       competitorUrls = await findCompetitors(keyword, SERPER_API_KEY);
-      // Filter out the target URL itself
-      competitorUrls = competitorUrls.filter(u => !u.includes(new URL(url).hostname));
+      competitorUrls = competitorUrls.filter(u => {
+        try { return !u.includes(new URL(url).hostname); } catch { return true; }
+      });
       addModule("Competitor Discovery (Serper)", `${((Date.now() - startSerper) / 1000).toFixed(1)}s`, competitorUrls.length > 0);
     } else {
       addModule("Competitor Discovery", "0.1s", competitorUrls.length > 0);
@@ -247,24 +400,54 @@ Deno.serve(async (req) => {
     const targetWords = tokenize(targetContent);
     const competitorWordArrays = competitorContents.map(c => tokenize(c));
 
-    const tfidfResults = computeTfIdf(targetWords, competitorWordArrays);
-    const zipfData = computeZipf(targetWords);
-    const bigrams = computeNgrams(targetWords, 2);
-    const trigrams = computeNgrams(targetWords, 3);
+    // TF-IDF with proper IDF
+    const tfidfResults = calculateTFIDF(targetWords, competitorWordArrays);
+
+    // Zipf's Law with ideal curve
+    const zipfData = calculateZipf(targetWords);
+
+    // N-grams with sliding window
+    const bigrams = extractNgrams(targetWords, 2);
+    const trigrams = extractNgrams(targetWords, 3);
+
+    // Topical gaps from n-gram comparison
+    const bigramGaps = compareNgrams(targetWords, competitorWordArrays, 2);
+    const trigramGaps = compareNgrams(targetWords, competitorWordArrays, 3);
+
+    // Technical audit
     const audit = technicalAudit(targetContent);
-    addModule("Linguistic Analysis (TF-IDF, Zipf, N-grams)", `${((Date.now() - startLing) / 1000).toFixed(1)}s`, true);
-    addModule("Technical Audit", "0.2s", true);
+
+    addModule("TF-IDF Analysis", `${((Date.now() - startLing) / 1000).toFixed(1)}s`, true);
+    addModule("Zipf's Law", "0.1s", true);
+    addModule("N-gram Extraction", "0.1s", true);
+    addModule("Technical Audit", "0.1s", true);
 
     // ── Step 5: AI Analysis via OpenRouter ──
     const startAi = Date.now();
 
-    const topTerms = tfidfResults.slice(0, 15).map(t => `${t.term} (page:${(t.page*100).toFixed(1)}% comp:${(t.competitors*100).toFixed(1)}% ${t.status})`).join(", ");
+    const missingTerms = tfidfResults
+      .filter(t => t.status === "Missing")
+      .slice(0, 15)
+      .map(t => `${t.term} (IDF:${t.idf.toFixed(2)}, comp_median:${(t.competitorMedianTfidf * 1000).toFixed(1)})`)
+      .join(", ");
+
+    const overoptTerms = tfidfResults
+      .filter(t => t.status === "Overoptimized")
+      .slice(0, 10)
+      .map(t => `${t.term} (density:${t.density.toFixed(2)}%, comp:${(t.competitorMedianTfidf * 1000).toFixed(1)})`)
+      .join(", ");
+
+    const topTerms = tfidfResults
+      .filter(t => t.status === "OK")
+      .slice(0, 10)
+      .map(t => `${t.term} (${t.density.toFixed(2)}%)`)
+      .join(", ");
 
     const systemPrompt = `Ты — Senior SEO & AIO Analyst. Тебе даны:
-1. Markdown контент анализируемой страницы (обрезан до 15000 символов).
-2. Топ-термины TF-IDF (сравнение с конкурентами).
-3. Технический аудит.
-4. Контекст от пользователя.
+1. Markdown контент анализируемой страницы.
+2. Результаты TF-IDF анализа (Missing entities, Overoptimized, OK terms).
+3. Тематические пробелы (N-gram gaps vs конкуренты).
+4. Технический аудит.
 
 Выполни анализ и верни JSON:
 {
@@ -307,8 +490,18 @@ ${aiContext ? `Контекст: ${aiContext}` : ""}
 ─── Контент страницы (первые 15000 символов) ───
 ${targetContent.slice(0, 15000)}
 
-─── TF-IDF топ-термины ───
-${topTerms}
+─── TF-IDF: Missing Entities (отсутствуют на странице, есть у конкурентов) ───
+${missingTerms || "нет"}
+
+─── TF-IDF: Overoptimized (переспам) ───
+${overoptTerms || "нет"}
+
+─── TF-IDF: OK Terms ───
+${topTerms || "нет"}
+
+─── Тематические пробелы (N-gram gaps vs конкуренты) ───
+Биграммы: ${bigramGaps.slice(0, 10).map(g => `"${g.text}" (у ${g.competitorCount} конк.)`).join(", ") || "нет"}
+Триграммы: ${trigramGaps.slice(0, 10).map(g => `"${g.text}" (у ${g.competitorCount} конк.)`).join(", ") || "нет"}
 
 ─── Технический аудит ───
 H1: ${audit.h1Count} шт. ${audit.h1Text ? `("${audit.h1Text}")` : ""}
@@ -360,10 +553,16 @@ ${competitorUrls.length > 0 ? `URL конкурентов: ${competitorUrls.slic
         priorities: aiParsed.priorities || [],
         blueprint: aiParsed.blueprint || {},
         tfidf: tfidfResults,
-        ngrams: { bigrams, trigrams },
+        ngrams: {
+          bigrams,
+          trigrams,
+          bigramGaps,
+          trigramGaps,
+        },
         zipf: zipfData,
         technicalAudit: audit,
         competitorUrls: competitorUrls.slice(0, 5),
+        competitorCount: competitorContents.length,
       },
       modules: moduleStatuses,
     };
