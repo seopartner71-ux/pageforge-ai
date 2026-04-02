@@ -25,7 +25,7 @@ const STOP_WORDS = new Set([
   "our","you","your","he","him","his","she","her","they","them","their","what","which","who",
 ]);
 
-// ─── Technical blacklist: protocols, TLDs, URL paths, nav junk ───
+// ─── Technical blacklist: protocols, TLDs, URL paths, nav junk, HTML attrs ───
 const TECH_BLACKLIST = new Set([
   "www","http","https","ftp","mailto",
   "com","ru","net","org","info","by","kz","ua","su","рф","biz","pro","edu","gov","io","dev","app","me",
@@ -37,10 +37,19 @@ const TECH_BLACKLIST = new Set([
   "onclick","onload","script","noscript","iframe","style","class","type","href","src",
   "vidy","novosti","price","prices","kontakty","uslugi","stati","blog","news","about",
   "dostavka","oplata","otzyvy","faq","contacts","sitemap","login","register","search",
+  // HTML attribute words that leak from parsing
+  "image","img","tel","phone","call","email","mail","loading","lazy","srcset","sizes","alt","title",
+  "width","height","data","aria","role","tabindex","placeholder","autocomplete","readonly",
+  "target","blank","noopener","noreferrer","display","none","hidden","visible","overflow",
 ]);
 
-// ─── Regex: strip URLs, emails, file extensions, URL-like fragments ───
-const URL_STRIP_RE = /https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9._/-]+\.(ru|com|net|org|info|by|kz|ua|html|php|aspx|htm|jpg|jpeg|png|gif|svg|webp|pdf|css|js|xml)\b/gi;
+// ─── Regex: strip URLs, emails, file extensions, phone numbers, tel: links ───
+const URL_STRIP_RE = /https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9._/-]+\.(ru|com|net|org|info|by|kz|ua|html|php|aspx|htm|jpg|jpeg|png|gif|svg|webp|pdf|css|js|xml)\b|tel:[^\s]+|\+?\d[\d\s\-()]{6,}/gi;
+
+// ─── Filter: pure digits, phone fragments, digit+prefix combos ───
+const DIGIT_ONLY_RE = /^\d+$/;
+const DIGIT_HEAVY_RE = /\d{5,}/;  // 5+ digits in a row = phone/code junk
+const TECH_PREFIX_DIGIT_RE = /^(tel|id|ref|sid|uid|pid|gid|cid)\d*$/i;
 
 // ─── Regex: split Cyrillic from Latin when glued together (e.g. "КупитьiPhone" → "Купить iPhone") ───
 const CYRLAT_SPLIT_RE = /([\u0400-\u04FF])([A-Za-z])/g;
@@ -85,24 +94,29 @@ function isRussianContent(text: string): boolean {
   return cyrChars > latChars * 1.5; // Russian if Cyrillic dominates
 }
 
+// ─── Check if a token is numeric/phone junk ───
+function isNumericJunk(word: string): boolean {
+  if (DIGIT_ONLY_RE.test(word)) return true;           // pure digits: 918, 030, 79180303140
+  if (DIGIT_HEAVY_RE.test(word)) return true;           // 5+ digits embedded
+  if (TECH_PREFIX_DIGIT_RE.test(word)) return true;     // tel79..., id123
+  return false;
+}
+
 function tokenize(text: string, filterLatin = false): string[] {
   // Split glued Cyrillic+Latin
   let cleaned = text.replace(CYRLAT_SPLIT_RE, "$1 $2").replace(LATCYR_SPLIT_RE, "$1 $2");
-  // Strip URLs and file extensions
+  // Strip URLs, file extensions, phone numbers
   cleaned = cleaned.replace(URL_STRIP_RE, " ").replace(/[^\p{L}\p{N}\s]/gu, " ");
 
-  if (!filterLatin) {
-    return cleaned.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w.toLowerCase()) && !TECH_BLACKLIST.has(w.toLowerCase()));
-  }
-
-  // For Russian content: preserve original case for brand detection, then filter
   const rawWords = cleaned.split(/\s+/).filter(w => w.length > 2);
   const result: string[] = [];
+
   for (const w of rawWords) {
     const lower = w.toLowerCase();
     if (STOP_WORDS.has(lower)) continue;
     if (TECH_BLACKLIST.has(lower)) continue;
-    if (isLatinJunk(w)) continue;
+    if (isNumericJunk(lower)) continue;
+    if (filterLatin && isLatinJunk(w)) continue;
     result.push(lower);
   }
   return result;
@@ -221,11 +235,21 @@ function calculateZipf(words: string[]) {
 }
 
 // ─── N-grams: sliding window ───
+// ─── N-gram sanity check: reject if ANY component is junk ───
+function isCleanNgram(parts: string[]): boolean {
+  for (const p of parts) {
+    if (p.length <= 2) return false;
+    if (TECH_BLACKLIST.has(p)) return false;
+    if (isNumericJunk(p)) return false;
+  }
+  return true;
+}
+
 function extractNgrams(words: string[], n: number) {
   const grams: Record<string, number> = {};
   for (let i = 0; i <= words.length - n; i++) {
     const w = words.slice(i, i + n);
-    if (w.some(x => x.length <= 2)) continue;
+    if (!isCleanNgram(w)) continue;
     const gram = w.join(" ");
     grams[gram] = (grams[gram] || 0) + 1;
   }
@@ -247,7 +271,9 @@ function findTopicalGaps(targetWords: string[], competitorWordArrays: string[][]
   for (const words of competitorWordArrays) {
     const seen = new Set<string>();
     for (let i = 0; i <= words.length - n; i++) {
-      const gram = words.slice(i, i + n).join(" ");
+      const parts = words.slice(i, i + n);
+      if (!isCleanNgram(parts)) continue;
+      const gram = parts.join(" ");
       if (!seen.has(gram)) { compGramCounts[gram] = (compGramCounts[gram] || 0) + 1; seen.add(gram); }
     }
   }
