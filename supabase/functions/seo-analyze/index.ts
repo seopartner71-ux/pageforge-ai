@@ -325,6 +325,7 @@ Deno.serve(async (req) => {
     // Define stages
     const stages = [
       { name: "Content Fetch", status: "pending" as const, time: "" },
+      { name: "HTML Parse (Images & Anchors)", status: "pending" as const, time: "" },
       { name: "SERP & Competitors", status: "pending" as const, time: "" },
       { name: "Competitor Fetch", status: "pending" as const, time: "" },
       { name: "TF-IDF Engine", status: "pending" as const, time: "" },
