@@ -682,7 +682,11 @@ P1 = Критично (техошибки, пустые Alt, Missing Entities). 
 ─── Missing Entities ───\n${missingTerms || "нет"}
 ─── Spam Terms ───\n${spamTerms || "нет"}
 ─── Topical Gaps (биграммы у конкурентов, нет у вас) ───\n${bigramGaps.slice(0, 10).map((g: any) => `"${g.text}" (${g.competitorCount} конк.)`).join(", ") || "нет"}
-─── Техаудит ───\nH1: ${audit.h1Count}, JSON-LD: ${audit.hasJsonLd ? "Да" : "Нет"}, OG: ${audit.hasOpenGraph ? "Да" : "Нет"}
+─── Техаудит (ПРОГРАММНЫЙ ПАРСЕР — доверяй только этим данным, НЕ пересчитывай теги!) ───
+H1 видимых: ${audit.h1Count}${audit.h1Tags.length ? `\nТексты H1: ${audit.h1Tags.map((t: string, i: number) => `#${i + 1}: "${t}"`).join(', ')}` : ''}${audit.h1Hidden.length ? `\nСкрытых H1: ${audit.h1Hidden.map((t: string) => `"${t}"`).join(', ')}` : ''}
+Изображений в body: ${audit.totalImages}, без alt: ${audit.imagesWithoutAlt}
+JSON-LD: ${audit.hasJsonLd ? "Есть" : "Нет"}, og:title: ${audit.hasOgTitle ? "Есть" : "Нет"}, og:description: ${audit.hasOgDesc ? "Есть" : "Нет"}, og:image: ${audit.hasOgImage ? "Есть" : "Нет"}
+Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: ${audit.metaDesc ? `"${audit.metaDesc.slice(0, 100)}..."` : "Нет"}, Canonical: ${audit.canonical || "Нет"}
 Проблемы: ${audit.issues.join("; ") || "нет"}
 Конкурентов: ${compContents.length}`;
     }
