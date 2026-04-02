@@ -446,7 +446,7 @@ Deno.serve(async (req) => {
     // ── Competitor Fetch ──
     await setStage(si, "running");
     const t2 = Date.now();
-    const fetchUrls = competitorUrls2.slice(0, 5);
+    const fetchUrls = competitorUrls.slice(0, 5);
     console.log(`Fetching ${fetchUrls.length} competitors...`);
     const compContents: string[] = [];
     const compRes = await Promise.allSettled(fetchUrls.map(u => fetchPage(u)));
@@ -640,7 +640,7 @@ Deno.serve(async (req) => {
         technicalAudit: audit,
         imagesData,
         anchorsData,
-        competitorUrls: competitorUrls2.slice(0, 5),
+        competitorUrls: competitorUrls.slice(0, 5),
         competitorCount: compContents.length,
         ...(clusterMode && clusterData ? {
           clusterData: {
