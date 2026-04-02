@@ -4,8 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
   Home, ShoppingBag, Wrench, FileText, ShoppingCart, Target,
-  X, Search, Play, Loader2,
+  X, Search, Play, Loader2, Check,
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const pageTypeIcons = [
   { key: 'homepage', icon: Home },
@@ -32,6 +33,7 @@ interface AnalysisFormProps {
 
 export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewProject }: AnalysisFormProps) {
   const { tr } = useLang();
+  const { toast } = useToast();
   const [url, setUrl] = useState('');
   const [pageType, setPageType] = useState('');
   const [competitors, setCompetitors] = useState(['']);
@@ -40,9 +42,11 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   const [speedEnabled, setSpeedEnabled] = useState(true);
   const [semanticsEnabled, setSemanticsEnabled] = useState(true);
   const [selectedProjectIdx, setSelectedProjectIdx] = useState(0);
+  const [findingCompetitors, setFindingCompetitors] = useState(false);
+  const [findSuccess, setFindSuccess] = useState(false);
 
   const addCompetitor = () => {
-    if (competitors.length < 5) setCompetitors([...competitors, '']);
+    if (competitors.length < 10) setCompetitors([...competitors, '']);
   };
 
   const removeCompetitor = (index: number) => {
@@ -53,6 +57,46 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
     const updated = [...competitors];
     updated[index] = value;
     setCompetitors(updated);
+  };
+
+  const handleAutoFind = async () => {
+    if (!url.trim()) {
+      toast({ title: 'Сначала введите URL страницы', variant: 'destructive' });
+      return;
+    }
+    setFindingCompetitors(true);
+    setFindSuccess(false);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/find-competitors`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ url: url.trim() }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Error ${res.status}`);
+      }
+      const data = await res.json();
+      const found: string[] = (data.competitors || []).map((c: any) => c.url).slice(0, 10);
+      if (found.length === 0) {
+        toast({ title: 'Конкуренты не найдены', variant: 'destructive' });
+      } else {
+        setCompetitors(found);
+        setFindSuccess(true);
+        setTimeout(() => setFindSuccess(false), 2000);
+        toast({ title: `Найдено ${found.length} конкурентов` });
+      }
+    } catch (err: any) {
+      toast({ title: err.message || 'Ошибка поиска конкурентов', variant: 'destructive' });
+    } finally {
+      setFindingCompetitors(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -164,9 +208,18 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
 
         <div className="text-center text-xs text-muted-foreground py-1">{tr.competitors.or}</div>
 
-        <button className="w-full h-12 rounded-lg border border-border/50 bg-secondary/50 text-sm font-medium text-foreground hover:bg-secondary transition-colors flex items-center justify-center gap-2">
-          <Search className="w-4 h-4" />
-          {tr.competitors.autoFind}
+        <button
+          onClick={handleAutoFind}
+          disabled={findingCompetitors || !url.trim()}
+          className="w-full h-12 rounded-lg border border-border/50 bg-secondary/50 text-sm font-medium text-foreground hover:bg-secondary transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {findingCompetitors ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Ищем конкурентов…</>
+          ) : findSuccess ? (
+            <><Check className="w-4 h-4 text-green-500" /> Найдено!</>
+          ) : (
+            <><Search className="w-4 h-4" /> {tr.competitors.autoFind}</>
+          )}
         </button>
       </div>
 
