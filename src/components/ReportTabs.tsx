@@ -12,10 +12,6 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, LineChart, Line, Legend,
 } from 'recharts';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, LineChart, Line, Legend,
-} from 'recharts';
 
 const tabKeys = [
   'aiReport', 'priorities', 'blueprint', 'tfidf', 'ngrams',
