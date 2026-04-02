@@ -108,6 +108,10 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
               <Code className="w-3 h-3" />
               {lang === 'ru' ? 'Посмотреть JSON' : 'View JSON'}
             </Button>
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handleExportPdf} disabled={pdfLoading || !analysisId}>
+              {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+              {lang === 'ru' ? 'Экспорт в PDF' : 'Export to PDF'}
+            </Button>
             <Button size="sm" className="btn-gradient border-0 text-xs gap-1.5" onClick={onBack}>
               <Plus className="w-3 h-3" />
               {lang === 'ru' ? '+ Новый анализ' : '+ New Analysis'}

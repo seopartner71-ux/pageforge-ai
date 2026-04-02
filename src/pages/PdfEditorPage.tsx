@@ -449,6 +449,10 @@ export default function PdfEditorPage() {
               {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
               {t.save}
             </Button>
+            <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={handleDownloadTestPdf} disabled={downloading}>
+              {downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+              {lang === 'ru' ? 'Скачать тестовый PDF' : 'Download Test PDF'}
+            </Button>
           </div>
         </div>
 
