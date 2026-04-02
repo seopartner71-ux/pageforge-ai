@@ -468,22 +468,129 @@ function ZipfTab({ data }: TabDataProps) {
 
 /* ─────────── Placeholder tabs ─────────── */
 
-function ImagesTab() {
+function ImagesTab({ data }: TabDataProps) {
+  const images = data?.imagesData;
+  if (!images?.length) return (
+    <div className="space-y-6">
+      <h2 className="text-lg font-bold text-foreground">Анализ изображений</h2>
+      <p className="text-sm text-muted-foreground">Изображения не найдены на странице.</p>
+    </div>
+  );
+
+  const withAlt = images.filter((img: any) => img.hasAlt);
+  const withoutAlt = images.filter((img: any) => !img.hasAlt);
+  const withLazy = images.filter((img: any) => img.hasLazy);
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold text-foreground">Анализ изображений</h2>
-      <p className="text-sm text-muted-foreground">Детальный анализ будет доступен после парсинга HTML.</p>
-      <div className="glass-card p-8 text-center text-muted-foreground">Ожидание модуля парсинга HTML.</div>
+      <p className="text-sm text-muted-foreground">Найдено {images.length} изображений на странице.</p>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="glass-card p-4 text-center">
+          <div className="text-2xl font-bold text-accent">{withAlt.length}</div>
+          <div className="text-xs text-muted-foreground mt-1">С alt-текстом</div>
+        </div>
+        <div className="glass-card p-4 text-center">
+          <div className="text-2xl font-bold text-destructive">{withoutAlt.length}</div>
+          <div className="text-xs text-muted-foreground mt-1">Без alt (ошибка)</div>
+        </div>
+        <div className="glass-card p-4 text-center">
+          <div className="text-2xl font-bold text-primary">{withLazy.length}</div>
+          <div className="text-xs text-muted-foreground mt-1">Lazy loading</div>
+        </div>
+      </div>
+
+      {/* Image table */}
+      <div className="space-y-2">
+        {images.map((img: any, i: number) => (
+          <div key={i} className={`glass-card px-4 py-3 flex items-start gap-3 ${img.critical ? 'border-l-2 border-destructive' : ''}`}>
+            <div className="shrink-0 mt-0.5">
+              {img.critical ? (
+                <AlertTriangle className="w-4 h-4 text-destructive" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-accent" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0 space-y-1">
+              <p className="text-xs text-muted-foreground truncate" title={img.src}>{img.src}</p>
+              <div className="flex flex-wrap gap-2">
+                <span className={`text-xs px-2 py-0.5 rounded ${img.hasAlt ? 'bg-accent/20 text-accent' : 'bg-destructive/20 text-destructive'}`}>
+                  alt: {img.hasAlt ? `"${img.alt?.slice(0, 50)}"` : 'ОТСУТСТВУЕТ'}
+                </span>
+                {img.title && <span className="text-xs px-2 py-0.5 rounded bg-secondary text-muted-foreground">title: "{img.title.slice(0, 40)}"</span>}
+                <span className={`text-xs px-2 py-0.5 rounded ${img.hasLazy ? 'bg-accent/20 text-accent' : 'bg-secondary text-muted-foreground'}`}>
+                  {img.hasLazy ? 'lazy ✓' : 'no lazy'}
+                </span>
+              </div>
+            </div>
+            <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded ${img.critical ? 'bg-destructive/20 text-destructive' : 'bg-accent/20 text-accent'}`}>
+              {img.critical ? 'Ошибка' : 'OK'}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function AnchorsTab() {
+function AnchorsTab({ data }: TabDataProps) {
+  const anchors = data?.anchorsData;
+  if (!anchors?.length) return (
+    <div className="space-y-6">
+      <h2 className="text-lg font-bold text-foreground">Анализ анкоров</h2>
+      <p className="text-sm text-muted-foreground">Ссылки не найдены на странице.</p>
+    </div>
+  );
+
+  const internal = anchors.filter((a: any) => a.type === 'internal');
+  const external = anchors.filter((a: any) => a.type === 'external');
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold text-foreground">Анализ анкоров</h2>
-      <p className="text-sm text-muted-foreground">Анализ ссылок будет доступен после парсинга HTML.</p>
-      <div className="glass-card p-8 text-center text-muted-foreground">Ожидание модуля парсинга HTML.</div>
+      <p className="text-sm text-muted-foreground">Найдено {anchors.length} ссылок: {internal.length} внутренних, {external.length} внешних.</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Internal links */}
+        <div>
+          <h3 className="text-sm font-bold text-accent uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Link2 className="w-4 h-4" /> Внутренние ссылки ({internal.length})
+          </h3>
+          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+            {internal.map((a: any, i: number) => (
+              <div key={i} className="glass-card px-4 py-3">
+                <p className="text-sm text-foreground font-medium">{a.text}</p>
+                <p className="text-xs text-muted-foreground truncate mt-1" title={a.href}>{a.href}</p>
+              </div>
+            ))}
+            {internal.length === 0 && <p className="text-xs text-muted-foreground">Не найдено</p>}
+          </div>
+        </div>
+
+        {/* External links */}
+        <div>
+          <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-3 flex items-center gap-2">
+            <ExternalLink className="w-4 h-4" /> Внешние ссылки ({external.length})
+          </h3>
+          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+            {external.map((a: any, i: number) => (
+              <div key={i} className="glass-card px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-foreground font-medium flex-1">{a.text}</p>
+                  <div className="flex gap-1 shrink-0">
+                    {a.hasNofollow && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">nofollow</span>}
+                    {a.hasBlank && <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">_blank</span>}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground truncate mt-1" title={a.href}>{a.href}</p>
+              </div>
+            ))}
+            {external.length === 0 && <p className="text-xs text-muted-foreground">Не найдено</p>}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
