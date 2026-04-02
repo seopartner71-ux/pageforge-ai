@@ -16,7 +16,7 @@ import {
 
 const tabKeys = [
   'aiReport', 'priorities', 'blueprint', 'semanticMap', 'tfidf', 'ngrams',
-  'zipf', 'images', 'anchors', 'pageSpeed', 'stealth',
+  'zipf', 'images', 'anchors', 'pageSpeed', 'stealth', 'dataSources', 'verification',
 ] as const;
 
 type TabKey = typeof tabKeys[number];
@@ -27,12 +27,14 @@ const tabLabels: Record<string, Record<TabKey, string>> = {
     semanticMap: '🧬 Семантическая карта',
     tfidf: 'TF-IDF', ngrams: 'N-граммы', zipf: 'Закон Ципфа',
     images: 'Изображения', anchors: 'Анкоры', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
+    dataSources: '📋 Источники', verification: '✅ До/После',
   },
   en: {
     aiReport: 'AI Report', priorities: 'Priorities', blueprint: 'Golden Blueprint',
     semanticMap: '🧬 Semantic Map',
     tfidf: 'TF-IDF', ngrams: 'N-grams', zipf: "Zipf's Law",
     images: 'Images', anchors: 'Anchors', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
+    dataSources: '📋 Sources', verification: '✅ Before/After',
   },
 };
 
