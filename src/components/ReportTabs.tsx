@@ -199,41 +199,62 @@ function BlueprintTab({ data }: TabDataProps) {
   );
 }
 
-/* ─────────── TF-IDF Tab (proper math) ─────────── */
+/* ─────────── TF-IDF Tab (Interactive Table with Filters) ─────────── */
 
 function TfidfTab({ data }: TabDataProps) {
+  const [filter, setFilter] = useState<'all' | 'OK' | 'Spam' | 'Missing'>('all');
   const items = data?.tfidf;
+  const anchorsData = data?.anchorsData || [];
   if (!items?.length) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
 
+  // Count anchor occurrences for each term
+  const anchorTermCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const a of anchorsData) {
+      const words = (a.text || '').toLowerCase().split(/\s+/);
+      for (const w of words) if (w.length > 2) counts[w] = (counts[w] || 0) + 1;
+    }
+    return counts;
+  }, [anchorsData]);
+
   const missingItems = items.filter((d: any) => d.status === "Missing");
-  const overoptItems = items.filter((d: any) => d.status === "Overoptimized");
+  const spamItems = items.filter((d: any) => d.status === "Spam" || d.status === "Overoptimized");
   const okItems = items.filter((d: any) => d.status === "OK");
 
-  // Chart: top 15 terms by TF-IDF score
+  const filtered = filter === 'all' ? items :
+    filter === 'Missing' ? missingItems :
+    filter === 'Spam' ? spamItems : okItems;
+
+  const maxScore = Math.max(...items.map((d: any) => Math.max(d.tfidf || 0, d.competitorMedianTfidf || 0)), 0.001);
+
+  // Chart data
   const chartItems = [...items].sort((a: any, b: any) => (b.tfidf + b.competitorMedianTfidf) - (a.tfidf + a.competitorMedianTfidf)).slice(0, 15);
   const chartData = chartItems.map((d: any) => ({
     name: d.term,
     'Ваша страница': +(d.tfidf * 1000).toFixed(2),
-    'Медиана конкурентов': +(d.competitorMedianTfidf * 1000).toFixed(2),
+    'Медиана ТОП-10': +(d.competitorMedianTfidf * 1000).toFixed(2),
   }));
 
   const statusColor = (s: string) =>
     s === 'OK' ? 'bg-accent/20 text-accent' :
-    s === 'Overoptimized' ? 'bg-destructive/20 text-destructive' :
+    s === 'Spam' || s === 'Overoptimized' ? 'bg-destructive/20 text-destructive' :
     s === 'Missing' ? 'bg-primary/20 text-primary' : 'bg-secondary text-muted-foreground';
 
   const statusLabel = (s: string) =>
-    s === 'OK' ? 'OK' :
-    s === 'Overoptimized' ? 'Переспам' :
-    s === 'Missing' ? 'Missing' : s;
+    s === 'OK' ? 'OK' : s === 'Spam' || s === 'Overoptimized' ? 'Spam' : s === 'Missing' ? 'Missing' : s;
+
+  const filters: { key: 'all' | 'OK' | 'Spam' | 'Missing'; label: string; count: number; color: string }[] = [
+    { key: 'all', label: 'Все', count: items.length, color: 'bg-secondary text-foreground' },
+    { key: 'OK', label: 'OK', count: okItems.length, color: 'bg-accent/20 text-accent' },
+    { key: 'Missing', label: 'Missing', count: missingItems.length, color: 'bg-primary/20 text-primary' },
+    { key: 'Spam', label: 'Переспам', count: spamItems.length, color: 'bg-destructive/20 text-destructive' },
+  ];
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-bold text-foreground">TF-IDF анализ</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Score = TF × IDF. Сравнение с медианой ТОП конкурентов.
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Score = TF × IDF. Интерактивное сравнение с медианой ТОП-10.</p>
       </div>
 
       {/* Summary cards */}
@@ -244,15 +265,15 @@ function TfidfTab({ data }: TabDataProps) {
         </div>
         <div className="glass-card p-4 text-center">
           <div className="text-2xl font-bold text-primary">{missingItems.length}</div>
-          <div className="text-xs text-muted-foreground mt-1">Missing Entities</div>
+          <div className="text-xs text-muted-foreground mt-1">Missing</div>
         </div>
         <div className="glass-card p-4 text-center">
-          <div className="text-2xl font-bold text-destructive">{overoptItems.length}</div>
+          <div className="text-2xl font-bold text-destructive">{spamItems.length}</div>
           <div className="text-xs text-muted-foreground mt-1">Переспам</div>
         </div>
       </div>
 
-      {/* Bar chart */}
+      {/* Chart */}
       <div className="glass-card p-4 h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} barGap={2}>
@@ -262,41 +283,87 @@ function TfidfTab({ data }: TabDataProps) {
             <Tooltip contentStyle={{ background: 'hsl(222,47%,9%)', border: '1px solid hsl(222,30%,18%)', borderRadius: '8px', color: '#fff' }} />
             <Legend />
             <Bar dataKey="Ваша страница" fill="hsl(245,58%,58%)" radius={[4,4,0,0]} />
-            <Bar dataKey="Медиана конкурентов" fill="hsl(210,100%,52%)" radius={[4,4,0,0]} />
+            <Bar dataKey="Медиана ТОП-10" fill="hsl(210,100%,52%)" radius={[4,4,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Missing entities section */}
-      {missingItems.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Missing Entities — добавьте на страницу</h3>
-          <div className="flex flex-wrap gap-2">
-            {missingItems.map((d: any, i: number) => (
-              <span key={i} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                {d.term} <span className="opacity-60">(IDF: {d.idf?.toFixed(1)})</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Full table */}
-      <div className="space-y-2">
-        {items.map((d: any, i: number) => (
-          <div key={i} className="glass-card px-4 py-3 flex items-center justify-between">
-            <span className="text-sm text-foreground font-medium">{d.term}</span>
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-muted-foreground">TF: {(d.tf * 100).toFixed(2)}%</span>
-              <span className="text-xs text-muted-foreground">IDF: {d.idf?.toFixed(2)}</span>
-              <span className="text-xs text-muted-foreground">Score: {(d.tfidf * 1000).toFixed(1)}</span>
-              <span className="text-xs text-muted-foreground">Конк: {(d.competitorMedianTfidf * 1000).toFixed(1)}</span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${statusColor(d.status)}`}>
-                {statusLabel(d.status)}
-              </span>
-            </div>
-          </div>
+      {/* Filter buttons */}
+      <div className="flex gap-2 items-center">
+        <Filter className="w-4 h-4 text-muted-foreground" />
+        {filters.map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+              filter === f.key ? `${f.color} border-current` : 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
+            }`}
+          >
+            {f.label} ({f.count})
+          </button>
         ))}
+      </div>
+
+      {/* Interactive table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase">Термин</th>
+              <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase w-40">TF×IDF</th>
+              <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground uppercase">Вы</th>
+              <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground uppercase">ТОП-10</th>
+              <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground uppercase">В анкорах</th>
+              <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground uppercase">Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((d: any, i: number) => {
+              const userScore = d.tfidf || 0;
+              const compScore = d.competitorMedianTfidf || 0;
+              const barWidth = Math.min((userScore / maxScore) * 100, 100);
+              const compBarWidth = Math.min((compScore / maxScore) * 100, 100);
+              const anchorCount = anchorTermCounts[d.term] || 0;
+              const userCount = Math.round((d.tf || 0) * (data?.pageStats?.target?.wordCount || 1000));
+
+              return (
+                <tr key={i} className="border-b border-border/30 hover:bg-secondary/20">
+                  <td className="py-2.5 px-3 font-medium text-foreground">{d.term}</td>
+                  <td className="py-2.5 px-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${barWidth}%` }} />
+                        </div>
+                        <span className="text-[10px] text-primary font-mono w-10 text-right">{(userScore * 1000).toFixed(1)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                          <div className="h-full bg-accent/60 rounded-full transition-all" style={{ width: `${compBarWidth}%` }} />
+                        </div>
+                        <span className="text-[10px] text-accent font-mono w-10 text-right">{(compScore * 1000).toFixed(1)}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-2.5 px-3 text-center font-mono text-foreground">{userCount}</td>
+                  <td className="py-2.5 px-3 text-center font-mono text-muted-foreground">{(compScore * 1000).toFixed(1)}</td>
+                  <td className="py-2.5 px-3 text-center">
+                    {anchorCount > 0 ? (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-accent/20 text-accent">{anchorCount}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${statusColor(d.status)}`}>
+                      {statusLabel(d.status)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
