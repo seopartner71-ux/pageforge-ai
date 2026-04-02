@@ -108,6 +108,7 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
                     modulesTitle={lang === 'ru' ? 'СТАТУС МОДУЛЕЙ' : 'MODULE STATUS'}
                     readyLabel={lang === 'ru' ? 'ГОТОВО' : 'READY'}
                     quickWinsTitle="QUICK WINS"
+                    scores={scores}
                   />
                 </div>
               </div>
