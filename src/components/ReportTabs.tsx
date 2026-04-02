@@ -337,14 +337,48 @@ function PageSpeedTab() {
   );
 }
 
-function StealthTab() {
+function StealthTab({ data }: TabDataProps) {
+  const audit = data?.technicalAudit;
+  if (!audit) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
+
+  const checks = [
+    { label: "H1 тегов", value: `${audit.h1Count}`, ok: audit.h1Count === 1 },
+    { label: "H1 текст", value: audit.h1Text || "—", ok: !!audit.h1Text },
+    { label: "Изображений всего", value: `${audit.totalImages}`, ok: true },
+    { label: "Без alt-атрибута", value: `${audit.imagesWithoutAlt}`, ok: audit.imagesWithoutAlt === 0 },
+    { label: "JSON-LD разметка", value: audit.hasJsonLd ? "Да" : "Нет", ok: audit.hasJsonLd },
+    { label: "OpenGraph теги", value: audit.hasOpenGraph ? "Да" : "Нет", ok: audit.hasOpenGraph },
+  ];
+
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-bold text-foreground">Stealth Engine</h2>
-      <p className="text-sm text-muted-foreground">Технический аудит будет доступен после парсинга HTML и проверки серверных заголовков.</p>
-      <div className="glass-card p-8 text-center text-muted-foreground">
-        Данные появятся после добавления модуля технического аудита.
+      <h2 className="text-lg font-bold text-foreground">Stealth Engine — Технический аудит</h2>
+      <p className="text-sm text-muted-foreground">Проверка технических SEO-элементов на странице.</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {checks.map((c, i) => (
+          <div key={i} className="glass-card p-4 flex items-center justify-between">
+            <span className="text-sm text-foreground">{c.label}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">{c.value}</span>
+              <span className={`w-2 h-2 rounded-full ${c.ok ? 'bg-accent' : 'bg-destructive'}`} />
+            </div>
+          </div>
+        ))}
       </div>
+
+      {audit.issues?.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-destructive uppercase tracking-wider mb-2">Проблемы</h3>
+          <div className="space-y-2">
+            {audit.issues.map((issue: string, i: number) => (
+              <div key={i} className="glass-card p-3">
+                <p className="text-sm text-foreground">⚠ {issue}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
