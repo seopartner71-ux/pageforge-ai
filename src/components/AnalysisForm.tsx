@@ -203,7 +203,7 @@ export function AnalysisForm({ onStartAnalysis, loading }: AnalysisFormProps) {
 
         <div className="flex items-center justify-between py-2">
           <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <div className="w-2 h-2 rounded-full bg-accent" />
             <span className="text-sm text-foreground">{tr.integrations.speed}</span>
           </div>
           <Switch checked={speedEnabled} onCheckedChange={setSpeedEnabled} />
@@ -211,7 +211,7 @@ export function AnalysisForm({ onStartAnalysis, loading }: AnalysisFormProps) {
 
         <div className="flex items-center justify-between py-2">
           <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <div className="w-2 h-2 rounded-full bg-accent" />
             <span className="text-sm text-foreground">{tr.integrations.semantics}</span>
           </div>
           <Switch checked={semanticsEnabled} onCheckedChange={setSemanticsEnabled} />
