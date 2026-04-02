@@ -1570,6 +1570,19 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
                   {copiedType === 'rich' ? <Check className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
                   {copiedType === 'rich' ? 'Скопировано' : 'Copy Rich Text'}
                 </Button>
+                {/* Stealth Engine button */}
+                <Button
+                  variant={stealthMode ? "default" : "outline"}
+                  size="sm"
+                  className={`gap-1.5 text-xs ${stealthMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+                  onClick={handleStealth}
+                  disabled={stealthLoading}
+                >
+                  {stealthLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
+                  {stealthMode
+                    ? (lang === 'ru' ? 'Stealth ✓' : 'Stealth ✓')
+                    : (lang === 'ru' ? 'Очеловечить (Stealth)' : 'Humanize (Stealth)')}
+                </Button>
               </div>
             </div>
 
