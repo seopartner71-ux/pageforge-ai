@@ -203,9 +203,20 @@ function BlueprintTab({ data }: TabDataProps) {
 
 function TfidfTab({ data }: TabDataProps) {
   const [filter, setFilter] = useState<'all' | 'OK' | 'Spam' | 'Missing'>('all');
-  const items = data?.tfidf;
+  const items = data?.tfidf || [];
   const anchorsData = data?.anchorsData || [];
-  if (!items?.length) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
+
+  // Count anchor occurrences for each term
+  const anchorTermCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const a of anchorsData) {
+      const words = (a.text || '').toLowerCase().split(/\s+/);
+      for (const w of words) if (w.length > 2) counts[w] = (counts[w] || 0) + 1;
+    }
+    return counts;
+  }, [anchorsData]);
+
+  if (!items.length) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
 
   // Count anchor occurrences for each term
   const anchorTermCounts = useMemo(() => {
