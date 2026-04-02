@@ -307,26 +307,34 @@ function parseAnchors(html: string, baseUrl: string): any[] {
   return anchors;
 }
 
-// ─── Fetch raw HTML ───
+// ─── Fetch raw HTML (with timeout) ───
 async function fetchRawHtml(url: string): Promise<string> {
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml',
       },
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) return '';
     return (await res.text()).slice(0, 500000);
   } catch { return ''; }
 }
 
-// ─── Jina Reader ───
+// ─── Jina Reader (with timeout) ───
 async function fetchPage(url: string): Promise<string> {
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
     const res = await fetch(`https://r.jina.ai/${url}`, {
       headers: { Accept: "text/markdown", "X-Return-Format": "markdown" },
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) return "";
     return (await res.text()).slice(0, 50000);
   } catch { return ""; }
@@ -378,13 +386,31 @@ function extractHeadings(markdown: string): string[] {
   return headings.map(h => h.replace(/^#{2,3}\s+/, '').trim());
 }
 
+// ─── Fetch with timeout ───
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ─── Main ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const GLOBAL_TIMEOUT = 90000; // 90s hard limit
+  const globalTimer = setTimeout(() => {
+    console.error("GLOBAL TIMEOUT reached (90s)");
+  }, GLOBAL_TIMEOUT);
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -392,13 +418,65 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: cd, error: ce } = await supabase.auth.getUser(token);
     if (ce || !cd?.user) {
+      clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── Server-side credit check ──
+    const { data: profile } = await supabase.from("profiles").select("credits").eq("user_id", cd.user.id).single();
+    if (!profile || profile.credits <= 0) {
+      clearTimeout(globalTimer);
+      return new Response(JSON.stringify({ error: "Insufficient credits" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode, region } = await req.json();
     if (!url || !analysisId) {
+      clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "url and analysisId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    // ── Cache check: same URL by same user within 1 hour ──
+    const { data: cachedAnalysis } = await supabase
+      .from("analyses")
+      .select("id")
+      .eq("user_id", cd.user.id)
+      .eq("url", url)
+      .eq("status", "completed")
+      .neq("id", analysisId)
+      .gte("created_at", new Date(Date.now() - 3600000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (cachedAnalysis) {
+      const { data: cachedResult } = await supabase
+        .from("analysis_results")
+        .select("*")
+        .eq("analysis_id", cachedAnalysis.id)
+        .limit(1)
+        .single();
+
+      if (cachedResult) {
+        console.log("Cache hit for", url);
+        // Clone cached result to new analysis
+        await supabase.from("analysis_results").insert({
+          analysis_id: analysisId,
+          scores: cachedResult.scores,
+          quick_wins: cachedResult.quick_wins,
+          tab_data: cachedResult.tab_data,
+          modules: cachedResult.modules,
+        });
+        await supabase.from("analyses").update({ status: "completed" }).eq("id", analysisId);
+        // Deduct credit
+        await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("user_id", cd.user.id);
+        clearTimeout(globalTimer);
+        return new Response(JSON.stringify({ success: true, cached: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    // Performance timing
+    const perfTiming: Record<string, number> = {};
+    const tGlobalStart = Date.now();
 
     // Fetch API keys from system_settings (admin panel), fallback to env vars
     const { data: settingsData } = await supabase.from("system_settings").select("key_name, key_value");
@@ -437,6 +515,7 @@ Deno.serve(async (req) => {
     console.log("Fetching:", url);
     const t0 = Date.now();
     const targetContent = await fetchPage(url);
+    perfTiming.fetch_ms = Date.now() - t0;
     await setStage(0, targetContent ? "done" : "error", `${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
     if (!targetContent) {
@@ -506,11 +585,12 @@ Deno.serve(async (req) => {
     // ── Competitor Fetch ──
     await setStage(si, "running");
     const t2 = Date.now();
-    const fetchUrls = competitorUrls.slice(0, 5);
-    console.log(`Fetching ${fetchUrls.length} competitors...`);
+    const fetchUrls = competitorUrls.slice(0, 10);
+    console.log(`Fetching ${fetchUrls.length} competitors in parallel...`);
     const compContents: string[] = [];
     const compRes = await Promise.allSettled(fetchUrls.map(u => fetchPage(u)));
     for (const r of compRes) { if (r.status === "fulfilled" && r.value) compContents.push(r.value); }
+    perfTiming.competitor_fetch_ms = Date.now() - t2;
     await setStage(si, "done", `${((Date.now() - t2) / 1000).toFixed(1)}s`);
     si++;
 
@@ -760,6 +840,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
       const c = j.choices?.[0]?.message?.content;
       if (c) { try { aiParsed = JSON.parse(c); } catch { console.error("AI JSON parse fail"); } }
     } else { console.error("OpenRouter error:", aiRes.status, await aiRes.text()); }
+    perfTiming.ai_ms = Date.now() - t7;
     await setStage(si, aiParsed.scores ? "done" : "error", `${((Date.now() - t7) / 1000).toFixed(1)}s`);
     si++;
 
@@ -813,10 +894,11 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
         technicalAudit: audit,
         imagesData,
         anchorsData,
-        competitorUrls: competitorUrls.slice(0, 5),
+        competitorUrls: competitorUrls.slice(0, 10),
         competitorCount: compContents.length,
         sourcesData,
         pageStats,
+        perfTiming: { ...perfTiming, total_ms: Date.now() - tGlobalStart },
         ...(clusterMode && clusterData ? {
           clusterData: {
             semanticCluster: clusterData.semanticCluster,
@@ -839,15 +921,21 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
       console.error("Save error:", insertErr);
       await setStage(si, "error");
       await supabase.from("analyses").update({ status: "failed" }).eq("id", analysisId);
+      clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "Failed to save" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Deduct 1 credit server-side
+    await supabase.from("profiles").update({ credits: Math.max(0, profile.credits - 1) }).eq("user_id", cd.user.id);
+
     await setStage(si, "done", "0.1s");
     await supabase.from("analyses").update({ status: "completed" }).eq("id", analysisId);
-    console.log("Done:", url);
+    console.log("Done:", url, `Total: ${((Date.now() - tGlobalStart) / 1000).toFixed(1)}s`);
 
+    clearTimeout(globalTimer);
     return new Response(JSON.stringify({ success: true, data: finalResult }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
+    clearTimeout(globalTimer);
     console.error("seo-analyze error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
