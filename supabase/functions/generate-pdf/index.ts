@@ -216,9 +216,19 @@ serve(async (req) => {
   h1, h2, h3 { margin-top: 0; }
   table { font-size: ${fontSizes.body}px; }
   th, td { border-bottom: 1px solid ${tableBorder}; }
+  @media print {
+    .page-footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 10px; color: ${mutedColor}; padding: 8px 20px; }
+    .page-footer::after { content: counter(page); }
+  }
+  .page-footer-brand { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 8px ${margins.right}mm 8px ${margins.left}mm; font-size: 9px; color: ${mutedColor}; }
 </style>
 </head>
-<body>${htmlSections.join('\n')}</body>
+<body>
+<div class="page-footer-brand">
+  <span>PageForge AI</span>
+  <span>${isRu ? 'Страница' : 'Page'} </span>
+</div>
+${htmlSections.join('\n')}</body>
 </html>`;
 
     return new Response(JSON.stringify({ html: fullHtml }), {

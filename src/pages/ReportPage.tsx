@@ -5,7 +5,8 @@ import { ScoreGauge } from '@/components/ScoreGauge';
 import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code, Plus, Loader2 } from 'lucide-react';
+import { ArrowLeft, Code, Plus, Loader2, Download } from 'lucide-react';
+import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ReportPageProps {
@@ -26,6 +27,36 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   const { tr, lang } = useLang();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleExportPdf = async () => {
+    if (!analysisId) return;
+    setPdfLoading(true);
+    try {
+      const tpl = await getActiveTemplate();
+      await downloadPdf({
+        analysisId,
+        lang,
+        template: tpl ? {
+          theme: tpl.theme,
+          primary_color: tpl.primary_color,
+          accent_color: tpl.accent_color,
+          font_family: tpl.font_family,
+          font_sizes: tpl.font_sizes,
+          margins: tpl.margins,
+          logo_url: tpl.logo_url,
+          company_name: tpl.company_name,
+          enabled_sections: tpl.enabled_sections,
+          section_order: tpl.section_order,
+        } : undefined,
+      });
+    } catch (err: any) {
+      const { toast } = await import('sonner');
+      toast.error(err.message);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!analysisId) { setLoading(false); return; }
@@ -76,6 +107,10 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
             <Button variant="outline" size="sm" className="text-xs gap-1.5">
               <Code className="w-3 h-3" />
               {lang === 'ru' ? 'Посмотреть JSON' : 'View JSON'}
+            </Button>
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handleExportPdf} disabled={pdfLoading || !analysisId}>
+              {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+              {lang === 'ru' ? 'Экспорт в PDF' : 'Export to PDF'}
             </Button>
             <Button size="sm" className="btn-gradient border-0 text-xs gap-1.5" onClick={onBack}>
               <Plus className="w-3 h-3" />
