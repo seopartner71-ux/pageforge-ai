@@ -4,8 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
   Home, ShoppingBag, Wrench, FileText, ShoppingCart, Target,
-  X, Search, Play, Loader2,
+  X, Search, Play, Loader2, Check,
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const pageTypeIcons = [
   { key: 'homepage', icon: Home },
