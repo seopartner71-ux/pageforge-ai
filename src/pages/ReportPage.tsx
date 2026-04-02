@@ -94,6 +94,40 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
     }
   };
 
+  // Load existing share token
+  useEffect(() => {
+    if (!analysisId) return;
+    supabase.from('analyses').select('share_token').eq('id', analysisId).single().then(({ data }) => {
+      if (data?.share_token) setShareToken(data.share_token);
+    });
+  }, [analysisId]);
+
+  const handleShare = async () => {
+    if (!analysisId) return;
+    if (shareToken) {
+      const link = `${window.location.origin}/shared/${shareToken}`;
+      await navigator.clipboard.writeText(link);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+      toast.success(lang === 'ru' ? 'Ссылка скопирована!' : 'Link copied!');
+      return;
+    }
+    setShareLoading(true);
+    const token = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    const { error } = await supabase.from('analyses').update({ share_token: token } as any).eq('id', analysisId);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setShareToken(token);
+      const link = `${window.location.origin}/shared/${token}`;
+      await navigator.clipboard.writeText(link);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+      toast.success(lang === 'ru' ? 'Публичная ссылка создана и скопирована!' : 'Public link created and copied!');
+    }
+    setShareLoading(false);
+  };
+
   useEffect(() => {
     if (!analysisId) { setLoading(false); return; }
     const load = async () => {
