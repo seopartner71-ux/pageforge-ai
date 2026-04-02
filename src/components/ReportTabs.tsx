@@ -218,16 +218,6 @@ function TfidfTab({ data }: TabDataProps) {
 
   if (!items.length) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
 
-  // Count anchor occurrences for each term
-  const anchorTermCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const a of anchorsData) {
-      const words = (a.text || '').toLowerCase().split(/\s+/);
-      for (const w of words) if (w.length > 2) counts[w] = (counts[w] || 0) + 1;
-    }
-    return counts;
-  }, [anchorsData]);
-
   const missingItems = items.filter((d: any) => d.status === "Missing");
   const spamItems = items.filter((d: any) => d.status === "Spam" || d.status === "Overoptimized");
   const okItems = items.filter((d: any) => d.status === "OK");
