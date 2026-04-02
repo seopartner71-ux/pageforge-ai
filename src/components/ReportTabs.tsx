@@ -1849,8 +1849,8 @@ function ImplementationPlanTab({ data }: TabDataProps) {
 
       {/* Copy button */}
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={copyAsMarkdown}>
-          <Copy className="w-3 h-3" /> Скопировать как ТЗ (Markdown)
+        <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={copyForGoogleDocs}>
+          <Copy className="w-3 h-3" /> Копировать для Google Docs
         </Button>
       </div>
 
