@@ -1705,6 +1705,7 @@ function VerificationTab({ data }: TabDataProps) {
 function ImplementationPlanTab({ data }: TabDataProps) {
   const plan: any[] = data?.implementationPlan || [];
   const [checked, setChecked] = useState<Record<number, boolean>>({});
+  const [copyLabel, setCopyLabel] = useState<string | null>(null);
 
   const toggle = (i: number) => setChecked(prev => ({ ...prev, [i]: !prev[i] }));
 
@@ -1721,36 +1722,80 @@ function ImplementationPlanTab({ data }: TabDataProps) {
 
   const copyForGoogleDocs = async () => {
     const url = data?.url || '';
+    const tfidf: any[] = data?.tfidf || [];
+    const bp = data?.blueprint;
     const sections = [
-      { label: 'Приоритет P1 — Критические задачи', items: p1 },
-      { label: 'Приоритет P2 — Важные задачи', items: p2 },
-      { label: 'Приоритет P3 — Рекомендованные задачи', items: p3 },
+      { label: 'Приоритет P1 — Критические правки', items: p1 },
+      { label: 'Приоритет P2 — Оптимизация контента', items: p2 },
+      { label: 'Приоритет P3 — Рекомендованные улучшения', items: p3 },
     ];
 
-    let html = `<h1 style="font-family:Arial,sans-serif;font-size:20px;">Техническое задание на SEO-оптимизацию страницы ${stripEmojis(url)}</h1>`;
-    html += `<p style="font-family:Arial,sans-serif;font-size:13px;color:#555;">Текущий прогресс: ${progress}% | Всего задач: ${plan.length}</p>`;
-    html += `<hr style="border:1px solid #ddd;margin:16px 0;">`;
+    const s = (k: string, v: string) => `${k}:${v}`;
+    const font = 'font-family:Arial,Helvetica,sans-serif';
+    const gray = 'color:#666';
 
-    for (const sec of sections) {
-      if (!sec.items.length) continue;
-      html += `<h2 style="font-family:Arial,sans-serif;font-size:16px;margin-top:20px;">${sec.label}</h2>`;
-      html += `<ul style="font-family:Arial,sans-serif;font-size:13px;line-height:1.8;">`;
-      for (const item of sec.items) {
-        html += `<li style="margin-bottom:12px;">`;
-        html += `<b>${stripEmojis(item.title || '')}</b>`;
-        if (item.where) html += `<br/>Расположение: ${stripEmojis(item.where)}`;
-        if (item.action) html += `<br/>Решение: ${stripEmojis(item.action)}`;
-        if (item.expectedResult) html += `<br/>Влияние: ${stripEmojis(item.expectedResult)}`;
-        html += `</li>`;
-      }
-      html += `</ul>`;
+    let html = `<h1 style="${font};font-size:20px;margin-bottom:4px;">Техническое задание на SEO-оптимизацию</h1>`;
+    html += `<p style="${font};font-size:14px;color:#333;margin-top:0;">Страница: <b>${stripEmojis(url)}</b></p>`;
+    html += `<p style="${font};font-size:12px;${gray};">Дата: ${new Date().toLocaleDateString('ru-RU')} | Прогресс: ${progress}% | Задач: ${plan.length}</p>`;
+    html += `<hr style="border:none;border-top:1px solid #ccc;margin:16px 0;">`;
+
+    // Blueprint meta if available
+    if (bp) {
+      html += `<h2 style="${font};font-size:16px;margin-top:20px;">Мета-теги и заголовок</h2>`;
+      html += `<table border="1" cellpadding="8" cellspacing="0" style="${font};font-size:13px;border-collapse:collapse;width:100%;border-color:#ddd;">`;
+      html += `<tr style="background:#f5f5f5;"><td style="width:120px;${s('font-weight','bold')}">Title</td><td>${stripEmojis(bp.metaTitle || '—')}</td></tr>`;
+      html += `<tr><td style="${s('font-weight','bold')}">Description</td><td>${stripEmojis(bp.metaDescription || '—')}</td></tr>`;
+      html += `<tr style="background:#f5f5f5;"><td style="${s('font-weight','bold')}">H1</td><td>${stripEmojis(bp.h1 || '—')}</td></tr>`;
+      html += `</table>`;
     }
 
-    const plainText = sections
-      .filter(s => s.items.length)
-      .map(s => `${s.label}\n` + s.items.map(i =>
-        `- ${stripEmojis(i.title || '')}${i.where ? `\n  Расположение: ${stripEmojis(i.where)}` : ''}${i.action ? `\n  Решение: ${stripEmojis(i.action)}` : ''}${i.expectedResult ? `\n  Влияние: ${stripEmojis(i.expectedResult)}` : ''}`
-      ).join('\n')).join('\n\n');
+    // Task sections
+    for (const sec of sections) {
+      if (!sec.items.length) continue;
+      html += `<h2 style="${font};font-size:16px;margin-top:24px;">${sec.label}</h2>`;
+      html += `<table border="1" cellpadding="8" cellspacing="0" style="${font};font-size:13px;border-collapse:collapse;width:100%;border-color:#ddd;">`;
+      html += `<tr style="background:#f0f4ff;"><th style="text-align:left;width:40%;">Задача</th><th style="text-align:left;">Действие</th><th style="text-align:left;width:20%;">Влияние</th></tr>`;
+      for (const item of sec.items) {
+        html += `<tr>`;
+        html += `<td><b>${stripEmojis(item.title || '')}</b>${item.where ? `<br/><span style="${gray};font-size:11px;">Где: ${stripEmojis(item.where)}</span>` : ''}</td>`;
+        html += `<td>${stripEmojis(item.action || '—')}</td>`;
+        html += `<td style="font-size:12px;${gray};">${stripEmojis(item.expectedResult || '—')}</td>`;
+        html += `</tr>`;
+      }
+      html += `</table>`;
+    }
+
+    // TF-IDF table if available
+    if (tfidf.length > 0) {
+      const missing = tfidf.filter((t: any) => t.status === 'Missing');
+      const spam = tfidf.filter((t: any) => t.status === 'Spam' || t.status === 'Overoptimized');
+      const relevant = [...missing, ...spam].slice(0, 20);
+      if (relevant.length > 0) {
+        html += `<h2 style="${font};font-size:16px;margin-top:24px;">Ключевые термины (TF-IDF)</h2>`;
+        html += `<table border="1" cellpadding="8" cellspacing="0" style="${font};font-size:13px;border-collapse:collapse;width:100%;border-color:#ddd;">`;
+        html += `<tr style="background:#f0f4ff;"><th style="text-align:left;">Термин</th><th>Ваш TF-IDF</th><th>Медиана ТОП-10</th><th>Статус</th></tr>`;
+        for (const t of relevant) {
+          const bg = t.status === 'Missing' ? 'background:#fff8f0;' : 'background:#fff0f0;';
+          html += `<tr style="${bg}">`;
+          html += `<td><b>${stripEmojis(t.term || '')}</b></td>`;
+          html += `<td style="text-align:center;">${((t.tfidf || 0) * 1000).toFixed(1)}</td>`;
+          html += `<td style="text-align:center;">${((t.competitorMedianTfidf || 0) * 1000).toFixed(1)}</td>`;
+          html += `<td style="text-align:center;font-weight:bold;">${t.status === 'Missing' ? 'Отсутствует' : 'Переспам'}</td>`;
+          html += `</tr>`;
+        }
+        html += `</table>`;
+      }
+    }
+
+    html += `<p style="${font};font-size:11px;${gray};margin-top:24px;">Сгенерировано PageForge AI | ${new Date().toLocaleDateString('ru-RU')}</p>`;
+
+    // Plain text fallback
+    const plainText = `Техническое задание на SEO-оптимизацию\nСтраница: ${stripEmojis(url)}\nДата: ${new Date().toLocaleDateString('ru-RU')}\n\n` +
+      sections
+        .filter(s => s.items.length)
+        .map(s => `${s.label}\n` + s.items.map(i =>
+          `- ${stripEmojis(i.title || '')}${i.where ? `\n  Где: ${stripEmojis(i.where)}` : ''}${i.action ? `\n  Действие: ${stripEmojis(i.action)}` : ''}${i.expectedResult ? `\n  Влияние: ${stripEmojis(i.expectedResult)}` : ''}`
+        ).join('\n')).join('\n\n');
 
     try {
       const blob = new Blob([html], { type: 'text/html' });
@@ -1761,9 +1806,13 @@ function ImplementationPlanTab({ data }: TabDataProps) {
           'text/plain': textBlob,
         }),
       ]);
-      toast.success('ТЗ скопировано в формате Rich Text. Теперь вставьте его в Google Документы (Ctrl+V)');
+      setCopyLabel('Скопировано!');
+      setTimeout(() => setCopyLabel(null), 3000);
+      toast.success('ТЗ готово для вставки. Просто нажмите Ctrl+V в Google Документе');
     } catch {
       navigator.clipboard.writeText(plainText);
+      setCopyLabel('Скопировано!');
+      setTimeout(() => setCopyLabel(null), 3000);
       toast.success('ТЗ скопировано как текст');
     }
   };
@@ -1821,6 +1870,11 @@ function ImplementationPlanTab({ data }: TabDataProps) {
                       <TrendingUp className="w-3 h-3 mt-0.5 shrink-0" /> {item.expectedResult}
                     </p>
                   )}
+                  {item.rule && (
+                    <p className="text-xs text-primary/70 flex items-start gap-1.5">
+                      <Sparkles className="w-3 h-3 mt-0.5 shrink-0" /> {item.rule}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1850,7 +1904,8 @@ function ImplementationPlanTab({ data }: TabDataProps) {
       {/* Copy button */}
       <div className="flex gap-2">
         <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={copyForGoogleDocs}>
-          <Copy className="w-3 h-3" /> Копировать для Google Docs
+          {copyLabel ? <Check className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
+          {copyLabel || 'Копировать для Google Docs'}
         </Button>
       </div>
 
