@@ -59,7 +59,7 @@ export default function AccountPage() {
     setBrandSaving(false);
   };
 
-
+  const t = {
     ru: {
       title: 'Личный кабинет',
       profile: 'Профиль',
