@@ -11,6 +11,7 @@ export function AppHeader() {
   const { tr } = useLang();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAdmin } = useAdminRole();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
