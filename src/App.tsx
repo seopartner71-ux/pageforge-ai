@@ -50,6 +50,7 @@ const App = () => (
             <Route path="/account" element={<AuthGate><AccountPage /></AuthGate>} />
             <Route path="/pdf-editor" element={<AuthGate><PdfEditorPage /></AuthGate>} />
             <Route path="/admin" element={<AuthGate><AdminPage /></AuthGate>} />
+            <Route path="/shared/:token" element={<SharedReportPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
