@@ -139,6 +139,7 @@ function UsersTab() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCredits, setEditingCredits] = useState<Record<string, string>>({});
+  const [userTab, setUserTab] = useState<'pending' | 'active'>('pending');
 
   useEffect(() => {
     supabase.from('profiles').select('*').order('created_at', { ascending: false }).then(({ data }) => {
@@ -156,42 +157,93 @@ function UsersTab() {
     toast({ title: `Кредиты обновлены: ${newCredits}` });
   };
 
+  const handleApprove = async (userId: string, email: string | null) => {
+    await supabase.from('profiles').update({ is_approved: true, credits: 1 }).eq('user_id', userId);
+    setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, is_approved: true, credits: 1 } : u));
+    toast({ title: `Пользователь ${email || userId} одобрен ✓` });
+  };
+
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
+
+  const pendingUsers = users.filter(u => !u.is_approved);
+  const activeUsers = users.filter(u => u.is_approved);
+  const displayUsers = userTab === 'pending' ? pendingUsers : activeUsers;
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Всего пользователей: {users.length}</p>
+      <div className="flex gap-2 mb-4">
+        <Button
+          variant={userTab === 'pending' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setUserTab('pending')}
+          className={userTab === 'pending' ? 'btn-gradient border-0' : ''}
+        >
+          Ожидают активации ({pendingUsers.length})
+        </Button>
+        <Button
+          variant={userTab === 'active' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setUserTab('active')}
+          className={userTab === 'active' ? 'btn-gradient border-0' : ''}
+        >
+          Активные ({activeUsers.length})
+        </Button>
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        {userTab === 'pending'
+          ? 'Пользователи, ожидающие подтверждения доступа.'
+          : `Всего активных: ${activeUsers.length}`}
+      </p>
+
+      {displayUsers.length === 0 && (
+        <div className="glass-card p-8 text-center text-muted-foreground">
+          {userTab === 'pending' ? 'Нет пользователей, ожидающих активации.' : 'Нет активных пользователей.'}
+        </div>
+      )}
+
       <div className="space-y-2">
-        {users.map(u => (
+        {displayUsers.map(u => (
           <div key={u.id} className="glass-card p-4 flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{u.email || 'Нет email'}</p>
               <p className="text-xs text-muted-foreground">Регистрация: {new Date(u.created_at).toLocaleDateString('ru')}</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Кредиты:</span>
-                {editingCredits[u.user_id] !== undefined ? (
-                  <div className="flex gap-1">
-                    <Input
-                      type="number"
-                      value={editingCredits[u.user_id]}
-                      onChange={e => setEditingCredits(prev => ({ ...prev, [u.user_id]: e.target.value }))}
-                      className="w-20 h-8 text-sm"
-                    />
-                    <Button size="sm" variant="outline" className="h-8" onClick={() => handleCreditsUpdate(u.user_id)}>
-                      <Save className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setEditingCredits(prev => ({ ...prev, [u.user_id]: String(u.credits) }))}
-                    className="text-sm font-bold text-accent hover:underline cursor-pointer"
-                  >
-                    {u.credits}
-                  </button>
-                )}
-              </div>
+              {userTab === 'pending' ? (
+                <Button
+                  size="sm"
+                  className="btn-gradient border-0 gap-1.5"
+                  onClick={() => handleApprove(u.user_id, u.email)}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Одобрить
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Кредиты:</span>
+                  {editingCredits[u.user_id] !== undefined ? (
+                    <div className="flex gap-1">
+                      <Input
+                        type="number"
+                        value={editingCredits[u.user_id]}
+                        onChange={e => setEditingCredits(prev => ({ ...prev, [u.user_id]: e.target.value }))}
+                        className="w-20 h-8 text-sm"
+                      />
+                      <Button size="sm" variant="outline" className="h-8" onClick={() => handleCreditsUpdate(u.user_id)}>
+                        <Save className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setEditingCredits(prev => ({ ...prev, [u.user_id]: String(u.credits) }))}
+                      className="text-sm font-bold text-accent hover:underline cursor-pointer"
+                    >
+                      {u.credits}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
