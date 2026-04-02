@@ -115,6 +115,69 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── TABLE GENERATION MODE ───
+    if (generateTable && currentText) {
+      const tableTypeDescriptions: Record<string, string> = {
+        extract: "Извлеки из текста все структурированные данные (цены, характеристики, этапы, сравнения) и оформи их в Markdown-таблицу. Используй ТОЛЬКО реальные данные из текста.",
+        compare: "Создай сравнительную таблицу с конкурентами на основе темы текста. Колонки: Параметр, Наш сервис, Конкурент 1, Конкурент 2. Заполни реалистичными данными из текста.",
+        pricelist: "Создай структурированный прайс-лист в виде Markdown-таблицы. Колонки: Услуга, Цена, Описание. Если в тексте есть реальные цены — используй их. Если нет — предложи логичные цены для данной ниши.",
+        proscons: "Создай таблицу 'Плюсы и минусы' в Markdown. Колонки: Преимущества, Недостатки. Основывайся на реальных характеристиках из текста.",
+      };
+
+      const tablePrompt = `Ты — эксперт по SEO-контенту. Тебе дан оптимизированный текст страницы.
+
+ЗАДАЧА: ${tableTypeDescriptions[generateTable] || tableTypeDescriptions.extract}
+
+ПРАВИЛА:
+1. Верни ВЕСЬ текст целиком с вставленной таблицей в подходящем месте (перед FAQ или после раздела "Преимущества").
+2. НЕ МЕНЯЙ остальной текст — только добавь таблицу.
+3. Таблица должна быть в формате Markdown (| col1 | col2 |).
+4. Используй РЕАЛЬНЫЕ данные из текста, не выдумывай.
+
+Формат ответа — JSON:
+{
+  "optimizedText": "<весь текст с вставленной таблицей>"
+}`;
+
+      const tableRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": Deno.env.get("SUPABASE_URL") || "",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-4o",
+          messages: [
+            { role: "system", content: tablePrompt },
+            { role: "user", content: currentText },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.3,
+        }),
+      });
+
+      if (!tableRes.ok) {
+        const errText = await tableRes.text();
+        console.error("Table gen error:", tableRes.status, errText);
+        return new Response(JSON.stringify({ error: "Table generation failed" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const tableJson = await tableRes.json();
+      const tableContent = tableJson.choices?.[0]?.message?.content;
+      let tableParsed: any = {};
+      try { tableParsed = JSON.parse(tableContent); } catch { tableParsed = { optimizedText: currentText }; }
+
+      return new Response(JSON.stringify({
+        success: true,
+        optimizedText: tableParsed.optimizedText || currentText,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const systemPrompt = `Ты — Expert SEO Editor. Твоя задача — УЛУЧШИТЬ существующий текст пользователя, а НЕ писать новый с нуля.
 
 ГЛАВНОЕ ПРАВИЛО: Ты РЕДАКТОР, а не автор. Оригинальный текст — это основа. Ты должен сохранить его суть, факты и стиль бренда.
