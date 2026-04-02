@@ -1385,6 +1385,7 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
     }
   };
 
+  const handleGenerateTable = useCallback(async (tableType: string) => {
     if (!analysisId || !result?.optimizedText) return;
     setTableLoading(true);
     try {
