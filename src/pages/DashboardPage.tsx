@@ -75,6 +75,12 @@ export default function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Check credits
+    if (credits !== null && credits <= 0) {
+      toast({ title: 'Лимит исчерпан. Обратитесь к администратору для пополнения кредитов.', variant: 'destructive' });
+      return;
+    }
+
     const projectId = data.projectId || projects[0]?.id;
     if (!projectId) {
       toast({ title: 'Сначала создайте проект', variant: 'destructive' });
