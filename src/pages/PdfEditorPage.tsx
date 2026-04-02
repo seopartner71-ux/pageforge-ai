@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
+import { downloadPdf } from '@/lib/downloadPdf';
 import {
   FileText, Download, Loader2, Upload, X, Save, Plus, GripVertical,
   Palette, Type, Image, Maximize, Sun, Moon, Trash2
