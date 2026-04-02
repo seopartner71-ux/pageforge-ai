@@ -81,13 +81,20 @@ Deno.serve(async (req) => {
     const bigramGaps = ngrams?.bigramGaps?.map((g: any) => g.text) || [];
     const trigramGaps = ngrams?.trigramGaps?.map((g: any) => g.text) || [];
 
-    // Fetch current page content via Jina
+    // Fetch current page content via Jina — extract only meaningful body text
     let pageContent = "";
     try {
       const jinaRes = await fetch(`https://r.jina.ai/${analysis.url}`, {
         headers: { Accept: "text/markdown", "X-Return-Format": "markdown" },
       });
-      if (jinaRes.ok) pageContent = (await jinaRes.text()).slice(0, 20000);
+      if (jinaRes.ok) {
+        let raw = (await jinaRes.text()).slice(0, 20000);
+        // Strip navigation links, menus, and markdown link clutter
+        raw = raw.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // [text](url) → text
+        raw = raw.replace(/!\[[^\]]*\]\([^)]+\)/g, ''); // remove images
+        raw = raw.replace(/^[\s*\-•]+\s*(Главная|Меню|Навигация|О нас|Контакты|Услуги|Новости).*/gmi, ''); // nav items
+        pageContent = raw.trim();
+      }
     } catch {}
 
     if (!pageContent) {
@@ -103,27 +110,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    const systemPrompt = `Ты — SEO-оптимизатор текстов. Твоя задача — переписать текст страницы так, чтобы:
+    const systemPrompt = `Ты — SEO-оптимизатор текстов. Твоя задача — переписать ТОЛЬКО основной контент страницы (без навигации, ссылок, меню).
 
-1. **Добавить Missing Entities** — органично вплести в текст слова и фразы, которых не хватает для конкурентоспособности.
-2. **Снизить переспам** — уменьшить плотность переоптимизированных слов, заменив часть вхождений синонимами или убрав лишние повторы.
-3. **Закрыть Topical Gaps** — включить фразы (биграммы/триграммы), которые используют конкуренты, но отсутствуют в тексте.
-4. **Сохранить естественность** — текст должен звучать как написанный человеком, без шаблонных переходов.
-5. **Сохранить структуру** — не менять общую логику и порядок разделов, только улучшить контент.
+Правила:
+1. **Добавь Missing Entities** — органично вплети слова, которых не хватает.
+2. **Снизь переспам** — замени лишние повторы синонимами.
+3. **Закрой Topical Gaps** — включи фразы конкурентов, которых нет у пользователя.
+4. **Сохрани структуру** — заголовки H1-H3, параграфы, списки. Только улучши текст.
+5. **Пиши на том же языке**, что и оригинал.
 
-ВАЖНО:
-- Пиши на том же языке, что и исходный текст.
-- Не добавляй маркетинговый «воды» — только полезные дополнения.
-- Верни результат в формате JSON:
+ОБЯЗАТЕЛЬНО верни JSON с тремя полями:
 {
-  "optimizedText": "<полный оптимизированный текст в Markdown>",
+  "optimizedText": "<чистый оптимизированный текст в Markdown, без навигационных элементов, только полезный контент>",
   "changes": [
-    {"type": "added", "term": "<слово/фраза>", "context": "<где добавлено>"},
-    {"type": "reduced", "term": "<слово>", "from": <было вхождений>, "to": <стало>},
+    {"type": "added", "term": "<слово>", "context": "<краткое где добавлено>"},
+    {"type": "reduced", "term": "<слово>", "from": <было>, "to": <стало>},
     {"type": "topicalGap", "phrase": "<фраза>", "context": "<где добавлено>"}
   ],
-  "summary": "<краткое описание что изменено, 2-3 предложения>"
-}`;
+  "summary": "<2-3 предложения: что именно изменено и почему>"
+}
+Поле changes ОБЯЗАТЕЛЬНО должно содержать минимум 3 элемента.`;
 
     const userPrompt = `URL: ${analysis.url}
 
