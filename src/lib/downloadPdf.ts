@@ -35,7 +35,7 @@ export async function downloadPdf(opts: DownloadPdfOptions): Promise<void> {
 
   const companyName = opts.template?.company_name || opts.companyName || '';
 
-  // Create the PDF document element
+  // Generate blob
   const doc = createElement(PdfReportDocument, {
     analysis,
     results,
@@ -44,8 +44,7 @@ export async function downloadPdf(opts: DownloadPdfOptions): Promise<void> {
     lang: opts.lang,
   });
 
-  // Generate blob
-  const blob = await pdf(doc).toBlob();
+  const blob = await pdf(doc as any).toBlob();
 
   // Trigger download
   const url = URL.createObjectURL(blob);
