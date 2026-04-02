@@ -27,24 +27,85 @@ const STOP_WORDS = new Set([
 
 // ─── Technical blacklist: protocols, TLDs, URL paths, nav junk ───
 const TECH_BLACKLIST = new Set([
-  // Protocols & subdomains
   "www","http","https","ftp","mailto",
-  // Domain zones
   "com","ru","net","org","info","by","kz","ua","su","рф","biz","pro","edu","gov","io","dev","app","me",
-  // Technical URL path segments
   "index","php","html","htm","aspx","asp","cgi","bin","xml","json","css","jsp","action","api","wp",
-  // CMS / tech fragments
   "wordpress","joomla","bitrix","modx","noindex","nofollow","utm","source","medium","campaign","content","ref",
-  // Common nav junk (transliterated Russian)
   "glavnaya","page","nashi","vse","eto","stranica","razdel","katalog","category","tag","archive",
+  "uploads","includes","plugins","themes","static","assets","dist","build","node","modules",
+  "sidebar","footer","header","wrapper","container","widget","block","section","div","span",
+  "onclick","onload","script","noscript","iframe","style","class","type","href","src",
+  "vidy","novosti","price","prices","kontakty","uslugi","stati","blog","news","about",
+  "dostavka","oplata","otzyvy","faq","contacts","sitemap","login","register","search",
 ]);
 
-// Regex to strip full URLs, email addresses, and URL-like fragments before tokenization
-const URL_STRIP_RE = /https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9-]+\.(ru|com|net|org|info|by|kz|ua|html|php|aspx|htm)\b/gi;
+// ─── Regex: strip URLs, emails, file extensions, URL-like fragments ───
+const URL_STRIP_RE = /https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9._/-]+\.(ru|com|net|org|info|by|kz|ua|html|php|aspx|htm|jpg|jpeg|png|gif|svg|webp|pdf|css|js|xml)\b/gi;
 
-function tokenize(text: string): string[] {
-  const cleaned = text.toLowerCase().replace(URL_STRIP_RE, " ").replace(/[^\p{L}\p{N}\s]/gu, " ");
-  return cleaned.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w) && !TECH_BLACKLIST.has(w));
+// ─── Regex: split Cyrillic from Latin when glued together (e.g. "КупитьiPhone" → "Купить iPhone") ───
+const CYRLAT_SPLIT_RE = /([\u0400-\u04FF])([A-Za-z])/g;
+const LATCYR_SPLIT_RE = /([A-Za-z])([\u0400-\u04FF])/g;
+
+// ─── Latin word filter for RU content ───
+const LATIN_RE = /^[a-z]+$/;         // fully lowercase latin
+const UPPER_ABBR_RE = /^[A-Z]{2,5}$/; // uppercase abbreviation (SEO, API, GSC, DIN, ISO)
+const BRAND_RE = /^[A-Z][a-z]{2,}/;   // Capitalized word (Apple, Sika, Nikon)
+const SPEC_RE = /^[A-Za-z0-9]+$/;     // Alphanumeric spec (4MATIC, VGA, WiFi, iPhone)
+
+function isLatinJunk(originalWord: string): boolean {
+  // Already lowercased in tokenize — we need original casing for brand detection
+  // So this function works on the ORIGINAL (pre-lowercase) word
+  const lower = originalWord.toLowerCase();
+
+  // Always block if in tech blacklist
+  if (TECH_BLACKLIST.has(lower)) return true;
+
+  // Check if the word is pure Latin
+  if (!/[a-zA-Z]/.test(originalWord)) return false; // Not Latin at all — keep
+  if (/[\u0400-\u04FF]/.test(originalWord)) return false; // Mixed cyr+lat — keep (brand in context)
+
+  // WHITELIST: uppercase abbreviations (SEO, API, GSC, DIN, ISO, VGA)
+  if (UPPER_ABBR_RE.test(originalWord)) return false;
+
+  // WHITELIST: Capitalized brand names (Apple, Sika, Nikon, iPhone)
+  if (BRAND_RE.test(originalWord)) return false;
+
+  // WHITELIST: Alphanumeric specs with digits (4MATIC, H2O, WiFi5)
+  if (/\d/.test(originalWord) && SPEC_RE.test(originalWord)) return false;
+
+  // Everything else in Latin (lowercase transliteration, junk) → BLOCK
+  return true;
+}
+
+// ─── Detect if text is primarily Russian ───
+function isRussianContent(text: string): boolean {
+  const sample = text.slice(0, 5000);
+  const cyrChars = (sample.match(/[\u0400-\u04FF]/g) || []).length;
+  const latChars = (sample.match(/[a-zA-Z]/g) || []).length;
+  return cyrChars > latChars * 1.5; // Russian if Cyrillic dominates
+}
+
+function tokenize(text: string, filterLatin = false): string[] {
+  // Split glued Cyrillic+Latin
+  let cleaned = text.replace(CYRLAT_SPLIT_RE, "$1 $2").replace(LATCYR_SPLIT_RE, "$1 $2");
+  // Strip URLs and file extensions
+  cleaned = cleaned.replace(URL_STRIP_RE, " ").replace(/[^\p{L}\p{N}\s]/gu, " ");
+
+  if (!filterLatin) {
+    return cleaned.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w.toLowerCase()) && !TECH_BLACKLIST.has(w.toLowerCase()));
+  }
+
+  // For Russian content: preserve original case for brand detection, then filter
+  const rawWords = cleaned.split(/\s+/).filter(w => w.length > 2);
+  const result: string[] = [];
+  for (const w of rawWords) {
+    const lower = w.toLowerCase();
+    if (STOP_WORDS.has(lower)) continue;
+    if (TECH_BLACKLIST.has(lower)) continue;
+    if (isLatinJunk(w)) continue;
+    result.push(lower);
+  }
+  return result;
 }
 
 // ─── Progress helper ───
@@ -631,11 +692,15 @@ Deno.serve(async (req) => {
         .map(([heading]) => heading);
     }
 
+    // ── Detect language for Latin filtering ──
+    const isRU = isRussianContent(targetContent);
+    if (isRU) console.log("Detected RU content — Latin junk filter ACTIVE");
+
     // ── TF-IDF ──
     await setStage(si, "running");
     const t3 = Date.now();
-    const targetWords = tokenize(targetContent);
-    const compWordArrays = compContents.map(c => tokenize(c));
+    const targetWords = tokenize(targetContent, isRU);
+    const compWordArrays = compContents.map(c => tokenize(c, isRU));
     const tfidfResults = calculateTFIDF(targetWords, compWordArrays);
     await setStage(si, "done", `${((Date.now() - t3) / 1000).toFixed(1)}s`);
     si++;
@@ -737,6 +802,7 @@ Deno.serve(async (req) => {
 P1 = Критично (техошибки, NavBoost нарушения, Content Effort = low, Missing Entities). P2 = Важно (структура, переспам, Semantic Chunking). P3 = Лидерство (таблицы, FAQ, GEO, Information Gain).
 Используй формулировки: "Согласно фактору Content Effort...", "Для Information Gain внедрите...". Минимум 8-15 задач.
 КРИТИЧНО: Программный парсер уже посчитал все теги. НИКОГДА не пересчитывай — доверяй ТОЛЬКО входным данным парсера.
+ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) — ЗАПРЕЩЁН. Все рекомендации — только на кириллице.
 Будь конкретен. Пиши на русском.`;
 
       userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
@@ -826,6 +892,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
 P1 = Критично (техошибки, пустые Alt, Missing Entities, NavBoost нарушения, Content Effort = low). P2 = Важно для роста (структура, переспам, Semantic Chunking). P3 = Для лидерства (таблицы, FAQ, GEO, Information Gain).
 Будь хирургически точен в implementationPlan: пиши 'Замени А на Б', 'Добавь 3 картинки с Alt такими-то'. Избегай общих фраз. Минимум 8-15 задач.
 КРИТИЧНО: Программный парсер уже посчитал все теги (H1, img, JSON-LD, OG). НИКОГДА не пересчитывай их сам — доверяй ТОЛЬКО входным данным парсера.
+ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) — ЗАПРЕЩЁН. Все рекомендации — только на кириллице.
 Будь конкретен. Пиши на русском.`;
 
       userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
