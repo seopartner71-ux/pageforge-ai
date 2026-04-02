@@ -5,7 +5,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { User, Key, Shield, Save } from 'lucide-react';
+import { User, Key, Shield, Save, Building2 } from 'lucide-react';
 
 export default function AccountPage() {
   const { lang } = useLang();
