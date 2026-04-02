@@ -178,6 +178,36 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
           />
         </div>
 
+        {/* Region selector */}
+        <div className="relative">
+          <label className="text-sm text-muted-foreground mb-2 block flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5" /> Регион поиска
+          </label>
+          <Input
+            value={region}
+            onChange={(e) => { setRegion(e.target.value); setRegionSearch(e.target.value); setRegionOpen(true); }}
+            onFocus={() => setRegionOpen(true)}
+            onBlur={() => setTimeout(() => setRegionOpen(false), 150)}
+            placeholder="Выберите город или введите вручную"
+            className="h-11 bg-secondary border-border/50 focus:border-primary"
+          />
+          {regionOpen && filteredRegions.length > 0 && (
+            <div className="absolute z-50 top-full mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+              {filteredRegions.map(r => (
+                <button
+                  key={r}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setRegion(r); setRegionOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div>
           <label className="text-sm text-muted-foreground mb-3 block">{tr.pageTypes.title}</label>
           <div className="grid grid-cols-3 gap-3">
