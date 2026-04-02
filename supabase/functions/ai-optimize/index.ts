@@ -81,13 +81,20 @@ Deno.serve(async (req) => {
     const bigramGaps = ngrams?.bigramGaps?.map((g: any) => g.text) || [];
     const trigramGaps = ngrams?.trigramGaps?.map((g: any) => g.text) || [];
 
-    // Fetch current page content via Jina
+    // Fetch current page content via Jina — extract only meaningful body text
     let pageContent = "";
     try {
       const jinaRes = await fetch(`https://r.jina.ai/${analysis.url}`, {
         headers: { Accept: "text/markdown", "X-Return-Format": "markdown" },
       });
-      if (jinaRes.ok) pageContent = (await jinaRes.text()).slice(0, 20000);
+      if (jinaRes.ok) {
+        let raw = (await jinaRes.text()).slice(0, 20000);
+        // Strip navigation links, menus, and markdown link clutter
+        raw = raw.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // [text](url) → text
+        raw = raw.replace(/!\[[^\]]*\]\([^)]+\)/g, ''); // remove images
+        raw = raw.replace(/^[\s*\-•]+\s*(Главная|Меню|Навигация|О нас|Контакты|Услуги|Новости).*/gmi, ''); // nav items
+        pageContent = raw.trim();
+      }
     } catch {}
 
     if (!pageContent) {
