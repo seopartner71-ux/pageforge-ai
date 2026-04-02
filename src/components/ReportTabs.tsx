@@ -1877,6 +1877,7 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
         const tabComponents: Record<TabKey, () => JSX.Element> = {
           aiReport: () => <AiReportTab data={data} />,
           priorities: () => <PrioritiesTab data={data} />,
+          implementationPlan: () => <ImplementationPlanTab data={data} />,
           blueprint: () => <BlueprintTab data={data} />,
           semanticMap: () => <SemanticMapTab data={data} />,
           tfidf: () => <TfidfTab data={data} />,
