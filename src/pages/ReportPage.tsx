@@ -5,7 +5,7 @@ import { ScoreGauge } from '@/components/ScoreGauge';
 import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette } from 'lucide-react';
+import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link } from 'lucide-react';
 import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
 import { supabase } from '@/integrations/supabase/client';
 import {
