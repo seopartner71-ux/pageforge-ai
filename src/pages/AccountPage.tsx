@@ -168,6 +168,50 @@ export default function AccountPage() {
           </Button>
         </div>
 
+        {/* White Label Branding */}
+        <div className="glass-card p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-semibold tracking-widest text-muted-foreground">
+              {lang === 'ru' ? 'БРЕНДИНГ (WHITE LABEL)' : 'BRANDING (WHITE LABEL)'}
+            </h2>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {lang === 'ru'
+              ? 'Эти данные будут использоваться в PDF-отчётах вместо стандартного PageForge AI.'
+              : 'This data will be used in PDF reports instead of default PageForge AI branding.'}
+          </p>
+          <div>
+            <label className="text-sm text-muted-foreground mb-1.5 block">
+              {lang === 'ru' ? 'Название компании' : 'Company Name'}
+            </label>
+            <Input
+              value={companyName}
+              onChange={e => setCompanyName(e.target.value)}
+              placeholder={lang === 'ru' ? 'Моя SEO-компания' : 'My SEO Agency'}
+              className="bg-secondary border-border/50"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground mb-1.5 block">
+              {lang === 'ru' ? 'URL логотипа' : 'Logo URL'}
+            </label>
+            <Input
+              value={logoUrl}
+              onChange={e => setLogoUrl(e.target.value)}
+              placeholder="https://example.com/logo.png"
+              className="bg-secondary border-border/50"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {lang === 'ru' ? 'Прямая ссылка на PNG/SVG логотип' : 'Direct link to PNG/SVG logo'}
+            </p>
+          </div>
+          <Button onClick={handleSaveBranding} disabled={brandSaving} className="btn-gradient border-0 gap-2">
+            <Save className="w-3.5 h-3.5" />
+            {lang === 'ru' ? 'Сохранить брендинг' : 'Save Branding'}
+          </Button>
+        </div>
+
         {/* Stats */}
         <div className="glass-card p-6">
           <h2 className="text-sm font-semibold tracking-widest text-muted-foreground mb-4">{tr.stats}</h2>
