@@ -105,6 +105,63 @@ export type Database = {
           },
         ]
       }
+      pdf_templates: {
+        Row: {
+          accent_color: string
+          company_name: string | null
+          created_at: string
+          enabled_sections: Json
+          font_family: string
+          font_sizes: Json
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          margins: Json
+          name: string
+          primary_color: string
+          section_order: Json
+          theme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accent_color?: string
+          company_name?: string | null
+          created_at?: string
+          enabled_sections?: Json
+          font_family?: string
+          font_sizes?: Json
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          margins?: Json
+          name?: string
+          primary_color?: string
+          section_order?: Json
+          theme?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accent_color?: string
+          company_name?: string | null
+          created_at?: string
+          enabled_sections?: Json
+          font_family?: string
+          font_sizes?: Json
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          margins?: Json
+          name?: string
+          primary_color?: string
+          section_order?: Json
+          theme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
