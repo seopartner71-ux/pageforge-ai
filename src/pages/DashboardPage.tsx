@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLang } from '@/contexts/LangContext';
 import { AppHeader } from '@/components/AppHeader';
 import { AnalysisForm } from '@/components/AnalysisForm';
 import { ChecklistSidebar } from '@/components/ChecklistSidebar';
 import { CreateProjectDialog } from '@/components/CreateProjectDialog';
+import { AnalysisProgressModal } from '@/components/AnalysisProgressModal';
 import ReportPage from '@/pages/ReportPage';
 import { useToast } from '@/hooks/use-toast';
 
