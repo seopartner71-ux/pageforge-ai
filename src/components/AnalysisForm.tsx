@@ -23,9 +23,10 @@ interface AnalysisFormProps {
     competitors: string[];
     aiContext: string;
     clusterMode: boolean;
+    projectId?: string;
   }) => void;
   loading: boolean;
-  projects?: { name: string; domain: string }[];
+  projects?: { id?: string; name: string; domain: string }[];
   onNewProject?: () => void;
 }
 
@@ -38,6 +39,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   const [clusterMode, setClusterMode] = useState(false);
   const [speedEnabled, setSpeedEnabled] = useState(true);
   const [semanticsEnabled, setSemanticsEnabled] = useState(true);
+  const [selectedProjectIdx, setSelectedProjectIdx] = useState(0);
 
   const addCompetitor = () => {
     if (competitors.length < 5) setCompetitors([...competitors, '']);
