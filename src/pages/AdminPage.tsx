@@ -235,3 +235,99 @@ function StatsTab() {
     </div>
   );
 }
+
+/* ─── Analysis Logs Tab ─── */
+function AnalysisLogsTab() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedLog, setSelectedLog] = useState<any>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: analyses } = await supabase
+        .from('analyses')
+        .select('id, url, status, created_at, user_id')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (!analyses) { setLoading(false); return; }
+
+      const ids = analyses.map(a => a.id);
+      const { data: results } = await supabase
+        .from('analysis_results')
+        .select('analysis_id, scores, modules, tab_data, quick_wins')
+        .in('analysis_id', ids);
+
+      const resultsMap: Record<string, any> = {};
+      for (const r of results || []) resultsMap[r.analysis_id] = r;
+
+      setLogs(analyses.map(a => ({ ...a, result: resultsMap[a.id] || null })));
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">Полные JSON-ответы для отладки точности. Последние 50 анализов.</p>
+      <div className="space-y-2">
+        {logs.map(log => (
+          <div key={log.id} className="glass-card p-4 flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">{log.url}</p>
+              <div className="flex gap-3 mt-1">
+                <span className={`text-xs ${log.status === 'completed' ? 'text-green-500' : log.status === 'failed' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                  {log.status}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(log.created_at).toLocaleString('ru')}
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5"
+              disabled={!log.result}
+              onClick={() => setSelectedLog(log)}
+            >
+              <Eye className="w-3.5 h-3.5" /> JSON
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-sm truncate">
+              Лог: {selectedLog?.url}
+            </DialogTitle>
+          </DialogHeader>
+          <Tabs defaultValue="scores" className="flex-1 overflow-hidden flex flex-col">
+            <TabsList className="mb-2">
+              <TabsTrigger value="scores">Scores</TabsTrigger>
+              <TabsTrigger value="modules">Modules</TabsTrigger>
+              <TabsTrigger value="tabData">Tab Data</TabsTrigger>
+              <TabsTrigger value="quickWins">Quick Wins</TabsTrigger>
+            </TabsList>
+            {['scores', 'modules', 'tabData', 'quickWins'].map(key => (
+              <TabsContent key={key} value={key} className="flex-1 overflow-auto">
+                <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-4 rounded-md max-h-[60vh] overflow-auto">
+                  {JSON.stringify(
+                    key === 'scores' ? selectedLog?.result?.scores :
+                    key === 'modules' ? selectedLog?.result?.modules :
+                    key === 'tabData' ? selectedLog?.result?.tab_data :
+                    selectedLog?.result?.quick_wins,
+                    null, 2
+                  )}
+                </pre>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
