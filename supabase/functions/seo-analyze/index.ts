@@ -271,7 +271,9 @@ function findTopicalGaps(targetWords: string[], competitorWordArrays: string[][]
   for (const words of competitorWordArrays) {
     const seen = new Set<string>();
     for (let i = 0; i <= words.length - n; i++) {
-      const gram = words.slice(i, i + n).join(" ");
+      const parts = words.slice(i, i + n);
+      if (!isCleanNgram(parts)) continue;
+      const gram = parts.join(" ");
       if (!seen.has(gram)) { compGramCounts[gram] = (compGramCounts[gram] || 0) + 1; seen.add(gram); }
     }
   }
