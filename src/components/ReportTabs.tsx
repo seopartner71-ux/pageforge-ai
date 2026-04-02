@@ -544,6 +544,110 @@ function StealthTab({ data }: TabDataProps) {
   );
 }
 
+/* ─────────── Markdown to HTML converter ─────────── */
+
+function markdownToHtml(md: string): string {
+  let html = md;
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Bold / italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Tables (basic)
+  const lines = html.split('\n');
+  const out: string[] = [];
+  let inTable = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('|') && line.endsWith('|')) {
+      if (!inTable) { out.push('<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%">'); inTable = true; }
+      if (/^\|[\s\-:|]+\|$/.test(line)) continue; // separator row
+      const cells = line.split('|').filter(c => c.trim() !== '');
+      const isHeader = i + 1 < lines.length && /^\|[\s\-:|]+\|$/.test(lines[i + 1].trim());
+      const tag = isHeader ? 'th' : 'td';
+      out.push('<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>');
+    } else {
+      if (inTable) { out.push('</table>'); inTable = false; }
+      // Lists
+      if (/^- (.+)/.test(line)) {
+        out.push(`<li>${line.slice(2)}</li>`);
+      } else if (/^\d+\. (.+)/.test(line)) {
+        out.push(`<li>${line.replace(/^\d+\.\s*/, '')}</li>`);
+      } else if (line) {
+        out.push(`<p>${line}</p>`);
+      }
+    }
+  }
+  if (inTable) out.push('</table>');
+  return out.join('\n');
+}
+
+/* ─────────── Content Checklist Badges ─────────── */
+
+function ContentChecklist({ text, checklist }: { text: string; checklist?: any }) {
+  const checks = useMemo(() => {
+    const t = text || '';
+    return {
+      hasTable: checklist?.hasTable ?? /\|.+\|/.test(t),
+      hasList: checklist?.hasList ?? /^[\-\d]+[\.\)]\s/m.test(t),
+      hasFaq: checklist?.hasFaq ?? /FAQ|часто задаваемые|frequently asked/i.test(t),
+      lsiIntegrated: checklist?.lsiIntegrated ?? true,
+      headingHierarchy: checklist?.headingHierarchy ?? /^#{1,3}\s/m.test(t),
+    };
+  }, [text, checklist]);
+
+  const items = [
+    { key: 'headingHierarchy', icon: Heading, label: 'H1-H3', ok: checks.headingHierarchy },
+    { key: 'hasTable', icon: Table2, label: 'Таблицы', ok: checks.hasTable },
+    { key: 'hasList', icon: List, label: 'Списки', ok: checks.hasList },
+    { key: 'hasFaq', icon: HelpCircle, label: 'FAQ', ok: checks.hasFaq },
+    { key: 'lsiIntegrated', icon: Tags, label: 'LSI-ключи', ok: checks.lsiIntegrated },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map(({ key, icon: Icon, label, ok }) => (
+        <div
+          key={key}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${
+            ok
+              ? 'bg-accent/10 text-accent border-accent/20'
+              : 'bg-destructive/10 text-destructive border-destructive/20'
+          }`}
+        >
+          {ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+          <Icon className="w-3.5 h-3.5" />
+          {label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─────────── Rich Markdown Renderer ─────────── */
+
+function RichMarkdownPreview({ content }: { content: string }) {
+  return (
+    <div className="prose prose-invert prose-sm max-w-none
+      prose-headings:text-foreground prose-headings:font-bold
+      prose-h1:text-2xl prose-h1:mb-4 prose-h1:mt-6
+      prose-h2:text-xl prose-h2:mb-3 prose-h2:mt-5
+      prose-h3:text-lg prose-h3:mb-2 prose-h3:mt-4
+      prose-p:text-foreground/90 prose-p:leading-relaxed prose-p:mb-3
+      prose-li:text-foreground/90
+      prose-strong:text-foreground
+      prose-table:border-collapse
+      prose-th:bg-secondary prose-th:px-4 prose-th:py-2 prose-th:text-left prose-th:text-foreground prose-th:font-semibold prose-th:border prose-th:border-border
+      prose-td:px-4 prose-td:py-2 prose-td:border prose-td:border-border prose-td:text-foreground/80
+      [&_tr:nth-child(even)_td]:bg-secondary/30
+    ">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    </div>
+  );
+}
+
 /* ─────────── AI Optimizer Component ─────────── */
 
 function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
@@ -551,7 +655,8 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedType, setCopiedType] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'preview' | 'html'>('preview');
 
   const handleOptimize = async () => {
     if (!analysisId) return;
@@ -583,28 +688,53 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
     }
   };
 
-  const handleCopy = () => {
-    if (result?.optimizedText) {
-      navigator.clipboard.writeText(result.optimizedText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      toast({ title: lang === 'ru' ? 'Текст скопирован!' : 'Text copied!' });
+  const htmlContent = useMemo(() => {
+    if (!result?.optimizedText) return '';
+    return markdownToHtml(result.optimizedText);
+  }, [result?.optimizedText]);
+
+  const handleCopyHtml = () => {
+    navigator.clipboard.writeText(htmlContent);
+    setCopiedType('html');
+    setTimeout(() => setCopiedType(null), 2000);
+    toast({ title: 'HTML скопирован!' });
+  };
+
+  const handleCopyRich = async () => {
+    try {
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const textBlob = new Blob([result?.optimizedText || ''], { type: 'text/plain' });
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': blob,
+          'text/plain': textBlob,
+        }),
+      ]);
+      setCopiedType('rich');
+      setTimeout(() => setCopiedType(null), 2000);
+      toast({ title: 'Rich Text скопирован!' });
+    } catch {
+      // Fallback
+      navigator.clipboard.writeText(result?.optimizedText || '');
+      setCopiedType('rich');
+      setTimeout(() => setCopiedType(null), 2000);
+      toast({ title: 'Текст скопирован!' });
     }
   };
 
   return (
     <div className="space-y-4">
       {!result ? (
-        <div className="glass-card p-6 text-center space-y-4">
-          <Wand2 className="w-10 h-10 mx-auto text-primary" />
+        <div className="glass-card p-8 text-center space-y-5">
+          <Wand2 className="w-12 h-12 mx-auto text-primary" />
           <div>
-            <h3 className="text-lg font-bold text-foreground">
-              {lang === 'ru' ? 'AI Optimizer — Автоматическая оптимизация текста' : 'AI Optimizer — Automatic Text Optimization'}
+            <h3 className="text-xl font-bold text-foreground">
+              {lang === 'ru' ? 'AI Forge — Генератор готового контента' : 'AI Forge — Ready Content Generator'}
             </h3>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm text-muted-foreground mt-3 max-w-lg mx-auto leading-relaxed">
               {lang === 'ru'
-                ? 'ИИ перепишет текст вашей страницы: добавит Missing Entities, снизит переспам и закроет тематические пробелы. Результат — готовый текст для копирования.'
-                : 'AI will rewrite your page text: add Missing Entities, reduce keyword spam, and close topical gaps. Result — ready-to-copy text.'}
+                ? 'ИИ создаст готовый к публикации текст с правильной структурой (H1-H3), таблицами, списками и блоком FAQ. Просто скопируйте и вставьте на сайт.'
+                : 'AI will create publish-ready text with proper structure (H1-H3), tables, lists, and FAQ block. Just copy and paste to your site.'}
             </p>
           </div>
           <Button
@@ -614,14 +744,15 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
             size="lg"
           >
             {loading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> {lang === 'ru' ? 'Оптимизация...' : 'Optimizing...'}</>
+              <><Loader2 className="w-4 h-4 animate-spin" /> {lang === 'ru' ? 'Генерация контента...' : 'Generating...'}</>
             ) : (
-              <><Wand2 className="w-4 h-4" /> {lang === 'ru' ? 'Оптимизировать текст ИИ' : 'Optimize Text with AI'}</>
+              <><Wand2 className="w-4 h-4" /> {lang === 'ru' ? 'Сгенерировать контент' : 'Generate Content'}</>
             )}
           </Button>
         </div>
       ) : (
         <div className="space-y-4">
+          {/* Summary */}
           {result.summary && (
             <div className="glass-card p-4 border-l-2 border-primary">
               <span className="text-xs font-bold text-primary uppercase tracking-wider">
@@ -631,10 +762,14 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
             </div>
           )}
 
+          {/* Checklist badges */}
+          <ContentChecklist text={result.optimizedText} checklist={result.contentChecklist} />
+
+          {/* Changes detail */}
           {result.changes?.length > 0 && (
             <div className="glass-card p-4">
               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-                {lang === 'ru' ? 'Детали изменений' : 'Change Details'}
+                {lang === 'ru' ? 'Детали изменений' : 'Change Details'} ({result.changes.length})
               </h4>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {result.changes.map((c: any, i: number) => (
@@ -642,9 +777,10 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
                     <span className={`px-1.5 py-0.5 rounded font-bold ${
                       c.type === 'added' ? 'bg-accent/20 text-accent' :
                       c.type === 'reduced' ? 'bg-destructive/20 text-destructive' :
+                      c.type === 'structure' ? 'bg-secondary text-foreground' :
                       'bg-primary/20 text-primary'
                     }`}>
-                      {c.type === 'added' ? '+' : c.type === 'reduced' ? '−' : '◆'}
+                      {c.type === 'added' ? '+' : c.type === 'reduced' ? '−' : c.type === 'structure' ? '▣' : '◆'}
                     </span>
                     <span className="text-foreground font-medium">{c.term || c.phrase}</span>
                     <span className="text-muted-foreground">
@@ -656,20 +792,51 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
             </div>
           )}
 
+          {/* Content viewer with tabs */}
           <div className="glass-card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                {lang === 'ru' ? 'Оптимизированный текст' : 'Optimized Text'}
-              </h4>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleCopy}>
-                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied ? (lang === 'ru' ? 'Скопировано' : 'Copied') : (lang === 'ru' ? 'Копировать' : 'Copy')}
-              </Button>
+            <div className="flex items-center justify-between mb-4">
+              {/* View mode toggle */}
+              <div className="flex bg-secondary rounded-lg p-0.5">
+                <button
+                  onClick={() => setViewMode('preview')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    viewMode === 'preview' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" /> Предпросмотр
+                </button>
+                <button
+                  onClick={() => setViewMode('html')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    viewMode === 'html' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Code className="w-3.5 h-3.5" /> Код (HTML)
+                </button>
+              </div>
+
+              {/* Copy buttons */}
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleCopyHtml}>
+                  {copiedType === 'html' ? <Check className="w-3.5 h-3.5" /> : <Code className="w-3.5 h-3.5" />}
+                  {copiedType === 'html' ? 'Скопировано' : 'Copy HTML'}
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleCopyRich}>
+                  {copiedType === 'rich' ? <Check className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
+                  {copiedType === 'rich' ? 'Скопировано' : 'Copy Rich Text'}
+                </Button>
+              </div>
             </div>
-            <div className="max-h-[500px] overflow-y-auto rounded-lg bg-secondary/30 p-4">
-              <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
-                {result.optimizedText}
-              </pre>
+
+            {/* Content area */}
+            <div className="max-h-[600px] overflow-y-auto rounded-lg bg-secondary/20 p-6">
+              {viewMode === 'preview' ? (
+                <RichMarkdownPreview content={result.optimizedText} />
+              ) : (
+                <pre className="text-xs text-foreground/80 whitespace-pre-wrap font-mono leading-relaxed select-all">
+                  {htmlContent}
+                </pre>
+              )}
             </div>
           </div>
 
