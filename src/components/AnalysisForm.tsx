@@ -63,6 +63,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
       competitors: competitors.filter(c => c.trim()),
       aiContext,
       clusterMode,
+      projectId: projects[selectedProjectIdx]?.id,
     });
   };
 
