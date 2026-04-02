@@ -1,10 +1,12 @@
+import { useState, useEffect } from 'react';
 import { useLang } from '@/contexts/LangContext';
 import { AppHeader } from '@/components/AppHeader';
 import { ScoreGauge } from '@/components/ScoreGauge';
 import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code, Plus } from 'lucide-react';
+import { ArrowLeft, Code, Plus, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ReportPageProps {
   url: string;
@@ -12,47 +14,56 @@ interface ReportPageProps {
   onBack: () => void;
 }
 
-const scoresRu = [
-  { score: 48, label: 'SEO HEALTH', description: 'Страница имеет хорош...', color: 'hsl(25, 95%, 53%)' },
-  { score: 60, label: 'LLM-FRIENDLY', description: 'Наличие большого кол...', color: 'hsl(210, 100%, 52%)' },
-  { score: 65, label: 'HUMAN TOUCH', description: 'На странице упомина...', color: 'hsl(142, 71%, 45%)' },
-  { score: 55, label: 'SGE ADAPT', description: 'Страница имеет потен...', color: 'hsl(280, 67%, 55%)' },
+const scoreColors = [
+  'hsl(25, 95%, 53%)',
+  'hsl(210, 100%, 52%)',
+  'hsl(142, 71%, 45%)',
+  'hsl(280, 67%, 55%)',
 ];
+const scoreLabels = ['SEO HEALTH', 'LLM-FRIENDLY', 'HUMAN TOUCH', 'SGE ADAPT'];
 
-const modulesRu = [
-  { name: 'Go Parser', time: '2.1s', done: true },
-  { name: 'Код-аналитика', time: '8.4s', done: true },
-  { name: 'Semantic Relevance', time: '8.3s', done: true },
-  { name: 'Topical Authority', time: '11.2s', done: true },
-  { name: 'LLM Readiness', time: '6.7s', done: true },
-  { name: 'Content Recs', time: '9.1s', done: true },
-  { name: 'Technical Fixes', time: '5.8s', done: true },
-];
-
-const quickWinsRu = [
-  { text: 'Внедрить семантические теги <main> и <section> для улучшения структуры.' },
-  { text: 'Прописать осмысленные alt-тексты для всех 18 изображений.' },
-  { text: 'Заполнить и внедрить OpenGraph теги (og:title, og:description, og:image).' },
-  { text: 'Внедрить микроразметку Schema.org для LocalBusiness и Service.' },
-  { text: 'Переписать Title и Description, добавив УТП и гео-привязку.' },
-  { text: 'Разместить на видном месте номера телефонов и CTA-кнопку «Рассчитать стоимость».' },
-];
-
-export default function ReportPage({ url, onBack }: ReportPageProps) {
+export default function ReportPage({ url, analysisId, onBack }: ReportPageProps) {
   const { tr, lang } = useLang();
+  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<any>(null);
+
+  useEffect(() => {
+    if (!analysisId) { setLoading(false); return; }
+    const load = async () => {
+      const { data } = await supabase
+        .from('analysis_results')
+        .select('*')
+        .eq('analysis_id', analysisId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (data) setResults(data);
+      setLoading(false);
+    };
+    load();
+  }, [analysisId]);
+
+  const scores = results?.scores as any;
+  const scoreCards = scores ? [
+    { score: scores.seoHealth || 0, label: scoreLabels[0], description: '', color: scoreColors[0] },
+    { score: scores.llmFriendly || 0, label: scoreLabels[1], description: '', color: scoreColors[1] },
+    { score: scores.humanTouch || 0, label: scoreLabels[2], description: '', color: scoreColors[2] },
+    { score: scores.sgeAdapt || 0, label: scoreLabels[3], description: '', color: scoreColors[3] },
+  ] : scoreLabels.map((l, i) => ({ score: 0, label: l, description: '', color: scoreColors[i] }));
+
+  const modules = (results?.modules as any[]) || [];
+  const quickWins = (results?.quick_wins as any[]) || [];
+  const tabData = (results?.tab_data as any) || {};
 
   return (
     <div className="min-h-screen">
       <AppHeader />
-
       <main className="container py-6 space-y-6">
-        {/* Back button */}
         <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
           <ArrowLeft className="w-4 h-4" />
           {lang === 'ru' ? '← Назад' : '← Back'}
         </Button>
 
-        {/* URL bar */}
         <div className="flex items-center justify-between glass-card px-6 py-3">
           <div className="flex items-center gap-3">
             <span className="font-bold text-sm gradient-text">{tr.appName}</span>
@@ -73,30 +84,36 @@ export default function ReportPage({ url, onBack }: ReportPageProps) {
           </div>
         </div>
 
-        {/* Score cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {scoresRu.map((s, i) => (
-            <ScoreGauge key={i} {...s} />
-          ))}
-        </div>
-
-        {/* Content + sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
-          <div>
-            <ReportTabs />
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-          <div className="hidden lg:block">
-            <div className="sticky top-20">
-              <ReportSidebar
-                modules={modulesRu}
-                quickWins={quickWinsRu}
-                modulesTitle={lang === 'ru' ? 'СТАТУС МОДУЛЕЙ' : 'MODULE STATUS'}
-                readyLabel={lang === 'ru' ? 'ГОТОВО' : 'READY'}
-                quickWinsTitle="QUICK WINS"
-              />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {scoreCards.map((s, i) => (
+                <ScoreGauge key={i} {...s} />
+              ))}
             </div>
-          </div>
-        </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
+              <div>
+                <ReportTabs data={tabData} />
+              </div>
+              <div className="hidden lg:block">
+                <div className="sticky top-20">
+                  <ReportSidebar
+                    modules={modules}
+                    quickWins={quickWins}
+                    modulesTitle={lang === 'ru' ? 'СТАТУС МОДУЛЕЙ' : 'MODULE STATUS'}
+                    readyLabel={lang === 'ru' ? 'ГОТОВО' : 'READY'}
+                    quickWinsTitle="QUICK WINS"
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
