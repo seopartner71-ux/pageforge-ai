@@ -130,6 +130,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
       aiContext,
       clusterMode,
       projectId: projects[selectedProjectIdx]?.id,
+      region: region.trim(),
     });
   };
 
