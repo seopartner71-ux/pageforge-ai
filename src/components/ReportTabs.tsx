@@ -399,11 +399,11 @@ export function ReportTabs({ data = {} }: ReportTabsProps) {
     blueprint: () => <BlueprintTab data={data} />,
     tfidf: () => <TfidfTab data={data} />,
     ngrams: () => <NgramsTab data={data} />,
-    zipf: () => <ZipfTab />,
+    zipf: () => <ZipfTab data={data} />,
     images: () => <ImagesTab />,
     anchors: () => <AnchorsTab />,
     pageSpeed: () => <PageSpeedTab />,
-    stealth: () => <StealthTab />,
+    stealth: () => <StealthTab data={data} />,
   };
 
   return (
