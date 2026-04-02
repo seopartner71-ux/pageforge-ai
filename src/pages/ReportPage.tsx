@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface ReportPageProps {
   url: string;
+  analysisId?: string | null;
   onBack: () => void;
 }
 
