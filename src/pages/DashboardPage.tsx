@@ -101,6 +101,7 @@ export default function DashboardPage() {
         competitors: data.competitors,
         ai_context: data.aiContext,
         cluster_mode: data.clusterMode,
+        region: data.region,
         status: 'pending',
       })
       .select('id')
