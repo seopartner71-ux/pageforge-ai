@@ -351,17 +351,18 @@ Deno.serve(async (req) => {
     }
 
     // Define stages
-    const stages = [
-      { name: "Content Fetch", status: "pending" as const, time: "" },
-      { name: "HTML Parse (Images & Anchors)", status: "pending" as const, time: "" },
-      { name: "SERP & Competitors", status: "pending" as const, time: "" },
-      { name: "Competitor Fetch", status: "pending" as const, time: "" },
-      { name: "TF-IDF Engine", status: "pending" as const, time: "" },
-      { name: "Zipf's Law", status: "pending" as const, time: "" },
-      { name: "N-Grams & Topical Gap", status: "pending" as const, time: "" },
-      { name: "Technical Audit", status: "pending" as const, time: "" },
-      { name: "AI Analyst (GPT-4o)", status: "pending" as const, time: "" },
-      { name: "Save Results", status: "pending" as const, time: "" },
+    const stages: { name: string; status: "pending" | "running" | "done" | "error"; time: string }[] = [
+      { name: "Content Fetch", status: "pending", time: "" },
+      { name: "HTML Parse (Images & Anchors)", status: "pending", time: "" },
+      ...(clusterMode ? [{ name: "Semantic Cluster", status: "pending" as const, time: "" }] : []),
+      { name: "SERP & Competitors", status: "pending", time: "" },
+      { name: "Competitor Fetch", status: "pending", time: "" },
+      { name: "TF-IDF Engine", status: "pending", time: "" },
+      { name: "Zipf's Law", status: "pending", time: "" },
+      { name: "N-Grams & Topical Gap", status: "pending", time: "" },
+      { name: "Technical Audit", status: "pending", time: "" },
+      { name: "AI Analyst (GPT-4o)", status: "pending", time: "" },
+      { name: "Save Results", status: "pending", time: "" },
     ];
 
     const setStage = async (idx: number, status: "running" | "done" | "error", time?: string) => {
