@@ -1715,24 +1715,33 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
 
   return (
     <Tabs defaultValue="optimizer" className="w-full">
-      <div className="relative">
-      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-r from-background to-transparent" />
-      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-l from-background to-transparent" />
-      <TabsList className="w-full h-auto flex flex-nowrap gap-0.5 bg-secondary/50 p-1 rounded-xl overflow-x-auto scrollbar-hide">
-        {allTabKeys.map((key) => (
-          <TabsTrigger
-            key={key}
-            value={key}
-            className={`shrink-0 px-2.5 py-1.5 rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:border-b-2 data-[state=active]:border-primary text-muted-foreground text-[11px] font-medium transition-all whitespace-nowrap ${
-              key === 'optimizer' ? 'data-[state=active]:bg-primary/20 data-[state=active]:text-primary' : ''
-            }`}
-          >
-            {key === 'optimizer' && <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5 inline-block animate-pulse" />}
-            {key === 'aiReport' && <span className="w-1.5 h-1.5 rounded-full bg-accent mr-1.5 inline-block" />}
-            {labels[key as keyof typeof labels]}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      <div
+        className="relative"
+        onWheel={(e) => {
+          const el = e.currentTarget.querySelector('.tabs-scroll') as HTMLElement;
+          if (el) { el.scrollLeft += e.deltaY; e.preventDefault(); }
+        }}
+      >
+        <TabsList
+          className="tabs-scroll w-full h-auto flex flex-nowrap gap-0.5 bg-secondary/50 p-1 rounded-xl overflow-x-auto scrollbar-hide"
+          style={{ maskImage: 'linear-gradient(to right, black 85%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)' }}
+        >
+          {allTabKeys.map((key) => (
+            <TabsTrigger
+              key={key}
+              value={key}
+              className={`shrink-0 px-2 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-all
+                text-muted-foreground
+                data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm
+                data-[state=active]:border-b-2 data-[state=active]:border-primary
+                ${key === 'optimizer' ? 'data-[state=active]:bg-primary/20 data-[state=active]:text-primary' : ''}`}
+            >
+              {key === 'optimizer' && <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5 inline-block animate-pulse" />}
+              {key === 'aiReport' && <span className="w-1.5 h-1.5 rounded-full bg-accent mr-1.5 inline-block" />}
+              {labels[key as keyof typeof labels]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
       </div>
 
       <TabsContent value="optimizer" className="mt-6">
