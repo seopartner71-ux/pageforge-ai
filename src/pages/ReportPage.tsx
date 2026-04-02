@@ -98,7 +98,7 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
               <div>
-                <ReportTabs data={tabData} />
+                <ReportTabs data={tabData} analysisId={analysisId} />
               </div>
               <div className="hidden lg:block">
                 <div className="sticky top-20">
