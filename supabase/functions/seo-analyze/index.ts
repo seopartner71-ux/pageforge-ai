@@ -472,7 +472,7 @@ Deno.serve(async (req) => {
         const titleMatch = targetContent.match(/^#\s+(.+)$/m);
         const keyword = titleMatch?.[1]?.slice(0, 100) || url;
         console.log("Cluster SERP keyword:", keyword);
-        const cluster = await findClusterData(keyword, SERPER_KEY);
+        const cluster = await findClusterData(keyword, SERPER_KEY, region);
         const semanticCluster = [...new Set([...cluster.relatedSearches, ...cluster.peopleAlsoAsk])].slice(0, 30);
         clusterData = {
           semanticCluster,
