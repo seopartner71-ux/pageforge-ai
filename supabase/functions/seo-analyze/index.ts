@@ -497,7 +497,7 @@ Deno.serve(async (req) => {
       const titleMatch = targetContent.match(/^#\s+(.+)$/m);
       const keyword = titleMatch?.[1]?.slice(0, 100) || url;
       console.log("SERP keyword:", keyword);
-      competitorUrls = await findCompetitors(keyword, SERPER_KEY);
+      competitorUrls = await findCompetitors(keyword, SERPER_KEY, region);
       try { competitorUrls = competitorUrls.filter(u => !u.includes(new URL(url).hostname)); } catch {}
     }
     await setStage(si, "done", `${((Date.now() - t1) / 1000).toFixed(1)}s`);
