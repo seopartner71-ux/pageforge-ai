@@ -113,6 +113,52 @@ export default function PdfEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  /* ── Download test PDF ── */
+  const handleDownloadTestPdf = async () => {
+    setDownloading(true);
+    try {
+      // Find the latest analysis to use real data, or show placeholder
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      const { data: latestAnalysis } = await supabase
+        .from('analyses')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'done')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!latestAnalysis) {
+        toast.error(lang === 'ru' ? 'Нет завершённых анализов для экспорта' : 'No completed analyses to export');
+        return;
+      }
+
+      await downloadPdf({
+        analysisId: latestAnalysis.id,
+        lang,
+        template: {
+          theme: tpl.theme,
+          primary_color: tpl.primary_color,
+          accent_color: tpl.accent_color,
+          font_family: tpl.font_family,
+          font_sizes: tpl.font_sizes,
+          margins: tpl.margins,
+          logo_url: tpl.logo_url,
+          company_name: tpl.company_name,
+          enabled_sections: tpl.enabled_sections,
+          section_order: tpl.section_order,
+        },
+      });
+      toast.success(lang === 'ru' ? 'PDF открыт — используйте "Сохранить как PDF"' : 'PDF opened — use "Save as PDF"');
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   /* ── Load templates ── */
   useEffect(() => {
