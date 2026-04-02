@@ -32,7 +32,7 @@ interface AnalysisFormProps {
   credits?: number | null;
 }
 
-export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewProject }: AnalysisFormProps) {
+export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewProject, credits }: AnalysisFormProps) {
   const { tr } = useLang();
   const { toast } = useToast();
   const [url, setUrl] = useState('');
