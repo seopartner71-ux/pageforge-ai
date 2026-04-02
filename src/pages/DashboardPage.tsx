@@ -133,6 +133,7 @@ export default function DashboardPage() {
               pageType: data.pageType,
               competitors: data.competitors,
               aiContext: data.aiContext,
+              clusterMode: data.clusterMode,
               analysisId: analysis.id,
             }),
           }
