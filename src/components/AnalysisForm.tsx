@@ -55,6 +55,13 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   const [selectedProjectIdx, setSelectedProjectIdx] = useState(0);
   const [findingCompetitors, setFindingCompetitors] = useState(false);
   const [findSuccess, setFindSuccess] = useState(false);
+  const [region, setRegion] = useState('');
+  const [regionSearch, setRegionSearch] = useState('');
+  const [regionOpen, setRegionOpen] = useState(false);
+
+  const filteredRegions = regionSearch
+    ? REGIONS.filter(r => r.toLowerCase().includes(regionSearch.toLowerCase()))
+    : REGIONS;
 
   const addCompetitor = () => {
     if (competitors.length < 10) setCompetitors([...competitors, '']);
