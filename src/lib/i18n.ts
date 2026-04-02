@@ -1,0 +1,86 @@
+export type Lang = 'ru' | 'en';
+
+const translations = {
+  ru: {
+    appName: 'PageForge AI',
+    tagline: 'Оптимизируйте SEO с помощью ИИ',
+    login: 'Войти',
+    signup: 'Регистрация',
+    email: 'Email',
+    password: 'Пароль',
+    noAccount: 'Нет аккаунта?',
+    hasAccount: 'Уже есть аккаунт?',
+    enterUrl: 'Введите URL страницы для анализа',
+    analyze: 'Анализировать',
+    analyzing: 'Анализируем...',
+    logout: 'Выйти',
+    dashboard: 'Дашборд',
+    tabs: {
+      aiReport: 'ИИ-отчёт',
+      priorities: 'Приоритеты',
+      blueprint: 'Golden Blueprint',
+      tfidf: 'TF-IDF',
+      ngrams: 'N-grams',
+      stealth: 'Stealth',
+      pdf: 'PDF Report',
+    },
+    placeholders: {
+      aiReport: 'ИИ-анализ вашей страницы появится здесь после запуска проверки.',
+      priorities: 'Список приоритетных задач для оптимизации будет сформирован на основе анализа.',
+      blueprint: 'Идеальная структура страницы на основе конкурентного анализа.',
+      tfidf: 'Анализ плотности ключевых слов по методу TF-IDF.',
+      ngrams: 'Частотный анализ словосочетаний (N-gram) на вашей странице.',
+      stealth: 'Скрытые факторы оптимизации и технический аудит.',
+      pdf: 'Сгенерируйте подробный PDF-отчёт для клиента или команды.',
+    },
+    urlRequired: 'Введите URL для начала анализа',
+    recentAnalyses: 'Последние анализы',
+    noAnalyses: 'Нет анализов. Введите URL выше, чтобы начать.',
+    score: 'Оценка',
+    date: 'Дата',
+  },
+  en: {
+    appName: 'PageForge AI',
+    tagline: 'AI-powered SEO optimization',
+    login: 'Sign In',
+    signup: 'Sign Up',
+    email: 'Email',
+    password: 'Password',
+    noAccount: "Don't have an account?",
+    hasAccount: 'Already have an account?',
+    enterUrl: 'Enter page URL to analyze',
+    analyze: 'Analyze',
+    analyzing: 'Analyzing...',
+    logout: 'Sign Out',
+    dashboard: 'Dashboard',
+    tabs: {
+      aiReport: 'AI Report',
+      priorities: 'Priorities',
+      blueprint: 'Golden Blueprint',
+      tfidf: 'TF-IDF',
+      ngrams: 'N-grams',
+      stealth: 'Stealth',
+      pdf: 'PDF Report',
+    },
+    placeholders: {
+      aiReport: 'AI analysis of your page will appear here after running the check.',
+      priorities: 'Priority task list will be generated based on the analysis.',
+      blueprint: 'Ideal page structure based on competitive analysis.',
+      tfidf: 'Keyword density analysis using TF-IDF method.',
+      ngrams: 'N-gram frequency analysis of your page content.',
+      stealth: 'Hidden optimization factors and technical audit.',
+      pdf: 'Generate a detailed PDF report for your client or team.',
+    },
+    urlRequired: 'Enter a URL to start analysis',
+    recentAnalyses: 'Recent Analyses',
+    noAnalyses: 'No analyses yet. Enter a URL above to get started.',
+    score: 'Score',
+    date: 'Date',
+  },
+} as const;
+
+export type Translations = typeof translations['en'];
+
+export function t(lang: Lang): Translations {
+  return translations[lang] as Translations;
+}
