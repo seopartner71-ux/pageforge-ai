@@ -1,10 +1,11 @@
 import { useLang } from '@/contexts/LangContext';
 import { LangToggle } from '@/components/LangToggle';
 import { Button } from '@/components/ui/button';
-import { Zap, LogOut } from 'lucide-react';
+import { Zap, LogOut, Shield } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { NavLink } from '@/components/NavLink';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAdminRole } from '@/hooks/useAdminRole';
 
 export function AppHeader() {
   const { tr } = useLang();
