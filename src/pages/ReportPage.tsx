@@ -182,6 +182,22 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
                 {activeTpl.name}
               </span>
             )}
+            {/* Share button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5"
+              onClick={handleShare}
+              disabled={shareLoading}
+            >
+              {shareLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : shareCopied ? <Check className="w-3 h-3 text-green-500" /> : shareToken ? <Link className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+              {shareCopied
+                ? (lang === 'ru' ? 'Скопировано!' : 'Copied!')
+                : shareToken
+                  ? (lang === 'ru' ? 'Копировать ссылку' : 'Copy Link')
+                  : (lang === 'ru' ? 'Поделиться' : 'Share')}
+            </Button>
+
             <Button variant="outline" size="sm" className="text-xs gap-1.5">
               <Code className="w-3 h-3" />
               {lang === 'ru' ? 'Посмотреть JSON' : 'View JSON'}
