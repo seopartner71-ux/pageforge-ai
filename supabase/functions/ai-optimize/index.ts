@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { analysisId, generateTable, currentText } = await req.json();
+    const { analysisId, generateTable, currentText, stealthMode } = await req.json();
     if (!analysisId) {
       return new Response(JSON.stringify({ error: "analysisId required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
