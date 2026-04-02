@@ -45,20 +45,124 @@ interface TabDataProps {
 /* ─────────── AI Report Tab ─────────── */
 
 function AiReportTab({ data }: TabDataProps) {
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const report = data?.aiReport;
+  const audit = data?.technicalAudit;
+  const bp = data?.blueprint;
   if (!report) return <p className="text-muted-foreground text-sm">Нет данных для отображения.</p>;
+
+  const copyCode = (code: string, id: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(id);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  // Generate JSON-LD from blueprint data
+  const jsonLd = bp ? JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": bp.metaTitle || bp.h1 || "",
+    "description": bp.metaDescription || "",
+    "mainEntity": {
+      "@type": "Article",
+      "headline": bp.h1 || "",
+      "description": bp.metaDescription || "",
+    }
+  }, null, 2) : '';
+
+  const ogTags = bp ? `<meta property="og:title" content="${bp.metaTitle || ''}" />\n<meta property="og:description" content="${bp.metaDescription || ''}" />\n<meta property="og:type" content="website" />\n<meta name="twitter:card" content="summary_large_image" />\n<meta name="twitter:title" content="${bp.metaTitle || ''}" />\n<meta name="twitter:description" content="${bp.metaDescription || ''}" />` : '';
+
+  const semanticHtml = bp?.sections ? `<main>\n  <article>\n    <h1>${bp.h1 || 'Заголовок'}</h1>\n${bp.sections.map((s: any) => `    <section>\n      <${s.tag || 'h2'}>${s.text}</${s.tag || 'h2'}>\n      <p><!-- ${s.wordCount || 200} слов --></p>\n    </section>`).join('\n')}\n  </article>\n</main>` : '';
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <h2 className="text-lg font-bold text-foreground">Сводный ИИ-отчёт</h2>
+        <h2 className="text-lg font-bold text-foreground">Глубокий SEO-аудит</h2>
         <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-accent/20 text-accent">ИИ-анализ</span>
       </div>
+
+      {/* Summary */}
       {report.summary && (
         <div className="border-l-2 border-border pl-4">
           <p className="text-sm text-muted-foreground whitespace-pre-line">{report.summary}</p>
         </div>
       )}
+
+      {/* Technical Analysis Block */}
+      {audit && (
+        <div className="glass-card p-5">
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-primary" /> Технический анализ
+          </h3>
+          <div className="space-y-3">
+            {[
+              { issue: `H1 тегов: ${audit.h1Count}`, impact: audit.h1Count !== 1 ? 'Высокое' : 'Нет', rec: audit.h1Count !== 1 ? 'Убедитесь, что на странице ровно 1 тег H1' : 'OK — ровно 1 H1', ok: audit.h1Count === 1 },
+              { issue: `Изображений без alt: ${audit.imagesWithoutAlt}`, impact: audit.imagesWithoutAlt > 0 ? 'Среднее' : 'Нет', rec: audit.imagesWithoutAlt > 0 ? 'Добавьте описательные alt-атрибуты' : 'OK — все с alt', ok: audit.imagesWithoutAlt === 0 },
+              { issue: `JSON-LD: ${audit.hasJsonLd ? 'Есть' : 'Нет'}`, impact: !audit.hasJsonLd ? 'Высокое' : 'Нет', rec: !audit.hasJsonLd ? 'Добавьте структурированную разметку Schema.org' : 'OK', ok: audit.hasJsonLd },
+              { issue: `OpenGraph: ${audit.hasOpenGraph ? 'Есть' : 'Нет'}`, impact: !audit.hasOpenGraph ? 'Среднее' : 'Нет', rec: !audit.hasOpenGraph ? 'Добавьте OG-теги для соцсетей' : 'OK', ok: audit.hasOpenGraph },
+            ].map((row, i) => (
+              <div key={i} className={`flex items-start gap-4 p-3 rounded-lg ${row.ok ? 'bg-accent/5' : 'bg-destructive/5 border-l-2 border-destructive'}`}>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">{row.issue}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Рекомендация: {row.rec}</p>
+                </div>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${row.ok ? 'bg-accent/20 text-accent' : 'bg-destructive/20 text-destructive'}`}>
+                  {row.impact}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* E-E-A-T & Content */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-accent" /> Контент и E-E-A-T
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {report.strengths?.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-accent uppercase">Сильные стороны</span>
+              {report.strengths.map((s: string, i: number) => (
+                <div key={i} className="p-2 rounded bg-accent/5 text-sm text-foreground">✓ {s}</div>
+              ))}
+            </div>
+          )}
+          {report.weaknesses?.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-destructive uppercase">Слабые стороны</span>
+              {report.weaknesses.map((w: string, i: number) => (
+                <div key={i} className="p-2 rounded bg-destructive/5 text-sm text-foreground">✕ {w}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SGE / BERT Adaptation */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Globe className="w-4 h-4 text-primary" /> Адаптация под SGE и AI Overviews
+        </h3>
+        {report.geoScore !== undefined && (
+          <div className="flex items-center gap-4 mb-4">
+            <span className="text-sm text-foreground font-medium">GEO Score</span>
+            <Progress value={report.geoScore} className="flex-1 h-2" />
+            <span className="text-sm font-bold text-accent">{report.geoScore}/100</span>
+          </div>
+        )}
+        {report.sgeReadiness && <p className="text-sm text-foreground">{report.sgeReadiness}</p>}
+        {report.recommendations?.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {report.recommendations.map((r: string, i: number) => (
+              <div key={i} className="p-2 rounded bg-primary/5 text-sm text-foreground">→ {r}</div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Missing Entities */}
       {report.missingEntities?.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Missing Entities (Topical Gap)</h3>
@@ -69,46 +173,53 @@ function AiReportTab({ data }: TabDataProps) {
           </div>
         </div>
       )}
-      {report.geoScore !== undefined && (
-        <div className="glass-card p-4 flex items-center gap-4">
-          <span className="text-sm text-foreground font-medium">GEO Score</span>
-          <Progress value={report.geoScore} className="flex-1 h-2" />
-          <span className="text-sm font-bold text-accent">{report.geoScore}/100</span>
-        </div>
-      )}
-      {report.sgeReadiness && (
-        <div className="glass-card p-4">
-          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">SGE / AI Overviews Ready</span>
-          <p className="text-sm text-foreground mt-1">{report.sgeReadiness}</p>
-        </div>
-      )}
-      {report.strengths?.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold text-accent uppercase tracking-wider mb-2">Сильные стороны</h3>
-          <div className="space-y-2">
-            {report.strengths.map((s: string, i: number) => (
-              <div key={i} className="glass-card p-3"><p className="text-sm text-foreground">✓ {s}</p></div>
-            ))}
-          </div>
-        </div>
-      )}
-      {report.weaknesses?.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold text-destructive uppercase tracking-wider mb-2">Слабые стороны</h3>
-          <div className="space-y-2">
-            {report.weaknesses.map((w: string, i: number) => (
-              <div key={i} className="glass-card p-3"><p className="text-sm text-foreground">✕ {w}</p></div>
-            ))}
-          </div>
-        </div>
-      )}
-      {report.recommendations?.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Рекомендации</h3>
-          <div className="space-y-2">
-            {report.recommendations.map((r: string, i: number) => (
-              <div key={i} className="glass-card p-3"><p className="text-sm text-foreground">→ {r}</p></div>
-            ))}
+
+      {/* Code Generator: Техзадание */}
+      {bp && (
+        <div className="glass-card p-5">
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Code className="w-4 h-4 text-primary" /> Техзадание (Code Generator)
+          </h3>
+          <div className="space-y-4">
+            {/* Semantic HTML */}
+            {semanticHtml && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Семантическая структура</span>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => copyCode(semanticHtml, 'semantic')}>
+                    {copiedCode === 'semantic' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    {copiedCode === 'semantic' ? 'Скопировано' : 'Копировать'}
+                  </Button>
+                </div>
+                <pre className="text-xs font-mono text-foreground/70 bg-secondary/30 p-3 rounded-md overflow-x-auto whitespace-pre max-h-48">{semanticHtml}</pre>
+              </div>
+            )}
+            {/* JSON-LD */}
+            {jsonLd && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">JSON-LD Микроразметка</span>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => copyCode(`<script type="application/ld+json">\n${jsonLd}\n</script>`, 'jsonld')}>
+                    {copiedCode === 'jsonld' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    {copiedCode === 'jsonld' ? 'Скопировано' : 'Копировать'}
+                  </Button>
+                </div>
+                <pre className="text-xs font-mono text-foreground/70 bg-secondary/30 p-3 rounded-md overflow-x-auto whitespace-pre max-h-48">{`<script type="application/ld+json">\n${jsonLd}\n</script>`}</pre>
+              </div>
+            )}
+            {/* OG Tags */}
+            {ogTags && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">OpenGraph & Twitter Cards</span>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => copyCode(ogTags, 'og')}>
+                    {copiedCode === 'og' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    {copiedCode === 'og' ? 'Скопировано' : 'Копировать'}
+                  </Button>
+                </div>
+                <pre className="text-xs font-mono text-foreground/70 bg-secondary/30 p-3 rounded-md overflow-x-auto whitespace-pre">{ogTags}</pre>
+              </div>
+            )}
           </div>
         </div>
       )}
