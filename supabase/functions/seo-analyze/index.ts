@@ -25,8 +25,26 @@ const STOP_WORDS = new Set([
   "our","you","your","he","him","his","she","her","they","them","their","what","which","who",
 ]);
 
+// ─── Technical blacklist: protocols, TLDs, URL paths, nav junk ───
+const TECH_BLACKLIST = new Set([
+  // Protocols & subdomains
+  "www","http","https","ftp","mailto",
+  // Domain zones
+  "com","ru","net","org","info","by","kz","ua","su","рф","biz","pro","edu","gov","io","dev","app","me",
+  // Technical URL path segments
+  "index","php","html","htm","aspx","asp","cgi","bin","xml","json","css","jsp","action","api","wp",
+  // CMS / tech fragments
+  "wordpress","joomla","bitrix","modx","noindex","nofollow","utm","source","medium","campaign","content","ref",
+  // Common nav junk (transliterated Russian)
+  "glavnaya","page","nashi","vse","eto","stranica","razdel","katalog","category","tag","archive",
+]);
+
+// Regex to strip full URLs, email addresses, and URL-like fragments before tokenization
+const URL_STRIP_RE = /https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9-]+\.(ru|com|net|org|info|by|kz|ua|html|php|aspx|htm)\b/gi;
+
 function tokenize(text: string): string[] {
-  return text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+  const cleaned = text.toLowerCase().replace(URL_STRIP_RE, " ").replace(/[^\p{L}\p{N}\s]/gu, " ");
+  return cleaned.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w) && !TECH_BLACKLIST.has(w));
 }
 
 // ─── Progress helper ───
