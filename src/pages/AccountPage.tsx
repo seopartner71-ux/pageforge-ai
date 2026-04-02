@@ -19,9 +19,18 @@ export default function AccountPage() {
   const [brandSaving, setBrandSaving] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setEmail(data.user.email || '');
-    });
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setEmail(user.email || '');
+        const { data: profile } = await supabase.from('profiles').select('company_name, logo_url').eq('user_id', user.id).maybeSingle();
+        if (profile) {
+          setCompanyName((profile as any).company_name || '');
+          setLogoUrl((profile as any).logo_url || '');
+        }
+      }
+    };
+    load();
   }, []);
 
   const handleChangePassword = async () => {
