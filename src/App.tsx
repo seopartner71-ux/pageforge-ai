@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -13,6 +13,7 @@ import DashboardPage from "./pages/DashboardPage.tsx";
 import HistoryPage from "./pages/HistoryPage.tsx";
 import AccountPage from "./pages/AccountPage.tsx";
 import PdfEditorPage from "./pages/PdfEditorPage.tsx";
+import ReportRouterPage from "./pages/ReportRouterPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<AuthGate><DashboardPage /></AuthGate>} />
             <Route path="/history" element={<AuthGate><HistoryPage /></AuthGate>} />
+            <Route path="/report/:id" element={<AuthGate><ReportRouterPage /></AuthGate>} />
             <Route path="/account" element={<AuthGate><AccountPage /></AuthGate>} />
             <Route path="/pdf-editor" element={<AuthGate><PdfEditorPage /></AuthGate>} />
             <Route path="*" element={<NotFound />} />
