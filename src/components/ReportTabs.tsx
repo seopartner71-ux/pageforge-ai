@@ -260,42 +260,88 @@ function PrioritiesTab({ data }: TabDataProps) {
   );
 }
 
-/* ─────────── Blueprint Tab ─────────── */
+/* ─────────── Blueprint Tab (Enhanced with hierarchy) ─────────── */
 
 function BlueprintTab({ data }: TabDataProps) {
   const bp = data?.blueprint;
   if (!bp) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
 
+  const blocks = [
+    { icon: '🏗️', title: 'Основной блок', desc: 'Hero + H1 + ключевое УТП', sections: bp.sections?.filter((s: any) => s.tag === 'h2')?.slice(0, 3) },
+    { icon: '🏆', title: 'Блок авторитетности', desc: 'E-E-A-T: Отзывы, сертификаты, экспертиза', sections: bp.requiredBlocks?.filter((b: string) => /отзыв|серт|экспер|автор/i.test(b)) },
+    { icon: '❓', title: 'FAQ (6+ вопросов)', desc: 'Блок вопросов для SGE и PAA', sections: bp.requiredBlocks?.filter((b: string) => /FAQ|вопрос/i.test(b)) },
+    { icon: '💡', title: 'Идеи для новых страниц', desc: 'Расширение семантического ядра', sections: bp.sections?.filter((s: any) => s.tag === 'h3')?.slice(0, 5) },
+  ];
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold text-foreground">Golden Source Blueprint</h2>
-      <p className="text-sm text-muted-foreground">Идеальная структура страницы на основе AI-анализа.</p>
+      <p className="text-sm text-muted-foreground">Визуальная иерархия идеальной структуры страницы.</p>
 
-      {bp.metaTitle && (
-        <div className="glass-card p-4 space-y-2">
-          <span className="px-2 py-1 rounded text-[10px] font-mono font-bold bg-secondary text-accent">TITLE</span>
-          <p className="text-sm text-foreground">{bp.metaTitle}</p>
+      {/* Meta tags */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {bp.metaTitle && (
+          <div className="glass-card p-4 space-y-1">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-secondary text-accent">TITLE ({bp.metaTitle.length} зн.)</span>
+            <p className="text-sm text-foreground">{bp.metaTitle}</p>
+          </div>
+        )}
+        {bp.metaDescription && (
+          <div className="glass-card p-4 space-y-1">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-secondary text-accent">DESC ({bp.metaDescription.length} зн.)</span>
+            <p className="text-sm text-foreground">{bp.metaDescription}</p>
+          </div>
+        )}
+        {bp.h1 && (
+          <div className="glass-card p-4 space-y-1">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-secondary text-accent">H1</span>
+            <p className="text-sm text-foreground">{bp.h1}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Visual hierarchy blocks */}
+      <div className="space-y-3">
+        {blocks.map((block, i) => (
+          <div key={i} className="glass-card p-4 border-l-2 border-primary/40">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-xl">{block.icon}</span>
+              <div>
+                <p className="text-sm font-bold text-foreground">{block.title}</p>
+                <p className="text-xs text-muted-foreground">{block.desc}</p>
+              </div>
+            </div>
+            {block.sections?.length > 0 && (
+              <div className="ml-8 space-y-1 mt-2">
+                {block.sections.map((s: any, j: number) => (
+                  <div key={j} className="flex items-center gap-2 text-xs text-foreground/80 hover:text-primary cursor-pointer transition-colors">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                    {typeof s === 'string' ? s : s.text}
+                    {s.wordCount && <span className="text-muted-foreground ml-auto">~{s.wordCount} сл.</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Full sections list */}
+      {bp.sections?.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-accent uppercase tracking-wider mb-3 mt-4">Полная структура контента</h3>
+          {bp.sections.map((s: any, i: number) => (
+            <div key={i} className="glass-card p-3 mb-1.5 flex items-center gap-3">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${s.tag === 'h2' ? 'bg-primary/20 text-primary' : 'bg-secondary text-muted-foreground'}`}>
+                {s.tag?.toUpperCase() || 'H2'}
+              </span>
+              <span className="text-sm text-foreground flex-1">{s.text}</span>
+              {s.wordCount && <span className="text-xs text-muted-foreground shrink-0">~{s.wordCount} сл.</span>}
+            </div>
+          ))}
         </div>
       )}
-      {bp.metaDescription && (
-        <div className="glass-card p-4 space-y-2">
-          <span className="px-2 py-1 rounded text-[10px] font-mono font-bold bg-secondary text-accent">META DESC</span>
-          <p className="text-sm text-foreground">{bp.metaDescription}</p>
-        </div>
-      )}
-      {bp.h1 && (
-        <div className="glass-card p-4 space-y-2">
-          <span className="px-2 py-1 rounded text-[10px] font-mono font-bold bg-secondary text-accent">H1</span>
-          <p className="text-sm text-foreground">{bp.h1}</p>
-        </div>
-      )}
-      {bp.sections?.map((s: any, i: number) => (
-        <div key={i} className="glass-card p-4 flex items-center gap-4">
-          <span className="px-2 py-1 rounded text-[10px] font-mono font-bold bg-secondary text-accent shrink-0">{s.tag?.toUpperCase() || 'H2'}</span>
-          <span className="text-sm text-foreground flex-1">{s.text}</span>
-          {s.wordCount && <span className="text-xs text-muted-foreground shrink-0">~{s.wordCount} слов</span>}
-        </div>
-      ))}
+
       {bp.requiredBlocks?.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-accent uppercase tracking-wider mb-2 mt-4">Обязательные блоки</h3>
