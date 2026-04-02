@@ -400,19 +400,19 @@ Deno.serve(async (req) => {
 
     // Use a dynamic stage index counter since cluster mode adds an extra stage
     let si = 2;
+    let competitorUrls: string[] = (manualComp || []).filter((c: string) => c.trim());
+    const SERPER_KEY = dbKeys["serper_api_key"] || Deno.env.get("SERPER_API_KEY");
 
     // ── Cluster: Semantic Cluster collection ──
     let clusterData: { semanticCluster: string[]; relatedSearches: string[]; peopleAlsoAsk: string[]; competitorHeadings: string[] } | null = null;
     if (clusterMode) {
       await setStage(si, "running");
       const tCluster = Date.now();
-      const SERPER_KEY = dbKeys["serper_api_key"] || Deno.env.get("SERPER_API_KEY");
       if (SERPER_KEY) {
         const titleMatch = targetContent.match(/^#\s+(.+)$/m);
         const keyword = titleMatch?.[1]?.slice(0, 100) || url;
         console.log("Cluster SERP keyword:", keyword);
         const cluster = await findClusterData(keyword, SERPER_KEY);
-        // Build semantic cluster from related + PAA
         const semanticCluster = [...new Set([...cluster.relatedSearches, ...cluster.peopleAlsoAsk])].slice(0, 30);
         clusterData = {
           semanticCluster,
@@ -420,8 +420,7 @@ Deno.serve(async (req) => {
           peopleAlsoAsk: cluster.peopleAlsoAsk,
           competitorHeadings: [],
         };
-        // Use cluster competitors if no manual ones
-        if ((manualComp || []).filter((c: string) => c.trim()).length === 0) {
+        if (competitorUrls.length === 0) {
           competitorUrls = cluster.competitors;
           try { competitorUrls = competitorUrls.filter(u => !u.includes(new URL(url).hostname)); } catch {}
         }
@@ -432,16 +431,14 @@ Deno.serve(async (req) => {
 
     // ── SERP & Competitors ──
     await setStage(si, "running");
-    let competitorUrls2: string[] = competitorUrls.length > 0 ? competitorUrls : (manualComp || []).filter((c: string) => c.trim());
-    const SERPER_KEY = dbKeys["serper_api_key"] || Deno.env.get("SERPER_API_KEY");
     const t1 = Date.now();
 
-    if (competitorUrls2.length === 0 && SERPER_KEY) {
+    if (competitorUrls.length === 0 && SERPER_KEY) {
       const titleMatch = targetContent.match(/^#\s+(.+)$/m);
       const keyword = titleMatch?.[1]?.slice(0, 100) || url;
       console.log("SERP keyword:", keyword);
-      competitorUrls2 = await findCompetitors(keyword, SERPER_KEY);
-      try { competitorUrls2 = competitorUrls2.filter(u => !u.includes(new URL(url).hostname)); } catch {}
+      competitorUrls = await findCompetitors(keyword, SERPER_KEY);
+      try { competitorUrls = competitorUrls.filter(u => !u.includes(new URL(url).hostname)); } catch {}
     }
     await setStage(si, "done", `${((Date.now() - t1) / 1000).toFixed(1)}s`);
     si++;
