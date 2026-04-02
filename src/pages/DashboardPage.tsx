@@ -152,8 +152,15 @@ export default function DashboardPage() {
     fireAnalysis();
   };
 
-  const handleAnalysisComplete = useCallback(() => {
+  const handleAnalysisComplete = useCallback(async () => {
     if (pendingAnalysisId && pendingAnalysisUrl) {
+      // Deduct 1 credit
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && credits !== null) {
+        const newCredits = Math.max(0, credits - 1);
+        await supabase.from('profiles').update({ credits: newCredits }).eq('user_id', user.id);
+        setCredits(newCredits);
+      }
       setAnalysisId(pendingAnalysisId);
       setAnalyzedUrl(pendingAnalysisUrl);
       setPendingAnalysisId(null);
@@ -161,7 +168,7 @@ export default function DashboardPage() {
       setLoading(false);
       toast({ title: `Анализ завершён` });
     }
-  }, [pendingAnalysisId, pendingAnalysisUrl, toast]);
+  }, [pendingAnalysisId, pendingAnalysisUrl, toast, credits]);
 
   if (analyzedUrl) {
     return <ReportPage url={analyzedUrl} analysisId={analysisId} onBack={() => { setAnalyzedUrl(null); setAnalysisId(null); }} />;
