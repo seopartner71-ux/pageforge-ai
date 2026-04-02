@@ -25,6 +25,8 @@ interface AnalysisFormProps {
     clusterMode: boolean;
   }) => void;
   loading: boolean;
+  projects?: { name: string; domain: string }[];
+  onNewProject?: () => void;
 }
 
 export function AnalysisForm({ onStartAnalysis, loading }: AnalysisFormProps) {
