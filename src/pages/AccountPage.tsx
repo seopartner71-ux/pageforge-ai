@@ -14,6 +14,9 @@ export default function AccountPage() {
   const [newPassword, setNewPassword] = useState('');
   const [openrouterKey, setOpenrouterKey] = useState('');
   const [saving, setSaving] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [brandSaving, setBrandSaving] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
