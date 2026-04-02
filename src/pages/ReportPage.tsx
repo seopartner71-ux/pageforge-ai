@@ -27,6 +27,36 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   const { tr, lang } = useLang();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleExportPdf = async () => {
+    if (!analysisId) return;
+    setPdfLoading(true);
+    try {
+      const tpl = await getActiveTemplate();
+      await downloadPdf({
+        analysisId,
+        lang,
+        template: tpl ? {
+          theme: tpl.theme,
+          primary_color: tpl.primary_color,
+          accent_color: tpl.accent_color,
+          font_family: tpl.font_family,
+          font_sizes: tpl.font_sizes,
+          margins: tpl.margins,
+          logo_url: tpl.logo_url,
+          company_name: tpl.company_name,
+          enabled_sections: tpl.enabled_sections,
+          section_order: tpl.section_order,
+        } : undefined,
+      });
+    } catch (err: any) {
+      const { toast } = await import('sonner');
+      toast.error(err.message);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!analysisId) { setLoading(false); return; }
