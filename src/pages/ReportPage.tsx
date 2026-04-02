@@ -1,11 +1,10 @@
 import { useLang } from '@/contexts/LangContext';
-import { LangToggle } from '@/components/LangToggle';
+import { AppHeader } from '@/components/AppHeader';
 import { ScoreGauge } from '@/components/ScoreGauge';
 import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Zap, LogOut, Code, Plus } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft, Code, Plus } from 'lucide-react';
 
 interface ReportPageProps {
   url: string;
@@ -42,38 +41,9 @@ const quickWinsRu = [
 export default function ReportPage({ url, onBack }: ReportPageProps) {
   const { tr, lang } = useLang();
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="container flex items-center justify-between h-14">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg btn-gradient flex items-center justify-center">
-                <Zap className="w-3.5 h-3.5" />
-              </div>
-              <span className="font-bold gradient-text">{tr.appName}</span>
-              <span className="text-xs text-muted-foreground hidden sm:inline">{tr.subtitle}</span>
-            </div>
-            <nav className="hidden md:flex items-center gap-6">
-              <a href="#" className="text-sm font-medium text-foreground border-b-2 border-primary pb-0.5">{tr.nav.analysis}</a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{tr.nav.history}</a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{tr.nav.account}</a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{tr.nav.pdfEditor}</a>
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <LangToggle />
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="container py-6 space-y-6">
         {/* Back button */}
