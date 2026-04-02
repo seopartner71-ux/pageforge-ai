@@ -4,6 +4,7 @@ import { useLang } from '@/contexts/LangContext';
 import { LangToggle } from '@/components/LangToggle';
 import { AnalysisForm } from '@/components/AnalysisForm';
 import { ChecklistSidebar } from '@/components/ChecklistSidebar';
+import ReportPage from '@/pages/ReportPage';
 import { Button } from '@/components/ui/button';
 import { Zap, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -12,18 +13,26 @@ export default function DashboardPage() {
   const { tr } = useLang();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [analyzedUrl, setAnalyzedUrl] = useState<string | null>(null);
 
   const handleStartAnalysis = (data: any) => {
     setLoading(true);
+    // Simulate analysis
     setTimeout(() => {
       setLoading(false);
-      toast({ title: `Анализ запущен: ${data.url}` });
-    }, 2000);
+      setAnalyzedUrl(data.url);
+      toast({ title: `Анализ завершён: ${data.url}` });
+    }, 2500);
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
+
+  // Show report page
+  if (analyzedUrl) {
+    return <ReportPage url={analyzedUrl} onBack={() => setAnalyzedUrl(null)} />;
+  }
 
   return (
     <div className="min-h-screen">
@@ -57,7 +66,6 @@ export default function DashboardPage() {
       {/* Main */}
       <main className="container py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
-          {/* Left column */}
           <div className="space-y-2">
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-foreground whitespace-pre-line leading-tight">
@@ -68,8 +76,6 @@ export default function DashboardPage() {
             </div>
             <AnalysisForm onStartAnalysis={handleStartAnalysis} loading={loading} />
           </div>
-
-          {/* Right sidebar */}
           <div className="hidden lg:block">
             <div className="sticky top-20">
               <ChecklistSidebar />
