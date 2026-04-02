@@ -7,7 +7,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Settings, Users, BarChart3, Save, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Settings, Users, BarChart3, Save, Loader2, Eye, EyeOff, ScrollText } from 'lucide-react';
 
 interface ApiSetting {
   id: string;
