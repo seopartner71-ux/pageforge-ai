@@ -29,7 +29,7 @@ interface AnalysisFormProps {
   onNewProject?: () => void;
 }
 
-export function AnalysisForm({ onStartAnalysis, loading }: AnalysisFormProps) {
+export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewProject }: AnalysisFormProps) {
   const { tr } = useLang();
   const [url, setUrl] = useState('');
   const [pageType, setPageType] = useState('');
