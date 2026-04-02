@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useLang } from '@/contexts/LangContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Wand2, Copy, Check, Loader2, Code, Eye, FileText, CheckCircle2, XCircle, List, Table2, HelpCircle, Tags, Heading, Image, Link2, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Wand2, Copy, Check, Loader2, Code, Eye, FileText, CheckCircle2, XCircle, List, Table2, HelpCircle, Tags, Heading, Image, Link2, ExternalLink, AlertTriangle, Plus, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -843,7 +844,7 @@ function markdownToHtml(md: string): string {
 
 /* ─────────── Content Checklist Badges ─────────── */
 
-function ContentChecklist({ text, checklist }: { text: string; checklist?: any }) {
+function ContentChecklist({ text, checklist, onGenerateTable }: { text: string; checklist?: any; onGenerateTable?: () => void }) {
   const checks = useMemo(() => {
     const t = text || '';
     return {
@@ -864,21 +865,36 @@ function ContentChecklist({ text, checklist }: { text: string; checklist?: any }
   ];
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {items.map(({ key, icon: Icon, label, ok }) => (
-        <div
-          key={key}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${
-            ok
-              ? 'bg-accent/10 text-accent border-accent/20'
-              : 'bg-destructive/10 text-destructive border-destructive/20'
-          }`}
-        >
-          {ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-          <Icon className="w-3.5 h-3.5" />
-          {label}
-        </div>
-      ))}
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {items.map(({ key, icon: Icon, label, ok }) => (
+          <div
+            key={key}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${
+              ok
+                ? 'bg-accent/10 text-accent border-accent/20'
+                : 'bg-destructive/10 text-destructive border-destructive/20'
+            }`}
+          >
+            {ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+            {key === 'hasTable' && !ok && onGenerateTable && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onGenerateTable(); }}
+                className="ml-1 px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors text-[10px] font-bold"
+              >
+                + Добавить
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      {!checks.hasTable && (
+        <p className="text-xs text-muted-foreground italic">
+          💡 Таблицы повышают шанс попадания в Google SGE на 40%. Рекомендуем добавить прайс-лист или характеристики.
+        </p>
+      )}
     </div>
   );
 }
@@ -905,6 +921,53 @@ function RichMarkdownPreview({ content }: { content: string }) {
   );
 }
 
+/* ─────────── Table Type Modal ─────────── */
+
+const TABLE_TYPES = [
+  { id: 'extract', icon: '📊', label: 'Извлечь данные из текста', desc: 'Цены, характеристики, этапы из вашего контента' },
+  { id: 'compare', icon: '⚔️', label: 'Сравнение с конкурентами', desc: 'На основе данных ТОП-10 конкурентов' },
+  { id: 'pricelist', icon: '💰', label: 'Шаблон: Прайс-лист', desc: 'Структурированная таблица цен на услуги' },
+  { id: 'proscons', icon: '⚖️', label: 'Шаблон: Плюсы и минусы', desc: 'Сравнительная таблица преимуществ и недостатков' },
+] as const;
+
+function TableTypeModal({ open, onClose, onSelect, loading }: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (type: string) => void;
+  loading: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Table2 className="w-5 h-5 text-primary" />
+            Сгенерировать таблицу
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Выберите тип таблицы для добавления в текст:</p>
+        <div className="space-y-2 mt-2">
+          {TABLE_TYPES.map((t) => (
+            <button
+              key={t.id}
+              disabled={loading}
+              onClick={() => onSelect(t.id)}
+              className="w-full text-left glass-card p-4 hover:bg-secondary/50 transition-all rounded-lg flex items-start gap-3 disabled:opacity-50"
+            >
+              <span className="text-xl shrink-0">{t.icon}</span>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">{t.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t.desc}</p>
+              </div>
+              {loading && <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0 mt-1" />}
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ─────────── AI Optimizer Component ─────────── */
 
 function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
@@ -914,6 +977,8 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
   const [result, setResult] = useState<any>(null);
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'preview' | 'html'>('preview');
+  const [tableModalOpen, setTableModalOpen] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
 
   const handleOptimize = async () => {
     if (!analysisId) return;
@@ -945,6 +1010,44 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
     }
   };
 
+  const handleGenerateTable = useCallback(async (tableType: string) => {
+    if (!analysisId || !result?.optimizedText) return;
+    setTableLoading(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-optimize`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ analysisId, generateTable: tableType, currentText: result.optimizedText }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Error ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.optimizedText) {
+        setResult((prev: any) => ({
+          ...prev,
+          optimizedText: data.optimizedText,
+          contentChecklist: { ...prev?.contentChecklist, hasTable: true },
+        }));
+        toast({ title: 'Таблица добавлена в текст!' });
+      }
+      setTableModalOpen(false);
+    } catch (e: any) {
+      toast({ title: e.message || 'Table generation failed', variant: 'destructive' });
+    } finally {
+      setTableLoading(false);
+    }
+  }, [analysisId, result?.optimizedText, toast]);
+
   const htmlContent = useMemo(() => {
     if (!result?.optimizedText) return '';
     return markdownToHtml(result.optimizedText);
@@ -971,7 +1074,6 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
       setTimeout(() => setCopiedType(null), 2000);
       toast({ title: 'Rich Text скопирован!' });
     } catch {
-      // Fallback
       navigator.clipboard.writeText(result?.optimizedText || '');
       setCopiedType('rich');
       setTimeout(() => setCopiedType(null), 2000);
@@ -981,6 +1083,13 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
 
   return (
     <div className="space-y-4">
+      <TableTypeModal
+        open={tableModalOpen}
+        onClose={() => setTableModalOpen(false)}
+        onSelect={handleGenerateTable}
+        loading={tableLoading}
+      />
+
       {!result ? (
         <div className="glass-card p-8 text-center space-y-5">
           <Wand2 className="w-12 h-12 mx-auto text-primary" />
@@ -1020,7 +1129,11 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
           )}
 
           {/* Checklist badges */}
-          <ContentChecklist text={result.optimizedText} checklist={result.contentChecklist} />
+          <ContentChecklist
+            text={result.optimizedText}
+            checklist={result.contentChecklist}
+            onGenerateTable={() => setTableModalOpen(true)}
+          />
 
           {/* Changes detail */}
           {result.changes?.length > 0 && (
