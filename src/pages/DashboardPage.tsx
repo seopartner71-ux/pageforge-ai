@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLang } from '@/contexts/LangContext';
 import { LangToggle } from '@/components/LangToggle';
-import { UrlInput } from '@/components/UrlInput';
-import { AnalysisTabs } from '@/components/AnalysisTabs';
+import { AnalysisForm } from '@/components/AnalysisForm';
+import { ChecklistSidebar } from '@/components/ChecklistSidebar';
 import { Button } from '@/components/ui/button';
 import { Zap, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -11,17 +11,14 @@ import { useToast } from '@/hooks/use-toast';
 export default function DashboardPage() {
   const { tr } = useLang();
   const { toast } = useToast();
-  const [analyzedUrl, setAnalyzedUrl] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleAnalyze = (url: string) => {
+  const handleStartAnalysis = (data: any) => {
     setLoading(true);
-    // Simulate analysis start
     setTimeout(() => {
-      setAnalyzedUrl(url);
       setLoading(false);
-      toast({ title: `Analysis started for ${url}` });
-    }, 1500);
+      toast({ title: `Анализ запущен: ${data.url}` });
+    }, 2000);
   };
 
   const handleLogout = async () => {
@@ -32,42 +29,53 @@ export default function DashboardPage() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="container flex items-center justify-between h-16">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
-              <Zap className="w-4 h-4" />
+        <div className="container flex items-center justify-between h-14">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg btn-gradient flex items-center justify-center">
+                <Zap className="w-3.5 h-3.5" />
+              </div>
+              <span className="font-bold gradient-text">{tr.appName}</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">{tr.subtitle}</span>
             </div>
-            <span className="font-bold text-lg gradient-text">{tr.appName}</span>
+            <nav className="hidden md:flex items-center gap-6">
+              <a href="#" className="text-sm font-medium text-foreground border-b-2 border-primary pb-0.5">{tr.nav.analysis}</a>
+              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{tr.nav.history}</a>
+              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{tr.nav.account}</a>
+              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{tr.nav.pdfEditor}</a>
+            </nav>
           </div>
           <div className="flex items-center gap-3">
             <LangToggle />
             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
-              <LogOut className="w-4 h-4 mr-2" />
-              {tr.logout}
+              <LogOut className="w-4 h-4" />
             </Button>
           </div>
         </div>
       </header>
 
       {/* Main */}
-      <main className="container py-8 space-y-8">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-foreground">{tr.dashboard}</h1>
-          <p className="text-muted-foreground">{tr.tagline}</p>
-        </div>
-
-        <div className="glass-card p-6">
-          <UrlInput onAnalyze={handleAnalyze} loading={loading} />
-        </div>
-
-        {analyzedUrl && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground animate-slide-up">
-            <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-            {analyzedUrl}
+      <main className="container py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
+          {/* Left column */}
+          <div className="space-y-2">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-foreground whitespace-pre-line leading-tight">
+                {tr.tagline.split('\n')[0]}{' '}
+                <span className="gradient-text">{tr.tagline.split('\n')[1]}</span>
+              </h1>
+              <p className="text-sm text-muted-foreground mt-3 whitespace-pre-line leading-relaxed">{tr.taglineDesc}</p>
+            </div>
+            <AnalysisForm onStartAnalysis={handleStartAnalysis} loading={loading} />
           </div>
-        )}
 
-        <AnalysisTabs hasUrl={!!analyzedUrl} />
+          {/* Right sidebar */}
+          <div className="hidden lg:block">
+            <div className="sticky top-20">
+              <ChecklistSidebar />
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );
