@@ -248,7 +248,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "url and analysisId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    // Fetch API keys from system_settings (admin panel), fallback to env vars
+    const { data: settingsData } = await supabase.from("system_settings").select("key_name, key_value");
+    const dbKeys: Record<string, string> = {};
+    for (const s of settingsData || []) { if (s.key_value) dbKeys[s.key_name] = s.key_value; }
+
+    const OPENROUTER_API_KEY = dbKeys["openai_api_key"] || Deno.env.get("OPENROUTER_API_KEY");
     if (!OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ error: "OpenRouter API key not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -288,7 +293,7 @@ Deno.serve(async (req) => {
     // ── Stage 1: SERP & Competitors ──
     await setStage(1, "running");
     let competitorUrls: string[] = (manualComp || []).filter((c: string) => c.trim());
-    const SERPER_KEY = Deno.env.get("SERPER_API_KEY");
+    const SERPER_KEY = dbKeys["serper_api_key"] || Deno.env.get("SERPER_API_KEY");
     const t1 = Date.now();
 
     if (competitorUrls.length === 0 && SERPER_KEY) {

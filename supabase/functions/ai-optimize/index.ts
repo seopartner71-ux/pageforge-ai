@@ -103,7 +103,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    // Fetch API keys from system_settings (admin panel), fallback to env vars
+    const { data: settingsData } = await supabase.from("system_settings").select("key_name, key_value");
+    const dbKeys: Record<string, string> = {};
+    for (const s of settingsData || []) { if (s.key_value) dbKeys[s.key_name] = s.key_value; }
+
+    const OPENROUTER_API_KEY = dbKeys["openai_api_key"] || Deno.env.get("OPENROUTER_API_KEY");
     if (!OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ error: "OpenRouter API key not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -14,6 +14,7 @@ import HistoryPage from "./pages/HistoryPage.tsx";
 import AccountPage from "./pages/AccountPage.tsx";
 import PdfEditorPage from "./pages/PdfEditorPage.tsx";
 import ReportRouterPage from "./pages/ReportRouterPage.tsx";
+import AdminPage from "./pages/AdminPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/report/:id" element={<AuthGate><ReportRouterPage /></AuthGate>} />
             <Route path="/account" element={<AuthGate><AccountPage /></AuthGate>} />
             <Route path="/pdf-editor" element={<AuthGate><PdfEditorPage /></AuthGate>} />
+            <Route path="/admin" element={<AuthGate><AdminPage /></AuthGate>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

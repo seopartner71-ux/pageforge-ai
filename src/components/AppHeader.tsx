@@ -1,15 +1,17 @@
 import { useLang } from '@/contexts/LangContext';
 import { LangToggle } from '@/components/LangToggle';
 import { Button } from '@/components/ui/button';
-import { Zap, LogOut } from 'lucide-react';
+import { Zap, LogOut, Shield } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { NavLink } from '@/components/NavLink';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAdminRole } from '@/hooks/useAdminRole';
 
 export function AppHeader() {
   const { tr } = useLang();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAdmin } = useAdminRole();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -20,6 +22,7 @@ export function AppHeader() {
     { label: tr.nav.history, path: '/history' },
     { label: tr.nav.account, path: '/account' },
     { label: tr.nav.pdfEditor, path: '/pdf-editor' },
+    ...(isAdmin ? [{ label: '⚙ Админ', path: '/admin' }] : []),
   ];
 
   return (
