@@ -118,7 +118,7 @@ function BarChart({ data, maxVal }: { data: { label: string; value: number }[]; 
     <View style={{ marginTop: 8 }}>
       {data.slice(0, 12).map((d, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
-          <Text style={{ fontSize: 7, color: C.muted, width: 80 }} numberOfLines={1}>{str(d.label)}</Text>
+          <Text style={{ fontSize: 7, color: C.muted, width: 80 }}>{str(d.label).slice(0, 20)}</Text>
           <View style={{ flex: 1, height: 8, backgroundColor: C.bgRow2, borderRadius: 2, overflow: 'hidden' }}>
             <View style={{ width: `${Math.min((d.value / max) * 100, 100)}%`, height: 8, backgroundColor: C.blue, borderRadius: 2 }} />
           </View>
