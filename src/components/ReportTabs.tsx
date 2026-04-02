@@ -844,7 +844,7 @@ function markdownToHtml(md: string): string {
 
 /* ─────────── Content Checklist Badges ─────────── */
 
-function ContentChecklist({ text, checklist }: { text: string; checklist?: any }) {
+function ContentChecklist({ text, checklist, onGenerateTable }: { text: string; checklist?: any; onGenerateTable?: () => void }) {
   const checks = useMemo(() => {
     const t = text || '';
     return {
@@ -865,21 +865,36 @@ function ContentChecklist({ text, checklist }: { text: string; checklist?: any }
   ];
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {items.map(({ key, icon: Icon, label, ok }) => (
-        <div
-          key={key}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${
-            ok
-              ? 'bg-accent/10 text-accent border-accent/20'
-              : 'bg-destructive/10 text-destructive border-destructive/20'
-          }`}
-        >
-          {ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-          <Icon className="w-3.5 h-3.5" />
-          {label}
-        </div>
-      ))}
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {items.map(({ key, icon: Icon, label, ok }) => (
+          <div
+            key={key}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${
+              ok
+                ? 'bg-accent/10 text-accent border-accent/20'
+                : 'bg-destructive/10 text-destructive border-destructive/20'
+            }`}
+          >
+            {ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+            {key === 'hasTable' && !ok && onGenerateTable && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onGenerateTable(); }}
+                className="ml-1 px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors text-[10px] font-bold"
+              >
+                + Добавить
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      {!checks.hasTable && (
+        <p className="text-xs text-muted-foreground italic">
+          💡 Таблицы повышают шанс попадания в Google SGE на 40%. Рекомендуем добавить прайс-лист или характеристики.
+        </p>
+      )}
     </div>
   );
 }
