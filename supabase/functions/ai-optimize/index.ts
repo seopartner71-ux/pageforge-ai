@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { analysisId, generateTable, currentText } = await req.json();
+    const { analysisId, generateTable, currentText, stealthMode } = await req.json();
     if (!analysisId) {
       return new Response(JSON.stringify({ error: "analysisId required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -112,6 +112,61 @@ Deno.serve(async (req) => {
     if (!OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ error: "OpenRouter API key not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── STEALTH MODE (Humanize) ───
+    if (stealthMode && currentText) {
+      const stealthPrompt = `Ты — эксперт по обходу детекторов ИИ-контента. Перепиши текст так, чтобы он прошёл проверку на 90%+ по детекторам (GPTZero, Originality.ai, Turnitin).
+
+ПРАВИЛА ОЧЕЛОВЕЧИВАНИЯ (методология DrMax):
+1. **Вариативный ритм**: Чередуй короткие (5-8 слов) и длинные (20-30 слов) предложения. ИИ пишет монотонно — человек нет.
+2. **Человеческие вводные**: Добавляй "Честно говоря", "По моему опыту", "Знаете что интересно", "Тут есть нюанс" — но НЕ в каждый абзац.
+3. **Удали паттерны GPT**: Убери "Важно отметить", "В заключение", "Следует подчеркнуть", "Необходимо учитывать", "Стоит отметить", "Безусловно", "Разумеется". Замени на живые формулировки.
+4. **Несовершенство**: Добавь 1-2 разговорных оборота, лёгкую небрежность в стиле. Человек не пишет идеально гладко.
+5. **Конкретика вместо абстракций**: Замени "множество вариантов" на "7 проверенных вариантов". Замени "значительно улучшить" на "поднять на 23%".
+6. **Непредсказуемая структура**: Не начинай каждый абзац одинаково. Варьируй: вопрос, факт, цитата, действие.
+7. **Сохрани ВСЕ факты, цены, названия, контакты** — меняй ТОЛЬКО стилистику.
+
+Формат ответа — JSON:
+{
+  "optimizedText": "<очеловеченный текст в Markdown>"
+}`;
+
+      const stealthRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": Deno.env.get("SUPABASE_URL") || "",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-4o",
+          messages: [
+            { role: "system", content: stealthPrompt },
+            { role: "user", content: currentText },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+        }),
+      });
+
+      if (!stealthRes.ok) {
+        return new Response(JSON.stringify({ error: "Stealth processing failed" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const stealthJson = await stealthRes.json();
+      const stealthContent = stealthJson.choices?.[0]?.message?.content;
+      let stealthParsed: any = {};
+      try { stealthParsed = JSON.parse(stealthContent); } catch { stealthParsed = { optimizedText: currentText }; }
+
+      return new Response(JSON.stringify({
+        success: true,
+        optimizedText: stealthParsed.optimizedText || currentText,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 

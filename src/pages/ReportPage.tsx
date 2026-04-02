@@ -5,7 +5,7 @@ import { ScoreGauge } from '@/components/ScoreGauge';
 import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette } from 'lucide-react';
+import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link } from 'lucide-react';
 import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -48,6 +48,9 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
   const [templates, setTemplates] = useState<PdfTpl[]>([]);
   const [tplLoading, setTplLoading] = useState(true);
 
@@ -89,6 +92,40 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
     } finally {
       setPdfLoading(false);
     }
+  };
+
+  // Load existing share token
+  useEffect(() => {
+    if (!analysisId) return;
+    supabase.from('analyses').select('share_token').eq('id', analysisId).single().then(({ data }) => {
+      if (data?.share_token) setShareToken(data.share_token);
+    });
+  }, [analysisId]);
+
+  const handleShare = async () => {
+    if (!analysisId) return;
+    if (shareToken) {
+      const link = `${window.location.origin}/shared/${shareToken}`;
+      await navigator.clipboard.writeText(link);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+      toast.success(lang === 'ru' ? 'Ссылка скопирована!' : 'Link copied!');
+      return;
+    }
+    setShareLoading(true);
+    const token = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    const { error } = await supabase.from('analyses').update({ share_token: token } as any).eq('id', analysisId);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setShareToken(token);
+      const link = `${window.location.origin}/shared/${token}`;
+      await navigator.clipboard.writeText(link);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+      toast.success(lang === 'ru' ? 'Публичная ссылка создана и скопирована!' : 'Public link created and copied!');
+    }
+    setShareLoading(false);
   };
 
   useEffect(() => {
@@ -145,6 +182,22 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
                 {activeTpl.name}
               </span>
             )}
+            {/* Share button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5"
+              onClick={handleShare}
+              disabled={shareLoading}
+            >
+              {shareLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : shareCopied ? <Check className="w-3 h-3 text-green-500" /> : shareToken ? <Link className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+              {shareCopied
+                ? (lang === 'ru' ? 'Скопировано!' : 'Copied!')
+                : shareToken
+                  ? (lang === 'ru' ? 'Копировать ссылку' : 'Copy Link')
+                  : (lang === 'ru' ? 'Поделиться' : 'Share')}
+            </Button>
+
             <Button variant="outline" size="sm" className="text-xs gap-1.5">
               <Code className="w-3 h-3" />
               {lang === 'ru' ? 'Посмотреть JSON' : 'View JSON'}

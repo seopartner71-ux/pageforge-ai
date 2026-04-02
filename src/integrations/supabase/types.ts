@@ -21,10 +21,12 @@ export type Database = {
           competitors: string[] | null
           created_at: string
           id: string
+          is_stealth_applied: boolean | null
           page_type: string | null
           progress: Json | null
           project_id: string
           region: string
+          share_token: string | null
           status: string
           updated_at: string
           url: string
@@ -36,10 +38,12 @@ export type Database = {
           competitors?: string[] | null
           created_at?: string
           id?: string
+          is_stealth_applied?: boolean | null
           page_type?: string | null
           progress?: Json | null
           project_id: string
           region?: string
+          share_token?: string | null
           status?: string
           updated_at?: string
           url: string
@@ -51,10 +55,12 @@ export type Database = {
           competitors?: string[] | null
           created_at?: string
           id?: string
+          is_stealth_applied?: boolean | null
           page_type?: string | null
           progress?: Json | null
           project_id?: string
           region?: string
+          share_token?: string | null
           status?: string
           updated_at?: string
           url?: string
@@ -167,29 +173,35 @@ export type Database = {
       }
       profiles: {
         Row: {
+          company_name: string | null
           created_at: string
           credits: number
           display_name: string | null
           email: string | null
           id: string
+          logo_url: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          company_name?: string | null
           created_at?: string
           credits?: number
           display_name?: string | null
           email?: string | null
           id?: string
+          logo_url?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          company_name?: string | null
           created_at?: string
           credits?: number
           display_name?: string | null
           email?: string | null
           id?: string
+          logo_url?: string | null
           updated_at?: string
           user_id?: string
         }

@@ -1314,6 +1314,8 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
   const [viewMode, setViewMode] = useState<'preview' | 'html'>('preview');
   const [tableModalOpen, setTableModalOpen] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
+  const [stealthMode, setStealthMode] = useState(false);
+  const [stealthLoading, setStealthLoading] = useState(false);
 
   const handleOptimize = async () => {
     if (!analysisId) return;
@@ -1342,6 +1344,44 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
       toast({ title: e.message || 'Optimization failed', variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStealth = async () => {
+    if (!result?.optimizedText) return;
+    setStealthLoading(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-optimize`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ analysisId, stealthMode: true, currentText: result.optimizedText }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Error ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.optimizedText) {
+        setResult((prev: any) => ({ ...prev, optimizedText: data.optimizedText }));
+        setStealthMode(true);
+        toast({ title: lang === 'ru' ? 'Текст очеловечен! Stealth Mode ON' : 'Text humanized! Stealth Mode ON' });
+        // Mark in DB
+        if (analysisId) {
+          await supabase.from('analyses').update({ is_stealth_applied: true } as any).eq('id', analysisId);
+        }
+      }
+    } catch (e: any) {
+      toast({ title: e.message || 'Stealth failed', variant: 'destructive' });
+    } finally {
+      setStealthLoading(false);
     }
   };
 
@@ -1529,6 +1569,19 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleCopyRich}>
                   {copiedType === 'rich' ? <Check className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
                   {copiedType === 'rich' ? 'Скопировано' : 'Copy Rich Text'}
+                </Button>
+                {/* Stealth Engine button */}
+                <Button
+                  variant={stealthMode ? "default" : "outline"}
+                  size="sm"
+                  className={`gap-1.5 text-xs ${stealthMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+                  onClick={handleStealth}
+                  disabled={stealthLoading}
+                >
+                  {stealthLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
+                  {stealthMode
+                    ? (lang === 'ru' ? 'Stealth ✓' : 'Stealth ✓')
+                    : (lang === 'ru' ? 'Очеловечить (Stealth)' : 'Humanize (Stealth)')}
                 </Button>
               </div>
             </div>
