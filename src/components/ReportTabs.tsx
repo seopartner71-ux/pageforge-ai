@@ -1733,6 +1733,7 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
           </TabsTrigger>
         ))}
       </TabsList>
+      </div>
 
       <TabsContent value="optimizer" className="mt-6">
         <AiOptimizer analysisId={analysisId} />
