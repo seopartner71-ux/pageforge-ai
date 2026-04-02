@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 
 const tabKeys = [
-  'aiReport', 'priorities', 'blueprint', 'semanticMap', 'tfidf', 'ngrams',
+  'aiReport', 'priorities', 'implementationPlan', 'blueprint', 'semanticMap', 'tfidf', 'ngrams',
   'zipf', 'images', 'anchors', 'pageSpeed', 'stealth', 'dataSources', 'verification',
 ] as const;
 
