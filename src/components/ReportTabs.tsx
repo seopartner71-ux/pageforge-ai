@@ -1150,6 +1150,7 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
           aiReport: () => <AiReportTab data={data} />,
           priorities: () => <PrioritiesTab data={data} />,
           blueprint: () => <BlueprintTab data={data} />,
+          semanticMap: () => <SemanticMapTab data={data} />,
           tfidf: () => <TfidfTab data={data} />,
           ngrams: () => <NgramsTab data={data} />,
           zipf: () => <ZipfTab data={data} />,
