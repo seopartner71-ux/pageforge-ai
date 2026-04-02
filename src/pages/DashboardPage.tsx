@@ -180,6 +180,13 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen">
       <AppHeader />
+      {pendingAnalysisId && pendingAnalysisUrl && (
+        <AnalysisProgressModal
+          analysisId={pendingAnalysisId}
+          url={pendingAnalysisUrl}
+          onComplete={handleAnalysisComplete}
+        />
+      )}
       <main className="container py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
           <div className="space-y-2">
