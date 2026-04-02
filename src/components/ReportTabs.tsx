@@ -1003,8 +1003,8 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
           tfidf: () => <TfidfTab data={data} />,
           ngrams: () => <NgramsTab data={data} />,
           zipf: () => <ZipfTab data={data} />,
-          images: () => <ImagesTab />,
-          anchors: () => <AnchorsTab />,
+          images: () => <ImagesTab data={data} />,
+          anchors: () => <AnchorsTab data={data} />,
           pageSpeed: () => <PageSpeedTab />,
           stealth: () => <StealthTab data={data} />,
         };
