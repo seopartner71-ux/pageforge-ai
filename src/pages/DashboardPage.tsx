@@ -219,6 +219,7 @@ export default function DashboardPage() {
               loading={loading}
               projects={projects}
               onNewProject={() => setShowNewProject(true)}
+              credits={credits}
             />
           </div>
           <div className="hidden lg:block">
