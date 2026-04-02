@@ -201,6 +201,70 @@ function technicalAudit(markdown: string) {
   };
 }
 
+// ─── HTML Parser helpers (regex-based, no external deps) ───
+function parseImages(html: string, baseUrl: string): any[] {
+  const imgs: any[] = [];
+  const re = /<img\s[^>]*?>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const tag = m[0];
+    const src = tag.match(/src=["']([^"']+)["']/i)?.[1] || '';
+    const alt = tag.match(/alt=["']([^"']*?)["']/i)?.[1] ?? null;
+    const title = tag.match(/title=["']([^"']*?)["']/i)?.[1] ?? null;
+    const hasLazy = /loading=["']lazy["']/i.test(tag);
+    const hasAlt = alt !== null && alt.trim().length > 0;
+    let fullSrc = src;
+    try {
+      if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+        fullSrc = new URL(src, baseUrl).href;
+      }
+    } catch {}
+    imgs.push({ src: fullSrc, alt: alt || '', title, hasAlt, hasLazy, critical: !hasAlt });
+  }
+  return imgs;
+}
+
+function parseAnchors(html: string, baseUrl: string): any[] {
+  const anchors: any[] = [];
+  let baseDomain = '';
+  try { baseDomain = new URL(baseUrl).hostname.replace(/^www\./, ''); } catch {}
+  const re = /<a\s[^>]*?>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const tag = m[0];
+    const text = m[1].replace(/<[^>]+>/g, '').trim();
+    const href = tag.match(/href=["']([^"']+)["']/i)?.[1] || '';
+    const hasNofollow = /rel=["'][^"']*nofollow[^"']*["']/i.test(tag);
+    const hasBlank = /target=["']_blank["']/i.test(tag);
+    let type: 'internal' | 'external' = 'internal';
+    try {
+      if (href.startsWith('http')) {
+        const linkDomain = new URL(href).hostname.replace(/^www\./, '');
+        if (linkDomain !== baseDomain) type = 'external';
+      } else if (href.startsWith('mailto:') || href.startsWith('tel:')) {
+        type = 'external';
+      }
+    } catch {}
+    if (!href || href === '#' || href.startsWith('javascript:')) continue;
+    anchors.push({ href, text: text || '(без текста)', type, hasNofollow, hasBlank });
+  }
+  return anchors;
+}
+
+// ─── Fetch raw HTML ───
+async function fetchRawHtml(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+    });
+    if (!res.ok) return '';
+    return (await res.text()).slice(0, 500000);
+  } catch { return ''; }
+}
+
 // ─── Jina Reader ───
 async function fetchPage(url: string): Promise<string> {
   try {
