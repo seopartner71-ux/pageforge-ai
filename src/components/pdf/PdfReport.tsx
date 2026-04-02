@@ -415,7 +415,7 @@ export function PdfReportDocument({ analysis, results, template, companyName, la
         <PageHeader t={t} companyName={company} />
         <PageFooter t={t} projectName={company} isRu={isRu} />
 
-        <SectionTitle t={t}>TF-IDF {isRu ? 'Анализ ключевых слов' : 'Keyword Analysis'}</SectionTitle>
+        <SectionTitle t={t}>{`TF-IDF ${isRu ? 'Анализ ключевых слов' : 'Keyword Analysis'}`}</SectionTitle>
 
         {Array.isArray(tfidf) && tfidf.length > 0 ? (
           <View>
