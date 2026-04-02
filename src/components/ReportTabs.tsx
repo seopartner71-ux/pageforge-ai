@@ -1347,7 +1347,44 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
     }
   };
 
-  const handleGenerateTable = useCallback(async (tableType: string) => {
+  const handleStealth = async () => {
+    if (!result?.optimizedText) return;
+    setStealthLoading(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-optimize`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ analysisId, stealthMode: true, currentText: result.optimizedText }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Error ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.optimizedText) {
+        setResult((prev: any) => ({ ...prev, optimizedText: data.optimizedText }));
+        setStealthMode(true);
+        toast({ title: lang === 'ru' ? 'Текст очеловечен! Stealth Mode ON' : 'Text humanized! Stealth Mode ON' });
+        // Mark in DB
+        if (analysisId) {
+          await supabase.from('analyses').update({ is_stealth_applied: true } as any).eq('id', analysisId);
+        }
+      }
+    } catch (e: any) {
+      toast({ title: e.message || 'Stealth failed', variant: 'destructive' });
+    } finally {
+      setStealthLoading(false);
+    }
+  };
+
     if (!analysisId || !result?.optimizedText) return;
     setTableLoading(true);
     try {
