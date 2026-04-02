@@ -25,9 +25,11 @@ interface AnalysisFormProps {
     clusterMode: boolean;
   }) => void;
   loading: boolean;
+  projects?: { name: string; domain: string }[];
+  onNewProject?: () => void;
 }
 
-export function AnalysisForm({ onStartAnalysis, loading }: AnalysisFormProps) {
+export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewProject }: AnalysisFormProps) {
   const { tr } = useLang();
   const [url, setUrl] = useState('');
   const [pageType, setPageType] = useState('');
@@ -70,11 +72,13 @@ export function AnalysisForm({ onStartAnalysis, loading }: AnalysisFormProps) {
           <div className="flex items-center gap-2">
             <span className="text-xs tracking-widest text-muted-foreground font-semibold">📁 {tr.projectSection.title}</span>
           </div>
-          <button className="text-sm text-accent hover:underline font-medium">{tr.projectSection.newProject}</button>
+          <button onClick={onNewProject} className="text-sm text-accent hover:underline font-medium">{tr.projectSection.newProject}</button>
         </div>
         <div className="flex gap-3">
           <select className="flex-1 h-11 rounded-lg bg-secondary border border-border/50 px-4 text-sm text-foreground focus:border-primary outline-none">
-            <option>{tr.projectSection.placeholder}</option>
+            {projects.map((p, i) => (
+              <option key={i} value={p.name}>{p.name} — {p.domain || 'без домена'}</option>
+            ))}
           </select>
         </div>
       </div>
