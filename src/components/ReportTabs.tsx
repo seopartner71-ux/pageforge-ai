@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 
 const tabKeys = [
-  'aiReport', 'priorities', 'blueprint', 'tfidf', 'ngrams',
+  'aiReport', 'priorities', 'blueprint', 'semanticMap', 'tfidf', 'ngrams',
   'zipf', 'images', 'anchors', 'pageSpeed', 'stealth',
 ] as const;
 
@@ -23,11 +23,13 @@ type TabKey = typeof tabKeys[number];
 const tabLabels: Record<string, Record<TabKey, string>> = {
   ru: {
     aiReport: 'ИИ-отчёт', priorities: 'Приоритеты', blueprint: 'Golden Blueprint',
+    semanticMap: '🧬 Семантическая карта',
     tfidf: 'TF-IDF', ngrams: 'N-граммы', zipf: 'Закон Ципфа',
     images: 'Изображения', anchors: 'Анкоры', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
   },
   en: {
     aiReport: 'AI Report', priorities: 'Priorities', blueprint: 'Golden Blueprint',
+    semanticMap: '🧬 Semantic Map',
     tfidf: 'TF-IDF', ngrams: 'N-grams', zipf: "Zipf's Law",
     images: 'Images', anchors: 'Anchors', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
   },
@@ -595,6 +597,154 @@ function AnchorsTab({ data }: TabDataProps) {
   );
 }
 
+/* ─────────── Semantic Map Tab (Cluster Analysis) ─────────── */
+
+function SemanticMapTab({ data }: TabDataProps) {
+  const cluster = data?.clusterData;
+  const analysis = cluster?.clusterAnalysis;
+
+  if (!cluster) return (
+    <div className="space-y-6">
+      <h2 className="text-lg font-bold text-foreground">Семантическая карта</h2>
+      <p className="text-sm text-muted-foreground">Включите тумблер «Кластерный анализ» перед запуском, чтобы получить семантическую карту.</p>
+      <div className="glass-card p-8 text-center text-muted-foreground">Кластерный анализ не был включён для этого отчёта.</div>
+    </div>
+  );
+
+  const coverageScore = analysis?.topicCoverageScore ?? 0;
+  const semanticMap = analysis?.semanticMap || [];
+  const gaps = analysis?.informationGaps || [];
+  const covered = analysis?.coveredTopics || [];
+  const faqQuestions = analysis?.suggestedFaqQuestions || cluster.peopleAlsoAsk || [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-foreground">🧬 Семантическая карта кластера</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Анализ полноты раскрытия темы на основе семантического кластера ({cluster.semanticCluster?.length || 0} фраз).
+        </p>
+      </div>
+
+      {/* Topic Coverage Score */}
+      <div className="glass-card p-6 flex items-center gap-6">
+        <div className="text-center">
+          <div className={`text-4xl font-bold ${coverageScore >= 70 ? 'text-accent' : coverageScore >= 40 ? 'text-primary' : 'text-destructive'}`}>
+            {coverageScore}%
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">Topic Coverage</div>
+        </div>
+        <div className="flex-1">
+          <Progress value={coverageScore} className="h-3" />
+          <div className="flex justify-between text-xs text-muted-foreground mt-2">
+            <span>Слабое покрытие</span>
+            <span>Экспертный уровень (E-E-A-T)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Semantic Map — required sections */}
+      {semanticMap.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">Обязательные разделы (Semantic Map)</h3>
+          <div className="space-y-2">
+            {semanticMap.map((section: any, i: number) => (
+              <div key={i} className={`glass-card p-4 flex items-center gap-3 ${section.present ? '' : 'border-l-2 border-destructive'}`}>
+                <span className={`shrink-0 ${section.present ? 'text-accent' : 'text-destructive'}`}>
+                  {section.present ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">{section.heading}</p>
+                  {section.description && <p className="text-xs text-muted-foreground mt-0.5">{section.description}</p>}
+                </div>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded ${section.present ? 'bg-accent/20 text-accent' : 'bg-destructive/20 text-destructive'}`}>
+                  {section.present ? 'Есть' : 'Отсутствует'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Information Gaps + Covered */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {gaps.length > 0 && (
+          <div>
+            <h3 className="text-sm font-bold text-destructive uppercase tracking-wider mb-3">❌ Информационные дыры</h3>
+            <div className="space-y-2">
+              {gaps.map((gap: string, i: number) => (
+                <div key={i} className="glass-card px-4 py-3 border-l-2 border-destructive">
+                  <p className="text-sm text-foreground">{gap}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {covered.length > 0 && (
+          <div>
+            <h3 className="text-sm font-bold text-accent uppercase tracking-wider mb-3">✅ Раскрытые подтемы</h3>
+            <div className="space-y-2">
+              {covered.map((topic: string, i: number) => (
+                <div key={i} className="glass-card px-4 py-3">
+                  <p className="text-sm text-foreground">✓ {topic}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Semantic Cluster phrases */}
+      {cluster.semanticCluster?.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">
+            Фразы кластера ({cluster.semanticCluster.length})
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {cluster.semanticCluster.map((phrase: string, i: number) => {
+              const contentLower = ''; // We don't have raw content here, so rely on AI analysis
+              return (
+                <span key={i} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-secondary text-foreground border border-border/30">
+                  {phrase}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Suggested FAQ Questions */}
+      {faqQuestions.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-3">❓ Рекомендованные вопросы для FAQ</h3>
+          <div className="space-y-2">
+            {faqQuestions.map((q: string, i: number) => (
+              <div key={i} className="glass-card px-4 py-3 flex items-center gap-3">
+                <span className="text-primary text-sm font-bold shrink-0">Q{i + 1}.</span>
+                <p className="text-sm text-foreground">{q}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Competitor Headings */}
+      {cluster.competitorHeadings?.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">📊 Популярные заголовки у конкурентов</h3>
+          <div className="flex flex-wrap gap-2">
+            {cluster.competitorHeadings.map((h: string, i: number) => (
+              <span key={i} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent/10 text-accent border border-accent/20">
+                {h}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PageSpeedTab() {
   return (
     <div className="space-y-6">
@@ -1000,6 +1150,7 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
           aiReport: () => <AiReportTab data={data} />,
           priorities: () => <PrioritiesTab data={data} />,
           blueprint: () => <BlueprintTab data={data} />,
+          semanticMap: () => <SemanticMapTab data={data} />,
           tfidf: () => <TfidfTab data={data} />,
           ngrams: () => <NgramsTab data={data} />,
           zipf: () => <ZipfTab data={data} />,

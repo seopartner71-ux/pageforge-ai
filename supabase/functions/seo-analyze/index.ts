@@ -290,6 +290,34 @@ async function findCompetitors(keyword: string, apiKey: string): Promise<string[
   } catch { return []; }
 }
 
+// ─── Serper.dev extended SERP for cluster analysis ───
+async function findClusterData(keyword: string, apiKey: string): Promise<{
+  competitors: string[];
+  relatedSearches: string[];
+  peopleAlsoAsk: string[];
+}> {
+  const result = { competitors: [] as string[], relatedSearches: [] as string[], peopleAlsoAsk: [] as string[] };
+  try {
+    const res = await fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ q: keyword, num: 10 }),
+    });
+    if (!res.ok) return result;
+    const data = await res.json();
+    result.competitors = (data.organic || []).map((r: any) => r.link).filter(Boolean).slice(0, 10);
+    result.relatedSearches = (data.relatedSearches || []).map((r: any) => r.query).filter(Boolean).slice(0, 15);
+    result.peopleAlsoAsk = (data.peopleAlsoAsk || []).map((r: any) => r.question).filter(Boolean).slice(0, 15);
+  } catch {}
+  return result;
+}
+
+// ─── Extract H2/H3 headings from markdown for cluster structure ───
+function extractHeadings(markdown: string): string[] {
+  const headings = markdown.match(/^#{2,3}\s+(.+)$/gm) || [];
+  return headings.map(h => h.replace(/^#{2,3}\s+/, '').trim());
+}
+
 // ─── Main ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -307,7 +335,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { url, pageType, competitors: manualComp, aiContext, analysisId } = await req.json();
+    const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode } = await req.json();
     if (!url || !analysisId) {
       return new Response(JSON.stringify({ error: "url and analysisId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -323,17 +351,18 @@ Deno.serve(async (req) => {
     }
 
     // Define stages
-    const stages = [
-      { name: "Content Fetch", status: "pending" as const, time: "" },
-      { name: "HTML Parse (Images & Anchors)", status: "pending" as const, time: "" },
-      { name: "SERP & Competitors", status: "pending" as const, time: "" },
-      { name: "Competitor Fetch", status: "pending" as const, time: "" },
-      { name: "TF-IDF Engine", status: "pending" as const, time: "" },
-      { name: "Zipf's Law", status: "pending" as const, time: "" },
-      { name: "N-Grams & Topical Gap", status: "pending" as const, time: "" },
-      { name: "Technical Audit", status: "pending" as const, time: "" },
-      { name: "AI Analyst (GPT-4o)", status: "pending" as const, time: "" },
-      { name: "Save Results", status: "pending" as const, time: "" },
+    const stages: { name: string; status: "pending" | "running" | "done" | "error"; time: string }[] = [
+      { name: "Content Fetch", status: "pending", time: "" },
+      { name: "HTML Parse (Images & Anchors)", status: "pending", time: "" },
+      ...(clusterMode ? [{ name: "Semantic Cluster", status: "pending" as const, time: "" }] : []),
+      { name: "SERP & Competitors", status: "pending", time: "" },
+      { name: "Competitor Fetch", status: "pending", time: "" },
+      { name: "TF-IDF Engine", status: "pending", time: "" },
+      { name: "Zipf's Law", status: "pending", time: "" },
+      { name: "N-Grams & Topical Gap", status: "pending", time: "" },
+      { name: "Technical Audit", status: "pending", time: "" },
+      { name: "AI Analyst (GPT-4o)", status: "pending", time: "" },
+      { name: "Save Results", status: "pending", time: "" },
     ];
 
     const setStage = async (idx: number, status: "running" | "done" | "error", time?: string) => {
@@ -369,10 +398,39 @@ Deno.serve(async (req) => {
     }
     await setStage(1, "done", `${((Date.now() - tHtml) / 1000).toFixed(1)}s`);
 
-    // ── Stage 2: SERP & Competitors ──
-    await setStage(2, "running");
+    // Use a dynamic stage index counter since cluster mode adds an extra stage
+    let si = 2;
     let competitorUrls: string[] = (manualComp || []).filter((c: string) => c.trim());
     const SERPER_KEY = dbKeys["serper_api_key"] || Deno.env.get("SERPER_API_KEY");
+
+    // ── Cluster: Semantic Cluster collection ──
+    let clusterData: { semanticCluster: string[]; relatedSearches: string[]; peopleAlsoAsk: string[]; competitorHeadings: string[] } | null = null;
+    if (clusterMode) {
+      await setStage(si, "running");
+      const tCluster = Date.now();
+      if (SERPER_KEY) {
+        const titleMatch = targetContent.match(/^#\s+(.+)$/m);
+        const keyword = titleMatch?.[1]?.slice(0, 100) || url;
+        console.log("Cluster SERP keyword:", keyword);
+        const cluster = await findClusterData(keyword, SERPER_KEY);
+        const semanticCluster = [...new Set([...cluster.relatedSearches, ...cluster.peopleAlsoAsk])].slice(0, 30);
+        clusterData = {
+          semanticCluster,
+          relatedSearches: cluster.relatedSearches,
+          peopleAlsoAsk: cluster.peopleAlsoAsk,
+          competitorHeadings: [],
+        };
+        if (competitorUrls.length === 0) {
+          competitorUrls = cluster.competitors;
+          try { competitorUrls = competitorUrls.filter(u => !u.includes(new URL(url).hostname)); } catch {}
+        }
+      }
+      await setStage(si, "done", `${((Date.now() - tCluster) / 1000).toFixed(1)}s`);
+      si++;
+    }
+
+    // ── SERP & Competitors ──
+    await setStage(si, "running");
     const t1 = Date.now();
 
     if (competitorUrls.length === 0 && SERPER_KEY) {
@@ -382,49 +440,74 @@ Deno.serve(async (req) => {
       competitorUrls = await findCompetitors(keyword, SERPER_KEY);
       try { competitorUrls = competitorUrls.filter(u => !u.includes(new URL(url).hostname)); } catch {}
     }
-    await setStage(2, "done", `${((Date.now() - t1) / 1000).toFixed(1)}s`);
+    await setStage(si, "done", `${((Date.now() - t1) / 1000).toFixed(1)}s`);
+    si++;
 
-    // ── Stage 3: Competitor Fetch ──
-    await setStage(3, "running");
+    // ── Competitor Fetch ──
+    await setStage(si, "running");
     const t2 = Date.now();
     const fetchUrls = competitorUrls.slice(0, 5);
     console.log(`Fetching ${fetchUrls.length} competitors...`);
     const compContents: string[] = [];
     const compRes = await Promise.allSettled(fetchUrls.map(u => fetchPage(u)));
     for (const r of compRes) { if (r.status === "fulfilled" && r.value) compContents.push(r.value); }
-    await setStage(3, "done", `${((Date.now() - t2) / 1000).toFixed(1)}s`);
+    await setStage(si, "done", `${((Date.now() - t2) / 1000).toFixed(1)}s`);
+    si++;
 
-    // ── Stage 4: TF-IDF ──
-    await setStage(4, "running");
+    // Extract competitor headings for cluster analysis
+    if (clusterMode && clusterData) {
+      const allHeadings: string[] = [];
+      for (const content of compContents) {
+        allHeadings.push(...extractHeadings(content));
+      }
+      // Find headings that appear in 2+ competitors
+      const headingCounts: Record<string, number> = {};
+      for (const h of allHeadings) {
+        const normalized = h.toLowerCase().trim();
+        headingCounts[normalized] = (headingCounts[normalized] || 0) + 1;
+      }
+      clusterData.competitorHeadings = Object.entries(headingCounts)
+        .filter(([, count]) => count >= 2)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([heading]) => heading);
+    }
+
+    // ── TF-IDF ──
+    await setStage(si, "running");
     const t3 = Date.now();
     const targetWords = tokenize(targetContent);
     const compWordArrays = compContents.map(c => tokenize(c));
     const tfidfResults = calculateTFIDF(targetWords, compWordArrays);
-    await setStage(4, "done", `${((Date.now() - t3) / 1000).toFixed(1)}s`);
+    await setStage(si, "done", `${((Date.now() - t3) / 1000).toFixed(1)}s`);
+    si++;
 
-    // ── Stage 5: Zipf's Law ──
-    await setStage(5, "running");
+    // ── Zipf's Law ──
+    await setStage(si, "running");
     const t4 = Date.now();
     const zipfData = calculateZipf(targetWords);
-    await setStage(5, "done", `${((Date.now() - t4) / 1000).toFixed(1)}s`);
+    await setStage(si, "done", `${((Date.now() - t4) / 1000).toFixed(1)}s`);
+    si++;
 
-    // ── Stage 6: N-Grams ──
-    await setStage(6, "running");
+    // ── N-Grams ──
+    await setStage(si, "running");
     const t5 = Date.now();
     const bigrams = extractNgrams(targetWords, 2);
     const trigrams = extractNgrams(targetWords, 3);
     const bigramGaps = findTopicalGaps(targetWords, compWordArrays, 2);
     const trigramGaps = findTopicalGaps(targetWords, compWordArrays, 3);
-    await setStage(6, "done", `${((Date.now() - t5) / 1000).toFixed(1)}s`);
+    await setStage(si, "done", `${((Date.now() - t5) / 1000).toFixed(1)}s`);
+    si++;
 
-    // ── Stage 7: Technical Audit ──
-    await setStage(7, "running");
+    // ── Technical Audit ──
+    await setStage(si, "running");
     const t6 = Date.now();
     const audit = technicalAudit(targetContent);
-    await setStage(7, "done", `${((Date.now() - t6) / 1000).toFixed(1)}s`);
+    await setStage(si, "done", `${((Date.now() - t6) / 1000).toFixed(1)}s`);
+    si++;
 
-    // ── Stage 8: AI Analyst ──
-    await setStage(8, "running");
+    // ── AI Analyst ──
+    await setStage(si, "running");
     const t7 = Date.now();
 
     const missingTerms = tfidfResults.filter((t: any) => t.status === "Missing").slice(0, 20)
@@ -432,7 +515,59 @@ Deno.serve(async (req) => {
     const spamTerms = tfidfResults.filter((t: any) => t.status === "Spam").slice(0, 10)
       .map((t: any) => `${t.term} (density:${t.density.toFixed(2)}%)`).join(", ");
 
-    const systemPrompt = `Ты — Senior SEO & AIO Analyst. Данные:
+    // Build system prompt — different for cluster mode
+    let systemPrompt: string;
+    let userPrompt: string;
+
+    if (clusterMode && clusterData) {
+      systemPrompt = `Ты — эксперт по тематическому проектированию (Topic Authority) и Senior SEO Analyst. Тебе дан основной запрос и список смежных фраз (семантический кластер).
+
+Задачи:
+1. Проанализируй текст пользователя на «полноту раскрытия темы».
+2. Найди «информационные дыры» — подтемы из кластера, которые пользователь вообще не упомянул.
+3. Сформируй «Semantic Map» — список из 5-7 обязательных разделов (H2), которые должны быть на странице для экспертности (E-E-A-T).
+4. Оцени «Topic Coverage Score» от 0 до 100%.
+
+Верни JSON:
+{
+  "scores": { "seoHealth": <0-100>, "llmFriendly": <0-100>, "humanTouch": <0-100>, "sgeAdapt": <0-100> },
+  "quickWins": [{"text": "<рекомендация>"}],
+  "aiReport": {
+    "summary": "<2-3 абзаца с учётом кластерного анализа>",
+    "strengths": ["..."], "weaknesses": ["..."], "recommendations": ["..."],
+    "missingEntities": ["<LSI-сущности>"],
+    "geoScore": <0-100>,
+    "sgeReadiness": "<оценка>"
+  },
+  "priorities": [{"task": "<задача>", "impact": <1-10>, "effort": <1-10>, "category": "<Technical|Content|Links>"}],
+  "blueprint": {
+    "h1": "<H1>", "metaTitle": "<title>", "metaDescription": "<desc>",
+    "sections": [{"tag": "h2|h3", "text": "<заголовок>", "wordCount": <число>}],
+    "requiredBlocks": ["FAQ", "Отзывы", "Цены"]
+  },
+  "clusterAnalysis": {
+    "topicCoverageScore": <0-100>,
+    "semanticMap": [{"heading": "<H2 заголовок>", "description": "<зачем нужен>", "present": <true|false>}],
+    "informationGaps": ["<подтема, которой нет на странице>"],
+    "coveredTopics": ["<подтема, которая уже раскрыта>"],
+    "suggestedFaqQuestions": ["<вопросы из People Also Ask для FAQ блока>"]
+  }
+}
+Будь конкретен. Пиши на русском.`;
+
+      userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
+─── Контент (15k) ───\n${targetContent.slice(0, 15000)}
+─── Семантический кластер (${clusterData.semanticCluster.length} фраз) ───\n${clusterData.semanticCluster.join("\n")}
+─── People Also Ask ───\n${clusterData.peopleAlsoAsk.join("\n") || "нет"}
+─── Частые заголовки H2-H3 у конкурентов ───\n${clusterData.competitorHeadings.join("\n") || "нет"}
+─── Missing Entities ───\n${missingTerms || "нет"}
+─── Spam Terms ───\n${spamTerms || "нет"}
+─── Topical Gaps ───\n${bigramGaps.slice(0, 10).map((g: any) => `"${g.text}" (${g.competitorCount} конк.)`).join(", ") || "нет"}
+─── Техаудит ───\nH1: ${audit.h1Count}, JSON-LD: ${audit.hasJsonLd ? "Да" : "Нет"}, OG: ${audit.hasOpenGraph ? "Да" : "Нет"}
+Проблемы: ${audit.issues.join("; ") || "нет"}
+Конкурентов: ${compContents.length}`;
+    } else {
+      systemPrompt = `Ты — Senior SEO & AIO Analyst. Данные:
 1. Markdown страницы (до 15000 символов)
 2. TF-IDF: Missing Entities, Spam Terms
 3. Topical Gaps (N-gram сравнение с конкурентами)
@@ -458,7 +593,7 @@ Deno.serve(async (req) => {
 }
 Будь конкретен. Пиши на русском.`;
 
-    const userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
+      userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
 ─── Контент (15k) ───\n${targetContent.slice(0, 15000)}
 ─── Missing Entities ───\n${missingTerms || "нет"}
 ─── Spam Terms ───\n${spamTerms || "нет"}
@@ -466,6 +601,7 @@ Deno.serve(async (req) => {
 ─── Техаудит ───\nH1: ${audit.h1Count}, JSON-LD: ${audit.hasJsonLd ? "Да" : "Нет"}, OG: ${audit.hasOpenGraph ? "Да" : "Нет"}
 Проблемы: ${audit.issues.join("; ") || "нет"}
 Конкурентов: ${compContents.length}`;
+    }
 
     console.log("Calling OpenRouter...");
     const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -483,10 +619,11 @@ Deno.serve(async (req) => {
       const c = j.choices?.[0]?.message?.content;
       if (c) { try { aiParsed = JSON.parse(c); } catch { console.error("AI JSON parse fail"); } }
     } else { console.error("OpenRouter error:", aiRes.status, await aiRes.text()); }
-    await setStage(8, aiParsed.scores ? "done" : "error", `${((Date.now() - t7) / 1000).toFixed(1)}s`);
+    await setStage(si, aiParsed.scores ? "done" : "error", `${((Date.now() - t7) / 1000).toFixed(1)}s`);
+    si++;
 
-    // ── Stage 9: Save ──
-    await setStage(9, "running");
+    // ── Save ──
+    await setStage(si, "running");
 
     const moduleStatuses = stages.map(s => ({ name: s.name, time: s.time, done: s.status === "done" }));
 
@@ -505,6 +642,15 @@ Deno.serve(async (req) => {
         anchorsData,
         competitorUrls: competitorUrls.slice(0, 5),
         competitorCount: compContents.length,
+        ...(clusterMode && clusterData ? {
+          clusterData: {
+            semanticCluster: clusterData.semanticCluster,
+            relatedSearches: clusterData.relatedSearches,
+            peopleAlsoAsk: clusterData.peopleAlsoAsk,
+            competitorHeadings: clusterData.competitorHeadings,
+            clusterAnalysis: aiParsed.clusterAnalysis || null,
+          },
+        } : {}),
       },
       modules: moduleStatuses,
     };
@@ -516,12 +662,12 @@ Deno.serve(async (req) => {
 
     if (insertErr) {
       console.error("Save error:", insertErr);
-      await setStage(9, "error");
+      await setStage(si, "error");
       await supabase.from("analyses").update({ status: "failed" }).eq("id", analysisId);
       return new Response(JSON.stringify({ error: "Failed to save" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    await setStage(9, "done", "0.1s");
+    await setStage(si, "done", "0.1s");
     await supabase.from("analyses").update({ status: "completed" }).eq("id", analysisId);
     console.log("Done:", url);
 
