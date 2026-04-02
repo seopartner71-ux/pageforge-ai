@@ -5,9 +5,13 @@ import { ScoreGauge } from '@/components/ScoreGauge';
 import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code, Plus, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette } from 'lucide-react';
 import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 
 interface ReportPageProps {
   url: string;
@@ -23,35 +27,64 @@ const scoreColors = [
 ];
 const scoreLabels = ['SEO HEALTH', 'LLM-FRIENDLY', 'HUMAN TOUCH', 'SGE ADAPT'];
 
+interface PdfTpl {
+  id: string;
+  name: string;
+  is_active: boolean;
+  theme: string;
+  primary_color: string;
+  accent_color: string;
+  font_family: string;
+  font_sizes: any;
+  margins: any;
+  logo_url: string | null;
+  company_name: string | null;
+  enabled_sections: any;
+  section_order: any;
+}
+
 export default function ReportPage({ url, analysisId, onBack }: ReportPageProps) {
   const { tr, lang } = useLang();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [templates, setTemplates] = useState<PdfTpl[]>([]);
+  const [tplLoading, setTplLoading] = useState(true);
 
-  const handleExportPdf = async () => {
+  // Load user templates
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setTplLoading(false); return; }
+      const { data } = await supabase
+        .from('pdf_templates')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+      if (data) setTemplates(data as any);
+      setTplLoading(false);
+    })();
+  }, []);
+
+  const handleExportPdf = async (tpl?: PdfTpl | null) => {
     if (!analysisId) return;
     setPdfLoading(true);
     try {
-      const tpl = await getActiveTemplate();
-      await downloadPdf({
-        analysisId,
-        lang,
-        template: tpl ? {
-          theme: tpl.theme,
-          primary_color: tpl.primary_color,
-          accent_color: tpl.accent_color,
-          font_family: tpl.font_family,
-          font_sizes: tpl.font_sizes,
-          margins: tpl.margins,
-          logo_url: tpl.logo_url,
-          company_name: tpl.company_name,
-          enabled_sections: tpl.enabled_sections,
-          section_order: tpl.section_order,
-        } : undefined,
-      });
+      const template = tpl ? {
+        theme: tpl.theme,
+        primary_color: tpl.primary_color,
+        accent_color: tpl.accent_color,
+        font_family: tpl.font_family,
+        font_sizes: tpl.font_sizes,
+        margins: tpl.margins,
+        logo_url: tpl.logo_url,
+        company_name: tpl.company_name,
+        enabled_sections: tpl.enabled_sections,
+        section_order: tpl.section_order,
+      } : undefined;
+
+      await downloadPdf({ analysisId, lang, template });
     } catch (err: any) {
-      const { toast } = await import('sonner');
       toast.error(err.message);
     } finally {
       setPdfLoading(false);
@@ -86,6 +119,8 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   const quickWins = (results?.quick_wins as any[]) || [];
   const tabData = (results?.tab_data as any) || {};
 
+  const activeTpl = templates.find(t => t.is_active);
+
   return (
     <div className="min-h-screen">
       <AppHeader />
@@ -104,20 +139,70 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {activeTpl && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Palette className="w-3 h-3" />
+                {activeTpl.name}
+              </span>
+            )}
             <Button variant="outline" size="sm" className="text-xs gap-1.5">
               <Code className="w-3 h-3" />
               {lang === 'ru' ? 'Посмотреть JSON' : 'View JSON'}
             </Button>
-            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handleExportPdf} disabled={pdfLoading || !analysisId}>
-              {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-              {lang === 'ru' ? 'Экспорт в PDF' : 'Export to PDF'}
-            </Button>
+
+            {/* PDF Export with template selector */}
+            {templates.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-xs gap-1.5" disabled={pdfLoading || !analysisId}>
+                    {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                    {lang === 'ru' ? 'Экспорт в PDF' : 'Export PDF'}
+                    <ChevronDown className="w-3 h-3 ml-0.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => handleExportPdf(null)} className="gap-2 text-xs">
+                    <FileText className="w-3.5 h-3.5" />
+                    {lang === 'ru' ? 'По умолчанию' : 'Default'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {templates.map(t => (
+                    <DropdownMenuItem key={t.id} onClick={() => handleExportPdf(t)} className="gap-2 text-xs">
+                      <Palette className="w-3.5 h-3.5" style={{ color: t.primary_color }} />
+                      {t.name}
+                      {t.is_active && (
+                        <span className="ml-auto text-[10px] text-primary font-medium">
+                          {lang === 'ru' ? 'активный' : 'active'}
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => handleExportPdf(null)} disabled={pdfLoading || !analysisId}>
+                {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                {lang === 'ru' ? 'Экспорт в PDF' : 'Export PDF'}
+              </Button>
+            )}
+
             <Button size="sm" className="btn-gradient border-0 text-xs gap-1.5" onClick={onBack}>
               <Plus className="w-3 h-3" />
               {lang === 'ru' ? '+ Новый анализ' : '+ New Analysis'}
             </Button>
           </div>
         </div>
+
+        {/* Hint if no templates */}
+        {!tplLoading && templates.length === 0 && (
+          <div className="text-center py-2">
+            <p className="text-xs text-muted-foreground">
+              {lang === 'ru'
+                ? '💡 Создайте свой фирменный стиль в PDF-Редакторе → /pdf-editor'
+                : '💡 Create your branded style in PDF Editor → /pdf-editor'}
+            </p>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
