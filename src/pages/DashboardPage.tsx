@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLang } from '@/contexts/LangContext';
-import { LangToggle } from '@/components/LangToggle';
+import { AppHeader } from '@/components/AppHeader';
 import { AnalysisForm } from '@/components/AnalysisForm';
 import { ChecklistSidebar } from '@/components/ChecklistSidebar';
 import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import ReportPage from '@/pages/ReportPage';
-import { Button } from '@/components/ui/button';
-import { Zap, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Project {
@@ -26,7 +24,6 @@ export default function DashboardPage() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
 
-  // Load projects from DB
   useEffect(() => {
     const loadProjects = async () => {
       const { data } = await supabase
@@ -79,7 +76,7 @@ export default function DashboardPage() {
 
     setLoading(true);
 
-    // Create analysis in DB
+    // Create analysis record
     const { data: analysis, error } = await supabase
       .from('analyses')
       .insert({
@@ -90,102 +87,62 @@ export default function DashboardPage() {
         competitors: data.competitors,
         ai_context: data.aiContext,
         cluster_mode: data.clusterMode,
-        status: 'running',
+        status: 'pending',
       })
       .select('id')
       .single();
 
-    if (error) {
-      toast({ title: error.message, variant: 'destructive' });
+    if (error || !analysis) {
+      toast({ title: error?.message || 'Error creating analysis', variant: 'destructive' });
       setLoading(false);
       return;
     }
 
-    // Simulate analysis completion and save mock results
-    setTimeout(async () => {
-      if (analysis) {
-        // Save mock results
-        await supabase.from('analysis_results').insert({
-          analysis_id: analysis.id,
-          scores: {
-            seoHealth: 48,
-            llmFriendly: 60,
-            humanTouch: 65,
-            sgeAdapt: 55,
+    // Call the edge function for real AI analysis
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seo-analyze`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          modules: [
-            { name: 'Go Parser', time: '2.1s', done: true },
-            { name: 'Код-аналитика', time: '8.4s', done: true },
-            { name: 'Semantic Relevance', time: '8.3s', done: true },
-            { name: 'Topical Authority', time: '11.2s', done: true },
-            { name: 'LLM Readiness', time: '6.7s', done: true },
-            { name: 'Content Recs', time: '9.1s', done: true },
-            { name: 'Technical Fixes', time: '5.8s', done: true },
-          ],
-          quick_wins: [
-            { text: 'Внедрить семантические теги <main> и <section> для улучшения структуры.' },
-            { text: 'Прописать осмысленные alt-тексты для всех 18 изображений.' },
-            { text: 'Заполнить и внедрить OpenGraph теги (og:title, og:description, og:image).' },
-            { text: 'Внедрить микроразметку Schema.org для LocalBusiness и Service.' },
-            { text: 'Переписать Title и Description, добавив УТП и гео-привязку.' },
-            { text: 'Разместить на видном месте номера телефонов и CTA-кнопку «Рассчитать стоимость».' },
-          ],
-          tab_data: {},
-        });
+          body: JSON.stringify({
+            url: data.url,
+            pageType: data.pageType,
+            competitors: data.competitors,
+            aiContext: data.aiContext,
+            analysisId: analysis.id,
+          }),
+        }
+      );
 
-        // Update analysis status
-        await supabase.from('analyses').update({ status: 'completed' }).eq('id', analysis.id);
-
-        setAnalysisId(analysis.id);
-        setAnalyzedUrl(data.url);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Analysis failed (${response.status})`);
       }
-      setLoading(false);
+
+      setAnalysisId(analysis.id);
+      setAnalyzedUrl(data.url);
       toast({ title: `Анализ завершён: ${data.url}` });
-    }, 2500);
+    } catch (err: any) {
+      toast({ title: err.message || 'Analysis failed', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
-  // Show report page
   if (analyzedUrl) {
     return <ReportPage url={analyzedUrl} analysisId={analysisId} onBack={() => { setAnalyzedUrl(null); setAnalysisId(null); }} />;
   }
 
-  // Header
-  const header = (
-    <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-      <div className="container flex items-center justify-between h-14">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg btn-gradient flex items-center justify-center">
-              <Zap className="w-3.5 h-3.5" />
-            </div>
-            <span className="font-bold gradient-text">{tr.appName}</span>
-            <span className="text-xs text-muted-foreground hidden sm:inline">{tr.subtitle}</span>
-          </div>
-          <nav className="hidden md:flex items-center gap-6">
-            <a href="#" className="text-sm font-medium text-foreground border-b-2 border-primary pb-0.5">{tr.nav.analysis}</a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{tr.nav.history}</a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{tr.nav.account}</a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">{tr.nav.pdfEditor}</a>
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          <LangToggle />
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
-            <LogOut className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-    </header>
-  );
-
   if (!projectsLoaded) {
     return (
       <div className="min-h-screen">
-        {header}
+        <AppHeader />
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 rounded-lg btn-gradient animate-pulse" />
         </div>
@@ -196,7 +153,7 @@ export default function DashboardPage() {
   if (projects.length === 0 || showNewProject) {
     return (
       <div className="min-h-screen">
-        {header}
+        <AppHeader />
         <CreateProjectDialog onCreated={handleCreateProject} />
       </div>
     );
@@ -204,7 +161,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      {header}
+      <AppHeader />
       <main className="container py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
           <div className="space-y-2">
