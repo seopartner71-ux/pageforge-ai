@@ -137,6 +137,7 @@ export default function DashboardPage() {
               aiContext: data.aiContext,
               clusterMode: data.clusterMode,
               analysisId: analysis.id,
+              region: data.region,
             }),
           }
         );
