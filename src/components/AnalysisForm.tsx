@@ -34,6 +34,7 @@ interface AnalysisFormProps {
     aiContext: string;
     clusterMode: boolean;
     projectId?: string;
+    region: string;
   }) => void;
   loading: boolean;
   projects?: { id?: string; name: string; domain: string }[];
