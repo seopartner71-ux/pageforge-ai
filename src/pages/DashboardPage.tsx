@@ -29,15 +29,18 @@ export default function DashboardPage() {
   const [credits, setCredits] = useState<number | null>(null);
 
   useEffect(() => {
-    const loadProjects = async () => {
-      const { data } = await supabase
-        .from('projects')
-        .select('id, name, domain')
-        .order('created_at', { ascending: false });
-      if (data) setProjects(data.map(p => ({ id: p.id, name: p.name, domain: p.domain || '' })));
+    const loadData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const [projectsRes, profileRes] = await Promise.all([
+        supabase.from('projects').select('id, name, domain').order('created_at', { ascending: false }),
+        user ? supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle() : null,
+      ]);
+      if (projectsRes.data) setProjects(projectsRes.data.map(p => ({ id: p.id, name: p.name, domain: p.domain || '' })));
+      if (profileRes?.data) setCredits(profileRes.data.credits);
+      else setCredits(null);
       setProjectsLoaded(true);
     };
-    loadProjects();
+    loadData();
   }, []);
 
   const handleCreateProject = async (project: { name: string; domain: string }) => {
