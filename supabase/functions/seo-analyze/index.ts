@@ -692,11 +692,15 @@ Deno.serve(async (req) => {
         .map(([heading]) => heading);
     }
 
+    // ── Detect language for Latin filtering ──
+    const isRU = isRussianContent(targetContent);
+    if (isRU) console.log("Detected RU content — Latin junk filter ACTIVE");
+
     // ── TF-IDF ──
     await setStage(si, "running");
     const t3 = Date.now();
-    const targetWords = tokenize(targetContent);
-    const compWordArrays = compContents.map(c => tokenize(c));
+    const targetWords = tokenize(targetContent, isRU);
+    const compWordArrays = compContents.map(c => tokenize(c, isRU));
     const tfidfResults = calculateTFIDF(targetWords, compWordArrays);
     await setStage(si, "done", `${((Date.now() - t3) / 1000).toFixed(1)}s`);
     si++;
