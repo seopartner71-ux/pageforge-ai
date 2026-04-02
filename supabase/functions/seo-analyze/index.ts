@@ -94,24 +94,29 @@ function isRussianContent(text: string): boolean {
   return cyrChars > latChars * 1.5; // Russian if Cyrillic dominates
 }
 
+// ─── Check if a token is numeric/phone junk ───
+function isNumericJunk(word: string): boolean {
+  if (DIGIT_ONLY_RE.test(word)) return true;           // pure digits: 918, 030, 79180303140
+  if (DIGIT_HEAVY_RE.test(word)) return true;           // 5+ digits embedded
+  if (TECH_PREFIX_DIGIT_RE.test(word)) return true;     // tel79..., id123
+  return false;
+}
+
 function tokenize(text: string, filterLatin = false): string[] {
   // Split glued Cyrillic+Latin
   let cleaned = text.replace(CYRLAT_SPLIT_RE, "$1 $2").replace(LATCYR_SPLIT_RE, "$1 $2");
-  // Strip URLs and file extensions
+  // Strip URLs, file extensions, phone numbers
   cleaned = cleaned.replace(URL_STRIP_RE, " ").replace(/[^\p{L}\p{N}\s]/gu, " ");
 
-  if (!filterLatin) {
-    return cleaned.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w.toLowerCase()) && !TECH_BLACKLIST.has(w.toLowerCase()));
-  }
-
-  // For Russian content: preserve original case for brand detection, then filter
   const rawWords = cleaned.split(/\s+/).filter(w => w.length > 2);
   const result: string[] = [];
+
   for (const w of rawWords) {
     const lower = w.toLowerCase();
     if (STOP_WORDS.has(lower)) continue;
     if (TECH_BLACKLIST.has(lower)) continue;
-    if (isLatinJunk(w)) continue;
+    if (isNumericJunk(lower)) continue;
+    if (filterLatin && isLatinJunk(w)) continue;
     result.push(lower);
   }
   return result;
