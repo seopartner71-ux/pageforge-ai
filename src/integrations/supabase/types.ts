@@ -14,7 +14,121 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analyses: {
+        Row: {
+          ai_context: string | null
+          cluster_mode: boolean | null
+          competitors: string[] | null
+          created_at: string
+          id: string
+          page_type: string | null
+          project_id: string
+          status: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          ai_context?: string | null
+          cluster_mode?: boolean | null
+          competitors?: string[] | null
+          created_at?: string
+          id?: string
+          page_type?: string | null
+          project_id: string
+          status?: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          ai_context?: string | null
+          cluster_mode?: boolean | null
+          competitors?: string[] | null
+          created_at?: string
+          id?: string
+          page_type?: string | null
+          project_id?: string
+          status?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analyses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analysis_results: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          id: string
+          modules: Json | null
+          quick_wins: Json | null
+          scores: Json | null
+          tab_data: Json | null
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          id?: string
+          modules?: Json | null
+          quick_wins?: Json | null
+          scores?: Json | null
+          tab_data?: Json | null
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          id?: string
+          modules?: Json | null
+          quick_wins?: Json | null
+          scores?: Json | null
+          tab_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_results_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          domain: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
