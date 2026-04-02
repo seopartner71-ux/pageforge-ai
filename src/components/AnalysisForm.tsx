@@ -72,7 +72,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
           <div className="flex items-center gap-2">
             <span className="text-xs tracking-widest text-muted-foreground font-semibold">📁 {tr.projectSection.title}</span>
           </div>
-          <button className="text-sm text-accent hover:underline font-medium">{tr.projectSection.newProject}</button>
+          <button onClick={onNewProject} className="text-sm text-accent hover:underline font-medium">{tr.projectSection.newProject}</button>
         </div>
         <div className="flex gap-3">
           <select className="flex-1 h-11 rounded-lg bg-secondary border border-border/50 px-4 text-sm text-foreground focus:border-primary outline-none">
