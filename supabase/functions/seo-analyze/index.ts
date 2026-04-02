@@ -355,8 +355,22 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Failed to fetch page content" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ── Stage 1: SERP & Competitors ──
+    // ── Stage 1: HTML Parse (Images & Anchors) ──
     await setStage(1, "running");
+    const tHtml = Date.now();
+    console.log("Fetching raw HTML:", url);
+    const rawHtml = await fetchRawHtml(url);
+    let imagesData: any[] = [];
+    let anchorsData: any[] = [];
+    if (rawHtml) {
+      imagesData = parseImages(rawHtml, url);
+      anchorsData = parseAnchors(rawHtml, url);
+      console.log(`Parsed ${imagesData.length} images, ${anchorsData.length} anchors`);
+    }
+    await setStage(1, "done", `${((Date.now() - tHtml) / 1000).toFixed(1)}s`);
+
+    // ── Stage 2: SERP & Competitors ──
+    await setStage(2, "running");
     let competitorUrls: string[] = (manualComp || []).filter((c: string) => c.trim());
     const SERPER_KEY = dbKeys["serper_api_key"] || Deno.env.get("SERPER_API_KEY");
     const t1 = Date.now();
@@ -368,49 +382,49 @@ Deno.serve(async (req) => {
       competitorUrls = await findCompetitors(keyword, SERPER_KEY);
       try { competitorUrls = competitorUrls.filter(u => !u.includes(new URL(url).hostname)); } catch {}
     }
-    await setStage(1, "done", `${((Date.now() - t1) / 1000).toFixed(1)}s`);
+    await setStage(2, "done", `${((Date.now() - t1) / 1000).toFixed(1)}s`);
 
-    // ── Stage 2: Competitor Fetch ──
-    await setStage(2, "running");
+    // ── Stage 3: Competitor Fetch ──
+    await setStage(3, "running");
     const t2 = Date.now();
     const fetchUrls = competitorUrls.slice(0, 5);
     console.log(`Fetching ${fetchUrls.length} competitors...`);
     const compContents: string[] = [];
     const compRes = await Promise.allSettled(fetchUrls.map(u => fetchPage(u)));
     for (const r of compRes) { if (r.status === "fulfilled" && r.value) compContents.push(r.value); }
-    await setStage(2, "done", `${((Date.now() - t2) / 1000).toFixed(1)}s`);
+    await setStage(3, "done", `${((Date.now() - t2) / 1000).toFixed(1)}s`);
 
-    // ── Stage 3: TF-IDF ──
-    await setStage(3, "running");
+    // ── Stage 4: TF-IDF ──
+    await setStage(4, "running");
     const t3 = Date.now();
     const targetWords = tokenize(targetContent);
     const compWordArrays = compContents.map(c => tokenize(c));
     const tfidfResults = calculateTFIDF(targetWords, compWordArrays);
-    await setStage(3, "done", `${((Date.now() - t3) / 1000).toFixed(1)}s`);
+    await setStage(4, "done", `${((Date.now() - t3) / 1000).toFixed(1)}s`);
 
-    // ── Stage 4: Zipf's Law ──
-    await setStage(4, "running");
+    // ── Stage 5: Zipf's Law ──
+    await setStage(5, "running");
     const t4 = Date.now();
     const zipfData = calculateZipf(targetWords);
-    await setStage(4, "done", `${((Date.now() - t4) / 1000).toFixed(1)}s`);
+    await setStage(5, "done", `${((Date.now() - t4) / 1000).toFixed(1)}s`);
 
-    // ── Stage 5: N-Grams ──
-    await setStage(5, "running");
+    // ── Stage 6: N-Grams ──
+    await setStage(6, "running");
     const t5 = Date.now();
     const bigrams = extractNgrams(targetWords, 2);
     const trigrams = extractNgrams(targetWords, 3);
     const bigramGaps = findTopicalGaps(targetWords, compWordArrays, 2);
     const trigramGaps = findTopicalGaps(targetWords, compWordArrays, 3);
-    await setStage(5, "done", `${((Date.now() - t5) / 1000).toFixed(1)}s`);
+    await setStage(6, "done", `${((Date.now() - t5) / 1000).toFixed(1)}s`);
 
-    // ── Stage 6: Technical Audit ──
-    await setStage(6, "running");
+    // ── Stage 7: Technical Audit ──
+    await setStage(7, "running");
     const t6 = Date.now();
     const audit = technicalAudit(targetContent);
-    await setStage(6, "done", `${((Date.now() - t6) / 1000).toFixed(1)}s`);
+    await setStage(7, "done", `${((Date.now() - t6) / 1000).toFixed(1)}s`);
 
-    // ── Stage 7: AI Analyst ──
-    await setStage(7, "running");
+    // ── Stage 8: AI Analyst ──
+    await setStage(8, "running");
     const t7 = Date.now();
 
     const missingTerms = tfidfResults.filter((t: any) => t.status === "Missing").slice(0, 20)
@@ -469,10 +483,10 @@ Deno.serve(async (req) => {
       const c = j.choices?.[0]?.message?.content;
       if (c) { try { aiParsed = JSON.parse(c); } catch { console.error("AI JSON parse fail"); } }
     } else { console.error("OpenRouter error:", aiRes.status, await aiRes.text()); }
-    await setStage(7, aiParsed.scores ? "done" : "error", `${((Date.now() - t7) / 1000).toFixed(1)}s`);
+    await setStage(8, aiParsed.scores ? "done" : "error", `${((Date.now() - t7) / 1000).toFixed(1)}s`);
 
-    // ── Stage 8: Save ──
-    await setStage(8, "running");
+    // ── Stage 9: Save ──
+    await setStage(9, "running");
 
     const moduleStatuses = stages.map(s => ({ name: s.name, time: s.time, done: s.status === "done" }));
 
@@ -487,6 +501,8 @@ Deno.serve(async (req) => {
         ngrams: { bigrams, trigrams, bigramGaps, trigramGaps },
         zipf: zipfData,
         technicalAudit: audit,
+        imagesData,
+        anchorsData,
         competitorUrls: competitorUrls.slice(0, 5),
         competitorCount: compContents.length,
       },
@@ -500,12 +516,12 @@ Deno.serve(async (req) => {
 
     if (insertErr) {
       console.error("Save error:", insertErr);
-      await setStage(8, "error");
+      await setStage(9, "error");
       await supabase.from("analyses").update({ status: "failed" }).eq("id", analysisId);
       return new Response(JSON.stringify({ error: "Failed to save" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    await setStage(8, "done", "0.1s");
+    await setStage(9, "done", "0.1s");
     await supabase.from("analyses").update({ status: "completed" }).eq("id", analysisId);
     console.log("Done:", url);
 
