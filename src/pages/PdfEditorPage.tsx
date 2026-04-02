@@ -119,9 +119,9 @@ export default function PdfEditorPage() {
   const handleDownloadTestPdf = async () => {
     setDownloading(true);
     try {
-      // Find the latest analysis to use real data, or show placeholder
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
       const { data: latestAnalysis } = await supabase
         .from('analyses')
         .select('id')
@@ -131,28 +131,27 @@ export default function PdfEditorPage() {
         .limit(1)
         .single();
 
-      if (!latestAnalysis) {
-        toast.error(lang === 'ru' ? 'Нет завершённых анализов для экспорта' : 'No completed analyses to export');
-        return;
-      }
+      const templatePayload = {
+        theme: tpl.theme,
+        primary_color: tpl.primary_color,
+        accent_color: tpl.accent_color,
+        font_family: tpl.font_family,
+        font_sizes: tpl.font_sizes,
+        margins: tpl.margins,
+        logo_url: tpl.logo_url,
+        company_name: tpl.company_name,
+        enabled_sections: tpl.enabled_sections,
+        section_order: tpl.section_order,
+      };
 
-      await downloadPdf({
-        analysisId: latestAnalysis.id,
-        lang,
-        template: {
-          theme: tpl.theme,
-          primary_color: tpl.primary_color,
-          accent_color: tpl.accent_color,
-          font_family: tpl.font_family,
-          font_sizes: tpl.font_sizes,
-          margins: tpl.margins,
-          logo_url: tpl.logo_url,
-          company_name: tpl.company_name,
-          enabled_sections: tpl.enabled_sections,
-          section_order: tpl.section_order,
-        },
-      });
-      toast.success(lang === 'ru' ? 'PDF открыт — используйте "Сохранить как PDF"' : 'PDF opened — use "Save as PDF"');
+      if (latestAnalysis) {
+        await downloadPdf({ analysisId: latestAnalysis.id, lang, template: templatePayload });
+      } else {
+        // Generate placeholder PDF with demo data
+        const { downloadPlaceholderPdf } = await import('@/lib/downloadPdf');
+        await downloadPlaceholderPdf({ lang, template: templatePayload });
+      }
+      toast.success(lang === 'ru' ? 'PDF скачан!' : 'PDF downloaded!');
     } catch (err: any) {
       toast.error(err.message);
     } finally {
