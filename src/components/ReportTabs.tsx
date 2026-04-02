@@ -542,45 +542,196 @@ function StealthTab({ data }: TabDataProps) {
   );
 }
 
+/* ─────────── AI Optimizer Component ─────────── */
+
+function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
+  const { lang } = useLang();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleOptimize = async () => {
+    if (!analysisId) return;
+    setLoading(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-optimize`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ analysisId }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Error ${res.status}`);
+      }
+      const data = await res.json();
+      setResult(data);
+    } catch (e: any) {
+      toast({ title: e.message || 'Optimization failed', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (result?.optimizedText) {
+      navigator.clipboard.writeText(result.optimizedText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: lang === 'ru' ? 'Текст скопирован!' : 'Text copied!' });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {!result ? (
+        <div className="glass-card p-6 text-center space-y-4">
+          <Wand2 className="w-10 h-10 mx-auto text-primary" />
+          <div>
+            <h3 className="text-lg font-bold text-foreground">
+              {lang === 'ru' ? 'AI Optimizer — Автоматическая оптимизация текста' : 'AI Optimizer — Automatic Text Optimization'}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              {lang === 'ru'
+                ? 'ИИ перепишет текст вашей страницы: добавит Missing Entities, снизит переспам и закроет тематические пробелы. Результат — готовый текст для копирования.'
+                : 'AI will rewrite your page text: add Missing Entities, reduce keyword spam, and close topical gaps. Result — ready-to-copy text.'}
+            </p>
+          </div>
+          <Button
+            onClick={handleOptimize}
+            disabled={loading || !analysisId}
+            className="btn-gradient border-0 gap-2"
+            size="lg"
+          >
+            {loading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> {lang === 'ru' ? 'Оптимизация...' : 'Optimizing...'}</>
+            ) : (
+              <><Wand2 className="w-4 h-4" /> {lang === 'ru' ? 'Оптимизировать текст ИИ' : 'Optimize Text with AI'}</>
+            )}
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {result.summary && (
+            <div className="glass-card p-4 border-l-2 border-primary">
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">
+                {lang === 'ru' ? 'Что изменено' : 'Changes Summary'}
+              </span>
+              <p className="text-sm text-foreground mt-1">{result.summary}</p>
+            </div>
+          )}
+
+          {result.changes?.length > 0 && (
+            <div className="glass-card p-4">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
+                {lang === 'ru' ? 'Детали изменений' : 'Change Details'}
+              </h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {result.changes.map((c: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className={`px-1.5 py-0.5 rounded font-bold ${
+                      c.type === 'added' ? 'bg-accent/20 text-accent' :
+                      c.type === 'reduced' ? 'bg-destructive/20 text-destructive' :
+                      'bg-primary/20 text-primary'
+                    }`}>
+                      {c.type === 'added' ? '+' : c.type === 'reduced' ? '−' : '◆'}
+                    </span>
+                    <span className="text-foreground font-medium">{c.term || c.phrase}</span>
+                    <span className="text-muted-foreground">
+                      {c.context || (c.from !== undefined ? `${c.from} → ${c.to}` : '')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="glass-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                {lang === 'ru' ? 'Оптимизированный текст' : 'Optimized Text'}
+              </h4>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleCopy}>
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? (lang === 'ru' ? 'Скопировано' : 'Copied') : (lang === 'ru' ? 'Копировать' : 'Copy')}
+              </Button>
+            </div>
+            <div className="max-h-[500px] overflow-y-auto rounded-lg bg-secondary/30 p-4">
+              <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
+                {result.optimizedText}
+              </pre>
+            </div>
+          </div>
+
+          <Button variant="outline" onClick={() => setResult(null)} className="gap-1.5">
+            <Wand2 className="w-3.5 h-3.5" />
+            {lang === 'ru' ? 'Запустить заново' : 'Run Again'}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─────────── Main Tabs Component ─────────── */
 
 interface ReportTabsProps {
   data?: any;
+  analysisId?: string | null;
 }
 
-export function ReportTabs({ data = {} }: ReportTabsProps) {
+export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
   const { lang } = useLang();
-  const labels = tabLabels[lang] || tabLabels.en;
-
-  const tabComponents: Record<TabKey, () => JSX.Element> = {
-    aiReport: () => <AiReportTab data={data} />,
-    priorities: () => <PrioritiesTab data={data} />,
-    blueprint: () => <BlueprintTab data={data} />,
-    tfidf: () => <TfidfTab data={data} />,
-    ngrams: () => <NgramsTab data={data} />,
-    zipf: () => <ZipfTab data={data} />,
-    images: () => <ImagesTab />,
-    anchors: () => <AnchorsTab />,
-    pageSpeed: () => <PageSpeedTab />,
-    stealth: () => <StealthTab data={data} />,
+  const labels = {
+    ...(tabLabels[lang] || tabLabels.en),
+    optimizer: '🔮 AI Forge',
   };
 
+  const allTabKeys = ['optimizer', ...tabKeys] as const;
+
   return (
-    <Tabs defaultValue="aiReport" className="w-full">
+    <Tabs defaultValue="optimizer" className="w-full">
       <TabsList className="w-full h-auto flex flex-wrap gap-0.5 bg-secondary/50 p-1 rounded-xl">
-        {tabKeys.map((key) => (
+        {allTabKeys.map((key) => (
           <TabsTrigger
             key={key}
             value={key}
-            className="px-3 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground text-xs font-medium transition-all"
+            className={`px-3 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground text-xs font-medium transition-all ${
+              key === 'optimizer' ? 'data-[state=active]:bg-primary/20 data-[state=active]:text-primary' : ''
+            }`}
           >
+            {key === 'optimizer' && <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5 inline-block animate-pulse" />}
             {key === 'aiReport' && <span className="w-1.5 h-1.5 rounded-full bg-accent mr-1.5 inline-block" />}
-            {labels[key]}
+            {labels[key as keyof typeof labels]}
           </TabsTrigger>
         ))}
       </TabsList>
 
+      <TabsContent value="optimizer" className="mt-6">
+        <AiOptimizer analysisId={analysisId} />
+      </TabsContent>
+
       {tabKeys.map((key) => {
+        const tabComponents: Record<TabKey, () => JSX.Element> = {
+          aiReport: () => <AiReportTab data={data} />,
+          priorities: () => <PrioritiesTab data={data} />,
+          blueprint: () => <BlueprintTab data={data} />,
+          tfidf: () => <TfidfTab data={data} />,
+          ngrams: () => <NgramsTab data={data} />,
+          zipf: () => <ZipfTab data={data} />,
+          images: () => <ImagesTab />,
+          anchors: () => <AnchorsTab />,
+          pageSpeed: () => <PageSpeedTab />,
+          stealth: () => <StealthTab data={data} />,
+        };
         const Component = tabComponents[key];
         return (
           <TabsContent key={key} value={key} className="mt-6">
