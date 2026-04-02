@@ -48,8 +48,18 @@ export default function AccountPage() {
     }
     setSaving(false);
   };
+  const handleSaveBranding = async () => {
+    setBrandSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { error } = await supabase.from('profiles').update({ company_name: companyName, logo_url: logoUrl } as any).eq('user_id', user.id);
+      if (error) toast({ title: error.message, variant: 'destructive' });
+      else toast({ title: lang === 'ru' ? 'Брендинг сохранён' : 'Branding saved' });
+    }
+    setBrandSaving(false);
+  };
 
-  const t = {
+
     ru: {
       title: 'Личный кабинет',
       profile: 'Профиль',
