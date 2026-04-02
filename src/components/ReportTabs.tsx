@@ -1314,6 +1314,8 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
   const [viewMode, setViewMode] = useState<'preview' | 'html'>('preview');
   const [tableModalOpen, setTableModalOpen] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
+  const [stealthMode, setStealthMode] = useState(false);
+  const [stealthLoading, setStealthLoading] = useState(false);
 
   const handleOptimize = async () => {
     if (!analysisId) return;
