@@ -293,7 +293,7 @@ Deno.serve(async (req) => {
     // ── Stage 1: SERP & Competitors ──
     await setStage(1, "running");
     let competitorUrls: string[] = (manualComp || []).filter((c: string) => c.trim());
-    const SERPER_KEY = Deno.env.get("SERPER_API_KEY");
+    const SERPER_KEY = dbKeys["serper_api_key"] || Deno.env.get("SERPER_API_KEY");
     const t1 = Date.now();
 
     if (competitorUrls.length === 0 && SERPER_KEY) {
