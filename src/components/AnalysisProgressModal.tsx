@@ -30,7 +30,7 @@ export function AnalysisProgressModal({ analysisId, url, onComplete }: AnalysisP
       if (data) {
         setStatus(data.status);
         if (data.progress && Array.isArray(data.progress)) {
-          setStages(data.progress as Stage[]);
+          setStages(data.progress as unknown as Stage[]);
         }
         if (data.status === 'completed' || data.status === 'failed') {
           clearInterval(interval);
