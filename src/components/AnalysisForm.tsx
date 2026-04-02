@@ -76,7 +76,9 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
         </div>
         <div className="flex gap-3">
           <select className="flex-1 h-11 rounded-lg bg-secondary border border-border/50 px-4 text-sm text-foreground focus:border-primary outline-none">
-            <option>{tr.projectSection.placeholder}</option>
+            {projects.map((p, i) => (
+              <option key={i} value={p.name}>{p.name} — {p.domain || 'без домена'}</option>
+            ))}
           </select>
         </div>
       </div>
