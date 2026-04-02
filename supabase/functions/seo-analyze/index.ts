@@ -657,7 +657,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
 Проблемы: ${audit.issues.join("; ") || "нет"}
 Конкурентов: ${compContents.length}`;
     } else {
-      systemPrompt = `Ты — Senior SEO Architect, работающий по методологии "Доказательное SEO 2026". Данные:
+      systemPrompt = `Ты — Senior SEO Architect, работающий по методологии "Доказательное SEO 2026".${regionContext} Данные:
 1. Markdown страницы (до 15000 символов)
 2. TF-IDF: Missing Entities, Spam Terms
 3. Topical Gaps (N-gram сравнение с конкурентами)
