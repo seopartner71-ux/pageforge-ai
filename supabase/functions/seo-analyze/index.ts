@@ -515,6 +515,7 @@ Deno.serve(async (req) => {
     console.log("Fetching:", url);
     const t0 = Date.now();
     const targetContent = await fetchPage(url);
+    perfTiming.fetch_ms = Date.now() - t0;
     await setStage(0, targetContent ? "done" : "error", `${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
     if (!targetContent) {
