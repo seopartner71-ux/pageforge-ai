@@ -48,6 +48,9 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
   const [templates, setTemplates] = useState<PdfTpl[]>([]);
   const [tplLoading, setTplLoading] = useState(true);
 
