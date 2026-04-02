@@ -1723,7 +1723,7 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
           <TabsTrigger
             key={key}
             value={key}
-            className={`px-3 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground text-xs font-medium transition-all ${
+            className={`shrink-0 px-2.5 py-1.5 rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:border-b-2 data-[state=active]:border-primary text-muted-foreground text-[11px] font-medium transition-all whitespace-nowrap ${
               key === 'optimizer' ? 'data-[state=active]:bg-primary/20 data-[state=active]:text-primary' : ''
             }`}
           >
