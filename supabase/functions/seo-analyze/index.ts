@@ -378,13 +378,31 @@ function extractHeadings(markdown: string): string[] {
   return headings.map(h => h.replace(/^#{2,3}\s+/, '').trim());
 }
 
+// ─── Fetch with timeout ───
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ─── Main ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const GLOBAL_TIMEOUT = 90000; // 90s hard limit
+  const globalTimer = setTimeout(() => {
+    console.error("GLOBAL TIMEOUT reached (90s)");
+  }, GLOBAL_TIMEOUT);
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -392,13 +410,65 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: cd, error: ce } = await supabase.auth.getUser(token);
     if (ce || !cd?.user) {
+      clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── Server-side credit check ──
+    const { data: profile } = await supabase.from("profiles").select("credits").eq("user_id", cd.user.id).single();
+    if (!profile || profile.credits <= 0) {
+      clearTimeout(globalTimer);
+      return new Response(JSON.stringify({ error: "Insufficient credits" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode, region } = await req.json();
     if (!url || !analysisId) {
+      clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "url and analysisId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    // ── Cache check: same URL by same user within 1 hour ──
+    const { data: cachedAnalysis } = await supabase
+      .from("analyses")
+      .select("id")
+      .eq("user_id", cd.user.id)
+      .eq("url", url)
+      .eq("status", "completed")
+      .neq("id", analysisId)
+      .gte("created_at", new Date(Date.now() - 3600000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (cachedAnalysis) {
+      const { data: cachedResult } = await supabase
+        .from("analysis_results")
+        .select("*")
+        .eq("analysis_id", cachedAnalysis.id)
+        .limit(1)
+        .single();
+
+      if (cachedResult) {
+        console.log("Cache hit for", url);
+        // Clone cached result to new analysis
+        await supabase.from("analysis_results").insert({
+          analysis_id: analysisId,
+          scores: cachedResult.scores,
+          quick_wins: cachedResult.quick_wins,
+          tab_data: cachedResult.tab_data,
+          modules: cachedResult.modules,
+        });
+        await supabase.from("analyses").update({ status: "completed" }).eq("id", analysisId);
+        // Deduct credit
+        await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("user_id", cd.user.id);
+        clearTimeout(globalTimer);
+        return new Response(JSON.stringify({ success: true, cached: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    // Performance timing
+    const perfTiming: Record<string, number> = {};
+    const tGlobalStart = Date.now();
 
     // Fetch API keys from system_settings (admin panel), fallback to env vars
     const { data: settingsData } = await supabase.from("system_settings").select("key_name, key_value");
