@@ -1418,6 +1418,8 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
           anchors: () => <AnchorsTab data={data} />,
           pageSpeed: () => <PageSpeedTab />,
           stealth: () => <StealthTab data={data} />,
+          dataSources: () => <DataSourcesTab data={data} />,
+          verification: () => <VerificationTab data={data} />,
         };
         const Component = tabComponents[key];
         return (
