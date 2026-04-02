@@ -290,6 +290,34 @@ async function findCompetitors(keyword: string, apiKey: string): Promise<string[
   } catch { return []; }
 }
 
+// ─── Serper.dev extended SERP for cluster analysis ───
+async function findClusterData(keyword: string, apiKey: string): Promise<{
+  competitors: string[];
+  relatedSearches: string[];
+  peopleAlsoAsk: string[];
+}> {
+  const result = { competitors: [] as string[], relatedSearches: [] as string[], peopleAlsoAsk: [] as string[] };
+  try {
+    const res = await fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ q: keyword, num: 10 }),
+    });
+    if (!res.ok) return result;
+    const data = await res.json();
+    result.competitors = (data.organic || []).map((r: any) => r.link).filter(Boolean).slice(0, 10);
+    result.relatedSearches = (data.relatedSearches || []).map((r: any) => r.query).filter(Boolean).slice(0, 15);
+    result.peopleAlsoAsk = (data.peopleAlsoAsk || []).map((r: any) => r.question).filter(Boolean).slice(0, 15);
+  } catch {}
+  return result;
+}
+
+// ─── Extract H2/H3 headings from markdown for cluster structure ───
+function extractHeadings(markdown: string): string[] {
+  const headings = markdown.match(/^#{2,3}\s+(.+)$/gm) || [];
+  return headings.map(h => h.replace(/^#{2,3}\s+/, '').trim());
+}
+
 // ─── Main ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
