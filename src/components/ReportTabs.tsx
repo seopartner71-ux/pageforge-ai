@@ -261,13 +261,41 @@ function NgramsTab({ data }: TabDataProps) {
   );
 }
 
-function ZipfTab() {
+function ZipfTab({ data }: TabDataProps) {
+  const zipf = data?.zipf;
+  if (!zipf?.length) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold text-foreground">Закон Ципфа</h2>
-      <p className="text-sm text-muted-foreground">Анализ частотного распределения будет доступен после полного парсинга контента страницы.</p>
-      <div className="glass-card p-8 text-center text-muted-foreground">
-        Данные появятся после добавления модуля парсинга контента.
+      <p className="text-sm text-muted-foreground">Частотное распределение слов: реальная частота vs идеальная по закону Ципфа.</p>
+
+      <div className="glass-card p-4 h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={zipf.slice(0, 25)} barGap={2}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(222,30%,18%)" />
+            <XAxis dataKey="word" tick={{ fill: 'hsl(215,20%,55%)', fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
+            <YAxis tick={{ fill: 'hsl(215,20%,55%)', fontSize: 11 }} />
+            <Tooltip contentStyle={{ background: 'hsl(222,47%,9%)', border: '1px solid hsl(222,30%,18%)', borderRadius: '8px', color: '#fff' }} />
+            <Bar dataKey="frequency" name="Реальная" fill="hsl(245,58%,58%)" radius={[4,4,0,0]} />
+            <Bar dataKey="idealFrequency" name="Идеальная (Ципф)" fill="hsl(210,100%,52%)" radius={[4,4,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="space-y-2">
+        {zipf.slice(0, 20).map((z: any, i: number) => (
+          <div key={i} className="glass-card px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground w-6">#{z.rank}</span>
+              <span className="text-sm text-foreground font-medium">{z.word}</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-accent">Факт: {z.frequency}</span>
+              <span className="text-xs text-muted-foreground">Ципф: {z.idealFrequency}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -309,14 +337,48 @@ function PageSpeedTab() {
   );
 }
 
-function StealthTab() {
+function StealthTab({ data }: TabDataProps) {
+  const audit = data?.technicalAudit;
+  if (!audit) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
+
+  const checks = [
+    { label: "H1 тегов", value: `${audit.h1Count}`, ok: audit.h1Count === 1 },
+    { label: "H1 текст", value: audit.h1Text || "—", ok: !!audit.h1Text },
+    { label: "Изображений всего", value: `${audit.totalImages}`, ok: true },
+    { label: "Без alt-атрибута", value: `${audit.imagesWithoutAlt}`, ok: audit.imagesWithoutAlt === 0 },
+    { label: "JSON-LD разметка", value: audit.hasJsonLd ? "Да" : "Нет", ok: audit.hasJsonLd },
+    { label: "OpenGraph теги", value: audit.hasOpenGraph ? "Да" : "Нет", ok: audit.hasOpenGraph },
+  ];
+
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-bold text-foreground">Stealth Engine</h2>
-      <p className="text-sm text-muted-foreground">Технический аудит будет доступен после парсинга HTML и проверки серверных заголовков.</p>
-      <div className="glass-card p-8 text-center text-muted-foreground">
-        Данные появятся после добавления модуля технического аудита.
+      <h2 className="text-lg font-bold text-foreground">Stealth Engine — Технический аудит</h2>
+      <p className="text-sm text-muted-foreground">Проверка технических SEO-элементов на странице.</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {checks.map((c, i) => (
+          <div key={i} className="glass-card p-4 flex items-center justify-between">
+            <span className="text-sm text-foreground">{c.label}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">{c.value}</span>
+              <span className={`w-2 h-2 rounded-full ${c.ok ? 'bg-accent' : 'bg-destructive'}`} />
+            </div>
+          </div>
+        ))}
       </div>
+
+      {audit.issues?.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-destructive uppercase tracking-wider mb-2">Проблемы</h3>
+          <div className="space-y-2">
+            {audit.issues.map((issue: string, i: number) => (
+              <div key={i} className="glass-card p-3">
+                <p className="text-sm text-foreground">⚠ {issue}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -337,11 +399,11 @@ export function ReportTabs({ data = {} }: ReportTabsProps) {
     blueprint: () => <BlueprintTab data={data} />,
     tfidf: () => <TfidfTab data={data} />,
     ngrams: () => <NgramsTab data={data} />,
-    zipf: () => <ZipfTab />,
+    zipf: () => <ZipfTab data={data} />,
     images: () => <ImagesTab />,
     anchors: () => <AnchorsTab />,
     pageSpeed: () => <PageSpeedTab />,
-    stealth: () => <StealthTab />,
+    stealth: () => <StealthTab data={data} />,
   };
 
   return (
