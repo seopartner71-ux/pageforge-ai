@@ -349,17 +349,19 @@ async function findCompetitors(keyword: string, apiKey: string, region?: string)
 }
 
 // ─── Serper.dev extended SERP for cluster analysis ───
-async function findClusterData(keyword: string, apiKey: string): Promise<{
+async function findClusterData(keyword: string, apiKey: string, region?: string): Promise<{
   competitors: string[];
   relatedSearches: string[];
   peopleAlsoAsk: string[];
 }> {
   const result = { competitors: [] as string[], relatedSearches: [] as string[], peopleAlsoAsk: [] as string[] };
   try {
+    const body: any = { q: keyword, num: 10, gl: "ru", hl: "ru" };
+    if (region) body.location = `${region}, Russia`;
     const res = await fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: keyword, num: 10 }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) return result;
     const data = await res.json();
