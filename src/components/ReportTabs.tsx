@@ -1222,6 +1222,151 @@ function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
   );
 }
 
+/* ─────────── Data Sources Tab ─────────── */
+
+function DataSourcesTab({ data }: TabDataProps) {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const sources = data?.sourcesData;
+  const competitorUrls = data?.competitorUrls || [];
+
+  if (!sources?.length && !competitorUrls?.length) {
+    return <p className="text-muted-foreground text-sm">Нет данных об источниках.</p>;
+  }
+
+  const items = sources?.length ? sources : competitorUrls.map((u: string) => ({ url: u, fetched: true, contentPreview: '', rawContent: '', wordCount: 0 }));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-foreground">Источники данных</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Список проанализированных конкурентов. Все рекомендации основаны на реальных данных этих страниц.
+        </p>
+      </div>
+      <div className="space-y-2">
+        {items.map((s: any, i: number) => (
+          <div key={i} className="glass-card p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className={`w-2 h-2 rounded-full shrink-0 ${s.fetched ? 'bg-green-500' : 'bg-red-500'}`} />
+                <div className="min-w-0">
+                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate block">{s.url}</a>
+                  {s.wordCount > 0 && <p className="text-xs text-muted-foreground">{s.wordCount} слов</p>}
+                </div>
+              </div>
+              {s.rawContent && (
+                <Button variant="outline" size="sm" className="text-xs gap-1.5 shrink-0" onClick={() => setOpenIdx(openIdx === i ? null : i)}>
+                  <Eye className="w-3.5 h-3.5" />
+                  {openIdx === i ? 'Скрыть' : 'Сырой текст'}
+                </Button>
+              )}
+            </div>
+            {openIdx === i && s.rawContent && (
+              <Dialog open onOpenChange={() => setOpenIdx(null)}>
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle className="text-sm truncate">{s.url}</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex-1 overflow-auto text-xs font-mono text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-4 rounded-md">
+                    {s.rawContent}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Verification (Before/After) Tab ─────────── */
+
+function VerificationTab({ data }: TabDataProps) {
+  const pageStats = data?.pageStats;
+  const tfidf = data?.tfidf;
+
+  // Count proof-linked terms (found in competitors but missing from target)
+  const missingTerms = tfidf?.filter((t: any) => t.status === 'Missing') || [];
+
+  const metrics = pageStats ? [
+    { label: 'Количество слов', before: pageStats.target?.wordCount || 0, median: pageStats.competitorMedian?.wordCount || 0 },
+    { label: 'Заголовки H2', before: pageStats.target?.h2Count || 0, median: pageStats.competitorMedian?.h2Count || 0 },
+    { label: 'Заголовки H3', before: pageStats.target?.h3Count || 0, median: '-' },
+    { label: 'Изображения', before: pageStats.target?.imgCount || 0, median: '-' },
+    { label: 'Ссылки', before: pageStats.target?.linkCount || 0, median: '-' },
+  ] : [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-foreground">Сверка: До и После</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Сравнение вашей страницы с медианой ТОП-10 конкурентов. Данные получены из реального парсинга.
+        </p>
+      </div>
+
+      {metrics.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Метрика</th>
+                <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ваша страница</th>
+                <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Медиана ТОП-10</th>
+                <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {metrics.map((m, i) => {
+                const diff = typeof m.median === 'number' && m.median > 0 ? m.before / m.median : null;
+                const statusColor = diff === null ? 'text-muted-foreground' : diff >= 0.8 ? 'text-green-500' : diff >= 0.5 ? 'text-yellow-500' : 'text-red-500';
+                const statusText = diff === null ? '—' : diff >= 0.8 ? '✓ OK' : diff >= 0.5 ? '⚠ Ниже' : '✕ Критично';
+                return (
+                  <tr key={i} className="border-b border-border/50">
+                    <td className="py-3 px-4 text-foreground font-medium">{m.label}</td>
+                    <td className="py-3 px-4 text-center font-mono text-foreground">{m.before}</td>
+                    <td className="py-3 px-4 text-center font-mono text-muted-foreground">{m.median}</td>
+                    <td className={`py-3 px-4 text-center font-medium ${statusColor}`}>{statusText}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {missingTerms.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-3">
+            Подтверждённые пробелы (Proof-linked Gaps)
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            Каждый термин реально найден у конкурентов через TF-IDF анализ, а не сгенерирован ИИ.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {missingTerms.slice(0, 20).map((t: any, i: number) => (
+              <div key={i} className="glass-card p-3 flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">{t.term}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    Медиана: {(t.competitorMedianTfidf * 1000).toFixed(1)}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary">GAP</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!pageStats && !missingTerms.length && (
+        <p className="text-muted-foreground text-sm">Нет данных для верификации. Запустите анализ с конкурентами.</p>
+      )}
+    </div>
+  );
+}
+
 /* ─────────── Main Tabs Component ─────────── */
 
 interface ReportTabsProps {
