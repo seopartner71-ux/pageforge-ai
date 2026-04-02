@@ -21,6 +21,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [analyzedUrl, setAnalyzedUrl] = useState<string | null>(null);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
+  const [pendingAnalysisUrl, setPendingAnalysisUrl] = useState<string | null>(null);
+  const [pendingAnalysisId, setPendingAnalysisId] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [showNewProject, setShowNewProject] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
