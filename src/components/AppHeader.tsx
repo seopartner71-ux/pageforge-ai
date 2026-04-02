@@ -27,32 +27,37 @@ export function AppHeader() {
 
   return (
     <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-      <div className="container flex items-center justify-between h-14">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/dashboard')}>
+      <div className="container flex items-center h-14">
+        {/* Left: Logo */}
+        <div className="flex-1 flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => navigate('/dashboard')}>
             <div className="w-7 h-7 rounded-lg btn-gradient flex items-center justify-center">
               <Zap className="w-3.5 h-3.5" />
             </div>
             <span className="font-bold gradient-text">{tr.appName}</span>
             <span className="text-xs text-muted-foreground hidden sm:inline">{tr.subtitle}</span>
           </div>
-          <nav className="hidden md:flex items-center gap-6">
-            {navItems.map((item) => (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`text-sm transition-colors ${
-                  location.pathname === item.path
-                    ? 'font-medium text-foreground border-b-2 border-primary pb-0.5'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
         </div>
-        <div className="flex items-center gap-3">
+
+        {/* Center: Navigation */}
+        <nav className="hidden md:flex items-center justify-center gap-6">
+          {navItems.map((item) => (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`text-sm whitespace-nowrap transition-colors ${
+                location.pathname === item.path
+                  ? 'font-medium text-foreground border-b-2 border-primary pb-0.5'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Right: Lang + Logout */}
+        <div className="flex-1 flex items-center justify-end gap-3">
           <LangToggle />
           <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
             <LogOut className="w-4 h-4" />
