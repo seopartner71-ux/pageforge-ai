@@ -553,9 +553,13 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ── Server-side credit check ──
-    const { data: profile } = await supabase.from("profiles").select("credits").eq("user_id", cd.user.id).single();
-    if (!profile || profile.credits <= 0) {
+    // ── Server-side approval + credit check ──
+    const { data: profile } = await supabase.from("profiles").select("credits, is_approved").eq("user_id", cd.user.id).single();
+    if (!profile || !profile.is_approved) {
+      clearTimeout(globalTimer);
+      return new Response(JSON.stringify({ error: "Account not approved" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (profile.credits <= 0) {
       clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "Insufficient credits" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }

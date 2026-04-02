@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LangProvider } from "@/contexts/LangContext";
 import { supabase } from "@/integrations/supabase/client";
+import { PendingApprovalScreen } from "@/components/PendingApprovalScreen";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AuthPage from "./pages/AuthPage.tsx";
@@ -21,17 +22,33 @@ const queryClient = new QueryClient();
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<any>(undefined);
+  const [isApproved, setIsApproved] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (!session) setIsApproved(undefined);
     });
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!session?.user) return;
+    supabase
+      .from('profiles')
+      .select('is_approved')
+      .eq('user_id', session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setIsApproved(data?.is_approved ?? false);
+      });
+  }, [session?.user?.id]);
+
   if (session === undefined) return null;
   if (!session) return <AuthPage />;
+  if (isApproved === undefined) return null;
+  if (!isApproved) return <PendingApprovalScreen />;
   return <>{children}</>;
 }
 
