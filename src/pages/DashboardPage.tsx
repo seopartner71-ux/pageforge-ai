@@ -101,42 +101,57 @@ export default function DashboardPage() {
       return;
     }
 
-    // Call the edge function for real AI analysis
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seo-analyze`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.session?.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            url: data.url,
-            pageType: data.pageType,
-            competitors: data.competitors,
-            aiContext: data.aiContext,
-            analysisId: analysis.id,
-          }),
+    // Show progress modal and fire edge function in background
+    setPendingAnalysisId(analysis.id);
+    setPendingAnalysisUrl(data.url);
+
+    // Fire edge function (don't await — progress modal polls for updates)
+    const fireAnalysis = async () => {
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seo-analyze`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session?.session?.access_token}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({
+              url: data.url,
+              pageType: data.pageType,
+              competitors: data.competitors,
+              aiContext: data.aiContext,
+              analysisId: analysis.id,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `Analysis failed (${response.status})`);
         }
-      );
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `Analysis failed (${response.status})`);
+      } catch (err: any) {
+        toast({ title: err.message || 'Analysis failed', variant: 'destructive' });
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setAnalysisId(analysis.id);
-      setAnalyzedUrl(data.url);
-      toast({ title: `Анализ завершён: ${data.url}` });
-    } catch (err: any) {
-      toast({ title: err.message || 'Analysis failed', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
+    fireAnalysis();
   };
+
+  const handleAnalysisComplete = useCallback(() => {
+    if (pendingAnalysisId && pendingAnalysisUrl) {
+      setAnalysisId(pendingAnalysisId);
+      setAnalyzedUrl(pendingAnalysisUrl);
+      setPendingAnalysisId(null);
+      setPendingAnalysisUrl(null);
+      setLoading(false);
+      toast({ title: `Анализ завершён` });
+    }
+  }, [pendingAnalysisId, pendingAnalysisUrl, toast]);
 
   if (analyzedUrl) {
     return <ReportPage url={analyzedUrl} analysisId={analysisId} onBack={() => { setAnalyzedUrl(null); setAnalysisId(null); }} />;
