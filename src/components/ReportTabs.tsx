@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 
 const tabKeys = [
-  'aiReport', 'priorities', 'blueprint', 'tfidf', 'ngrams',
+  'aiReport', 'priorities', 'blueprint', 'semanticMap', 'tfidf', 'ngrams',
   'zipf', 'images', 'anchors', 'pageSpeed', 'stealth',
 ] as const;
 
@@ -23,11 +23,13 @@ type TabKey = typeof tabKeys[number];
 const tabLabels: Record<string, Record<TabKey, string>> = {
   ru: {
     aiReport: 'ИИ-отчёт', priorities: 'Приоритеты', blueprint: 'Golden Blueprint',
+    semanticMap: '🧬 Семантическая карта',
     tfidf: 'TF-IDF', ngrams: 'N-граммы', zipf: 'Закон Ципфа',
     images: 'Изображения', anchors: 'Анкоры', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
   },
   en: {
     aiReport: 'AI Report', priorities: 'Priorities', blueprint: 'Golden Blueprint',
+    semanticMap: '🧬 Semantic Map',
     tfidf: 'TF-IDF', ngrams: 'N-grams', zipf: "Zipf's Law",
     images: 'Images', anchors: 'Anchors', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
   },
