@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
   Home, ShoppingBag, Wrench, FileText, ShoppingCart, Target,
-  X, Search, Play, Loader2, Check,
+  X, Search, Play, Loader2, Check, MapPin,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,6 +16,15 @@ const pageTypeIcons = [
   { key: 'product', icon: ShoppingCart },
   { key: 'landing', icon: Target },
 ] as const;
+
+const REGIONS = [
+  'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
+  'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону',
+  'Уфа', 'Красноярск', 'Воронеж', 'Пермь', 'Волгоград',
+  'Краснодар', 'Тюмень', 'Саратов', 'Тула', 'Ижевск',
+  'Барнаул', 'Иркутск', 'Хабаровск', 'Владивосток', 'Ярославль',
+  'Махачкала', 'Томск', 'Оренбург', 'Кемерово', 'Рязань',
+];
 
 interface AnalysisFormProps {
   onStartAnalysis: (data: {
