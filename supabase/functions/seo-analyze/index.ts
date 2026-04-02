@@ -689,6 +689,7 @@ P1 = Критично (техошибки, пустые Alt, Missing Entities). 
         aiReport: aiParsed.aiReport || {},
         priorities: aiParsed.priorities || [],
         blueprint: aiParsed.blueprint || {},
+        implementationPlan: aiParsed.implementationPlan || [],
         tfidf: tfidfResults,
         ngrams: { bigrams, trigrams, bigramGaps, trigramGaps },
         zipf: zipfData,
