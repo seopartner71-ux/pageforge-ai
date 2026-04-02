@@ -802,6 +802,7 @@ Deno.serve(async (req) => {
 P1 = Критично (техошибки, NavBoost нарушения, Content Effort = low, Missing Entities). P2 = Важно (структура, переспам, Semantic Chunking). P3 = Лидерство (таблицы, FAQ, GEO, Information Gain).
 Используй формулировки: "Согласно фактору Content Effort...", "Для Information Gain внедрите...". Минимум 8-15 задач.
 КРИТИЧНО: Программный парсер уже посчитал все теги. НИКОГДА не пересчитывай — доверяй ТОЛЬКО входным данным парсера.
+ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) — ЗАПРЕЩЁН. Все рекомендации — только на кириллице.
 Будь конкретен. Пиши на русском.`;
 
       userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
