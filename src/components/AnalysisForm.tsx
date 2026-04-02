@@ -29,6 +29,7 @@ interface AnalysisFormProps {
   loading: boolean;
   projects?: { id?: string; name: string; domain: string }[];
   onNewProject?: () => void;
+  credits?: number | null;
 }
 
 export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewProject }: AnalysisFormProps) {
