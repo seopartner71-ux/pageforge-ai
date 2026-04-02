@@ -558,7 +558,7 @@ Deno.serve(async (req) => {
     // ── Technical Audit ──
     await setStage(si, "running");
     const t6 = Date.now();
-    const audit = technicalAudit(targetContent);
+    const audit = technicalAudit(rawHtml, targetContent);
     await setStage(si, "done", `${((Date.now() - t6) / 1000).toFixed(1)}s`);
     si++;
 
