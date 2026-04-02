@@ -307,26 +307,34 @@ function parseAnchors(html: string, baseUrl: string): any[] {
   return anchors;
 }
 
-// ─── Fetch raw HTML ───
+// ─── Fetch raw HTML (with timeout) ───
 async function fetchRawHtml(url: string): Promise<string> {
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml',
       },
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) return '';
     return (await res.text()).slice(0, 500000);
   } catch { return ''; }
 }
 
-// ─── Jina Reader ───
+// ─── Jina Reader (with timeout) ───
 async function fetchPage(url: string): Promise<string> {
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
     const res = await fetch(`https://r.jina.ai/${url}`, {
       headers: { Accept: "text/markdown", "X-Return-Format": "markdown" },
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) return "";
     return (await res.text()).slice(0, 50000);
   } catch { return ""; }
