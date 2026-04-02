@@ -59,6 +59,46 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
     setCompetitors(updated);
   };
 
+  const handleAutoFind = async () => {
+    if (!url.trim()) {
+      toast({ title: 'Сначала введите URL страницы', variant: 'destructive' });
+      return;
+    }
+    setFindingCompetitors(true);
+    setFindSuccess(false);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/find-competitors`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ url: url.trim() }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Error ${res.status}`);
+      }
+      const data = await res.json();
+      const found: string[] = (data.competitors || []).map((c: any) => c.url).slice(0, 10);
+      if (found.length === 0) {
+        toast({ title: 'Конкуренты не найдены', variant: 'destructive' });
+      } else {
+        setCompetitors(found);
+        setFindSuccess(true);
+        setTimeout(() => setFindSuccess(false), 2000);
+        toast({ title: `Найдено ${found.length} конкурентов` });
+      }
+    } catch (err: any) {
+      toast({ title: err.message || 'Ошибка поиска конкурентов', variant: 'destructive' });
+    } finally {
+      setFindingCompetitors(false);
+    }
+  };
+
   const handleSubmit = () => {
     if (!url.trim()) return;
     onStartAnalysis({
