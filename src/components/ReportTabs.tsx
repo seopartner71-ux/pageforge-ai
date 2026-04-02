@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Wand2, Copy, Check, Loader2, Code, Eye, FileText, CheckCircle2, XCircle, List, Table2, HelpCircle, Tags, Heading, Image, Link2, ExternalLink, AlertTriangle, Plus, Sparkles, Filter, TrendingUp, Shield, Zap, Globe, BarChart2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -1715,28 +1716,56 @@ function ImplementationPlanTab({ data }: TabDataProps) {
   const doneWeight = plan.reduce((s, t, i) => s + (checked[i] ? (t.weight || 1) : 0), 0);
   const progress = Math.round((doneWeight / totalWeight) * 100);
 
-  const copyAsMarkdown = () => {
-    const lines: string[] = ['# Пошаговое ТЗ на внедрение\n'];
+  const stripEmojis = (text: string) =>
+    text.replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{2702}-\u{27B0}]|[\u{23E9}-\u{23FA}]|[\u{200D}]|[\u{20E3}]|[\u{FE0F}]|[\u{E0020}-\u{E007F}]|[🔴🟡🟢📍🔧📈📋🧬✅⬜🎯⚡💡🚀]/gu, '').trim();
+
+  const copyForGoogleDocs = async () => {
+    const url = data?.url || '';
     const sections = [
-      { label: '## P1 — Критично (сделать сейчас)', items: p1 },
-      { label: '## P2 — Важно (для роста)', items: p2 },
-      { label: '## P3 — Рекомендовано (для лидерства)', items: p3 },
+      { label: 'Приоритет P1 — Критические задачи', items: p1 },
+      { label: 'Приоритет P2 — Важные задачи', items: p2 },
+      { label: 'Приоритет P3 — Рекомендованные задачи', items: p3 },
     ];
-    let idx = 0;
+
+    let html = `<h1 style="font-family:Arial,sans-serif;font-size:20px;">Техническое задание на SEO-оптимизацию страницы ${stripEmojis(url)}</h1>`;
+    html += `<p style="font-family:Arial,sans-serif;font-size:13px;color:#555;">Текущий прогресс: ${progress}% | Всего задач: ${plan.length}</p>`;
+    html += `<hr style="border:1px solid #ddd;margin:16px 0;">`;
+
     for (const sec of sections) {
       if (!sec.items.length) continue;
-      lines.push(sec.label + '\n');
+      html += `<h2 style="font-family:Arial,sans-serif;font-size:16px;margin-top:20px;">${sec.label}</h2>`;
+      html += `<ul style="font-family:Arial,sans-serif;font-size:13px;line-height:1.8;">`;
       for (const item of sec.items) {
-        const done = checked[plan.indexOf(item)] ? '✅' : '⬜';
-        lines.push(`${done} **${item.title}**`);
-        if (item.where) lines.push(`   📍 Где: ${item.where}`);
-        if (item.action) lines.push(`   🔧 Что сделать: ${item.action}`);
-        if (item.expectedResult) lines.push(`   📈 Результат: ${item.expectedResult}`);
-        lines.push('');
-        idx++;
+        html += `<li style="margin-bottom:12px;">`;
+        html += `<b>${stripEmojis(item.title || '')}</b>`;
+        if (item.where) html += `<br/>Расположение: ${stripEmojis(item.where)}`;
+        if (item.action) html += `<br/>Решение: ${stripEmojis(item.action)}`;
+        if (item.expectedResult) html += `<br/>Влияние: ${stripEmojis(item.expectedResult)}`;
+        html += `</li>`;
       }
+      html += `</ul>`;
     }
-    navigator.clipboard.writeText(lines.join('\n'));
+
+    const plainText = sections
+      .filter(s => s.items.length)
+      .map(s => `${s.label}\n` + s.items.map(i =>
+        `- ${stripEmojis(i.title || '')}${i.where ? `\n  Расположение: ${stripEmojis(i.where)}` : ''}${i.action ? `\n  Решение: ${stripEmojis(i.action)}` : ''}${i.expectedResult ? `\n  Влияние: ${stripEmojis(i.expectedResult)}` : ''}`
+      ).join('\n')).join('\n\n');
+
+    try {
+      const blob = new Blob([html], { type: 'text/html' });
+      const textBlob = new Blob([plainText], { type: 'text/plain' });
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': blob,
+          'text/plain': textBlob,
+        }),
+      ]);
+      toast.success('ТЗ скопировано в формате Rich Text. Теперь вставьте его в Google Документы (Ctrl+V)');
+    } catch {
+      navigator.clipboard.writeText(plainText);
+      toast.success('ТЗ скопировано как текст');
+    }
   };
 
   if (!plan.length) return <p className="text-muted-foreground text-sm">Нет данных. Запустите анализ для генерации плана.</p>;
@@ -1820,8 +1849,8 @@ function ImplementationPlanTab({ data }: TabDataProps) {
 
       {/* Copy button */}
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={copyAsMarkdown}>
-          <Copy className="w-3 h-3" /> Скопировать как ТЗ (Markdown)
+        <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={copyForGoogleDocs}>
+          <Copy className="w-3 h-3" /> Копировать для Google Docs
         </Button>
       </div>
 
