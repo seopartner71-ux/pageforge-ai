@@ -894,10 +894,11 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
         technicalAudit: audit,
         imagesData,
         anchorsData,
-        competitorUrls: competitorUrls.slice(0, 5),
+        competitorUrls: competitorUrls.slice(0, 10),
         competitorCount: compContents.length,
         sourcesData,
         pageStats,
+        perfTiming: { ...perfTiming, total_ms: Date.now() - tGlobalStart },
         ...(clusterMode && clusterData ? {
           clusterData: {
             semanticCluster: clusterData.semanticCluster,
@@ -920,15 +921,21 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
       console.error("Save error:", insertErr);
       await setStage(si, "error");
       await supabase.from("analyses").update({ status: "failed" }).eq("id", analysisId);
+      clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "Failed to save" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Deduct 1 credit server-side
+    await supabase.from("profiles").update({ credits: Math.max(0, profile.credits - 1) }).eq("user_id", cd.user.id);
+
     await setStage(si, "done", "0.1s");
     await supabase.from("analyses").update({ status: "completed" }).eq("id", analysisId);
-    console.log("Done:", url);
+    console.log("Done:", url, `Total: ${((Date.now() - tGlobalStart) / 1000).toFixed(1)}s`);
 
+    clearTimeout(globalTimer);
     return new Response(JSON.stringify({ success: true, data: finalResult }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
+    clearTimeout(globalTimer);
     console.error("seo-analyze error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
