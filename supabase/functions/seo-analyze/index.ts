@@ -180,24 +180,80 @@ function findTopicalGaps(targetWords: string[], competitorWordArrays: string[][]
     .map(([text, competitorCount]) => ({ text, competitorCount }));
 }
 
-// ─── Technical Audit ───
-function technicalAudit(markdown: string) {
-  const h1s = markdown.match(/^# .+$/gm) || [];
-  const imgs = markdown.match(/!\[([^\]]*)\]\([^)]+\)/g) || [];
-  const noAlt = imgs.filter(m => /!\[\s*\]/.test(m));
-  const hasJsonLd = /application\/ld\+json|schema\.org/i.test(markdown);
-  const hasOg = /og:title|og:description|og:image/i.test(markdown);
+// ─── Technical Audit (HTML-based, hard logic — no AI guessing) ───
+function technicalAudit(html: string, markdown: string) {
+  // ── H1 tags: parse from HTML, filter hidden ones ──
+  const h1Regex = /<h1[^>]*>([\s\S]*?)<\/h1>/gi;
+  const allH1s: { text: string; hidden: boolean }[] = [];
+  let h1m;
+  while ((h1m = h1Regex.exec(html)) !== null) {
+    const tag = h1m[0];
+    const text = h1m[1].replace(/<[^>]+>/g, '').trim();
+    const hidden = /display\s*:\s*none/i.test(tag) ||
+                   /aria-hidden\s*=\s*["']true["']/i.test(tag) ||
+                   /visibility\s*:\s*hidden/i.test(tag) ||
+                   /class\s*=\s*["'][^"']*\b(hidden|sr-only|visually-hidden)\b/i.test(tag);
+    allH1s.push({ text, hidden });
+  }
+  const visibleH1s = allH1s.filter(h => !h.hidden);
+
+  // ── Images: only <img> inside <body>, skip tiny SVG decorations ──
+  const bodyMatch = html.match(/<body[\s>]([\s\S]*)<\/body>/i);
+  const bodyHtml = bodyMatch ? bodyMatch[1] : html;
+  const imgRegex = /<img\s[^>]*?>/gi;
+  let totalImages = 0;
+  let imagesWithoutAlt = 0;
+  let im;
+  while ((im = imgRegex.exec(bodyHtml)) !== null) {
+    const tag = im[0];
+    // Skip SVG-based icons and tiny decorative images
+    if (/\.(svg|ico)\b/i.test(tag) && /width\s*=\s*["']?\d{1,2}["']?/i.test(tag)) continue;
+    if (/role\s*=\s*["']presentation["']/i.test(tag)) continue;
+    totalImages++;
+    const altMatch = tag.match(/alt\s*=\s*["']([^"']*)["']/i);
+    if (!altMatch || altMatch[1].trim() === '') imagesWithoutAlt++;
+  }
+
+  // ── JSON-LD: programmatic check ──
+  const hasJsonLd = /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>/i.test(html);
+
+  // ── OpenGraph: check <head> section only ──
+  const headMatch = html.match(/<head[\s>]([\s\S]*?)<\/head>/i);
+  const headHtml = headMatch ? headMatch[1] : '';
+  const hasOgTitle = /property\s*=\s*["']og:title["']/i.test(headHtml);
+  const hasOgDesc = /property\s*=\s*["']og:description["']/i.test(headHtml);
+  const hasOgImage = /property\s*=\s*["']og:image["']/i.test(headHtml);
+  const hasOpenGraph = hasOgTitle || hasOgDesc;
+
+  // ── Meta tags ──
+  const metaTitle = headHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || null;
+  const metaDesc = headHtml.match(/name\s*=\s*["']description["'][^>]*content\s*=\s*["']([^"']*)["']/i)?.[1] ||
+                   headHtml.match(/content\s*=\s*["']([^"']*)["'][^>]*name\s*=\s*["']description["']/i)?.[1] || null;
+  const canonical = headHtml.match(/rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']*)["']/i)?.[1] || null;
+
+  // ── Build issues list ──
+  const issues: string[] = [];
+  if (visibleH1s.length === 0) issues.push("Отсутствует H1");
+  if (visibleH1s.length > 1) issues.push(`${visibleH1s.length} видимых тегов H1 (должен быть 1)`);
+  if (imagesWithoutAlt > 0) issues.push(`${imagesWithoutAlt} изображений без alt`);
+  if (!hasJsonLd) issues.push("Нет JSON-LD разметки");
+  if (!hasOgTitle) issues.push("Нет og:title");
+  if (!hasOgDesc) issues.push("Нет og:description");
+  if (!hasOgImage) issues.push("Нет og:image");
+  if (!metaDesc) issues.push("Нет meta description");
+  if (!canonical) issues.push("Нет canonical");
+
   return {
-    h1Count: h1s.length, h1Text: h1s[0]?.replace(/^# /, "") || null,
-    totalImages: imgs.length, imagesWithoutAlt: noAlt.length,
-    hasJsonLd, hasOpenGraph: hasOg,
-    issues: [
-      ...(h1s.length === 0 ? ["Отсутствует H1"] : []),
-      ...(h1s.length > 1 ? [`${h1s.length} тегов H1 (должен быть 1)`] : []),
-      ...(noAlt.length > 0 ? [`${noAlt.length} изображений без alt`] : []),
-      ...(!hasJsonLd ? ["Нет JSON-LD разметки"] : []),
-      ...(!hasOg ? ["Нет OpenGraph тегов"] : []),
-    ],
+    h1Count: visibleH1s.length,
+    h1Tags: visibleH1s.map(h => h.text),
+    h1Hidden: allH1s.filter(h => h.hidden).map(h => h.text),
+    totalImages,
+    imagesWithoutAlt,
+    hasJsonLd,
+    hasOpenGraph,
+    hasOgTitle, hasOgDesc, hasOgImage,
+    metaTitle, metaDesc, canonical,
+    issues,
   };
 }
 
