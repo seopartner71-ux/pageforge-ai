@@ -208,9 +208,18 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
 
         <div className="text-center text-xs text-muted-foreground py-1">{tr.competitors.or}</div>
 
-        <button className="w-full h-12 rounded-lg border border-border/50 bg-secondary/50 text-sm font-medium text-foreground hover:bg-secondary transition-colors flex items-center justify-center gap-2">
-          <Search className="w-4 h-4" />
-          {tr.competitors.autoFind}
+        <button
+          onClick={handleAutoFind}
+          disabled={findingCompetitors || !url.trim()}
+          className="w-full h-12 rounded-lg border border-border/50 bg-secondary/50 text-sm font-medium text-foreground hover:bg-secondary transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {findingCompetitors ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Ищем конкурентов…</>
+          ) : findSuccess ? (
+            <><Check className="w-4 h-4 text-green-500" /> Найдено!</>
+          ) : (
+            <><Search className="w-4 h-4" /> {tr.competitors.autoFind}</>
+          )}
         </button>
       </div>
 
