@@ -26,6 +26,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [showNewProject, setShowNewProject] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
 
   useEffect(() => {
     const loadProjects = async () => {
