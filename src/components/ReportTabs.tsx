@@ -1715,12 +1715,15 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
 
   return (
     <Tabs defaultValue="optimizer" className="w-full">
-      <TabsList className="w-full h-auto flex flex-wrap gap-0.5 bg-secondary/50 p-1 rounded-xl">
+      <div className="relative">
+      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-r from-background to-transparent" />
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-l from-background to-transparent" />
+      <TabsList className="w-full h-auto flex flex-nowrap gap-0.5 bg-secondary/50 p-1 rounded-xl overflow-x-auto scrollbar-hide">
         {allTabKeys.map((key) => (
           <TabsTrigger
             key={key}
             value={key}
-            className={`px-3 py-2 rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground text-xs font-medium transition-all ${
+            className={`shrink-0 px-2.5 py-1.5 rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:border-b-2 data-[state=active]:border-primary text-muted-foreground text-[11px] font-medium transition-all whitespace-nowrap ${
               key === 'optimizer' ? 'data-[state=active]:bg-primary/20 data-[state=active]:text-primary' : ''
             }`}
           >
@@ -1730,6 +1733,7 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
           </TabsTrigger>
         ))}
       </TabsList>
+      </div>
 
       <TabsContent value="optimizer" className="mt-6">
         <AiOptimizer analysisId={analysisId} />
