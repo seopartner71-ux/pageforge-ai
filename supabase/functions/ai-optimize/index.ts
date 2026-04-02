@@ -153,24 +153,28 @@ Deno.serve(async (req) => {
 
     const userPrompt = `URL: ${analysis.url}
 
-─── Текущий текст страницы ───
+─── ОРИГИНАЛЬНЫЙ ТЕКСТ СТРАНИЦЫ (ЭТО БАЗА — РЕДАКТИРУЙ, НЕ ЗАМЕНЯЙ) ───
 ${pageContent}
 
-─── Missing Entities (TF-IDF) ───
+─── ЗАДАНИЕ: Отредактируй текст выше, интегрировав следующие данные ───
+
+Missing Entities (TF-IDF — добавь в существующий текст):
 ${missingTerms.join(", ") || "нет"}
 
-─── Missing Entities (AI/LSI) ───
+Missing Entities (AI/LSI — вплети в релевантные разделы):
 ${missingEntities.join(", ") || "нет"}
 
-─── Переспам (снизить плотность) ───
+Переспам (снизь плотность этих слов, заменяя синонимами):
 ${spamTerms.map((s: any) => `"${s.term}" (density: ${s.density.toFixed(2)}%)`).join(", ") || "нет"}
 
-─── Topical Gaps (биграммы/триграммы конкурентов, отсутствующие у вас) ───
+Topical Gaps (фразы конкурентов, которых нет — добавь по смыслу):
 ${[...bigramGaps, ...trigramGaps].join(", ") || "нет"}
 
-─── Рекомендуемая структура (Blueprint) ───
+Рекомендуемая структура (Golden Blueprint — используй как ориентир):
 H1: ${blueprint.h1 || "—"}
-Sections: ${blueprint.sections?.map((s: any) => `${s.tag}: ${s.text}`).join(" | ") || "—"}`;
+Sections: ${blueprint.sections?.map((s: any) => `${s.tag}: ${s.text}`).join(" | ") || "—"}
+
+НАПОМИНАНИЕ: Сохрани ВСЕ фактические данные из оригинала (цены, адреса, названия, контакты). Не выдумывай ничего нового.`;
 
     console.log("AI Optimize: calling OpenRouter...");
     const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
