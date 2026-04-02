@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Wand2, Copy, Check, Loader2, Code, Eye, FileText, CheckCircle2, XCircle, List, Table2, HelpCircle, Tags, Heading, Image, Link2, ExternalLink, AlertTriangle, Plus, Sparkles } from 'lucide-react';
+import { Wand2, Copy, Check, Loader2, Code, Eye, FileText, CheckCircle2, XCircle, List, Table2, HelpCircle, Tags, Heading, Image, Link2, ExternalLink, AlertTriangle, Plus, Sparkles, Filter, TrendingUp, Shield, Zap, Globe, BarChart2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -45,20 +45,124 @@ interface TabDataProps {
 /* ─────────── AI Report Tab ─────────── */
 
 function AiReportTab({ data }: TabDataProps) {
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const report = data?.aiReport;
+  const audit = data?.technicalAudit;
+  const bp = data?.blueprint;
   if (!report) return <p className="text-muted-foreground text-sm">Нет данных для отображения.</p>;
+
+  const copyCode = (code: string, id: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(id);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  // Generate JSON-LD from blueprint data
+  const jsonLd = bp ? JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": bp.metaTitle || bp.h1 || "",
+    "description": bp.metaDescription || "",
+    "mainEntity": {
+      "@type": "Article",
+      "headline": bp.h1 || "",
+      "description": bp.metaDescription || "",
+    }
+  }, null, 2) : '';
+
+  const ogTags = bp ? `<meta property="og:title" content="${bp.metaTitle || ''}" />\n<meta property="og:description" content="${bp.metaDescription || ''}" />\n<meta property="og:type" content="website" />\n<meta name="twitter:card" content="summary_large_image" />\n<meta name="twitter:title" content="${bp.metaTitle || ''}" />\n<meta name="twitter:description" content="${bp.metaDescription || ''}" />` : '';
+
+  const semanticHtml = bp?.sections ? `<main>\n  <article>\n    <h1>${bp.h1 || 'Заголовок'}</h1>\n${bp.sections.map((s: any) => `    <section>\n      <${s.tag || 'h2'}>${s.text}</${s.tag || 'h2'}>\n      <p><!-- ${s.wordCount || 200} слов --></p>\n    </section>`).join('\n')}\n  </article>\n</main>` : '';
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <h2 className="text-lg font-bold text-foreground">Сводный ИИ-отчёт</h2>
+        <h2 className="text-lg font-bold text-foreground">Глубокий SEO-аудит</h2>
         <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-accent/20 text-accent">ИИ-анализ</span>
       </div>
+
+      {/* Summary */}
       {report.summary && (
         <div className="border-l-2 border-border pl-4">
           <p className="text-sm text-muted-foreground whitespace-pre-line">{report.summary}</p>
         </div>
       )}
+
+      {/* Technical Analysis Block */}
+      {audit && (
+        <div className="glass-card p-5">
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-primary" /> Технический анализ
+          </h3>
+          <div className="space-y-3">
+            {[
+              { issue: `H1 тегов: ${audit.h1Count}`, impact: audit.h1Count !== 1 ? 'Высокое' : 'Нет', rec: audit.h1Count !== 1 ? 'Убедитесь, что на странице ровно 1 тег H1' : 'OK — ровно 1 H1', ok: audit.h1Count === 1 },
+              { issue: `Изображений без alt: ${audit.imagesWithoutAlt}`, impact: audit.imagesWithoutAlt > 0 ? 'Среднее' : 'Нет', rec: audit.imagesWithoutAlt > 0 ? 'Добавьте описательные alt-атрибуты' : 'OK — все с alt', ok: audit.imagesWithoutAlt === 0 },
+              { issue: `JSON-LD: ${audit.hasJsonLd ? 'Есть' : 'Нет'}`, impact: !audit.hasJsonLd ? 'Высокое' : 'Нет', rec: !audit.hasJsonLd ? 'Добавьте структурированную разметку Schema.org' : 'OK', ok: audit.hasJsonLd },
+              { issue: `OpenGraph: ${audit.hasOpenGraph ? 'Есть' : 'Нет'}`, impact: !audit.hasOpenGraph ? 'Среднее' : 'Нет', rec: !audit.hasOpenGraph ? 'Добавьте OG-теги для соцсетей' : 'OK', ok: audit.hasOpenGraph },
+            ].map((row, i) => (
+              <div key={i} className={`flex items-start gap-4 p-3 rounded-lg ${row.ok ? 'bg-accent/5' : 'bg-destructive/5 border-l-2 border-destructive'}`}>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">{row.issue}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Рекомендация: {row.rec}</p>
+                </div>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${row.ok ? 'bg-accent/20 text-accent' : 'bg-destructive/20 text-destructive'}`}>
+                  {row.impact}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* E-E-A-T & Content */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-accent" /> Контент и E-E-A-T
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {report.strengths?.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-accent uppercase">Сильные стороны</span>
+              {report.strengths.map((s: string, i: number) => (
+                <div key={i} className="p-2 rounded bg-accent/5 text-sm text-foreground">✓ {s}</div>
+              ))}
+            </div>
+          )}
+          {report.weaknesses?.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-destructive uppercase">Слабые стороны</span>
+              {report.weaknesses.map((w: string, i: number) => (
+                <div key={i} className="p-2 rounded bg-destructive/5 text-sm text-foreground">✕ {w}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SGE / BERT Adaptation */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Globe className="w-4 h-4 text-primary" /> Адаптация под SGE и AI Overviews
+        </h3>
+        {report.geoScore !== undefined && (
+          <div className="flex items-center gap-4 mb-4">
+            <span className="text-sm text-foreground font-medium">GEO Score</span>
+            <Progress value={report.geoScore} className="flex-1 h-2" />
+            <span className="text-sm font-bold text-accent">{report.geoScore}/100</span>
+          </div>
+        )}
+        {report.sgeReadiness && <p className="text-sm text-foreground">{report.sgeReadiness}</p>}
+        {report.recommendations?.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {report.recommendations.map((r: string, i: number) => (
+              <div key={i} className="p-2 rounded bg-primary/5 text-sm text-foreground">→ {r}</div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Missing Entities */}
       {report.missingEntities?.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Missing Entities (Topical Gap)</h3>
@@ -69,46 +173,53 @@ function AiReportTab({ data }: TabDataProps) {
           </div>
         </div>
       )}
-      {report.geoScore !== undefined && (
-        <div className="glass-card p-4 flex items-center gap-4">
-          <span className="text-sm text-foreground font-medium">GEO Score</span>
-          <Progress value={report.geoScore} className="flex-1 h-2" />
-          <span className="text-sm font-bold text-accent">{report.geoScore}/100</span>
-        </div>
-      )}
-      {report.sgeReadiness && (
-        <div className="glass-card p-4">
-          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">SGE / AI Overviews Ready</span>
-          <p className="text-sm text-foreground mt-1">{report.sgeReadiness}</p>
-        </div>
-      )}
-      {report.strengths?.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold text-accent uppercase tracking-wider mb-2">Сильные стороны</h3>
-          <div className="space-y-2">
-            {report.strengths.map((s: string, i: number) => (
-              <div key={i} className="glass-card p-3"><p className="text-sm text-foreground">✓ {s}</p></div>
-            ))}
-          </div>
-        </div>
-      )}
-      {report.weaknesses?.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold text-destructive uppercase tracking-wider mb-2">Слабые стороны</h3>
-          <div className="space-y-2">
-            {report.weaknesses.map((w: string, i: number) => (
-              <div key={i} className="glass-card p-3"><p className="text-sm text-foreground">✕ {w}</p></div>
-            ))}
-          </div>
-        </div>
-      )}
-      {report.recommendations?.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Рекомендации</h3>
-          <div className="space-y-2">
-            {report.recommendations.map((r: string, i: number) => (
-              <div key={i} className="glass-card p-3"><p className="text-sm text-foreground">→ {r}</p></div>
-            ))}
+
+      {/* Code Generator: Техзадание */}
+      {bp && (
+        <div className="glass-card p-5">
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Code className="w-4 h-4 text-primary" /> Техзадание (Code Generator)
+          </h3>
+          <div className="space-y-4">
+            {/* Semantic HTML */}
+            {semanticHtml && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Семантическая структура</span>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => copyCode(semanticHtml, 'semantic')}>
+                    {copiedCode === 'semantic' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    {copiedCode === 'semantic' ? 'Скопировано' : 'Копировать'}
+                  </Button>
+                </div>
+                <pre className="text-xs font-mono text-foreground/70 bg-secondary/30 p-3 rounded-md overflow-x-auto whitespace-pre max-h-48">{semanticHtml}</pre>
+              </div>
+            )}
+            {/* JSON-LD */}
+            {jsonLd && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">JSON-LD Микроразметка</span>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => copyCode(`<script type="application/ld+json">\n${jsonLd}\n</script>`, 'jsonld')}>
+                    {copiedCode === 'jsonld' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    {copiedCode === 'jsonld' ? 'Скопировано' : 'Копировать'}
+                  </Button>
+                </div>
+                <pre className="text-xs font-mono text-foreground/70 bg-secondary/30 p-3 rounded-md overflow-x-auto whitespace-pre max-h-48">{`<script type="application/ld+json">\n${jsonLd}\n</script>`}</pre>
+              </div>
+            )}
+            {/* OG Tags */}
+            {ogTags && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">OpenGraph & Twitter Cards</span>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => copyCode(ogTags, 'og')}>
+                    {copiedCode === 'og' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    {copiedCode === 'og' ? 'Скопировано' : 'Копировать'}
+                  </Button>
+                </div>
+                <pre className="text-xs font-mono text-foreground/70 bg-secondary/30 p-3 rounded-md overflow-x-auto whitespace-pre">{ogTags}</pre>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -149,42 +260,88 @@ function PrioritiesTab({ data }: TabDataProps) {
   );
 }
 
-/* ─────────── Blueprint Tab ─────────── */
+/* ─────────── Blueprint Tab (Enhanced with hierarchy) ─────────── */
 
 function BlueprintTab({ data }: TabDataProps) {
   const bp = data?.blueprint;
   if (!bp) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
 
+  const blocks = [
+    { icon: '🏗️', title: 'Основной блок', desc: 'Hero + H1 + ключевое УТП', sections: bp.sections?.filter((s: any) => s.tag === 'h2')?.slice(0, 3) },
+    { icon: '🏆', title: 'Блок авторитетности', desc: 'E-E-A-T: Отзывы, сертификаты, экспертиза', sections: bp.requiredBlocks?.filter((b: string) => /отзыв|серт|экспер|автор/i.test(b)) },
+    { icon: '❓', title: 'FAQ (6+ вопросов)', desc: 'Блок вопросов для SGE и PAA', sections: bp.requiredBlocks?.filter((b: string) => /FAQ|вопрос/i.test(b)) },
+    { icon: '💡', title: 'Идеи для новых страниц', desc: 'Расширение семантического ядра', sections: bp.sections?.filter((s: any) => s.tag === 'h3')?.slice(0, 5) },
+  ];
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold text-foreground">Golden Source Blueprint</h2>
-      <p className="text-sm text-muted-foreground">Идеальная структура страницы на основе AI-анализа.</p>
+      <p className="text-sm text-muted-foreground">Визуальная иерархия идеальной структуры страницы.</p>
 
-      {bp.metaTitle && (
-        <div className="glass-card p-4 space-y-2">
-          <span className="px-2 py-1 rounded text-[10px] font-mono font-bold bg-secondary text-accent">TITLE</span>
-          <p className="text-sm text-foreground">{bp.metaTitle}</p>
+      {/* Meta tags */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {bp.metaTitle && (
+          <div className="glass-card p-4 space-y-1">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-secondary text-accent">TITLE ({bp.metaTitle.length} зн.)</span>
+            <p className="text-sm text-foreground">{bp.metaTitle}</p>
+          </div>
+        )}
+        {bp.metaDescription && (
+          <div className="glass-card p-4 space-y-1">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-secondary text-accent">DESC ({bp.metaDescription.length} зн.)</span>
+            <p className="text-sm text-foreground">{bp.metaDescription}</p>
+          </div>
+        )}
+        {bp.h1 && (
+          <div className="glass-card p-4 space-y-1">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-secondary text-accent">H1</span>
+            <p className="text-sm text-foreground">{bp.h1}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Visual hierarchy blocks */}
+      <div className="space-y-3">
+        {blocks.map((block, i) => (
+          <div key={i} className="glass-card p-4 border-l-2 border-primary/40">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-xl">{block.icon}</span>
+              <div>
+                <p className="text-sm font-bold text-foreground">{block.title}</p>
+                <p className="text-xs text-muted-foreground">{block.desc}</p>
+              </div>
+            </div>
+            {block.sections?.length > 0 && (
+              <div className="ml-8 space-y-1 mt-2">
+                {block.sections.map((s: any, j: number) => (
+                  <div key={j} className="flex items-center gap-2 text-xs text-foreground/80 hover:text-primary cursor-pointer transition-colors">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                    {typeof s === 'string' ? s : s.text}
+                    {s.wordCount && <span className="text-muted-foreground ml-auto">~{s.wordCount} сл.</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Full sections list */}
+      {bp.sections?.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-accent uppercase tracking-wider mb-3 mt-4">Полная структура контента</h3>
+          {bp.sections.map((s: any, i: number) => (
+            <div key={i} className="glass-card p-3 mb-1.5 flex items-center gap-3">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${s.tag === 'h2' ? 'bg-primary/20 text-primary' : 'bg-secondary text-muted-foreground'}`}>
+                {s.tag?.toUpperCase() || 'H2'}
+              </span>
+              <span className="text-sm text-foreground flex-1">{s.text}</span>
+              {s.wordCount && <span className="text-xs text-muted-foreground shrink-0">~{s.wordCount} сл.</span>}
+            </div>
+          ))}
         </div>
       )}
-      {bp.metaDescription && (
-        <div className="glass-card p-4 space-y-2">
-          <span className="px-2 py-1 rounded text-[10px] font-mono font-bold bg-secondary text-accent">META DESC</span>
-          <p className="text-sm text-foreground">{bp.metaDescription}</p>
-        </div>
-      )}
-      {bp.h1 && (
-        <div className="glass-card p-4 space-y-2">
-          <span className="px-2 py-1 rounded text-[10px] font-mono font-bold bg-secondary text-accent">H1</span>
-          <p className="text-sm text-foreground">{bp.h1}</p>
-        </div>
-      )}
-      {bp.sections?.map((s: any, i: number) => (
-        <div key={i} className="glass-card p-4 flex items-center gap-4">
-          <span className="px-2 py-1 rounded text-[10px] font-mono font-bold bg-secondary text-accent shrink-0">{s.tag?.toUpperCase() || 'H2'}</span>
-          <span className="text-sm text-foreground flex-1">{s.text}</span>
-          {s.wordCount && <span className="text-xs text-muted-foreground shrink-0">~{s.wordCount} слов</span>}
-        </div>
-      ))}
+
       {bp.requiredBlocks?.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-accent uppercase tracking-wider mb-2 mt-4">Обязательные блоки</h3>
@@ -199,41 +356,63 @@ function BlueprintTab({ data }: TabDataProps) {
   );
 }
 
-/* ─────────── TF-IDF Tab (proper math) ─────────── */
+/* ─────────── TF-IDF Tab (Interactive Table with Filters) ─────────── */
 
 function TfidfTab({ data }: TabDataProps) {
-  const items = data?.tfidf;
-  if (!items?.length) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
+  const [filter, setFilter] = useState<'all' | 'OK' | 'Spam' | 'Missing'>('all');
+  const items = data?.tfidf || [];
+  const anchorsData = data?.anchorsData || [];
+
+  // Count anchor occurrences for each term
+  const anchorTermCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const a of anchorsData) {
+      const words = (a.text || '').toLowerCase().split(/\s+/);
+      for (const w of words) if (w.length > 2) counts[w] = (counts[w] || 0) + 1;
+    }
+    return counts;
+  }, [anchorsData]);
+
+  if (!items.length) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
 
   const missingItems = items.filter((d: any) => d.status === "Missing");
-  const overoptItems = items.filter((d: any) => d.status === "Overoptimized");
+  const spamItems = items.filter((d: any) => d.status === "Spam" || d.status === "Overoptimized");
   const okItems = items.filter((d: any) => d.status === "OK");
 
-  // Chart: top 15 terms by TF-IDF score
+  const filtered = filter === 'all' ? items :
+    filter === 'Missing' ? missingItems :
+    filter === 'Spam' ? spamItems : okItems;
+
+  const maxScore = Math.max(...items.map((d: any) => Math.max(d.tfidf || 0, d.competitorMedianTfidf || 0)), 0.001);
+
+  // Chart data
   const chartItems = [...items].sort((a: any, b: any) => (b.tfidf + b.competitorMedianTfidf) - (a.tfidf + a.competitorMedianTfidf)).slice(0, 15);
   const chartData = chartItems.map((d: any) => ({
     name: d.term,
     'Ваша страница': +(d.tfidf * 1000).toFixed(2),
-    'Медиана конкурентов': +(d.competitorMedianTfidf * 1000).toFixed(2),
+    'Медиана ТОП-10': +(d.competitorMedianTfidf * 1000).toFixed(2),
   }));
 
   const statusColor = (s: string) =>
     s === 'OK' ? 'bg-accent/20 text-accent' :
-    s === 'Overoptimized' ? 'bg-destructive/20 text-destructive' :
+    s === 'Spam' || s === 'Overoptimized' ? 'bg-destructive/20 text-destructive' :
     s === 'Missing' ? 'bg-primary/20 text-primary' : 'bg-secondary text-muted-foreground';
 
   const statusLabel = (s: string) =>
-    s === 'OK' ? 'OK' :
-    s === 'Overoptimized' ? 'Переспам' :
-    s === 'Missing' ? 'Missing' : s;
+    s === 'OK' ? 'OK' : s === 'Spam' || s === 'Overoptimized' ? 'Spam' : s === 'Missing' ? 'Missing' : s;
+
+  const filters: { key: 'all' | 'OK' | 'Spam' | 'Missing'; label: string; count: number; color: string }[] = [
+    { key: 'all', label: 'Все', count: items.length, color: 'bg-secondary text-foreground' },
+    { key: 'OK', label: 'OK', count: okItems.length, color: 'bg-accent/20 text-accent' },
+    { key: 'Missing', label: 'Missing', count: missingItems.length, color: 'bg-primary/20 text-primary' },
+    { key: 'Spam', label: 'Переспам', count: spamItems.length, color: 'bg-destructive/20 text-destructive' },
+  ];
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-bold text-foreground">TF-IDF анализ</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Score = TF × IDF. Сравнение с медианой ТОП конкурентов.
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Score = TF × IDF. Интерактивное сравнение с медианой ТОП-10.</p>
       </div>
 
       {/* Summary cards */}
@@ -244,15 +423,15 @@ function TfidfTab({ data }: TabDataProps) {
         </div>
         <div className="glass-card p-4 text-center">
           <div className="text-2xl font-bold text-primary">{missingItems.length}</div>
-          <div className="text-xs text-muted-foreground mt-1">Missing Entities</div>
+          <div className="text-xs text-muted-foreground mt-1">Missing</div>
         </div>
         <div className="glass-card p-4 text-center">
-          <div className="text-2xl font-bold text-destructive">{overoptItems.length}</div>
+          <div className="text-2xl font-bold text-destructive">{spamItems.length}</div>
           <div className="text-xs text-muted-foreground mt-1">Переспам</div>
         </div>
       </div>
 
-      {/* Bar chart */}
+      {/* Chart */}
       <div className="glass-card p-4 h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} barGap={2}>
@@ -262,41 +441,87 @@ function TfidfTab({ data }: TabDataProps) {
             <Tooltip contentStyle={{ background: 'hsl(222,47%,9%)', border: '1px solid hsl(222,30%,18%)', borderRadius: '8px', color: '#fff' }} />
             <Legend />
             <Bar dataKey="Ваша страница" fill="hsl(245,58%,58%)" radius={[4,4,0,0]} />
-            <Bar dataKey="Медиана конкурентов" fill="hsl(210,100%,52%)" radius={[4,4,0,0]} />
+            <Bar dataKey="Медиана ТОП-10" fill="hsl(210,100%,52%)" radius={[4,4,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Missing entities section */}
-      {missingItems.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Missing Entities — добавьте на страницу</h3>
-          <div className="flex flex-wrap gap-2">
-            {missingItems.map((d: any, i: number) => (
-              <span key={i} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                {d.term} <span className="opacity-60">(IDF: {d.idf?.toFixed(1)})</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Full table */}
-      <div className="space-y-2">
-        {items.map((d: any, i: number) => (
-          <div key={i} className="glass-card px-4 py-3 flex items-center justify-between">
-            <span className="text-sm text-foreground font-medium">{d.term}</span>
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-muted-foreground">TF: {(d.tf * 100).toFixed(2)}%</span>
-              <span className="text-xs text-muted-foreground">IDF: {d.idf?.toFixed(2)}</span>
-              <span className="text-xs text-muted-foreground">Score: {(d.tfidf * 1000).toFixed(1)}</span>
-              <span className="text-xs text-muted-foreground">Конк: {(d.competitorMedianTfidf * 1000).toFixed(1)}</span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${statusColor(d.status)}`}>
-                {statusLabel(d.status)}
-              </span>
-            </div>
-          </div>
+      {/* Filter buttons */}
+      <div className="flex gap-2 items-center">
+        <Filter className="w-4 h-4 text-muted-foreground" />
+        {filters.map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+              filter === f.key ? `${f.color} border-current` : 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
+            }`}
+          >
+            {f.label} ({f.count})
+          </button>
         ))}
+      </div>
+
+      {/* Interactive table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase">Термин</th>
+              <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase w-40">TF×IDF</th>
+              <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground uppercase">Вы</th>
+              <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground uppercase">ТОП-10</th>
+              <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground uppercase">В анкорах</th>
+              <th className="text-center py-2 px-3 text-xs font-semibold text-muted-foreground uppercase">Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((d: any, i: number) => {
+              const userScore = d.tfidf || 0;
+              const compScore = d.competitorMedianTfidf || 0;
+              const barWidth = Math.min((userScore / maxScore) * 100, 100);
+              const compBarWidth = Math.min((compScore / maxScore) * 100, 100);
+              const anchorCount = anchorTermCounts[d.term] || 0;
+              const userCount = Math.round((d.tf || 0) * (data?.pageStats?.target?.wordCount || 1000));
+
+              return (
+                <tr key={i} className="border-b border-border/30 hover:bg-secondary/20">
+                  <td className="py-2.5 px-3 font-medium text-foreground">{d.term}</td>
+                  <td className="py-2.5 px-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${barWidth}%` }} />
+                        </div>
+                        <span className="text-[10px] text-primary font-mono w-10 text-right">{(userScore * 1000).toFixed(1)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                          <div className="h-full bg-accent/60 rounded-full transition-all" style={{ width: `${compBarWidth}%` }} />
+                        </div>
+                        <span className="text-[10px] text-accent font-mono w-10 text-right">{(compScore * 1000).toFixed(1)}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-2.5 px-3 text-center font-mono text-foreground">{userCount}</td>
+                  <td className="py-2.5 px-3 text-center font-mono text-muted-foreground">{(compScore * 1000).toFixed(1)}</td>
+                  <td className="py-2.5 px-3 text-center">
+                    {anchorCount > 0 ? (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-accent/20 text-accent">{anchorCount}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${statusColor(d.status)}`}>
+                      {statusLabel(d.status)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -749,11 +974,116 @@ function SemanticMapTab({ data }: TabDataProps) {
 }
 
 function PageSpeedTab() {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<any>(null);
+  const [urlInput, setUrlInput] = useState('');
+
+  const fetchPageSpeed = async () => {
+    if (!urlInput) return;
+    setLoading(true);
+    try {
+      const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(urlInput)}&strategy=mobile&category=PERFORMANCE`;
+      const res = await fetch(apiUrl);
+      if (!res.ok) throw new Error('API error');
+      const json = await res.json();
+
+      const lhr = json.lighthouseResult;
+      const audits = lhr?.audits || {};
+      const categories = lhr?.categories || {};
+
+      setData({
+        mobile: {
+          score: Math.round((categories.performance?.score || 0) * 100),
+          lcp: audits['largest-contentful-paint']?.displayValue || '—',
+          lcpScore: audits['largest-contentful-paint']?.score || 0,
+          cls: audits['cumulative-layout-shift']?.displayValue || '—',
+          clsScore: audits['cumulative-layout-shift']?.score || 0,
+          fcp: audits['first-contentful-paint']?.displayValue || '—',
+          fcpScore: audits['first-contentful-paint']?.score || 0,
+          si: audits['speed-index']?.displayValue || '—',
+          siScore: audits['speed-index']?.score || 0,
+          tbt: audits['total-blocking-time']?.displayValue || '—',
+          tbtScore: audits['total-blocking-time']?.score || 0,
+        },
+      });
+    } catch {
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const scoreColor = (score: number) =>
+    score >= 0.9 ? 'text-green-500' : score >= 0.5 ? 'text-yellow-500' : 'text-red-500';
+  const scoreBg = (score: number) =>
+    score >= 0.9 ? 'bg-green-500' : score >= 0.5 ? 'bg-yellow-500' : 'bg-red-500';
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold text-foreground">PageSpeed + Core Web Vitals</h2>
-      <p className="text-sm text-muted-foreground">Требуется интеграция с PageSpeed Insights API.</p>
-      <div className="glass-card p-8 text-center text-muted-foreground">Подключите PageSpeed API.</div>
+      <p className="text-sm text-muted-foreground">Проверьте реальные показатели производительности через Google PageSpeed API.</p>
+
+      <div className="flex gap-2">
+        <input
+          className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          placeholder="https://example.com"
+          value={urlInput}
+          onChange={e => setUrlInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && fetchPageSpeed()}
+        />
+        <Button onClick={fetchPageSpeed} disabled={loading || !urlInput} className="btn-gradient border-0 gap-2">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+          Проверить
+        </Button>
+      </div>
+
+      {data && (
+        <div className="space-y-4">
+          {/* Score circle */}
+          <div className="glass-card p-6 flex items-center gap-6">
+            <div className="relative w-24 h-24">
+              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(222,30%,18%)" strokeWidth="8" />
+                <circle
+                  cx="50" cy="50" r="42" fill="none"
+                  stroke={data.mobile.score >= 90 ? '#22c55e' : data.mobile.score >= 50 ? '#eab308' : '#ef4444'}
+                  strokeWidth="8" strokeLinecap="round"
+                  strokeDasharray={`${data.mobile.score * 2.64} 264`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className={`text-2xl font-bold ${data.mobile.score >= 90 ? 'text-green-500' : data.mobile.score >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
+                  {data.mobile.score}
+                </span>
+              </div>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-foreground">Mobile Performance</p>
+              <p className="text-xs text-muted-foreground">Google PageSpeed Insights</p>
+            </div>
+          </div>
+
+          {/* Metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[
+              { label: 'LCP', value: data.mobile.lcp, score: data.mobile.lcpScore, desc: 'Largest Contentful Paint' },
+              { label: 'CLS', value: data.mobile.cls, score: data.mobile.clsScore, desc: 'Cumulative Layout Shift' },
+              { label: 'FCP', value: data.mobile.fcp, score: data.mobile.fcpScore, desc: 'First Contentful Paint' },
+              { label: 'TBT', value: data.mobile.tbt, score: data.mobile.tbtScore, desc: 'Total Blocking Time' },
+              { label: 'SI', value: data.mobile.si, score: data.mobile.siScore, desc: 'Speed Index' },
+            ].map((m, i) => (
+              <div key={i} className="glass-card p-4 text-center">
+                <div className={`text-lg font-bold ${scoreColor(m.score)}`}>{m.value}</div>
+                <div className="text-xs font-bold text-foreground mt-1">{m.label}</div>
+                <div className="text-[10px] text-muted-foreground">{m.desc}</div>
+                <div className="mt-2 h-1.5 bg-secondary rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${scoreBg(m.score)}`} style={{ width: `${m.score * 100}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
