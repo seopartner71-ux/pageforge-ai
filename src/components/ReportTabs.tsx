@@ -974,11 +974,116 @@ function SemanticMapTab({ data }: TabDataProps) {
 }
 
 function PageSpeedTab() {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<any>(null);
+  const [urlInput, setUrlInput] = useState('');
+
+  const fetchPageSpeed = async () => {
+    if (!urlInput) return;
+    setLoading(true);
+    try {
+      const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(urlInput)}&strategy=mobile&category=PERFORMANCE`;
+      const res = await fetch(apiUrl);
+      if (!res.ok) throw new Error('API error');
+      const json = await res.json();
+
+      const lhr = json.lighthouseResult;
+      const audits = lhr?.audits || {};
+      const categories = lhr?.categories || {};
+
+      setData({
+        mobile: {
+          score: Math.round((categories.performance?.score || 0) * 100),
+          lcp: audits['largest-contentful-paint']?.displayValue || '—',
+          lcpScore: audits['largest-contentful-paint']?.score || 0,
+          cls: audits['cumulative-layout-shift']?.displayValue || '—',
+          clsScore: audits['cumulative-layout-shift']?.score || 0,
+          fcp: audits['first-contentful-paint']?.displayValue || '—',
+          fcpScore: audits['first-contentful-paint']?.score || 0,
+          si: audits['speed-index']?.displayValue || '—',
+          siScore: audits['speed-index']?.score || 0,
+          tbt: audits['total-blocking-time']?.displayValue || '—',
+          tbtScore: audits['total-blocking-time']?.score || 0,
+        },
+      });
+    } catch {
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const scoreColor = (score: number) =>
+    score >= 0.9 ? 'text-green-500' : score >= 0.5 ? 'text-yellow-500' : 'text-red-500';
+  const scoreBg = (score: number) =>
+    score >= 0.9 ? 'bg-green-500' : score >= 0.5 ? 'bg-yellow-500' : 'bg-red-500';
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold text-foreground">PageSpeed + Core Web Vitals</h2>
-      <p className="text-sm text-muted-foreground">Требуется интеграция с PageSpeed Insights API.</p>
-      <div className="glass-card p-8 text-center text-muted-foreground">Подключите PageSpeed API.</div>
+      <p className="text-sm text-muted-foreground">Проверьте реальные показатели производительности через Google PageSpeed API.</p>
+
+      <div className="flex gap-2">
+        <input
+          className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          placeholder="https://example.com"
+          value={urlInput}
+          onChange={e => setUrlInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && fetchPageSpeed()}
+        />
+        <Button onClick={fetchPageSpeed} disabled={loading || !urlInput} className="btn-gradient border-0 gap-2">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+          Проверить
+        </Button>
+      </div>
+
+      {data && (
+        <div className="space-y-4">
+          {/* Score circle */}
+          <div className="glass-card p-6 flex items-center gap-6">
+            <div className="relative w-24 h-24">
+              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(222,30%,18%)" strokeWidth="8" />
+                <circle
+                  cx="50" cy="50" r="42" fill="none"
+                  stroke={data.mobile.score >= 90 ? '#22c55e' : data.mobile.score >= 50 ? '#eab308' : '#ef4444'}
+                  strokeWidth="8" strokeLinecap="round"
+                  strokeDasharray={`${data.mobile.score * 2.64} 264`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className={`text-2xl font-bold ${data.mobile.score >= 90 ? 'text-green-500' : data.mobile.score >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
+                  {data.mobile.score}
+                </span>
+              </div>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-foreground">Mobile Performance</p>
+              <p className="text-xs text-muted-foreground">Google PageSpeed Insights</p>
+            </div>
+          </div>
+
+          {/* Metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[
+              { label: 'LCP', value: data.mobile.lcp, score: data.mobile.lcpScore, desc: 'Largest Contentful Paint' },
+              { label: 'CLS', value: data.mobile.cls, score: data.mobile.clsScore, desc: 'Cumulative Layout Shift' },
+              { label: 'FCP', value: data.mobile.fcp, score: data.mobile.fcpScore, desc: 'First Contentful Paint' },
+              { label: 'TBT', value: data.mobile.tbt, score: data.mobile.tbtScore, desc: 'Total Blocking Time' },
+              { label: 'SI', value: data.mobile.si, score: data.mobile.siScore, desc: 'Speed Index' },
+            ].map((m, i) => (
+              <div key={i} className="glass-card p-4 text-center">
+                <div className={`text-lg font-bold ${scoreColor(m.score)}`}>{m.value}</div>
+                <div className="text-xs font-bold text-foreground mt-1">{m.label}</div>
+                <div className="text-[10px] text-muted-foreground">{m.desc}</div>
+                <div className="mt-2 h-1.5 bg-secondary rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${scoreBg(m.score)}`} style={{ width: `${m.score * 100}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
