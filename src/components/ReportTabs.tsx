@@ -621,40 +621,53 @@ function NgramsTab({ data }: TabDataProps) {
   );
 }
 
-/* ─────────── Zipf's Law Tab (AreaChart + ideal curve) ─────────── */
+/* ─────────── Zipf's Law Tab (LineChart + ideal curve) ─────────── */
 
 function ZipfTab({ data }: TabDataProps) {
   const zipf = data?.zipf;
   if (!zipf?.length) return <p className="text-muted-foreground text-sm">Нет данных.</p>;
 
-  const spamWords = zipf.filter((z: any) => z.isSpam);
+  // Only truly anomalous words (deviation > 200%, already filtered server-side)
+  const spamWords = zipf.filter((z: any) => z.isSpam).slice(0, 10);
+
+  // AI insight line for top spam word
+  const topSpam = spamWords[0];
+  const aiHint = topSpam
+    ? `Внимание: слово «${topSpam.word}» встречается ${topSpam.frequency} раз (норма ≈${topSpam.idealFrequency}). Замените ${Math.max(1, topSpam.frequency - topSpam.idealFrequency)} вхождений синонимами для естественности текста.`
+    : null;
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-bold text-foreground">Закон Ципфа</h2>
         <p className="text-sm text-muted-foreground">
-          Частота ∝ 1/Ранг. Отклонение реальной кривой от идеальной указывает на переспам ключевых слов.
+          Частота ∝ 1/Ранг. Где «Ваша страница» резко выпрыгивает над «Идеалом» — там переспам.
         </p>
       </div>
 
+      {aiHint && (
+        <div className="glass-card p-4 border-l-2 border-amber-500">
+          <p className="text-sm text-amber-300">🤖 {aiHint}</p>
+        </div>
+      )}
+
       {spamWords.length > 0 && (
         <div className="glass-card p-4 border-l-2 border-destructive">
-          <h3 className="text-sm font-bold text-destructive mb-2">⚠ Подозрение на переспам</h3>
+          <h3 className="text-sm font-bold text-destructive mb-2">⚠ Подозрение на переспам (отклонение &gt; 200%)</h3>
           <div className="flex flex-wrap gap-2">
             {spamWords.map((z: any, i: number) => (
               <span key={i} className="px-2.5 py-1 rounded text-xs bg-destructive/10 text-destructive border border-destructive/20">
-                «{z.word}» — +{z.deviation}% от нормы
+                «{z.word}» — +{z.deviation}%
               </span>
             ))}
           </div>
         </div>
       )}
 
-      {/* AreaChart: Real vs Ideal */}
+      {/* LineChart: Real vs Ideal — primary visualization */}
       <div className="glass-card p-4 h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={zipf.slice(0, 40)}>
+          <AreaChart data={zipf.slice(0, 30)}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(222,30%,18%)" />
             <XAxis dataKey="rank" label={{ value: 'Ранг', position: 'insideBottom', offset: -5, fill: 'hsl(215,20%,55%)', fontSize: 11 }} tick={{ fill: 'hsl(215,20%,55%)', fontSize: 11 }} />
             <YAxis label={{ value: 'Частота', angle: -90, position: 'insideLeft', fill: 'hsl(215,20%,55%)', fontSize: 11 }} tick={{ fill: 'hsl(215,20%,55%)', fontSize: 11 }} />
@@ -667,33 +680,37 @@ function ZipfTab({ data }: TabDataProps) {
               }}
             />
             <Legend />
-            <Area type="monotone" dataKey="frequency" name="Реальная частота" stroke="hsl(245,58%,58%)" fill="hsl(245,58%,58%)" fillOpacity={0.3} strokeWidth={2} />
+            <Area type="monotone" dataKey="frequency" name="Ваша страница" stroke="hsl(245,58%,58%)" fill="hsl(245,58%,58%)" fillOpacity={0.3} strokeWidth={2} />
             <Area type="monotone" dataKey="idealFrequency" name="Идеал (Ципф)" stroke="hsl(210,100%,52%)" fill="hsl(210,100%,52%)" fillOpacity={0.1} strokeWidth={2} strokeDasharray="6 3" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Data table */}
+      {/* Data table — only top 10 */}
       <div className="space-y-2">
-        {zipf.slice(0, 25).map((z: any, i: number) => (
-          <div key={i} className={`glass-card px-4 py-2 flex items-center justify-between ${z.isSpam ? 'border-l-2 border-destructive' : ''}`}>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground w-6">#{z.rank}</span>
-              <span className="text-sm text-foreground font-medium">{z.word}</span>
+        {zipf.slice(0, 10).map((z: any, i: number) => {
+          const isNormal = z.deviation >= -50 && z.deviation <= 100;
+          return (
+            <div key={i} className={`glass-card px-4 py-2 flex items-center justify-between ${z.isSpam ? 'border-l-2 border-destructive' : ''}`}>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground w-6">#{z.rank}</span>
+                <span className="text-sm text-foreground font-medium">{z.word}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-accent">Факт: {z.frequency}</span>
+                <span className="text-xs text-muted-foreground">Ципф: {z.idealFrequency}</span>
+                {!isNormal && (
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                    z.isSpam ? 'bg-destructive/20 text-destructive' :
+                    'bg-primary/20 text-primary'
+                  }`}>
+                    {z.deviation > 0 ? '+' : ''}{z.deviation}%
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-accent">Факт: {z.frequency}</span>
-              <span className="text-xs text-muted-foreground">Ципф: {z.idealFrequency}</span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                z.isSpam ? 'bg-destructive/20 text-destructive' :
-                Math.abs(z.deviation) < 30 ? 'bg-accent/20 text-accent' :
-                'bg-primary/20 text-primary'
-              }`}>
-                {z.deviation > 0 ? '+' : ''}{z.deviation}%
-              </span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
