@@ -627,6 +627,37 @@ Deno.serve(async (req) => {
 
     const moduleStatuses = stages.map(s => ({ name: s.name, time: s.time, done: s.status === "done" }));
 
+    // ── Compute page stats for before/after verification ──
+    const targetH2Count = (targetContent.match(/^## /gm) || []).length;
+    const targetH3Count = (targetContent.match(/^### /gm) || []).length;
+    const targetWordCount = targetWords.length;
+    const targetImgCount = imagesData.length;
+    const targetLinkCount = anchorsData.length;
+
+    // Competitor medians
+    const compH2Counts = compContents.map(c => (c.match(/^## /gm) || []).length);
+    const compWordCounts = compWordArrays.map(w => w.length);
+    const medianFn = (arr: number[]) => {
+      if (!arr.length) return 0;
+      const s = arr.slice().sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+    };
+
+    const pageStats = {
+      target: { wordCount: targetWordCount, h2Count: targetH2Count, h3Count: targetH3Count, imgCount: targetImgCount, linkCount: targetLinkCount },
+      competitorMedian: { wordCount: medianFn(compWordCounts), h2Count: medianFn(compH2Counts) },
+    };
+
+    // ── Competitor sources data (URL + snippet of content for transparency) ──
+    const sourcesData = fetchUrls.map((u, i) => ({
+      url: u,
+      fetched: i < compContents.length,
+      contentPreview: compContents[i]?.slice(0, 500) || '',
+      rawContent: compContents[i]?.slice(0, 15000) || '',
+      wordCount: compWordArrays[i]?.length || 0,
+    }));
+
     const finalResult = {
       scores: aiParsed.scores || { seoHealth: 50, llmFriendly: 50, humanTouch: 50, sgeAdapt: 50 },
       quick_wins: aiParsed.quickWins || [],
@@ -642,6 +673,8 @@ Deno.serve(async (req) => {
         anchorsData,
         competitorUrls: competitorUrls.slice(0, 5),
         competitorCount: compContents.length,
+        sourcesData,
+        pageStats,
         ...(clusterMode && clusterData ? {
           clusterData: {
             semanticCluster: clusterData.semanticCluster,
