@@ -283,13 +283,23 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
         </div>
       </div>
 
+      {/* Credits info */}
+      {credits !== null && credits !== undefined && (
+        <div className={`glass-card p-4 flex items-center justify-between ${credits <= 0 ? 'border border-destructive/30' : ''}`}>
+          <span className="text-sm text-muted-foreground">Остаток кредитов:</span>
+          <span className={`text-lg font-bold ${credits <= 0 ? 'text-destructive' : 'text-accent'}`}>{credits}</span>
+        </div>
+      )}
+
       {/* Start analysis button */}
       <button
         onClick={handleSubmit}
-        disabled={loading || !url.trim()}
+        disabled={loading || !url.trim() || (credits !== null && credits !== undefined && credits <= 0)}
         className="w-full h-14 rounded-2xl btn-gradient text-base font-semibold flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading ? (
+        {credits !== null && credits !== undefined && credits <= 0 ? (
+          <>🚫 Лимит исчерпан</>
+        ) : loading ? (
           <><Loader2 className="w-5 h-5 animate-spin" /> {tr.analyzing}</>
         ) : (
           <><Play className="w-5 h-5" /> {tr.startAnalysis}</>
