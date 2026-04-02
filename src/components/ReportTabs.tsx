@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 
 const tabKeys = [
-  'aiReport', 'priorities', 'blueprint', 'semanticMap', 'tfidf', 'ngrams',
+  'aiReport', 'priorities', 'implementationPlan', 'blueprint', 'semanticMap', 'tfidf', 'ngrams',
   'zipf', 'images', 'anchors', 'pageSpeed', 'stealth', 'dataSources', 'verification',
 ] as const;
 
@@ -23,14 +23,16 @@ type TabKey = typeof tabKeys[number];
 
 const tabLabels: Record<string, Record<TabKey, string>> = {
   ru: {
-    aiReport: 'ИИ-отчёт', priorities: 'Приоритеты', blueprint: 'Golden Blueprint',
+    aiReport: 'ИИ-отчёт', priorities: 'Приоритеты', implementationPlan: '📋 Пошаговое ТЗ',
+    blueprint: 'Golden Blueprint',
     semanticMap: '🧬 Семантическая карта',
     tfidf: 'TF-IDF', ngrams: 'N-граммы', zipf: 'Закон Ципфа',
     images: 'Изображения', anchors: 'Анкоры', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
     dataSources: '📋 Источники', verification: '✅ До/После',
   },
   en: {
-    aiReport: 'AI Report', priorities: 'Priorities', blueprint: 'Golden Blueprint',
+    aiReport: 'AI Report', priorities: 'Priorities', implementationPlan: '📋 Implementation Plan',
+    blueprint: 'Golden Blueprint',
     semanticMap: '🧬 Semantic Map',
     tfidf: 'TF-IDF', ngrams: 'N-grams', zipf: "Zipf's Law",
     images: 'Images', anchors: 'Anchors', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
@@ -1697,6 +1699,140 @@ function VerificationTab({ data }: TabDataProps) {
   );
 }
 
+/* ─────────── Implementation Plan Tab ─────────── */
+
+function ImplementationPlanTab({ data }: TabDataProps) {
+  const plan: any[] = data?.implementationPlan || [];
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
+
+  const toggle = (i: number) => setChecked(prev => ({ ...prev, [i]: !prev[i] }));
+
+  const p1 = plan.filter(t => t.priority === 'P1');
+  const p2 = plan.filter(t => t.priority === 'P2');
+  const p3 = plan.filter(t => t.priority === 'P3');
+
+  const totalWeight = plan.reduce((s, t) => s + (t.weight || 1), 0) || 1;
+  const doneWeight = plan.reduce((s, t, i) => s + (checked[i] ? (t.weight || 1) : 0), 0);
+  const progress = Math.round((doneWeight / totalWeight) * 100);
+
+  const copyAsMarkdown = () => {
+    const lines: string[] = ['# Пошаговое ТЗ на внедрение\n'];
+    const sections = [
+      { label: '## P1 — Критично (сделать сейчас)', items: p1 },
+      { label: '## P2 — Важно (для роста)', items: p2 },
+      { label: '## P3 — Рекомендовано (для лидерства)', items: p3 },
+    ];
+    let idx = 0;
+    for (const sec of sections) {
+      if (!sec.items.length) continue;
+      lines.push(sec.label + '\n');
+      for (const item of sec.items) {
+        const done = checked[plan.indexOf(item)] ? '✅' : '⬜';
+        lines.push(`${done} **${item.title}**`);
+        if (item.where) lines.push(`   📍 Где: ${item.where}`);
+        if (item.action) lines.push(`   🔧 Что сделать: ${item.action}`);
+        if (item.expectedResult) lines.push(`   📈 Результат: ${item.expectedResult}`);
+        lines.push('');
+        idx++;
+      }
+    }
+    navigator.clipboard.writeText(lines.join('\n'));
+  };
+
+  if (!plan.length) return <p className="text-muted-foreground text-sm">Нет данных. Запустите анализ для генерации плана.</p>;
+
+  const priorityConfig = {
+    P1: { label: 'P1 — Критично', color: 'bg-destructive/20 text-destructive', icon: '🔴', border: 'border-l-destructive' },
+    P2: { label: 'P2 — Важно', color: 'bg-amber-500/20 text-amber-400', icon: '🟡', border: 'border-l-amber-500' },
+    P3: { label: 'P3 — Рекомендовано', color: 'bg-emerald-500/20 text-emerald-400', icon: '🟢', border: 'border-l-emerald-500' },
+  };
+
+  const renderGroup = (items: any[], priority: 'P1' | 'P2' | 'P3') => {
+    if (!items.length) return null;
+    const cfg = priorityConfig[priority];
+    return (
+      <div className="space-y-2" key={priority}>
+        <div className="flex items-center gap-2 mb-3">
+          <span className={`px-2 py-0.5 rounded text-xs font-bold ${cfg.color}`}>{cfg.icon} {cfg.label}</span>
+          <span className="text-xs text-muted-foreground">({items.length} задач)</span>
+        </div>
+        {items.map((item: any) => {
+          const globalIdx = plan.indexOf(item);
+          const isDone = checked[globalIdx];
+          return (
+            <div
+              key={globalIdx}
+              className={`glass-card p-4 border-l-4 ${cfg.border} transition-all ${isDone ? 'opacity-50' : ''}`}
+            >
+              <div className="flex items-start gap-3">
+                <button
+                  onClick={() => toggle(globalIdx)}
+                  className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                    isDone ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40 hover:border-primary'
+                  }`}
+                >
+                  {isDone && <Check className="w-3 h-3" />}
+                </button>
+                <div className="flex-1 space-y-1.5">
+                  <p className={`font-semibold text-sm ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                    {item.title}
+                  </p>
+                  {item.where && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <span className="text-accent">📍</span> {item.where}
+                    </p>
+                  )}
+                  {item.action && (
+                    <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                      <span className="text-accent shrink-0">🔧</span> {item.action}
+                    </p>
+                  )}
+                  {item.expectedResult && (
+                    <p className="text-xs text-emerald-400/80 flex items-start gap-1.5">
+                      <TrendingUp className="w-3 h-3 mt-0.5 shrink-0" /> {item.expectedResult}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Progress bar */}
+      <div className="glass-card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-primary" />
+            Готовность страницы к ТОП-1
+          </h2>
+          <span className="text-2xl font-bold gradient-text">{progress}%</span>
+        </div>
+        <Progress value={progress} className="h-3" />
+        <p className="text-xs text-muted-foreground mt-2">
+          Выполнено {Object.values(checked).filter(Boolean).length} из {plan.length} задач
+        </p>
+      </div>
+
+      {/* Copy button */}
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={copyAsMarkdown}>
+          <Copy className="w-3 h-3" /> Скопировать как ТЗ (Markdown)
+        </Button>
+      </div>
+
+      {/* Task groups */}
+      {renderGroup(p1, 'P1')}
+      {renderGroup(p2, 'P2')}
+      {renderGroup(p3, 'P3')}
+    </div>
+  );
+}
+
 /* ─────────── Main Tabs Component ─────────── */
 
 interface ReportTabsProps {
@@ -1741,6 +1877,7 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
         const tabComponents: Record<TabKey, () => JSX.Element> = {
           aiReport: () => <AiReportTab data={data} />,
           priorities: () => <PrioritiesTab data={data} />,
+          implementationPlan: () => <ImplementationPlanTab data={data} />,
           blueprint: () => <BlueprintTab data={data} />,
           semanticMap: () => <SemanticMapTab data={data} />,
           tfidf: () => <TfidfTab data={data} />,
