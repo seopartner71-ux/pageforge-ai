@@ -22,6 +22,7 @@ export type Database = {
           created_at: string
           id: string
           page_type: string | null
+          progress: Json | null
           project_id: string
           status: string
           updated_at: string
@@ -35,6 +36,7 @@ export type Database = {
           created_at?: string
           id?: string
           page_type?: string | null
+          progress?: Json | null
           project_id: string
           status?: string
           updated_at?: string
@@ -48,6 +50,7 @@ export type Database = {
           created_at?: string
           id?: string
           page_type?: string | null
+          progress?: Json | null
           project_id?: string
           status?: string
           updated_at?: string
