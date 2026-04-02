@@ -82,5 +82,5 @@ const translations = {
 export type Translations = typeof translations['en'];
 
 export function t(lang: Lang): Translations {
-  return translations[lang];
+  return translations[lang] as Translations;
 }
