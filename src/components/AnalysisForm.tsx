@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
   Home, ShoppingBag, Wrench, FileText, ShoppingCart, Target,
-  X, Search, Play, Loader2, Check,
+  X, Search, Play, Loader2, Check, MapPin,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -17,6 +17,15 @@ const pageTypeIcons = [
   { key: 'landing', icon: Target },
 ] as const;
 
+const REGIONS = [
+  'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
+  'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону',
+  'Уфа', 'Красноярск', 'Воронеж', 'Пермь', 'Волгоград',
+  'Краснодар', 'Тюмень', 'Саратов', 'Тула', 'Ижевск',
+  'Барнаул', 'Иркутск', 'Хабаровск', 'Владивосток', 'Ярославль',
+  'Махачкала', 'Томск', 'Оренбург', 'Кемерово', 'Рязань',
+];
+
 interface AnalysisFormProps {
   onStartAnalysis: (data: {
     url: string;
@@ -25,6 +34,7 @@ interface AnalysisFormProps {
     aiContext: string;
     clusterMode: boolean;
     projectId?: string;
+    region: string;
   }) => void;
   loading: boolean;
   projects?: { id?: string; name: string; domain: string }[];
@@ -45,6 +55,13 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   const [selectedProjectIdx, setSelectedProjectIdx] = useState(0);
   const [findingCompetitors, setFindingCompetitors] = useState(false);
   const [findSuccess, setFindSuccess] = useState(false);
+  const [region, setRegion] = useState('');
+  const [regionSearch, setRegionSearch] = useState('');
+  const [regionOpen, setRegionOpen] = useState(false);
+
+  const filteredRegions = regionSearch
+    ? REGIONS.filter(r => r.toLowerCase().includes(regionSearch.toLowerCase()))
+    : REGIONS;
 
   const addCompetitor = () => {
     if (competitors.length < 10) setCompetitors([...competitors, '']);
@@ -65,6 +82,10 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
       toast({ title: 'Сначала введите URL страницы', variant: 'destructive' });
       return;
     }
+    if (!region.trim()) {
+      toast({ title: 'Выберите регион для точного анализа', variant: 'destructive' });
+      return;
+    }
     setFindingCompetitors(true);
     setFindSuccess(false);
     try {
@@ -76,7 +97,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
             'Content-Type': 'application/json',
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ url: url.trim() }),
+          body: JSON.stringify({ url: url.trim(), region: region.trim() }),
         }
       );
       if (!res.ok) {
@@ -109,6 +130,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
       aiContext,
       clusterMode,
       projectId: projects[selectedProjectIdx]?.id,
+      region: region.trim(),
     });
   };
 
@@ -154,6 +176,36 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
             placeholder={tr.pageSection.urlPlaceholder}
             className="h-11 bg-secondary border-border/50 focus:border-primary"
           />
+        </div>
+
+        {/* Region selector */}
+        <div className="relative">
+          <label className="text-sm text-muted-foreground mb-2 block flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5" /> Регион поиска
+          </label>
+          <Input
+            value={region}
+            onChange={(e) => { setRegion(e.target.value); setRegionSearch(e.target.value); setRegionOpen(true); }}
+            onFocus={() => setRegionOpen(true)}
+            onBlur={() => setTimeout(() => setRegionOpen(false), 150)}
+            placeholder="Выберите город или введите вручную"
+            className="h-11 bg-secondary border-border/50 focus:border-primary"
+          />
+          {regionOpen && filteredRegions.length > 0 && (
+            <div className="absolute z-50 top-full mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+              {filteredRegions.map(r => (
+                <button
+                  key={r}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setRegion(r); setRegionOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>

@@ -333,12 +333,14 @@ async function fetchPage(url: string): Promise<string> {
 }
 
 // ─── Serper.dev SERP ───
-async function findCompetitors(keyword: string, apiKey: string): Promise<string[]> {
+async function findCompetitors(keyword: string, apiKey: string, region?: string): Promise<string[]> {
   try {
+    const body: any = { q: keyword, num: 10, gl: "ru", hl: "ru" };
+    if (region) body.location = `${region}, Russia`;
     const res = await fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: keyword, num: 10 }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -347,17 +349,19 @@ async function findCompetitors(keyword: string, apiKey: string): Promise<string[
 }
 
 // ─── Serper.dev extended SERP for cluster analysis ───
-async function findClusterData(keyword: string, apiKey: string): Promise<{
+async function findClusterData(keyword: string, apiKey: string, region?: string): Promise<{
   competitors: string[];
   relatedSearches: string[];
   peopleAlsoAsk: string[];
 }> {
   const result = { competitors: [] as string[], relatedSearches: [] as string[], peopleAlsoAsk: [] as string[] };
   try {
+    const body: any = { q: keyword, num: 10, gl: "ru", hl: "ru" };
+    if (region) body.location = `${region}, Russia`;
     const res = await fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: keyword, num: 10 }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) return result;
     const data = await res.json();
@@ -391,7 +395,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode } = await req.json();
+    const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode, region } = await req.json();
     if (!url || !analysisId) {
       return new Response(JSON.stringify({ error: "url and analysisId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -468,7 +472,7 @@ Deno.serve(async (req) => {
         const titleMatch = targetContent.match(/^#\s+(.+)$/m);
         const keyword = titleMatch?.[1]?.slice(0, 100) || url;
         console.log("Cluster SERP keyword:", keyword);
-        const cluster = await findClusterData(keyword, SERPER_KEY);
+        const cluster = await findClusterData(keyword, SERPER_KEY, region);
         const semanticCluster = [...new Set([...cluster.relatedSearches, ...cluster.peopleAlsoAsk])].slice(0, 30);
         clusterData = {
           semanticCluster,
@@ -493,7 +497,7 @@ Deno.serve(async (req) => {
       const titleMatch = targetContent.match(/^#\s+(.+)$/m);
       const keyword = titleMatch?.[1]?.slice(0, 100) || url;
       console.log("SERP keyword:", keyword);
-      competitorUrls = await findCompetitors(keyword, SERPER_KEY);
+      competitorUrls = await findCompetitors(keyword, SERPER_KEY, region);
       try { competitorUrls = competitorUrls.filter(u => !u.includes(new URL(url).hostname)); } catch {}
     }
     await setStage(si, "done", `${((Date.now() - t1) / 1000).toFixed(1)}s`);
@@ -574,9 +578,10 @@ Deno.serve(async (req) => {
     // Build system prompt — different for cluster mode
     let systemPrompt: string;
     let userPrompt: string;
+    const regionContext = region ? `\n\nРЕГИОН АНАЛИЗА: ${region}. Проводи анализ с учётом локации "${region}". Проверь наличие локальных сущностей (адреса, телефоны с кодом города, упоминание районов) у конкурентов в этом регионе. GEO Score должен учитывать оптимизацию под этот регион (карта, локальные ключи, микроразметка LocalBusiness). Если у конкурентов есть локальная привязка, а у пользователя нет — помечай как критическую ошибку P1.\n` : '';
 
     if (clusterMode && clusterData) {
-      systemPrompt = `Ты — Senior SEO Architect по методологии "Доказательное SEO 2026", эксперт по тематическому проектированию (Topic Authority). Тебе дан основной запрос и список смежных фраз (семантический кластер).
+      systemPrompt = `Ты — Senior SEO Architect по методологии "Доказательное SEO 2026", эксперт по тематическому проектированию (Topic Authority). Тебе дан основной запрос и список смежных фраз (семантический кластер).${regionContext}
 
 ПРАВИЛА ДОКАЗАТЕЛЬНОГО SEO 2026 (ВЫСШИЙ ПРИОРИТЕТ):
 
@@ -652,7 +657,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
 Проблемы: ${audit.issues.join("; ") || "нет"}
 Конкурентов: ${compContents.length}`;
     } else {
-      systemPrompt = `Ты — Senior SEO Architect, работающий по методологии "Доказательное SEO 2026". Данные:
+      systemPrompt = `Ты — Senior SEO Architect, работающий по методологии "Доказательное SEO 2026".${regionContext} Данные:
 1. Markdown страницы (до 15000 символов)
 2. TF-IDF: Missing Entities, Spam Terms
 3. Topical Gaps (N-gram сравнение с конкурентами)

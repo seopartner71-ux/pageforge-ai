@@ -1,0 +1,1 @@
+ALTER TABLE public.analyses ADD COLUMN region text NOT NULL DEFAULT '';

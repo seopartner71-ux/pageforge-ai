@@ -71,6 +71,7 @@ export default function DashboardPage() {
     aiContext: string;
     clusterMode: boolean;
     projectId?: string;
+    region: string;
   }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -100,6 +101,7 @@ export default function DashboardPage() {
         competitors: data.competitors,
         ai_context: data.aiContext,
         cluster_mode: data.clusterMode,
+        region: data.region,
         status: 'pending',
       })
       .select('id')
@@ -135,6 +137,7 @@ export default function DashboardPage() {
               aiContext: data.aiContext,
               clusterMode: data.clusterMode,
               analysisId: analysis.id,
+              region: data.region,
             }),
           }
         );

@@ -24,6 +24,7 @@ export type Database = {
           page_type: string | null
           progress: Json | null
           project_id: string
+          region: string
           status: string
           updated_at: string
           url: string
@@ -38,6 +39,7 @@ export type Database = {
           page_type?: string | null
           progress?: Json | null
           project_id: string
+          region?: string
           status?: string
           updated_at?: string
           url: string
@@ -52,6 +54,7 @@ export type Database = {
           page_type?: string | null
           progress?: Json | null
           project_id?: string
+          region?: string
           status?: string
           updated_at?: string
           url?: string
