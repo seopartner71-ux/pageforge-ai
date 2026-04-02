@@ -214,6 +214,12 @@ function calculateTFIDF(targetWords: string[], competitorWordArrays: string[][])
   return results.slice(0, 40);
 }
 
+// ─── UI navigation words: never flag as spam on landing pages ───
+const ZIPF_SAFE_WORDS = new Set([
+  "подробнее","заявка","контакты","купить","заказать","перезвоните","каталог",
+  "корзина","оформить","подписаться","узнать","отзывы","гарантия","доставка",
+]);
+
 // ─── Zipf's Law: P(r) = C/r ───
 function calculateZipf(words: string[]) {
   const freq: Record<string, number> = {};
@@ -223,13 +229,14 @@ function calculateZipf(words: string[]) {
 
   const C = sorted[0][1]; // frequency of the most common word
 
-  return sorted.slice(0, 50).map(([word, count], i) => {
+  return sorted.slice(0, 30).map(([word, count], i) => {
     const rank = i + 1;
     const idealFrequency = Math.round(C / rank);
     const deviation = idealFrequency > 0 ? Math.round((count - idealFrequency) / idealFrequency * 100) : 0;
+    // Spam only if deviation > +200% AND not a safe UI word AND rank > 3
+    const isSpam = deviation > 200 && rank > 3 && !ZIPF_SAFE_WORDS.has(word);
     return {
-      rank, word, frequency: count, idealFrequency, deviation,
-      isSpam: count > idealFrequency * 1.5 && rank > 3,
+      rank, word, frequency: count, idealFrequency, deviation, isSpam,
     };
   });
 }
