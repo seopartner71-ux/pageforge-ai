@@ -278,7 +278,7 @@ export function PdfReportDocument({ analysis, results, template, companyName, la
               const statusColor = item.status === 'Missing' ? C.red : item.status === 'Spam' ? C.yellow : C.green;
               return (
                 <View key={i} style={{ ...s.tableRow, backgroundColor: i % 2 === 0 ? C.bgRow1 : C.bgRow2 }}>
-                  <Text style={{ fontSize: 7, color: C.white, width: '30%' }} numberOfLines={1}>{str(item.term)}</Text>
+                  <Text style={{ fontSize: 7, color: C.white, width: '30%' }}>{str(item.term).slice(0, 25)}</Text>
                   <Text style={{ fontSize: 7, color: C.white, width: '15%', textAlign: 'right' }}>{typeof item.tfidf === 'number' ? item.tfidf.toFixed(4) : str(item.tfidf)}</Text>
                   <Text style={{ fontSize: 7, color: C.white, width: '15%', textAlign: 'right' }}>{str(item.userCount ?? item.count ?? '')}</Text>
                   <Text style={{ fontSize: 7, color: C.muted, width: '15%', textAlign: 'right' }}>{str(item.competitorMedianCount ?? item.compMedian ?? '')}</Text>
