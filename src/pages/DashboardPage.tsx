@@ -71,6 +71,7 @@ export default function DashboardPage() {
     aiContext: string;
     clusterMode: boolean;
     projectId?: string;
+    region: string;
   }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
