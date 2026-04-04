@@ -121,26 +121,40 @@ function isLatinJunk(originalWord: string): boolean {
   return true;
 }
 
+// ─── Sanitize markdown: strip JSON-LD, script/style blocks, JSON fragments ───
+function sanitizeMarkdown(text: string): string {
+  let s = text;
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, ' ');
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, ' ');
+  s = s.split('\n').filter(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) return false;
+    if (/"@type"/i.test(trimmed) || /"@context"/i.test(trimmed)) return false;
+    if (/^\s*"[a-zA-Z]+"\s*:/.test(trimmed)) return false;
+    return true;
+  }).join('\n');
+  return s;
+}
+
 // ─── Detect if text is primarily Russian ───
 function isRussianContent(text: string): boolean {
   const sample = text.slice(0, 5000);
   const cyrChars = (sample.match(/[\u0400-\u04FF]/g) || []).length;
   const latChars = (sample.match(/[a-zA-Z]/g) || []).length;
-  return cyrChars > latChars * 1.5; // Russian if Cyrillic dominates
+  return cyrChars > latChars * 1.5;
 }
 
 // ─── Check if a token is numeric/phone junk ───
 function isNumericJunk(word: string): boolean {
-  if (DIGIT_ONLY_RE.test(word)) return true;           // pure digits: 918, 030, 79180303140
-  if (DIGIT_HEAVY_RE.test(word)) return true;           // 5+ digits embedded
-  if (TECH_PREFIX_DIGIT_RE.test(word)) return true;     // tel79..., id123
+  if (DIGIT_ONLY_RE.test(word)) return true;
+  if (DIGIT_HEAVY_RE.test(word)) return true;
+  if (TECH_PREFIX_DIGIT_RE.test(word)) return true;
   return false;
 }
 
 function tokenize(text: string, filterLatin = false): string[] {
-  // Split glued Cyrillic+Latin
-  let cleaned = text.replace(CYRLAT_SPLIT_RE, "$1 $2").replace(LATCYR_SPLIT_RE, "$1 $2");
-  // Strip URLs, file extensions, phone numbers
+  let cleaned = sanitizeMarkdown(text);
+  cleaned = cleaned.replace(CYRLAT_SPLIT_RE, "$1 $2").replace(LATCYR_SPLIT_RE, "$1 $2");
   cleaned = cleaned.replace(URL_STRIP_RE, " ").replace(/[^\p{L}\p{N}\s]/gu, " ");
 
   const rawWords = cleaned.split(/\s+/).filter(w => w.length > 2);
@@ -154,6 +168,24 @@ function tokenize(text: string, filterLatin = false): string[] {
     if (filterLatin && isLatinJunk(w)) continue;
     result.push(lower);
   }
+
+  // ── Density auto-exclude: if any single word > 15% of total, it's a parsing error ──
+  if (result.length > 0) {
+    const freq: Record<string, number> = {};
+    for (const w of result) freq[w] = (freq[w] || 0) + 1;
+    const threshold = result.length * 0.15;
+    const junkWords = new Set<string>();
+    for (const [w, count] of Object.entries(freq)) {
+      if (count > threshold) {
+        console.log(`Density auto-exclude: "${w}" (${count}/${result.length} = ${(count/result.length*100).toFixed(1)}%)`);
+        junkWords.add(w);
+      }
+    }
+    if (junkWords.size > 0) {
+      return result.filter(w => !junkWords.has(w));
+    }
+  }
+
   return result;
 }
 
