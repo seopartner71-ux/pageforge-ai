@@ -60,6 +60,22 @@ const TECH_BLACKLIST = new Set([
   "image","img","tel","phone","call","email","mail","loading","lazy","srcset","sizes","alt","title",
   "width","height","data","aria","role","tabindex","placeholder","autocomplete","readonly",
   "target","blank","noopener","noreferrer","display","none","hidden","visible","overflow",
+  // JSON-LD / schema.org / microdata technical terms
+  "product","products","category","categories","item","items","element","elements",
+  "schema","name","description","variant","variants","metadata","attributes","attribute",
+  "context","offer","offers","review","reviews","rating","availability","brand",
+  "aggregaterating","breadcrumblist","listitem","itemlistelement","organization",
+  "webpage","website","imageobject","postaladdress","openinghours","pricecurrency",
+  "mainentityofpage","speakable","potentialaction","searchaction","readaction",
+  // Additional CSS/JS/HTML junk
+  "undefined","null","true","false","function","object","array","string","number","boolean",
+  "return","const","var","let","export","import","default","module","require",
+  "padding","margin","border","color","background","font","text","align","flex","grid",
+  "position","absolute","relative","fixed","static","inline","important",
+  "click","hover","focus","active","visited","disabled","checked","selected",
+  "viewport","responsive","media","query","breakpoint","transition","animation","transform",
+  "prev","next","close","open","toggle","collapse","expand","show","hide",
+  "list","menu","nav","link","btn","button","icon","logo","form","input","label","select","option",
 ]);
 
 // ─── Regex: strip URLs, emails, file extensions, phone numbers, tel: links ───
