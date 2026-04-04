@@ -146,6 +146,7 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   }, [analysisId]);
 
   const scores = results?.scores as any;
+  const scoreLabels = lang === 'ru' ? scoreLabelsRU : scoreLabelsEN;
   const scoreCards = scores ? [
     { score: scores.seoHealth || 0, label: scoreLabels[0], description: '', color: scoreColors[0] },
     { score: scores.llmFriendly || 0, label: scoreLabels[1], description: '', color: scoreColors[1] },
