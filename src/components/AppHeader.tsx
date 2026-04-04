@@ -40,7 +40,7 @@ export function AppHeader() {
         </div>
 
         {/* Center: Navigation */}
-        <nav className="hidden md:flex items-center justify-center gap-6">
+        <nav className="hidden md:flex items-center justify-center gap-6 flex-1">
           {navItems.map((item) => (
             <button
               key={item.path}
