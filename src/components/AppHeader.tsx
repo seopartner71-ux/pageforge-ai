@@ -29,13 +29,13 @@ export function AppHeader() {
     <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
       <div className="container flex items-center h-14">
         {/* Left: Logo */}
-        <div className="flex-1 flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 shrink-0 mr-6">
           <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => navigate('/dashboard')}>
             <div className="w-7 h-7 rounded-lg btn-gradient flex items-center justify-center">
               <Zap className="w-3.5 h-3.5" />
             </div>
-            <span className="font-bold gradient-text">{tr.appName}</span>
-            <span className="text-xs text-muted-foreground hidden sm:inline">{tr.subtitle}</span>
+            <span className="font-bold gradient-text whitespace-nowrap">{tr.appName}</span>
+            <span className="text-xs text-muted-foreground hidden lg:inline whitespace-nowrap">{tr.subtitle}</span>
           </div>
         </div>
 
