@@ -815,7 +815,7 @@ Deno.serve(async (req) => {
     // ── Zipf's Law ──
     await setStage(si, "running");
     const t4 = Date.now();
-    const zipfData = calculateZipf(targetWords);
+    const zipfData = calculateZipf(targetWords, isRU);
     await setStage(si, "done", `${((Date.now() - t4) / 1000).toFixed(1)}s`);
     si++;
 
