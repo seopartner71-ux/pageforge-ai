@@ -29,18 +29,18 @@ export function AppHeader() {
     <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
       <div className="container flex items-center h-14">
         {/* Left: Logo */}
-        <div className="flex-1 flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 shrink-0 mr-6">
           <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => navigate('/dashboard')}>
             <div className="w-7 h-7 rounded-lg btn-gradient flex items-center justify-center">
               <Zap className="w-3.5 h-3.5" />
             </div>
-            <span className="font-bold gradient-text">{tr.appName}</span>
-            <span className="text-xs text-muted-foreground hidden sm:inline">{tr.subtitle}</span>
+            <span className="font-bold gradient-text whitespace-nowrap">{tr.appName}</span>
+            <span className="text-xs text-muted-foreground hidden lg:inline whitespace-nowrap">{tr.subtitle}</span>
           </div>
         </div>
 
         {/* Center: Navigation */}
-        <nav className="hidden md:flex items-center justify-center gap-6">
+        <nav className="hidden md:flex items-center justify-center gap-6 flex-1">
           {navItems.map((item) => (
             <button
               key={item.path}
@@ -57,7 +57,7 @@ export function AppHeader() {
         </nav>
 
         {/* Right: Lang + Logout */}
-        <div className="flex-1 flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-3 shrink-0 ml-6">
           <LangToggle />
           <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
             <LogOut className="w-4 h-4" />

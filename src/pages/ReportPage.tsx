@@ -25,7 +25,8 @@ const scoreColors = [
   'hsl(142, 71%, 45%)',
   'hsl(280, 67%, 55%)',
 ];
-const scoreLabels = ['SEO HEALTH', 'LLM-FRIENDLY', 'HUMAN TOUCH', 'SGE ADAPT'];
+const scoreLabelsEN = ['SEO Health', 'LLM-Friendly', 'Human Touch', 'SGE Adapt'];
+const scoreLabelsRU = ['SEO Здоровье', 'LLM-Дружелюбность', 'Человечность', 'SGE Адаптация'];
 
 interface PdfTpl {
   id: string;
@@ -145,6 +146,7 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   }, [analysisId]);
 
   const scores = results?.scores as any;
+  const scoreLabels = lang === 'ru' ? scoreLabelsRU : scoreLabelsEN;
   const scoreCards = scores ? [
     { score: scores.seoHealth || 0, label: scoreLabels[0], description: '', color: scoreColors[0] },
     { score: scores.llmFriendly || 0, label: scoreLabels[1], description: '', color: scoreColors[1] },
