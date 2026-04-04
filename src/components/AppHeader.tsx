@@ -57,7 +57,7 @@ export function AppHeader() {
         </nav>
 
         {/* Right: Lang + Logout */}
-        <div className="flex-1 flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-3 shrink-0 ml-6">
           <LangToggle />
           <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
             <LogOut className="w-4 h-4" />
