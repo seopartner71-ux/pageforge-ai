@@ -25,7 +25,8 @@ const scoreColors = [
   'hsl(142, 71%, 45%)',
   'hsl(280, 67%, 55%)',
 ];
-const scoreLabels = ['SEO HEALTH', 'LLM-FRIENDLY', 'HUMAN TOUCH', 'SGE ADAPT'];
+const scoreLabelsEN = ['SEO Health', 'LLM-Friendly', 'Human Touch', 'SGE Adapt'];
+const scoreLabelsRU = ['SEO Здоровье', 'LLM-Дружелюбность', 'Человечность', 'SGE Адаптация'];
 
 interface PdfTpl {
   id: string;
