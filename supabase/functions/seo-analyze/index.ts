@@ -288,23 +288,26 @@ const ZIPF_SAFE_WORDS = new Set([
 ]);
 
 // ─── Zipf's Law: P(r) = C/r ───
-function calculateZipf(words: string[]) {
+// isRU flag: if true, skip all Latin words from Zipf output
+function calculateZipf(words: string[], isRU = false) {
   const freq: Record<string, number> = {};
   for (const w of words) freq[w] = (freq[w] || 0) + 1;
-  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+
+  // For RU content, remove all purely-Latin words from Zipf analysis
+  let sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+  if (isRU) {
+    sorted = sorted.filter(([word]) => !/^[a-z]+$/.test(word));
+  }
   if (!sorted.length) return [];
 
-  const C = sorted[0][1]; // frequency of the most common word
+  const C = sorted[0][1];
 
   return sorted.slice(0, 30).map(([word, count], i) => {
     const rank = i + 1;
     const idealFrequency = Math.round(C / rank);
     const deviation = idealFrequency > 0 ? Math.round((count - idealFrequency) / idealFrequency * 100) : 0;
-    // Spam only if deviation > +200% AND not a safe UI word AND rank > 3
     const isSpam = deviation > 200 && rank > 3 && !ZIPF_SAFE_WORDS.has(word);
-    return {
-      rank, word, frequency: count, idealFrequency, deviation, isSpam,
-    };
+    return { rank, word, frequency: count, idealFrequency, deviation, isSpam };
   });
 }
 
