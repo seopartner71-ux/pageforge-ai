@@ -60,6 +60,22 @@ const TECH_BLACKLIST = new Set([
   "image","img","tel","phone","call","email","mail","loading","lazy","srcset","sizes","alt","title",
   "width","height","data","aria","role","tabindex","placeholder","autocomplete","readonly",
   "target","blank","noopener","noreferrer","display","none","hidden","visible","overflow",
+  // JSON-LD / schema.org / microdata technical terms
+  "product","products","category","categories","item","items","element","elements",
+  "schema","name","description","variant","variants","metadata","attributes","attribute",
+  "context","offer","offers","review","reviews","rating","availability","brand",
+  "aggregaterating","breadcrumblist","listitem","itemlistelement","organization",
+  "webpage","website","imageobject","postaladdress","openinghours","pricecurrency",
+  "mainentityofpage","speakable","potentialaction","searchaction","readaction",
+  // Additional CSS/JS/HTML junk
+  "undefined","null","true","false","function","object","array","string","number","boolean",
+  "return","const","var","let","export","import","default","module","require",
+  "padding","margin","border","color","background","font","text","align","flex","grid",
+  "position","absolute","relative","fixed","static","inline","important",
+  "click","hover","focus","active","visited","disabled","checked","selected",
+  "viewport","responsive","media","query","breakpoint","transition","animation","transform",
+  "prev","next","close","open","toggle","collapse","expand","show","hide",
+  "list","menu","nav","link","btn","button","icon","logo","form","input","label","select","option",
 ]);
 
 // ─── Regex: strip URLs, emails, file extensions, phone numbers, tel: links ───
@@ -105,26 +121,40 @@ function isLatinJunk(originalWord: string): boolean {
   return true;
 }
 
+// ─── Sanitize markdown: strip JSON-LD, script/style blocks, JSON fragments ───
+function sanitizeMarkdown(text: string): string {
+  let s = text;
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, ' ');
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, ' ');
+  s = s.split('\n').filter(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) return false;
+    if (/"@type"/i.test(trimmed) || /"@context"/i.test(trimmed)) return false;
+    if (/^\s*"[a-zA-Z]+"\s*:/.test(trimmed)) return false;
+    return true;
+  }).join('\n');
+  return s;
+}
+
 // ─── Detect if text is primarily Russian ───
 function isRussianContent(text: string): boolean {
   const sample = text.slice(0, 5000);
   const cyrChars = (sample.match(/[\u0400-\u04FF]/g) || []).length;
   const latChars = (sample.match(/[a-zA-Z]/g) || []).length;
-  return cyrChars > latChars * 1.5; // Russian if Cyrillic dominates
+  return cyrChars > latChars * 1.5;
 }
 
 // ─── Check if a token is numeric/phone junk ───
 function isNumericJunk(word: string): boolean {
-  if (DIGIT_ONLY_RE.test(word)) return true;           // pure digits: 918, 030, 79180303140
-  if (DIGIT_HEAVY_RE.test(word)) return true;           // 5+ digits embedded
-  if (TECH_PREFIX_DIGIT_RE.test(word)) return true;     // tel79..., id123
+  if (DIGIT_ONLY_RE.test(word)) return true;
+  if (DIGIT_HEAVY_RE.test(word)) return true;
+  if (TECH_PREFIX_DIGIT_RE.test(word)) return true;
   return false;
 }
 
 function tokenize(text: string, filterLatin = false): string[] {
-  // Split glued Cyrillic+Latin
-  let cleaned = text.replace(CYRLAT_SPLIT_RE, "$1 $2").replace(LATCYR_SPLIT_RE, "$1 $2");
-  // Strip URLs, file extensions, phone numbers
+  let cleaned = sanitizeMarkdown(text);
+  cleaned = cleaned.replace(CYRLAT_SPLIT_RE, "$1 $2").replace(LATCYR_SPLIT_RE, "$1 $2");
   cleaned = cleaned.replace(URL_STRIP_RE, " ").replace(/[^\p{L}\p{N}\s]/gu, " ");
 
   const rawWords = cleaned.split(/\s+/).filter(w => w.length > 2);
@@ -138,6 +168,24 @@ function tokenize(text: string, filterLatin = false): string[] {
     if (filterLatin && isLatinJunk(w)) continue;
     result.push(lower);
   }
+
+  // ── Density auto-exclude: if any single word > 15% of total, it's a parsing error ──
+  if (result.length > 0) {
+    const freq: Record<string, number> = {};
+    for (const w of result) freq[w] = (freq[w] || 0) + 1;
+    const threshold = result.length * 0.15;
+    const junkWords = new Set<string>();
+    for (const [w, count] of Object.entries(freq)) {
+      if (count > threshold) {
+        console.log(`Density auto-exclude: "${w}" (${count}/${result.length} = ${(count/result.length*100).toFixed(1)}%)`);
+        junkWords.add(w);
+      }
+    }
+    if (junkWords.size > 0) {
+      return result.filter(w => !junkWords.has(w));
+    }
+  }
+
   return result;
 }
 
@@ -240,23 +288,26 @@ const ZIPF_SAFE_WORDS = new Set([
 ]);
 
 // ─── Zipf's Law: P(r) = C/r ───
-function calculateZipf(words: string[]) {
+// isRU flag: if true, skip all Latin words from Zipf output
+function calculateZipf(words: string[], isRU = false) {
   const freq: Record<string, number> = {};
   for (const w of words) freq[w] = (freq[w] || 0) + 1;
-  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+
+  // For RU content, remove all purely-Latin words from Zipf analysis
+  let sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+  if (isRU) {
+    sorted = sorted.filter(([word]) => !/^[a-z]+$/.test(word));
+  }
   if (!sorted.length) return [];
 
-  const C = sorted[0][1]; // frequency of the most common word
+  const C = sorted[0][1];
 
   return sorted.slice(0, 30).map(([word, count], i) => {
     const rank = i + 1;
     const idealFrequency = Math.round(C / rank);
     const deviation = idealFrequency > 0 ? Math.round((count - idealFrequency) / idealFrequency * 100) : 0;
-    // Spam only if deviation > +200% AND not a safe UI word AND rank > 3
     const isSpam = deviation > 200 && rank > 3 && !ZIPF_SAFE_WORDS.has(word);
-    return {
-      rank, word, frequency: count, idealFrequency, deviation, isSpam,
-    };
+    return { rank, word, frequency: count, idealFrequency, deviation, isSpam };
   });
 }
 
@@ -764,7 +815,7 @@ Deno.serve(async (req) => {
     // ── Zipf's Law ──
     await setStage(si, "running");
     const t4 = Date.now();
-    const zipfData = calculateZipf(targetWords);
+    const zipfData = calculateZipf(targetWords, isRU);
     await setStage(si, "done", `${((Date.now() - t4) / 1000).toFixed(1)}s`);
     si++;
 
