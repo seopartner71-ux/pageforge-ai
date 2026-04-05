@@ -850,8 +850,34 @@ function AnchorsTab({ data }: TabDataProps) {
 function SemanticMapTab({ data }: TabDataProps) {
   const cluster = data?.clusterData;
   const analysis = cluster?.clusterAnalysis;
+  const tfidf = data?.tfidf || [];
 
-  if (!cluster) return (
+  // Build entity lists from available data
+  const foundEntities = useMemo(() => {
+    const found: string[] = [];
+    // From covered topics
+    if (analysis?.coveredTopics) found.push(...analysis.coveredTopics);
+    // From TF-IDF terms present on page
+    tfidf.filter((t: any) => t.status === 'OK' || t.status === 'Spam' || t.status === 'Overoptimized')
+      .slice(0, 15)
+      .forEach((t: any) => { if (!found.includes(t.term)) found.push(t.term); });
+    return found.slice(0, 25);
+  }, [analysis, tfidf]);
+
+  const gapEntities = useMemo(() => {
+    const gaps: string[] = [];
+    // From information gaps
+    if (analysis?.informationGaps) gaps.push(...analysis.informationGaps);
+    // From TF-IDF missing terms
+    tfidf.filter((t: any) => t.status === 'Missing' || t.status === 'Deficit')
+      .slice(0, 15)
+      .forEach((t: any) => { if (!gaps.includes(t.term)) gaps.push(t.term); });
+    return gaps.slice(0, 20);
+  }, [analysis, tfidf]);
+
+  const hasGraphData = foundEntities.length > 0 || gapEntities.length > 0;
+
+  if (!cluster && !hasGraphData) return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold text-foreground">Семантическая карта</h2>
       <p className="text-sm text-muted-foreground">Включите тумблер «Кластерный анализ» перед запуском, чтобы получить семантическую карту.</p>
@@ -859,18 +885,18 @@ function SemanticMapTab({ data }: TabDataProps) {
     </div>
   );
 
-  const coverageScore = analysis?.topicCoverageScore ?? 0;
+  const coverageScore = analysis?.topicCoverageScore ?? (foundEntities.length + gapEntities.length > 0 ? Math.round(foundEntities.length / (foundEntities.length + gapEntities.length) * 100) : 0);
   const semanticMap = analysis?.semanticMap || [];
   const gaps = analysis?.informationGaps || [];
   const covered = analysis?.coveredTopics || [];
-  const faqQuestions = analysis?.suggestedFaqQuestions || cluster.peopleAlsoAsk || [];
+  const faqQuestions = analysis?.suggestedFaqQuestions || cluster?.peopleAlsoAsk || [];
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-bold text-foreground">🧬 Семантическая карта кластера</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Анализ полноты раскрытия темы на основе семантического кластера ({cluster.semanticCluster?.length || 0} фраз).
+          Интерактивный граф сущностей: связи между темами, пробелы и покрытие.
         </p>
       </div>
 
@@ -890,6 +916,11 @@ function SemanticMapTab({ data }: TabDataProps) {
           </div>
         </div>
       </div>
+
+      {/* Interactive Entity Graph */}
+      {hasGraphData && (
+        <EntityGraphLazy foundEntities={foundEntities} gapEntities={gapEntities} />
+      )}
 
       {/* Semantic Map — required sections */}
       {semanticMap.length > 0 && (
@@ -943,20 +974,17 @@ function SemanticMapTab({ data }: TabDataProps) {
       </div>
 
       {/* Semantic Cluster phrases */}
-      {cluster.semanticCluster?.length > 0 && (
+      {cluster?.semanticCluster?.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">
             Фразы кластера ({cluster.semanticCluster.length})
           </h3>
           <div className="flex flex-wrap gap-2">
-            {cluster.semanticCluster.map((phrase: string, i: number) => {
-              const contentLower = ''; // We don't have raw content here, so rely on AI analysis
-              return (
-                <span key={i} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-secondary text-foreground border border-border/30">
-                  {phrase}
-                </span>
-              );
-            })}
+            {cluster.semanticCluster.map((phrase: string, i: number) => (
+              <span key={i} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-secondary text-foreground border border-border/30">
+                {phrase}
+              </span>
+            ))}
           </div>
         </div>
       )}
@@ -977,7 +1005,7 @@ function SemanticMapTab({ data }: TabDataProps) {
       )}
 
       {/* Competitor Headings */}
-      {cluster.competitorHeadings?.length > 0 && (
+      {cluster?.competitorHeadings?.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">📊 Популярные заголовки у конкурентов</h3>
           <div className="flex flex-wrap gap-2">
@@ -991,6 +1019,16 @@ function SemanticMapTab({ data }: TabDataProps) {
       )}
     </div>
   );
+}
+
+/* Lazy wrapper for EntityGraph to avoid loading D3 upfront */
+function EntityGraphLazy(props: { foundEntities: string[]; gapEntities: string[] }) {
+  const [Graph, setGraph] = useState<any>(null);
+  useEffect(() => {
+    import('@/components/EntityGraph').then(m => setGraph(() => m.EntityGraph));
+  }, []);
+  if (!Graph) return <div className="glass-card p-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>;
+  return <Graph {...props} />;
 }
 
 function PageSpeedTab() {
