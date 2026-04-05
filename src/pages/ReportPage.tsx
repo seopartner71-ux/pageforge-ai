@@ -54,6 +54,8 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   const [shareLoading, setShareLoading] = useState(false);
   const [templates, setTemplates] = useState<PdfTpl[]>([]);
   const [tplLoading, setTplLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('optimizer');
+  const [scrollToSge, setScrollToSge] = useState(false);
 
   // Load user templates
   useEffect(() => {
