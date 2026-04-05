@@ -1634,6 +1634,7 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
   const [tableLoading, setTableLoading] = useState(false);
   const [stealthMode, setStealthMode] = useState(false);
   const [stealthLoading, setStealthLoading] = useState(false);
+  const [stealthRegion, setStealthRegion] = useState<'ru' | 'us' | 'uk' | 'kz'>('ru');
   const [editText, setEditText] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -1703,7 +1704,7 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
             Authorization: `Bearer ${session?.session?.access_token}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ analysisId, stealthMode: true, currentText: result.optimizedText }),
+          body: JSON.stringify({ analysisId, stealthMode: true, currentText: result.optimizedText, stealthRegion }),
         }
       );
       if (!res.ok) {
@@ -1941,6 +1942,19 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
                     {copiedType === 'rich' ? <Check className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
                     {copiedType === 'rich' ? (lang === 'ru' ? 'Скопировано' : 'Copied') : 'Copy Rich Text'}
                   </Button>
+
+                  {/* Region selector for Stealth */}
+                  <select
+                    value={stealthRegion}
+                    onChange={e => setStealthRegion(e.target.value as any)}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="ru">🇷🇺 Россия</option>
+                    <option value="us">🇺🇸 США</option>
+                    <option value="uk">🇬🇧 Британия</option>
+                    <option value="kz">🇰🇿 Казахстан</option>
+                  </select>
+
                   <Button
                     variant={stealthMode ? "default" : "outline"}
                     size="sm"
