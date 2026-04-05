@@ -154,7 +154,7 @@ function AiReportTab({ data, scrollToSge, onSgeScrolled }: TabDataProps & { scro
       </div>
 
       {/* SGE / BERT Adaptation */}
-      <div className="glass-card p-5">
+      <div ref={sgeRef} className="glass-card p-5">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
           <Globe className="w-4 h-4 text-primary" /> Адаптация под SGE и AI Overviews
         </h3>
@@ -174,6 +174,9 @@ function AiReportTab({ data, scrollToSge, onSgeScrolled }: TabDataProps & { scro
           </div>
         )}
       </div>
+
+      {/* SGE Blueprint — Detailed Checks */}
+      <SgeBlueprintSection audit={audit} report={report} bp={bp} />
 
       {/* Missing Entities */}
       {report.missingEntities?.length > 0 && (
