@@ -1714,68 +1714,111 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
             </div>
           )}
 
-          {/* Content viewer with tabs */}
-          <div className="glass-card p-4">
-            <div className="flex items-center justify-between mb-4">
-              {/* View mode toggle */}
-              <div className="flex bg-secondary rounded-lg p-0.5">
-                <button
-                  onClick={() => setViewMode('preview')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    viewMode === 'preview' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" /> Предпросмотр
-                </button>
-                <button
-                  onClick={() => setViewMode('html')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    viewMode === 'html' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Code className="w-3.5 h-3.5" /> Код (HTML)
-                </button>
-              </div>
+          {/* Live Score Bars */}
+          <LiveScoreBars scores={liveScores} />
 
-              {/* Copy buttons */}
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleCopyHtml}>
-                  {copiedType === 'html' ? <Check className="w-3.5 h-3.5" /> : <Code className="w-3.5 h-3.5" />}
-                  {copiedType === 'html' ? 'Скопировано' : 'Copy HTML'}
-                </Button>
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleCopyRich}>
-                  {copiedType === 'rich' ? <Check className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
-                  {copiedType === 'rich' ? 'Скопировано' : 'Copy Rich Text'}
-                </Button>
-                {/* Stealth Engine button */}
-                <Button
-                  variant={stealthMode ? "default" : "outline"}
-                  size="sm"
-                  className={`gap-1.5 text-xs ${stealthMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
-                  onClick={handleStealth}
-                  disabled={stealthLoading}
-                >
-                  {stealthLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
-                  {stealthMode
-                    ? (lang === 'ru' ? 'Stealth ✓' : 'Stealth ✓')
-                    : (lang === 'ru' ? 'Очеловечить (Stealth)' : 'Humanize (Stealth)')}
-                </Button>
+          {/* Quick stats */}
+          <div className="flex flex-wrap gap-3">
+            {[
+              { icon: '📝', label: lang === 'ru' ? 'Слов' : 'Words', val: liveScores.wordCount },
+              { icon: '📑', label: lang === 'ru' ? 'Заголовков' : 'Headings', val: liveScores.headingCount },
+              { icon: liveScores.hasH1 ? '✅' : '❌', label: 'H1', val: liveScores.hasH1 ? (lang === 'ru' ? 'Есть' : 'Yes') : (lang === 'ru' ? 'Нет' : 'No') },
+              { icon: liveScores.hasFAQ ? '✅' : '❌', label: 'FAQ', val: liveScores.hasFAQ ? (lang === 'ru' ? 'Есть' : 'Yes') : (lang === 'ru' ? 'Нет' : 'No') },
+              { icon: liveScores.hasTable ? '✅' : '❌', label: lang === 'ru' ? 'Таблица' : 'Table', val: liveScores.hasTable ? (lang === 'ru' ? 'Есть' : 'Yes') : (lang === 'ru' ? 'Нет' : 'No') },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/50 text-xs">
+                <span>{s.icon}</span>
+                <span className="text-muted-foreground">{s.label}:</span>
+                <span className="font-medium text-foreground">{s.val}</span>
               </div>
-            </div>
-
-            {/* Content area */}
-            <div className="max-h-[600px] overflow-y-auto rounded-lg bg-secondary/20 p-6">
-              {viewMode === 'preview' ? (
-                <RichMarkdownPreview content={result.optimizedText} />
-              ) : (
-                <pre className="text-xs text-foreground/80 whitespace-pre-wrap font-mono leading-relaxed select-all">
-                  {htmlContent}
-                </pre>
-              )}
-            </div>
+            ))}
           </div>
 
-          <Button variant="outline" onClick={() => setResult(null)} className="gap-1.5">
+          {/* Content viewer with tabs + LSI sidebar */}
+          <div className="flex gap-4">
+            <div className="flex-1 glass-card p-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                {/* View mode toggle */}
+                <div className="flex bg-secondary rounded-lg p-0.5">
+                  <button
+                    onClick={() => setViewMode('preview')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      viewMode === 'preview' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" /> {lang === 'ru' ? 'Предпросмотр' : 'Preview'}
+                  </button>
+                  <button
+                    onClick={() => setViewMode('edit')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      viewMode === 'edit' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Wand2 className="w-3.5 h-3.5" /> {lang === 'ru' ? 'Редактор' : 'Editor'}
+                  </button>
+                  <button
+                    onClick={() => setViewMode('html')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      viewMode === 'html' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Code className="w-3.5 h-3.5" /> HTML
+                  </button>
+                </div>
+
+                {/* Copy buttons */}
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleCopyHtml}>
+                    {copiedType === 'html' ? <Check className="w-3.5 h-3.5" /> : <Code className="w-3.5 h-3.5" />}
+                    {copiedType === 'html' ? (lang === 'ru' ? 'Скопировано' : 'Copied') : 'Copy HTML'}
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleCopyRich}>
+                    {copiedType === 'rich' ? <Check className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
+                    {copiedType === 'rich' ? (lang === 'ru' ? 'Скопировано' : 'Copied') : 'Copy Rich Text'}
+                  </Button>
+                  <Button
+                    variant={stealthMode ? "default" : "outline"}
+                    size="sm"
+                    className={`gap-1.5 text-xs ${stealthMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+                    onClick={handleStealth}
+                    disabled={stealthLoading}
+                  >
+                    {stealthLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
+                    {stealthMode
+                      ? 'Stealth ✓'
+                      : (lang === 'ru' ? 'Очеловечить (Stealth)' : 'Humanize (Stealth)')}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Content area */}
+              <div className="max-h-[600px] overflow-y-auto rounded-lg bg-secondary/20 p-6">
+                {viewMode === 'preview' ? (
+                  <RichMarkdownPreview content={result.optimizedText} />
+                ) : viewMode === 'edit' ? (
+                  <textarea
+                    value={editText}
+                    onChange={e => handleEditChange(e.target.value)}
+                    className="w-full min-h-[500px] bg-transparent text-sm text-foreground font-mono leading-relaxed resize-y outline-none"
+                    placeholder={lang === 'ru' ? 'Редактируйте текст здесь...' : 'Edit text here...'}
+                  />
+                ) : (
+                  <pre className="text-xs text-foreground/80 whitespace-pre-wrap font-mono leading-relaxed select-all">
+                    {htmlContent}
+                  </pre>
+                )}
+              </div>
+            </div>
+
+            {/* LSI Checklist Sidebar */}
+            {liveScores.lsiAll.length > 0 && (
+              <div className="w-64 shrink-0 hidden lg:block">
+                <LsiChecklist lsiAll={liveScores.lsiAll} lsiMatched={liveScores.lsiMatched} />
+              </div>
+            )}
+          </div>
+
+          <Button variant="outline" onClick={() => { setResult(null); setViewMode('preview'); }} className="gap-1.5">
             <Wand2 className="w-3.5 h-3.5" />
             {lang === 'ru' ? 'Запустить заново' : 'Run Again'}
           </Button>
