@@ -18,14 +18,17 @@ export type Database = {
         Row: {
           ai_context: string | null
           cluster_mode: boolean | null
+          cluster_results: Json | null
           competitors: string[] | null
           created_at: string
+          entities: Json | null
           id: string
           is_stealth_applied: boolean | null
           page_type: string | null
           progress: Json | null
           project_id: string
           region: string
+          sge_data: Json | null
           share_token: string | null
           status: string
           updated_at: string
@@ -35,14 +38,17 @@ export type Database = {
         Insert: {
           ai_context?: string | null
           cluster_mode?: boolean | null
+          cluster_results?: Json | null
           competitors?: string[] | null
           created_at?: string
+          entities?: Json | null
           id?: string
           is_stealth_applied?: boolean | null
           page_type?: string | null
           progress?: Json | null
           project_id: string
           region?: string
+          sge_data?: Json | null
           share_token?: string | null
           status?: string
           updated_at?: string
@@ -52,14 +58,17 @@ export type Database = {
         Update: {
           ai_context?: string | null
           cluster_mode?: boolean | null
+          cluster_results?: Json | null
           competitors?: string[] | null
           created_at?: string
+          entities?: Json | null
           id?: string
           is_stealth_applied?: boolean | null
           page_type?: string | null
           progress?: Json | null
           project_id?: string
           region?: string
+          sge_data?: Json | null
           share_token?: string | null
           status?: string
           updated_at?: string
