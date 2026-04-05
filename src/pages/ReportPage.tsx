@@ -269,13 +269,21 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {scoreCards.map((s, i) => (
-                <ScoreGauge key={i} {...s} />
+                <ScoreGauge
+                  key={i}
+                  {...s}
+                  clickable={i === 3}
+                  onClick={i === 3 ? () => {
+                    setActiveTab('aiReport');
+                    setScrollToSge(true);
+                  } : undefined}
+                />
               ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
               <div>
-                <ReportTabs data={tabData} analysisId={analysisId} />
+                <ReportTabs data={tabData} analysisId={analysisId} activeTab={activeTab} onTabChange={setActiveTab} scrollToSge={scrollToSge} onSgeScrolled={() => setScrollToSge(false)} />
               </div>
               <div className="hidden lg:block">
                 <div className="sticky top-20">
