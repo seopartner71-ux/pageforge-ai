@@ -2285,7 +2285,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
 
       {tabKeys.map((key) => {
         const tabComponents: Record<TabKey, () => JSX.Element> = {
-          aiReport: () => <AiReportTab data={data} />,
+          aiReport: () => <AiReportTab data={data} scrollToSge={scrollToSge} onSgeScrolled={onSgeScrolled} />,
           priorities: () => <PrioritiesTab data={data} />,
           implementationPlan: () => <ImplementationPlanTab data={data} />,
           blueprint: () => <BlueprintTab data={data} />,
