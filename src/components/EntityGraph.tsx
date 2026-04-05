@@ -137,11 +137,18 @@ export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Pro
     const simNodes: EntityNode[] = nodes.map(n => ({ ...n }));
     const simLinks: EntityLink[] = links.map(l => ({ ...l }));
 
+    // Scale forces based on node count to keep graph compact
+    const nodeCount = simNodes.length;
+    const linkDist = Math.max(50, Math.min(100, 600 / nodeCount));
+    const chargeStr = Math.max(-150, -400 / Math.sqrt(nodeCount));
+
     const simulation = d3Force.forceSimulation(simNodes)
-      .force('link', d3Force.forceLink<EntityNode, any>(simLinks).id((d: any) => d.id).distance(100).strength(0.3))
-      .force('charge', d3Force.forceManyBody().strength(-250))
-      .force('center', d3Force.forceCenter(width / 2, height / 2))
-      .force('collision', d3Force.forceCollide().radius(45));
+      .force('link', d3Force.forceLink<EntityNode, any>(simLinks).id((d: any) => d.id).distance(linkDist).strength(0.5))
+      .force('charge', d3Force.forceManyBody().strength(chargeStr))
+      .force('center', d3Force.forceCenter(width / 2, height / 2).strength(0.15))
+      .force('x', d3Force.forceX(width / 2).strength(0.08))
+      .force('y', d3Force.forceY(height / 2).strength(0.08))
+      .force('collision', d3Force.forceCollide().radius(30));
 
     // Links with gradient opacity
     const link = g.append('g')
@@ -285,6 +292,29 @@ export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Pro
         .attr('x2', (d: any) => d.target.x)
         .attr('y2', (d: any) => d.target.y);
       node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    // Auto-fit all nodes into view after simulation stabilizes
+    simulation.on('end', () => {
+      const padding = 60;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      simNodes.forEach(n => {
+        if (n.x! < minX) minX = n.x!;
+        if (n.y! < minY) minY = n.y!;
+        if (n.x! > maxX) maxX = n.x!;
+        if (n.y! > maxY) maxY = n.y!;
+      });
+      const bw = maxX - minX + padding * 2;
+      const bh = maxY - minY + padding * 2;
+      const scale = Math.min(1.2, Math.min(width / bw, height / bh));
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const tx = width / 2 - cx * scale;
+      const ty = height / 2 - cy * scale;
+      svg.transition().duration(500).call(
+        zoomBehavior.transform as any,
+        d3Zoom.zoomIdentity.translate(tx, ty).scale(scale)
+      );
     });
 
     return () => { simulation.stop(); };
