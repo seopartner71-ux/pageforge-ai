@@ -1320,19 +1320,157 @@ function TableTypeModal({ open, onClose, onSelect, loading }: {
   );
 }
 
+/* ─────────── Live SEO Score Calculator ─────────── */
+
+function calcLiveScores(text: string, tfidfData: any[], targetWordCount: number) {
+  if (!text) return { seo: 0, llm: 0, human: 0, sge: 0, lsiMatched: [] as string[], lsiAll: [] as string[], wordCount: 0, headingCount: 0, hasH1: false, hasFAQ: false, hasTable: false, hasList: false };
+
+  const lower = text.toLowerCase();
+  const words = lower.split(/\s+/).filter(w => w.length > 2);
+  const wordCount = words.length;
+
+  // Heading detection
+  const h1Match = text.match(/^#\s/m);
+  const h2Matches = text.match(/^##\s/gm) || [];
+  const h3Matches = text.match(/^###\s/gm) || [];
+  const headingCount = (h1Match ? 1 : 0) + h2Matches.length + h3Matches.length;
+  const hasH1 = !!h1Match;
+  const hasFAQ = /faq|вопрос|часто задаваем/i.test(text);
+  const hasTable = /\|.*\|.*\|/m.test(text);
+  const hasList = /^[\-\*]\s/m.test(text) || /^\d+\.\s/m.test(text);
+
+  // LSI checklist from tfidf missing terms
+  const lsiAll = tfidfData
+    .filter((t: any) => t.status === 'Missing' || t.status === 'Deficit')
+    .map((t: any) => t.term)
+    .slice(0, 20);
+  const lsiMatched = lsiAll.filter(term => lower.includes(term.toLowerCase()));
+
+  // SEO Health (0-100): word count vs target, headings, keyword coverage
+  const wcRatio = Math.min(wordCount / Math.max(targetWordCount, 300), 1.5);
+  const wcScore = wcRatio >= 0.8 && wcRatio <= 1.3 ? 30 : Math.max(0, 30 - Math.abs(1 - wcRatio) * 40);
+  const headScore = Math.min(headingCount / 5, 1) * 25;
+  const h1Score = hasH1 ? 10 : 0;
+  const lsiScore = lsiAll.length > 0 ? (lsiMatched.length / lsiAll.length) * 35 : 20;
+  const seo = Math.min(100, Math.round(wcScore + headScore + h1Score + lsiScore));
+
+  // LLM-Friendly (structure, definitions, lists, tables)
+  const structScore = Math.min(h2Matches.length / 3, 1) * 30;
+  const listScore = hasList ? 20 : 0;
+  const tableScore = hasTable ? 20 : 0;
+  const defScore = (/—|это|представляет собой|является/i.test(text)) ? 15 : 0;
+  const lenScore = wordCount > 500 ? 15 : (wordCount / 500) * 15;
+  const llm = Math.min(100, Math.round(structScore + listScore + tableScore + defScore + lenScore));
+
+  // Human Touch (sentence variety, no GPT clichés)
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 5);
+  const avgLen = sentences.length > 0 ? sentences.reduce((s, x) => s + x.trim().split(/\s+/).length, 0) / sentences.length : 0;
+  const lenVariance = sentences.length > 1 ? sentences.reduce((s, x) => s + Math.pow(x.trim().split(/\s+/).length - avgLen, 2), 0) / sentences.length : 0;
+  const varietyScore = Math.min(Math.sqrt(lenVariance) / 5, 1) * 30;
+  const gptCliches = ['в заключение', 'важно отметить', 'следует подчеркнуть', 'in conclusion', 'it is important', 'it should be noted'];
+  const clicheCount = gptCliches.filter(c => lower.includes(c)).length;
+  const clicheScore = Math.max(0, 30 - clicheCount * 15);
+  const naturalScore = sentences.length > 3 ? 20 : (sentences.length / 3) * 20;
+  const uniqueWords = new Set(words).size;
+  const richScore = words.length > 0 ? Math.min((uniqueWords / words.length) / 0.6, 1) * 20 : 0;
+  const human = Math.min(100, Math.round(varietyScore + clicheScore + naturalScore + richScore));
+
+  // SGE Adaptation (direct answers, JSON-LD mention, FAQ, tables, lists)
+  const directAnswer = (/—|это|is a|are the/i.test(text)) ? 25 : 0;
+  const faqScore = hasFAQ ? 25 : 0;
+  const sgeTblScore = hasTable ? 20 : 0;
+  const sgeListScore = hasList ? 15 : 0;
+  const sgeStruct = h2Matches.length >= 3 ? 15 : (h2Matches.length / 3) * 15;
+  const sge = Math.min(100, Math.round(directAnswer + faqScore + sgeTblScore + sgeListScore + sgeStruct));
+
+  return { seo, llm, human, sge, lsiMatched, lsiAll, wordCount, headingCount, hasH1, hasFAQ, hasTable, hasList };
+}
+
+/* ─────────── Live Score Bars ─────────── */
+
+function LiveScoreBars({ scores }: { scores: { seo: number; llm: number; human: number; sge: number } }) {
+  const { lang } = useLang();
+  const bars = [
+    { key: 'seo', label: lang === 'ru' ? 'SEO Здоровье' : 'SEO Health', value: scores.seo, color: 'hsl(25, 95%, 53%)' },
+    { key: 'llm', label: lang === 'ru' ? 'LLM-Дружелюбность' : 'LLM-Friendly', value: scores.llm, color: 'hsl(210, 100%, 52%)' },
+    { key: 'human', label: lang === 'ru' ? 'Человечность' : 'Human Touch', value: scores.human, color: 'hsl(142, 71%, 45%)' },
+    { key: 'sge', label: lang === 'ru' ? 'SGE Адаптация' : 'SGE Adapt', value: scores.sge, color: 'hsl(280, 67%, 55%)' },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {bars.map(b => (
+        <div key={b.key} className="glass-card p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">{b.label}</span>
+            <span className="text-sm font-bold" style={{ color: b.color }}>{b.value}%</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${b.value}%`, backgroundColor: b.color }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─────────── LSI Checklist Sidebar ─────────── */
+
+function LsiChecklist({ lsiAll, lsiMatched }: { lsiAll: string[]; lsiMatched: string[] }) {
+  const { lang } = useLang();
+  const matchedSet = new Set(lsiMatched.map(t => t.toLowerCase()));
+
+  if (lsiAll.length === 0) return null;
+
+  return (
+    <div className="glass-card p-4 space-y-3">
+      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+        <Tags className="w-3.5 h-3.5" />
+        {lang === 'ru' ? 'LSI-чеклист' : 'LSI Checklist'}
+        <span className="ml-auto text-primary">{lsiMatched.length}/{lsiAll.length}</span>
+      </h4>
+      <div className="space-y-1 max-h-[400px] overflow-y-auto">
+        {lsiAll.map((term, i) => {
+          const found = matchedSet.has(term.toLowerCase());
+          return (
+            <div
+              key={i}
+              className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded transition-all ${
+                found ? 'bg-accent/10 line-through text-accent' : 'text-foreground/70'
+              }`}
+            >
+              {found ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+              ) : (
+                <XCircle className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+              )}
+              <span>{term}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ─────────── AI Optimizer Component ─────────── */
 
-function AiOptimizer({ analysisId }: { analysisId?: string | null }) {
+function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabData?: any }) {
   const { lang } = useLang();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [copiedType, setCopiedType] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'preview' | 'html'>('preview');
+  const [viewMode, setViewMode] = useState<'preview' | 'html' | 'edit'>('preview');
   const [tableModalOpen, setTableModalOpen] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
   const [stealthMode, setStealthMode] = useState(false);
   const [stealthLoading, setStealthLoading] = useState(false);
+  const [editText, setEditText] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleOptimize = async () => {
     if (!analysisId) return;
