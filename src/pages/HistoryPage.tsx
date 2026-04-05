@@ -5,9 +5,10 @@ import { AppHeader } from '@/components/AppHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Search, ExternalLink, Trash2, Clock, CheckCircle2, XCircle, Loader2,
-  Folder, FolderOpen, ArrowLeft, FileText, AlertTriangle, Plus,
+  Folder, FolderOpen, ArrowLeft, FileText, AlertTriangle, Plus, GitCompareArrows,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -16,6 +17,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { ClusterSynergyModal } from '@/components/ClusterSynergyModal';
 
 /* ── Types ── */
 
