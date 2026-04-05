@@ -1472,7 +1472,29 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
   const [editText, setEditText] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const handleOptimize = async () => {
+  // Sync editText when result changes
+  useEffect(() => {
+    if (result?.optimizedText) setEditText(result.optimizedText);
+  }, [result?.optimizedText]);
+
+  // Live text (either edited or original)
+  const liveText = viewMode === 'edit' ? editText : (result?.optimizedText || '');
+
+  // Debounced edit handler
+  const handleEditChange = useCallback((val: string) => {
+    setEditText(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setResult((prev: any) => prev ? { ...prev, optimizedText: val } : prev);
+    }, 800);
+  }, []);
+
+  // Live score calculation
+  const tfidfData = tabData?.tfidf || [];
+  const targetWordCount = tabData?.pageStats?.competitorMedian?.wordCount || 1500;
+  const liveScores = useMemo(() => calcLiveScores(liveText, tfidfData, targetWordCount), [liveText, tfidfData, targetWordCount]);
+
+
     if (!analysisId) return;
     setLoading(true);
     try {
