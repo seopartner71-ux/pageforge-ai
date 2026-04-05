@@ -294,6 +294,29 @@ export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Pro
       node.attr('transform', d => `translate(${d.x},${d.y})`);
     });
 
+    // Auto-fit all nodes into view after simulation stabilizes
+    simulation.on('end', () => {
+      const padding = 60;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      simNodes.forEach(n => {
+        if (n.x! < minX) minX = n.x!;
+        if (n.y! < minY) minY = n.y!;
+        if (n.x! > maxX) maxX = n.x!;
+        if (n.y! > maxY) maxY = n.y!;
+      });
+      const bw = maxX - minX + padding * 2;
+      const bh = maxY - minY + padding * 2;
+      const scale = Math.min(1.2, Math.min(width / bw, height / bh));
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const tx = width / 2 - cx * scale;
+      const ty = height / 2 - cy * scale;
+      svg.transition().duration(500).call(
+        zoomBehavior.transform as any,
+        d3Zoom.zoomIdentity.translate(tx, ty).scale(scale)
+      );
+    });
+
     return () => { simulation.stop(); };
   }, [nodes, links, isRu]);
 
