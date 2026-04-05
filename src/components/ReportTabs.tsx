@@ -2238,7 +2238,7 @@ export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
       </div>
 
       <TabsContent value="optimizer" className="mt-6">
-        <AiOptimizer analysisId={analysisId} />
+        <AiOptimizer analysisId={analysisId} tabData={data} />
       </TabsContent>
 
       {tabKeys.map((key) => {
