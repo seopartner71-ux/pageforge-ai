@@ -47,11 +47,21 @@ interface TabDataProps {
 
 /* ─────────── AI Report Tab ─────────── */
 
-function AiReportTab({ data }: TabDataProps) {
+function AiReportTab({ data, scrollToSge, onSgeScrolled }: TabDataProps & { scrollToSge?: boolean; onSgeScrolled?: () => void }) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const sgeRef = useRef<HTMLDivElement>(null);
   const report = data?.aiReport;
   const audit = data?.technicalAudit;
   const bp = data?.blueprint;
+
+  // Scroll to SGE section when triggered
+  useEffect(() => {
+    if (scrollToSge && sgeRef.current) {
+      sgeRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      onSgeScrolled?.();
+    }
+  }, [scrollToSge, onSgeScrolled]);
+
   if (!report) return <p className="text-muted-foreground text-sm">Нет данных для отображения.</p>;
 
   const copyCode = (code: string, id: string) => {
