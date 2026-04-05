@@ -2233,9 +2233,13 @@ function ImplementationPlanTab({ data }: TabDataProps) {
 interface ReportTabsProps {
   data?: any;
   analysisId?: string | null;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
+  scrollToSge?: boolean;
+  onSgeScrolled?: () => void;
 }
 
-export function ReportTabs({ data = {}, analysisId }: ReportTabsProps) {
+export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scrollToSge, onSgeScrolled }: ReportTabsProps) {
   const { lang } = useLang();
   const labels = {
     ...(tabLabels[lang] || tabLabels.en),
