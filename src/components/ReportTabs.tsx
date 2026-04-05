@@ -2269,7 +2269,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
   );
 
   return (
-    <Tabs defaultValue="optimizer" className="w-full">
+    <Tabs value={activeTab || 'optimizer'} onValueChange={onTabChange} className="w-full">
       <div className="bg-card/60 border border-border/50 rounded-lg overflow-hidden">
         <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent p-0 rounded-none border-b border-border/30">
           {row1Keys.map(renderTrigger)}
