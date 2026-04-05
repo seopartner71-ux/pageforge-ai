@@ -340,6 +340,26 @@ export default function HistoryPage() {
         {/* ══════════ Level 2: Analyses inside project ══════════ */}
         {!loadingAnalyses && openProjectId && (
           <>
+            {/* Cluster Synergy button */}
+            {selectedIds.size >= 2 && (
+              <div className="glass-card p-3 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {isRu
+                    ? `Выбрано ${selectedIds.size} анализов (макс. 5)`
+                    : `${selectedIds.size} analyses selected (max 5)`}
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>
+                    {isRu ? 'Снять выбор' : 'Deselect'}
+                  </Button>
+                  <Button size="sm" className="btn-gradient border-0 gap-1.5" onClick={() => setSynergyOpen(true)}>
+                    <GitCompareArrows className="w-4 h-4" />
+                    {isRu ? 'Анализ Синергии Кластера' : 'Cluster Synergy'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {filteredAnalyses.length === 0 ? (
               <div className="glass-card p-12 text-center space-y-3">
                 <AlertTriangle className="w-10 h-10 text-muted-foreground mx-auto" />
@@ -356,51 +376,77 @@ export default function HistoryPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredAnalyses.map(a => (
-                  <div key={a.id} className="glass-card p-4 flex items-center justify-between group hover:border-primary/30 transition-colors">
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      {statusIcon(a.status)}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground truncate">{a.url}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          {a.region && (
-                            <span className="text-xs text-muted-foreground">📍 {a.region}</span>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(a.created_at).toLocaleDateString(isRu ? 'ru-RU' : 'en-US', {
-                              day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                            })}
-                          </span>
+                {filteredAnalyses.map(a => {
+                  const isCompleted = a.status === 'completed' || a.status === 'done';
+                  const isSelected = selectedIds.has(a.id);
+                  return (
+                    <div
+                      key={a.id}
+                      className={`glass-card p-4 flex items-center justify-between group hover:border-primary/30 transition-colors ${
+                        isSelected ? 'border-primary/50 bg-primary/5' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        {/* Checkbox for completed analyses */}
+                        {isCompleted ? (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelect(a.id)}
+                            className="shrink-0"
+                          />
+                        ) : (
+                          <div className="w-4" />
+                        )}
+                        {statusIcon(a.status)}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{a.url}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            {a.region && (
+                              <span className="text-xs text-muted-foreground">📍 {a.region}</span>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(a.created_at).toLocaleDateString(isRu ? 'ru-RU' : 'en-US', {
+                                day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={
-                        (a.status === 'completed' || a.status === 'done') ? 'default'
-                          : a.status === 'failed' ? 'destructive' : 'secondary'
-                      }>
-                        {statusLabel(a.status)}
-                      </Badge>
-                      {(a.status === 'completed' || a.status === 'done') && (
-                        <Button variant="ghost" size="sm" onClick={() => navigate(`/report/${a.id}`)}>
-                          <ExternalLink className="w-4 h-4" />
+                      <div className="flex items-center gap-3">
+                        <Badge variant={
+                          isCompleted ? 'default'
+                            : a.status === 'failed' ? 'destructive' : 'secondary'
+                        }>
+                          {statusLabel(a.status)}
+                        </Badge>
+                        {isCompleted && (
+                          <Button variant="ghost" size="sm" onClick={() => navigate(`/report/${a.id}`)}>
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteAnalysis(a.id)}
+                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteAnalysis(a.id)}
-                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>
         )}
+
+        {/* Cluster Synergy Modal */}
+        <ClusterSynergyModal
+          open={synergyOpen}
+          onClose={() => setSynergyOpen(false)}
+          analysisIds={Array.from(selectedIds)}
+        />
 
       </main>
     </div>
