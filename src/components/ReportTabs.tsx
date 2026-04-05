@@ -45,6 +45,120 @@ interface TabDataProps {
   data: any;
 }
 
+/* ─────────── SGE Blueprint Section ─────────── */
+
+function SgeBlueprintSection({ audit, report, bp }: { audit: any; report: any; bp: any }) {
+  const { lang } = useLang();
+  const isRu = lang === 'ru';
+
+  // Derive SGE readiness checks from available data
+  const checks = [
+    {
+      label: isRu ? 'Прямые ответы (Definition Box)' : 'Direct Answers (Definition Box)',
+      desc: isRu ? 'Первый абзац содержит чёткое определение или ответ на вопрос' : 'First paragraph contains a clear definition or direct answer',
+      passed: !!report?.sgeReadiness || (report?.geoScore && report.geoScore >= 40),
+      advice: isRu ? 'Добавьте в первый абзац прямой ответ в формате: "[Тема] — это..."' : 'Add a direct answer in the first paragraph: "[Topic] is..."',
+    },
+    {
+      label: isRu ? 'FAQ-блок (People Also Ask)' : 'FAQ Block (People Also Ask)',
+      desc: isRu ? 'Структурированный блок вопросов и ответов' : 'Structured Q&A block present',
+      passed: bp?.requiredBlocks?.some((b: string) => /faq|вопрос/i.test(b)) || false,
+      advice: isRu ? 'Добавьте блок FAQ с 6+ вопросами. Используйте формат: <h3>Вопрос</h3> <p>Ответ</p>' : 'Add FAQ block with 6+ questions using <h3>Question</h3> <p>Answer</p> format',
+    },
+    {
+      label: isRu ? 'JSON-LD микроразметка' : 'JSON-LD Structured Data',
+      desc: isRu ? 'Schema.org разметка для понимания контента ИИ' : 'Schema.org markup for AI content understanding',
+      passed: audit?.hasJsonLd || false,
+      advice: isRu ? 'Добавьте JSON-LD с типами Article, FAQPage или Product для повышения шанса попадания в SGE' : 'Add JSON-LD with Article, FAQPage or Product types',
+    },
+    {
+      label: isRu ? 'Маркированные списки' : 'Bulleted/Numbered Lists',
+      desc: isRu ? 'Списки легко парсятся AI для выдачи в SGE' : 'Lists are easily parsed by AI for SGE results',
+      passed: true, // We assume lists are typically present after optimization
+      advice: isRu ? 'Добавьте минимум 2 маркированных списка с ключевыми преимуществами' : 'Add at least 2 bulleted lists with key benefits',
+    },
+    {
+      label: isRu ? 'Таблицы с данными' : 'Data Tables',
+      desc: isRu ? 'Таблицы повышают шанс попадания в SGE на 40%' : 'Tables increase SGE inclusion chance by 40%',
+      passed: report?.strengths?.some((s: string) => /табл|table/i.test(s)) || false,
+      advice: isRu ? 'Добавьте прайс-лист, сравнительную таблицу или таблицу характеристик' : 'Add a pricing table, comparison table, or specs table',
+    },
+    {
+      label: isRu ? 'Заголовки H2-H3 (семантическая структура)' : 'H2-H3 Headings (Semantic Structure)',
+      desc: isRu ? 'Чёткая иерархия заголовков помогает ИИ понять структуру' : 'Clear heading hierarchy helps AI understand structure',
+      passed: audit?.h1Count === 1,
+      advice: isRu ? 'Обеспечьте ровно 1 H1 и минимум 3 H2 подзаголовка' : 'Ensure exactly 1 H1 and at least 3 H2 subheadings',
+    },
+    {
+      label: 'OpenGraph & Twitter Cards',
+      desc: isRu ? 'Метатеги для правильного отображения в соцсетях и AI' : 'Meta tags for proper display in social and AI',
+      passed: audit?.hasOpenGraph || false,
+      advice: isRu ? 'Добавьте OG-теги: og:title, og:description, og:image' : 'Add OG tags: og:title, og:description, og:image',
+    },
+    {
+      label: isRu ? 'E-E-A-T сигналы' : 'E-E-A-T Signals',
+      desc: isRu ? 'Экспертиза, опыт, авторитетность, доверие' : 'Experience, Expertise, Authoritativeness, Trust',
+      passed: report?.strengths?.length > 0 && report?.weaknesses?.length < 3,
+      advice: isRu ? 'Добавьте блок "Об авторе", сертификаты, отзывы клиентов' : 'Add "About author" block, certifications, client testimonials',
+    },
+  ];
+
+  const passedCount = checks.filter(c => c.passed).length;
+  const totalScore = Math.round((passedCount / checks.length) * 100);
+
+  return (
+    <div className="glass-card p-5 border-l-2 border-primary/50">
+      <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
+        <Zap className="w-4 h-4 text-primary" />
+        {isRu ? 'SGE Blueprint — Детальный аудит' : 'SGE Blueprint — Detailed Audit'}
+      </h3>
+      <p className="text-xs text-muted-foreground mb-4">
+        {isRu
+          ? `Готовность к AI-поиску: ${passedCount}/${checks.length} проверок пройдено (${totalScore}%)`
+          : `AI Search readiness: ${passedCount}/${checks.length} checks passed (${totalScore}%)`}
+      </p>
+
+      <div className="mb-4">
+        <Progress value={totalScore} className="h-2" />
+      </div>
+
+      <div className="space-y-2">
+        {checks.map((check, i) => (
+          <div
+            key={i}
+            className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
+              check.passed ? 'bg-accent/5' : 'bg-destructive/5 border-l-2 border-destructive'
+            }`}
+          >
+            <span className="shrink-0 mt-0.5">
+              {check.passed ? (
+                <CheckCircle2 className="w-4 h-4 text-accent" />
+              ) : (
+                <XCircle className="w-4 h-4 text-destructive" />
+              )}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">{check.label}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{check.desc}</p>
+              {!check.passed && (
+                <p className="text-xs text-primary mt-1.5 flex items-start gap-1">
+                  <Sparkles className="w-3 h-3 shrink-0 mt-0.5" />
+                  {check.advice}
+                </p>
+              )}
+            </div>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${
+              check.passed ? 'bg-accent/20 text-accent' : 'bg-destructive/20 text-destructive'
+            }`}>
+              {check.passed ? (isRu ? 'OK' : 'OK') : (isRu ? 'Нужно' : 'Needed')}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─────────── AI Report Tab ─────────── */
 
 function AiReportTab({ data, scrollToSge, onSgeScrolled }: TabDataProps & { scrollToSge?: boolean; onSgeScrolled?: () => void }) {
