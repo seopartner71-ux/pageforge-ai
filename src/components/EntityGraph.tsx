@@ -4,6 +4,7 @@ import * as d3Force from 'd3-force';
 import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
 import * as d3Drag from 'd3-drag';
+import { CheckCircle2, AlertTriangle, Network, Target, TrendingUp } from 'lucide-react';
 
 interface EntityNode {
   id: string;
@@ -40,8 +41,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   default: '#6366f1',
 };
 
-const GAP_COLOR = '#6b7280';
-const GAP_STROKE_DASH = '4,3';
+const GAP_COLOR = '#ef4444';
+const FOUND_GLOW = '#6366f1';
 
 export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Props) {
   const { lang } = useLang();
@@ -49,6 +50,13 @@ export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Pro
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+
+  const coverage = foundEntities.length + gapEntities.length > 0
+    ? Math.round(foundEntities.length / (foundEntities.length + gapEntities.length) * 100)
+    : 0;
+
+  const coverageColor = coverage >= 70 ? 'text-green-400' : coverage >= 40 ? 'text-yellow-400' : 'text-red-400';
+  const coverageBg = coverage >= 70 ? 'bg-green-500/20 border-green-500/30' : coverage >= 40 ? 'bg-yellow-500/20 border-yellow-500/30' : 'bg-red-500/20 border-red-500/30';
 
   const { nodes, links } = useMemo(() => {
     const nodeMap = new Map<string, EntityNode>();
@@ -106,6 +114,20 @@ export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Pro
 
     const tooltipEl = tooltipRef.current;
 
+    // Defs for glow effect
+    const defs = svg.append('defs');
+    const glowFilter = defs.append('filter').attr('id', 'glow');
+    glowFilter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'coloredBlur');
+    const feMerge = glowFilter.append('feMerge');
+    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    const gapGlow = defs.append('filter').attr('id', 'gap-glow');
+    gapGlow.append('feGaussianBlur').attr('stdDeviation', '2').attr('result', 'coloredBlur');
+    const gapMerge = gapGlow.append('feMerge');
+    gapMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    gapMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
     const g = svg.append('g');
     const zoomBehavior = d3Zoom.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.3, 3])
@@ -116,24 +138,34 @@ export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Pro
     const simLinks: EntityLink[] = links.map(l => ({ ...l }));
 
     const simulation = d3Force.forceSimulation(simNodes)
-      .force('link', d3Force.forceLink<EntityNode, any>(simLinks).id((d: any) => d.id).distance(80).strength(0.3))
-      .force('charge', d3Force.forceManyBody().strength(-200))
+      .force('link', d3Force.forceLink<EntityNode, any>(simLinks).id((d: any) => d.id).distance(100).strength(0.3))
+      .force('charge', d3Force.forceManyBody().strength(-250))
       .force('center', d3Force.forceCenter(width / 2, height / 2))
-      .force('collision', d3Force.forceCollide().radius(35));
+      .force('collision', d3Force.forceCollide().radius(45));
 
+    // Links with gradient opacity
     const link = g.append('g')
       .selectAll('line')
       .data(simLinks)
       .join('line')
-      .attr('stroke', '#4b5563')
-      .attr('stroke-opacity', 0.3)
-      .attr('stroke-width', 1);
+      .attr('stroke', (d: any) => {
+        const src = typeof d.source === 'string' ? simNodes.find(n => n.id === d.source) : d.source;
+        const tgt = typeof d.target === 'string' ? simNodes.find(n => n.id === d.target) : d.target;
+        if (src?.type === 'gap' || tgt?.type === 'gap') return '#ef444480';
+        return '#6366f180';
+      })
+      .attr('stroke-opacity', 0.4)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', (d: any) => {
+        const tgt = typeof d.target === 'string' ? simNodes.find(n => n.id === d.target) : d.target;
+        return tgt?.type === 'gap' ? '6,4' : 'none';
+      });
 
     const node = g.append('g')
       .selectAll<SVGGElement, EntityNode>('g')
       .data(simNodes)
       .join('g')
-      .style('cursor', 'pointer');
+      .style('cursor', 'grab');
 
     const dragBehavior = d3Drag.drag<SVGGElement, EntityNode>()
       .on('start', (event, d) => {
@@ -153,48 +185,96 @@ export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Pro
 
     node.call(dragBehavior as any);
 
+    // Outer ring for found nodes
+    node.filter(d => d.type === 'found').append('circle')
+      .attr('r', 24)
+      .attr('fill', 'none')
+      .attr('stroke', d => CATEGORY_COLORS[d.category || 'default'] || FOUND_GLOW)
+      .attr('stroke-width', 1)
+      .attr('stroke-opacity', 0.3)
+      .attr('filter', 'url(#glow)');
+
+    // Main circles
     node.append('circle')
-      .attr('r', d => d.type === 'found' ? 18 : 14)
-      .attr('fill', d => d.type === 'found' ? (CATEGORY_COLORS[d.category || 'default'] || CATEGORY_COLORS.default) : 'transparent')
-      .attr('stroke', d => d.type === 'found' ? (CATEGORY_COLORS[d.category || 'default'] || CATEGORY_COLORS.default) : GAP_COLOR)
-      .attr('stroke-width', d => d.type === 'found' ? 2 : 1.5)
-      .attr('stroke-dasharray', d => d.type === 'gap' ? GAP_STROKE_DASH : 'none')
-      .attr('fill-opacity', d => d.type === 'found' ? 0.2 : 0)
+      .attr('r', d => d.type === 'found' ? 20 : 16)
+      .attr('fill', d => {
+        if (d.type === 'found') {
+          const c = CATEGORY_COLORS[d.category || 'default'] || FOUND_GLOW;
+          return c;
+        }
+        return 'transparent';
+      })
+      .attr('stroke', d => d.type === 'found'
+        ? (CATEGORY_COLORS[d.category || 'default'] || FOUND_GLOW)
+        : GAP_COLOR)
+      .attr('stroke-width', d => d.type === 'found' ? 2.5 : 2)
+      .attr('stroke-dasharray', d => d.type === 'gap' ? '5,3' : 'none')
+      .attr('fill-opacity', d => d.type === 'found' ? 0.25 : 0)
+      .attr('filter', d => d.type === 'gap' ? 'url(#gap-glow)' : 'none')
       .on('mouseenter', function (event, d) {
-        d3Selection.select(this).attr('r', d.type === 'found' ? 22 : 18);
+        d3Selection.select(this).attr('r', d.type === 'found' ? 24 : 20).attr('fill-opacity', d.type === 'found' ? 0.4 : 0.1);
         if (tooltipEl) {
           const svgRect = svgRef.current!.getBoundingClientRect();
-          const x = event.clientX - svgRect.left;
-          const y = event.clientY - svgRect.top - 10;
-          tooltipEl.style.left = `${x}px`;
-          tooltipEl.style.top = `${y}px`;
+          tooltipEl.style.left = `${event.clientX - svgRect.left}px`;
+          tooltipEl.style.top = `${event.clientY - svgRect.top - 12}px`;
           tooltipEl.style.display = 'block';
-          const statusText = d.type === 'found'
-            ? (isRu ? '✅ Присутствует на странице' : '✅ Present on page')
-            : (isRu ? '⚠️ Отсутствует — есть у конкурентов' : '⚠️ Missing — found in competitors');
-          const catText = d.category && d.category !== 'default'
-            ? `<p style="color:#9ca3af;text-transform:capitalize">${isRu ? 'Тип' : 'Type'}: ${d.category}</p>` : '';
-          tooltipEl.innerHTML = `<p style="font-weight:bold">${d.label}</p><p style="color:#9ca3af">${statusText}</p>${catText}`;
+
+          const icon = d.type === 'found' ? '✅' : '❌';
+          const statusLabel = d.type === 'found'
+            ? (isRu ? 'Найдена на странице' : 'Found on page')
+            : (isRu ? 'Отсутствует — добавьте!' : 'Missing — add it!');
+          const statusColor = d.type === 'found' ? '#4ade80' : '#f87171';
+          const catLabel = d.category && d.category !== 'default'
+            ? `<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:10px">${isRu ? 'Категория' : 'Category'}: <span style="text-transform:capitalize;color:#cbd5e1">${d.category}</span></div>` : '';
+          const actionText = d.type === 'gap'
+            ? `<div style="margin-top:6px;padding:3px 6px;background:rgba(239,68,68,0.15);border-radius:4px;color:#fca5a5;font-size:10px">${isRu ? '💡 Рекомендация: упомяните эту сущность в тексте' : '💡 Tip: mention this entity in your content'}</div>` : '';
+
+          tooltipEl.innerHTML = `
+            <div style="font-weight:700;font-size:13px;margin-bottom:4px">${icon} ${d.label}</div>
+            <div style="color:${statusColor};font-size:11px">${statusLabel}</div>
+            ${catLabel}${actionText}
+          `;
         }
       })
       .on('mousemove', function (event) {
         if (tooltipEl) {
           const svgRect = svgRef.current!.getBoundingClientRect();
           tooltipEl.style.left = `${event.clientX - svgRect.left}px`;
-          tooltipEl.style.top = `${event.clientY - svgRect.top - 10}px`;
+          tooltipEl.style.top = `${event.clientY - svgRect.top - 12}px`;
         }
       })
       .on('mouseleave', function (_, d) {
-        d3Selection.select(this).attr('r', d.type === 'found' ? 18 : 14);
+        d3Selection.select(this).attr('r', d.type === 'found' ? 20 : 16).attr('fill-opacity', d.type === 'found' ? 0.25 : 0);
         if (tooltipEl) tooltipEl.style.display = 'none';
       });
 
-    node.append('text')
-      .text(d => d.label.length > 12 ? d.label.slice(0, 11) + '…' : d.label)
+    // Icon inside node: checkmark for found, X for gap
+    node.filter(d => d.type === 'found').append('text')
+      .text('✓')
       .attr('text-anchor', 'middle')
-      .attr('dy', d => (d.type === 'found' ? 30 : 24))
-      .attr('fill', d => d.type === 'found' ? '#e2e8f0' : '#9ca3af')
-      .attr('font-size', '10px')
+      .attr('dy', '0.35em')
+      .attr('fill', '#fff')
+      .attr('font-size', '12px')
+      .attr('font-weight', 'bold')
+      .attr('pointer-events', 'none');
+
+    node.filter(d => d.type === 'gap').append('text')
+      .text('+')
+      .attr('text-anchor', 'middle')
+      .attr('dy', '0.35em')
+      .attr('fill', GAP_COLOR)
+      .attr('font-size', '14px')
+      .attr('font-weight', 'bold')
+      .attr('pointer-events', 'none');
+
+    // Labels - more visible, with background
+    node.append('text')
+      .text(d => d.label.length > 16 ? d.label.slice(0, 15) + '…' : d.label)
+      .attr('text-anchor', 'middle')
+      .attr('dy', d => (d.type === 'found' ? 36 : 30))
+      .attr('fill', d => d.type === 'found' ? '#e2e8f0' : '#f87171')
+      .attr('font-size', '11px')
+      .attr('font-weight', d => d.type === 'found' ? '500' : '400')
       .attr('font-family', 'Inter, system-ui, sans-serif')
       .attr('pointer-events', 'none');
 
@@ -219,35 +299,100 @@ export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Pro
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-3 text-xs">
+    <div className="space-y-4">
+      {/* Header with explanation */}
+      <div className="glass-card p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Network className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold text-foreground text-sm">
+            {isRu ? 'Карта сущностей страницы' : 'Page Entity Map'}
+          </h3>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          {isRu
+            ? 'Граф показывает какие ключевые сущности (бренды, локации, термины) есть на вашей странице, а какие используют конкуренты из ТОП-10, но у вас они отсутствуют. Добавьте недостающие сущности в контент для улучшения релевантности.'
+            : 'This graph shows which key entities (brands, locations, terms) are present on your page, and which are used by TOP-10 competitors but missing from yours. Add missing entities to improve relevance.'}
+        </p>
+
+        {/* Stats cards */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-lg bg-primary/10 border border-primary/20 p-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {isRu ? 'Найдено' : 'Found'}
+              </span>
+            </div>
+            <span className="text-xl font-bold text-green-400">{foundEntities.length}</span>
+          </div>
+          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {isRu ? 'Пробелы' : 'Gaps'}
+              </span>
+            </div>
+            <span className="text-xl font-bold text-red-400">{gapEntities.length}</span>
+          </div>
+          <div className={`rounded-lg border p-3 text-center ${coverageBg}`}>
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <Target className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {isRu ? 'Покрытие' : 'Coverage'}
+              </span>
+            </div>
+            <span className={`text-xl font-bold ${coverageColor}`}>{coverage}%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-4 text-xs px-1">
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-primary/30 border-2 border-primary" />
+          <span className="w-4 h-4 rounded-full bg-primary/30 border-2 border-primary flex items-center justify-center text-[8px] text-white font-bold">✓</span>
           {isRu ? 'Найдено на странице' : 'Found on page'}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full border-2 border-dashed border-muted-foreground" />
-          {isRu ? 'Есть у конкурентов (Gap)' : 'Competitor gap'}
+          <span className="w-4 h-4 rounded-full border-2 border-dashed border-red-400 flex items-center justify-center text-[10px] text-red-400 font-bold">+</span>
+          {isRu ? 'Отсутствует (Gap)' : 'Missing (Gap)'}
         </span>
-        <span className="ml-auto text-muted-foreground">
+        <span className="ml-auto text-muted-foreground flex items-center gap-1">
+          <TrendingUp className="w-3 h-3" />
           {isRu ? 'Перетаскивайте узлы · Колёсико для масштаба' : 'Drag nodes · Scroll to zoom'}
         </span>
       </div>
 
-      <div ref={containerRef} className="glass-card overflow-hidden relative" style={{ height: 500 }}>
+      {/* Graph */}
+      <div ref={containerRef} className="glass-card overflow-hidden relative rounded-xl border border-border/50" style={{ height: 500 }}>
         <svg ref={svgRef} className="w-full h-full" />
         <div
           ref={tooltipRef}
-          className="absolute z-50 glass-card px-3 py-2 text-xs pointer-events-none shadow-lg border border-border"
-          style={{ display: 'none', transform: 'translate(-50%, -100%)' }}
+          className="absolute z-50 rounded-lg bg-popover/95 backdrop-blur-md px-4 py-3 text-xs pointer-events-none shadow-xl border border-border/60"
+          style={{ display: 'none', transform: 'translate(-50%, -100%)', maxWidth: 260 }}
         />
       </div>
 
-      <div className="flex gap-4 text-xs text-muted-foreground">
-        <span>🔵 {isRu ? 'Найдено' : 'Found'}: <strong className="text-foreground">{foundEntities.length}</strong></span>
-        <span>⚪ {isRu ? 'Пробелы' : 'Gaps'}: <strong className="text-foreground">{gapEntities.length}</strong></span>
-        <span>{isRu ? 'Покрытие' : 'Coverage'}: <strong className="text-foreground">{foundEntities.length + gapEntities.length > 0 ? Math.round(foundEntities.length / (foundEntities.length + gapEntities.length) * 100) : 0}%</strong></span>
-      </div>
+      {/* Gap entities list */}
+      {gapEntities.length > 0 && (
+        <div className="glass-card p-4 space-y-2">
+          <h4 className="text-xs font-semibold text-red-400 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {isRu ? 'Рекомендуемые сущности для добавления:' : 'Recommended entities to add:'}
+          </h4>
+          <div className="flex flex-wrap gap-1.5">
+            {gapEntities.slice(0, 15).map(e => (
+              <span key={e} className="px-2.5 py-1 rounded-md text-[11px] bg-red-500/10 border border-red-500/20 text-red-300">
+                + {e}
+              </span>
+            ))}
+            {gapEntities.length > 15 && (
+              <span className="px-2.5 py-1 rounded-md text-[11px] bg-muted/50 text-muted-foreground">
+                +{gapEntities.length - 15} {isRu ? 'ещё' : 'more'}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
