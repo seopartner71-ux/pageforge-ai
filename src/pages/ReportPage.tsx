@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLang } from '@/contexts/LangContext';
 import { AppHeader } from '@/components/AppHeader';
 import { ScoreGauge } from '@/components/ScoreGauge';
