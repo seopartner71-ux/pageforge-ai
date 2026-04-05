@@ -52,6 +52,8 @@ export default function HistoryPage() {
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const [openProjectName, setOpenProjectName] = useState('');
   const [loadingAnalyses, setLoadingAnalyses] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [synergyOpen, setSynergyOpen] = useState(false);
 
   /* ── Load projects with analysis counts ── */
   useEffect(() => {
