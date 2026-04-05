@@ -1494,7 +1494,7 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
   const targetWordCount = tabData?.pageStats?.competitorMedian?.wordCount || 1500;
   const liveScores = useMemo(() => calcLiveScores(liveText, tfidfData, targetWordCount), [liveText, tfidfData, targetWordCount]);
 
-
+  const handleOptimize = async () => {
     if (!analysisId) return;
     setLoading(true);
     try {
