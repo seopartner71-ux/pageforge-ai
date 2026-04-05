@@ -137,11 +137,18 @@ export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Pro
     const simNodes: EntityNode[] = nodes.map(n => ({ ...n }));
     const simLinks: EntityLink[] = links.map(l => ({ ...l }));
 
+    // Scale forces based on node count to keep graph compact
+    const nodeCount = simNodes.length;
+    const linkDist = Math.max(50, Math.min(100, 600 / nodeCount));
+    const chargeStr = Math.max(-150, -400 / Math.sqrt(nodeCount));
+
     const simulation = d3Force.forceSimulation(simNodes)
-      .force('link', d3Force.forceLink<EntityNode, any>(simLinks).id((d: any) => d.id).distance(100).strength(0.3))
-      .force('charge', d3Force.forceManyBody().strength(-250))
-      .force('center', d3Force.forceCenter(width / 2, height / 2))
-      .force('collision', d3Force.forceCollide().radius(45));
+      .force('link', d3Force.forceLink<EntityNode, any>(simLinks).id((d: any) => d.id).distance(linkDist).strength(0.5))
+      .force('charge', d3Force.forceManyBody().strength(chargeStr))
+      .force('center', d3Force.forceCenter(width / 2, height / 2).strength(0.15))
+      .force('x', d3Force.forceX(width / 2).strength(0.08))
+      .force('y', d3Force.forceY(height / 2).strength(0.08))
+      .force('collision', d3Force.forceCollide().radius(30));
 
     // Links with gradient opacity
     const link = g.append('g')
