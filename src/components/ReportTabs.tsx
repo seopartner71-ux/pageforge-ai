@@ -1634,6 +1634,7 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
   const [tableLoading, setTableLoading] = useState(false);
   const [stealthMode, setStealthMode] = useState(false);
   const [stealthLoading, setStealthLoading] = useState(false);
+  const [stealthRegion, setStealthRegion] = useState<'ru' | 'us' | 'uk' | 'kz'>('ru');
   const [editText, setEditText] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -1703,7 +1704,7 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
             Authorization: `Bearer ${session?.session?.access_token}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ analysisId, stealthMode: true, currentText: result.optimizedText }),
+          body: JSON.stringify({ analysisId, stealthMode: true, currentText: result.optimizedText, stealthRegion }),
         }
       );
       if (!res.ok) {
