@@ -5,9 +5,10 @@ import { ScoreGauge } from '@/components/ScoreGauge';
 import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link } from 'lucide-react';
+import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link, Table2 } from 'lucide-react';
 import { GscWidget } from '@/components/GscWidget';
 import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
+import { exportReportXlsx } from '@/lib/exportXlsx';
 import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -50,6 +51,7 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [xlsxLoading, setXlsxLoading] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
