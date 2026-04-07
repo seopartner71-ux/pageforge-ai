@@ -6,6 +6,7 @@ import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link } from 'lucide-react';
+import { GscWidget } from '@/components/GscWidget';
 import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -286,7 +287,7 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
                 <ReportTabs data={tabData} analysisId={analysisId} activeTab={activeTab} onTabChange={setActiveTab} scrollToSge={scrollToSge} onSgeScrolled={() => setScrollToSge(false)} />
               </div>
               <div className="hidden lg:block">
-                <div className="sticky top-20">
+                <div className="sticky top-20 space-y-4">
                   <ReportSidebar
                     modules={modules}
                     quickWins={quickWins}
@@ -295,6 +296,7 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
                     quickWinsTitle="QUICK WINS"
                     scores={scores}
                   />
+                  <GscWidget />
                 </div>
               </div>
             </div>
