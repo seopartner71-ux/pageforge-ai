@@ -205,6 +205,29 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
                   : (lang === 'ru' ? 'Поделиться' : 'Share')}
             </Button>
 
+            {/* Excel Export */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5"
+              disabled={xlsxLoading || !analysisId}
+              onClick={async () => {
+                if (!analysisId) return;
+                setXlsxLoading(true);
+                try {
+                  await exportReportXlsx({ analysisId, lang });
+                  toast.success(lang === 'ru' ? 'Excel-файл скачан!' : 'Excel file downloaded!');
+                } catch (err: any) {
+                  toast.error(err.message);
+                } finally {
+                  setXlsxLoading(false);
+                }
+              }}
+            >
+              {xlsxLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Table2 className="w-3 h-3" />}
+              {lang === 'ru' ? 'Excel' : 'Excel'}
+            </Button>
+
             <Button variant="outline" size="sm" className="text-xs gap-1.5">
               <Code className="w-3 h-3" />
               {lang === 'ru' ? 'Посмотреть JSON' : 'View JSON'}
