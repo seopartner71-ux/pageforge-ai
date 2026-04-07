@@ -2,17 +2,26 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLang } from '@/contexts/LangContext';
 import { AppHeader } from '@/components/AppHeader';
-import { AnalysisForm } from '@/components/AnalysisForm';
+import { AnalysisForm, type AnalysisFormData } from '@/components/AnalysisForm';
 import { ChecklistSidebar } from '@/components/ChecklistSidebar';
 import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import { AnalysisProgressModal } from '@/components/AnalysisProgressModal';
 import ReportPage from '@/pages/ReportPage';
+import BatchReportPage from '@/pages/BatchReportPage';
 import { useToast } from '@/hooks/use-toast';
 
 interface Project {
   id: string;
   name: string;
   domain: string;
+}
+
+interface BatchItem {
+  analysisId: string;
+  url: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  scores?: any;
+  results?: any;
 }
 
 export default function DashboardPage() {
@@ -27,6 +36,7 @@ export default function DashboardPage() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
+  const [batchItems, setBatchItems] = useState<BatchItem[] | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -64,23 +74,37 @@ export default function DashboardPage() {
     }
   };
 
-  const handleStartAnalysis = async (data: {
-    url: string;
-    pageType: string;
-    competitors: string[];
-    aiContext: string;
-    clusterMode: boolean;
-    projectId?: string;
-    region: string;
-  }) => {
+  const fireAnalysis = async (analysisId: string, data: AnalysisFormData, url: string) => {
+    const { data: session } = await supabase.auth.getSession();
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seo-analyze`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.session?.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          url,
+          pageType: data.pageType,
+          competitors: data.competitors,
+          aiContext: data.aiContext,
+          clusterMode: data.clusterMode,
+          analysisId,
+          region: data.region,
+        }),
+      }
+    );
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Analysis failed (${response.status})`);
+    }
+  };
+
+  const handleStartAnalysis = async (data: AnalysisFormData) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    // Check credits
-    if (credits !== null && credits <= 0) {
-      toast({ title: 'Лимит исчерпан. Обратитесь к администратору для пополнения кредитов.', variant: 'destructive' });
-      return;
-    }
 
     const projectId = data.projectId || projects[0]?.id;
     if (!projectId) {
@@ -88,9 +112,68 @@ export default function DashboardPage() {
       return;
     }
 
+    // Batch mode
+    if (data.batchMode && data.urls && data.urls.length >= 2) {
+      const requiredCredits = data.urls.length;
+      if (credits !== null && credits < requiredCredits) {
+        toast({ title: `Недостаточно кредитов. Нужно: ${requiredCredits}, доступно: ${credits}`, variant: 'destructive' });
+        return;
+      }
+
+      setLoading(true);
+      const items: BatchItem[] = [];
+
+      // Create all analysis records
+      for (const url of data.urls) {
+        const { data: analysis, error } = await supabase
+          .from('analyses')
+          .insert({
+            user_id: user.id,
+            project_id: projectId,
+            url,
+            page_type: data.pageType,
+            competitors: data.competitors,
+            ai_context: data.aiContext,
+            cluster_mode: data.clusterMode,
+            region: data.region,
+            status: 'pending',
+          })
+          .select('id')
+          .single();
+
+        if (error || !analysis) {
+          toast({ title: `Ошибка создания анализа для ${url}: ${error?.message}`, variant: 'destructive' });
+          continue;
+        }
+        items.push({ analysisId: analysis.id, url, status: 'pending' });
+      }
+
+      if (items.length < 2) {
+        toast({ title: 'Не удалось создать достаточно анализов', variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
+
+      setBatchItems(items);
+
+      // Fire all analyses in parallel
+      for (const item of items) {
+        fireAnalysis(item.analysisId, data, item.url).catch(err => {
+          toast({ title: `Ошибка: ${err.message}`, variant: 'destructive' });
+        });
+      }
+      setLoading(false);
+      return;
+    }
+
+    // Single mode (existing logic)
+    if (credits !== null && credits <= 0) {
+      toast({ title: 'Лимит исчерпан. Обратитесь к администратору для пополнения кредитов.', variant: 'destructive' });
+      return;
+    }
+
     setLoading(true);
 
-    // Create analysis record
     const { data: analysis, error } = await supabase
       .from('analyses')
       .insert({
@@ -113,52 +196,16 @@ export default function DashboardPage() {
       return;
     }
 
-    // Show progress modal and fire edge function in background
     setPendingAnalysisId(analysis.id);
     setPendingAnalysisUrl(data.url);
 
-    // Fire edge function (don't await — progress modal polls for updates)
-    const fireAnalysis = async () => {
-      try {
-        const { data: session } = await supabase.auth.getSession();
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seo-analyze`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session?.session?.access_token}`,
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({
-              url: data.url,
-              pageType: data.pageType,
-              competitors: data.competitors,
-              aiContext: data.aiContext,
-              clusterMode: data.clusterMode,
-              analysisId: analysis.id,
-              region: data.region,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || `Analysis failed (${response.status})`);
-        }
-      } catch (err: any) {
-        toast({ title: err.message || 'Analysis failed', variant: 'destructive' });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fireAnalysis();
+    fireAnalysis(analysis.id, data, data.url).catch(err => {
+      toast({ title: err.message || 'Analysis failed', variant: 'destructive' });
+    }).finally(() => setLoading(false));
   };
 
   const handleAnalysisComplete = useCallback(async () => {
     if (pendingAnalysisId && pendingAnalysisUrl) {
-      // Deduct 1 credit
       const { data: { user } } = await supabase.auth.getUser();
       if (user && credits !== null) {
         const newCredits = Math.max(0, credits - 1);
@@ -173,6 +220,11 @@ export default function DashboardPage() {
       toast({ title: `Анализ завершён` });
     }
   }, [pendingAnalysisId, pendingAnalysisUrl, toast, credits]);
+
+  // Batch report view
+  if (batchItems) {
+    return <BatchReportPage items={batchItems} onBack={() => { setBatchItems(null); }} />;
+  }
 
   if (analyzedUrl) {
     return <ReportPage url={analyzedUrl} analysisId={analysisId} onBack={() => { setAnalyzedUrl(null); setAnalysisId(null); }} />;

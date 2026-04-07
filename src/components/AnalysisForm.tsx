@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
   Home, ShoppingBag, Wrench, FileText, ShoppingCart, Target,
-  X, Search, Play, Loader2, Check, MapPin,
+  X, Search, Play, Loader2, Check, MapPin, Plus, Layers,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,16 +26,20 @@ const REGIONS = [
   'Махачкала', 'Томск', 'Оренбург', 'Кемерово', 'Рязань',
 ];
 
+export interface AnalysisFormData {
+  url: string;
+  urls?: string[];
+  pageType: string;
+  competitors: string[];
+  aiContext: string;
+  clusterMode: boolean;
+  projectId?: string;
+  region: string;
+  batchMode?: boolean;
+}
+
 interface AnalysisFormProps {
-  onStartAnalysis: (data: {
-    url: string;
-    pageType: string;
-    competitors: string[];
-    aiContext: string;
-    clusterMode: boolean;
-    projectId?: string;
-    region: string;
-  }) => void;
+  onStartAnalysis: (data: AnalysisFormData) => void;
   loading: boolean;
   projects?: { id?: string; name: string; domain: string }[];
   onNewProject?: () => void;
@@ -43,9 +47,11 @@ interface AnalysisFormProps {
 }
 
 export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewProject, credits }: AnalysisFormProps) {
-  const { tr } = useLang();
+  const { tr, lang } = useLang();
   const { toast } = useToast();
   const [url, setUrl] = useState('');
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchUrls, setBatchUrls] = useState<string[]>(['', '']);
   const [pageType, setPageType] = useState('');
   const [competitors, setCompetitors] = useState(['']);
   const [aiContext, setAiContext] = useState('');
@@ -58,6 +64,8 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   const [region, setRegion] = useState('');
   const [regionSearch, setRegionSearch] = useState('');
   const [regionOpen, setRegionOpen] = useState(false);
+
+  const isRu = lang === 'ru';
 
   const filteredRegions = regionSearch
     ? REGIONS.filter(r => r.toLowerCase().includes(regionSearch.toLowerCase()))
@@ -77,8 +85,27 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
     setCompetitors(updated);
   };
 
+  const addBatchUrl = () => {
+    if (batchUrls.length < 5) setBatchUrls([...batchUrls, '']);
+  };
+
+  const removeBatchUrl = (index: number) => {
+    if (batchUrls.length > 2) setBatchUrls(batchUrls.filter((_, i) => i !== index));
+  };
+
+  const updateBatchUrl = (index: number, value: string) => {
+    const updated = [...batchUrls];
+    updated[index] = value;
+    setBatchUrls(updated);
+  };
+
+  const validBatchUrls = batchUrls.filter(u => u.trim());
+  const requiredCredits = batchMode ? validBatchUrls.length : 1;
+  const hasEnoughCredits = credits === null || credits === undefined || credits >= requiredCredits;
+
   const handleAutoFind = async () => {
-    if (!url.trim()) {
+    const targetUrl = batchMode ? validBatchUrls[0] : url.trim();
+    if (!targetUrl) {
       toast({ title: 'Сначала введите URL страницы', variant: 'destructive' });
       return;
     }
@@ -97,7 +124,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
             'Content-Type': 'application/json',
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ url: url.trim(), region: region.trim() }),
+          body: JSON.stringify({ url: targetUrl, region: region.trim() }),
         }
       );
       if (!res.ok) {
@@ -122,16 +149,38 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   };
 
   const handleSubmit = () => {
-    if (!url.trim()) return;
-    onStartAnalysis({
-      url: url.trim(),
-      pageType,
-      competitors: competitors.filter(c => c.trim()),
-      aiContext,
-      clusterMode,
-      projectId: projects[selectedProjectIdx]?.id,
-      region: region.trim(),
-    });
+    if (batchMode) {
+      if (validBatchUrls.length < 2) {
+        toast({ title: isRu ? 'Введите минимум 2 URL' : 'Enter at least 2 URLs', variant: 'destructive' });
+        return;
+      }
+      if (!hasEnoughCredits) {
+        toast({ title: isRu ? 'Недостаточно кредитов' : 'Not enough credits', variant: 'destructive' });
+        return;
+      }
+      onStartAnalysis({
+        url: validBatchUrls[0],
+        urls: validBatchUrls,
+        pageType,
+        competitors: competitors.filter(c => c.trim()),
+        aiContext,
+        clusterMode,
+        projectId: projects[selectedProjectIdx]?.id,
+        region: region.trim(),
+        batchMode: true,
+      });
+    } else {
+      if (!url.trim()) return;
+      onStartAnalysis({
+        url: url.trim(),
+        pageType,
+        competitors: competitors.filter(c => c.trim()),
+        aiContext,
+        clusterMode,
+        projectId: projects[selectedProjectIdx]?.id,
+        region: region.trim(),
+      });
+    }
   };
 
   return (
@@ -161,22 +210,73 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
       <div className="glass-card p-6 space-y-6">
         <div className="flex items-center justify-between">
           <span className="text-xs tracking-widest text-muted-foreground font-semibold">📄 {tr.pageSection.title}</span>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground font-medium">● {tr.pageSection.clusterToggle}</span>
-            <Switch checked={clusterMode} onCheckedChange={setClusterMode} />
+          <div className="flex items-center gap-4">
+            {/* Batch mode toggle */}
+            <div className="flex items-center gap-2">
+              <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">
+                {isRu ? 'Пакетный (1-5)' : 'Batch (1-5)'}
+              </span>
+              <Switch checked={batchMode} onCheckedChange={setBatchMode} />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground font-medium">● {tr.pageSection.clusterToggle}</span>
+              <Switch checked={clusterMode} onCheckedChange={setClusterMode} />
+            </div>
           </div>
         </div>
 
-        <div>
-          <label className="text-sm text-muted-foreground mb-2 block">{tr.pageSection.urlLabel}</label>
-          <Input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder={tr.pageSection.urlPlaceholder}
-            className="h-11 bg-secondary border-border/50 focus:border-primary"
-          />
-        </div>
+        {batchMode ? (
+          <div className="space-y-3">
+            <label className="text-sm text-muted-foreground mb-2 block">
+              {isRu ? 'URL страниц для анализа (2-5 штук)' : 'Page URLs for analysis (2-5)'}
+            </label>
+            {batchUrls.map((bu, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <span className="text-xs text-muted-foreground w-5 text-center font-mono">{i + 1}</span>
+                <Input
+                  type="url"
+                  value={bu}
+                  onChange={(e) => updateBatchUrl(i, e.target.value)}
+                  placeholder={`https://example.com/page-${i + 1}`}
+                  className="h-11 bg-secondary border-border/50 focus:border-primary flex-1"
+                />
+                {batchUrls.length > 2 && (
+                  <button onClick={() => removeBatchUrl(i)} className="w-9 h-9 rounded-lg border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {batchUrls.length < 5 && (
+              <button
+                onClick={addBatchUrl}
+                className="w-full h-9 rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-border transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {isRu ? 'Добавить URL' : 'Add URL'}
+              </button>
+            )}
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span>💡</span>
+              <span>{isRu
+                ? `Будет создано ${validBatchUrls.length} анализов → списание ${validBatchUrls.length} кредитов. Результаты объединятся в сводный отчёт.`
+                : `${validBatchUrls.length} analyses → ${validBatchUrls.length} credits. Results merged into a comparison report.`
+              }</span>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label className="text-sm text-muted-foreground mb-2 block">{tr.pageSection.urlLabel}</label>
+            <Input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder={tr.pageSection.urlPlaceholder}
+              className="h-11 bg-secondary border-border/50 focus:border-primary"
+            />
+          </div>
+        )}
 
         {/* Region selector */}
         <div className="relative">
@@ -263,7 +363,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
 
         <button
           onClick={handleAutoFind}
-          disabled={findingCompetitors || !url.trim()}
+          disabled={findingCompetitors || (batchMode ? validBatchUrls.length === 0 : !url.trim())}
           className="w-full h-12 rounded-lg border border-border/50 bg-secondary/50 text-sm font-medium text-foreground hover:bg-secondary transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {findingCompetitors ? (
@@ -337,22 +437,33 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
 
       {/* Credits info */}
       {credits !== null && credits !== undefined && (
-        <div className={`glass-card p-4 flex items-center justify-between ${credits <= 0 ? 'border border-destructive/30' : ''}`}>
-          <span className="text-sm text-muted-foreground">Остаток кредитов:</span>
-          <span className={`text-lg font-bold ${credits <= 0 ? 'text-destructive' : 'text-accent'}`}>{credits}</span>
+        <div className={`glass-card p-4 flex items-center justify-between ${!hasEnoughCredits ? 'border border-destructive/30' : ''}`}>
+          <span className="text-sm text-muted-foreground">
+            {isRu ? 'Остаток кредитов:' : 'Credits remaining:'}
+          </span>
+          <div className="flex items-center gap-3">
+            {batchMode && validBatchUrls.length > 1 && (
+              <span className="text-xs text-muted-foreground">
+                {isRu ? `Нужно: ${requiredCredits}` : `Required: ${requiredCredits}`}
+              </span>
+            )}
+            <span className={`text-lg font-bold ${!hasEnoughCredits ? 'text-destructive' : 'text-accent'}`}>{credits}</span>
+          </div>
         </div>
       )}
 
       {/* Start analysis button */}
       <button
         onClick={handleSubmit}
-        disabled={loading || !url.trim() || (credits !== null && credits !== undefined && credits <= 0)}
+        disabled={loading || (!batchMode && !url.trim()) || (batchMode && validBatchUrls.length < 2) || !hasEnoughCredits}
         className="w-full h-14 rounded-2xl btn-gradient text-base font-semibold flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {credits !== null && credits !== undefined && credits <= 0 ? (
-          <>🚫 Лимит исчерпан</>
+        {!hasEnoughCredits ? (
+          <>🚫 {isRu ? 'Недостаточно кредитов' : 'Not enough credits'}</>
         ) : loading ? (
           <><Loader2 className="w-5 h-5 animate-spin" /> {tr.analyzing}</>
+        ) : batchMode ? (
+          <><Layers className="w-5 h-5" /> {isRu ? `Анализ ${validBatchUrls.length} страниц` : `Analyze ${validBatchUrls.length} pages`}</>
         ) : (
           <><Play className="w-5 h-5" /> {tr.startAnalysis}</>
         )}
