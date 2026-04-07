@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { NavLink } from '@/components/NavLink';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAdminRole } from '@/hooks/useAdminRole';
+import { NotificationBell } from '@/components/NotificationBell';
 
 export function AppHeader() {
   const { tr } = useLang();
@@ -58,6 +59,7 @@ export function AppHeader() {
 
         {/* Right: Lang + Logout */}
         <div className="flex items-center justify-end gap-3 shrink-0 ml-6">
+          <NotificationBell />
           <LangToggle />
           <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
             <LogOut className="w-4 h-4" />
