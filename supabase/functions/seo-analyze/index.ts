@@ -1122,6 +1122,33 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
 
     await setStage(si, "done", "0.1s");
     await supabase.from("analyses").update({ status: "completed" }).eq("id", analysisId);
+
+    // Create notification for user
+    try {
+      await supabase.from("notifications").insert({
+        user_id: cd.user.id,
+        type: "analysis_complete",
+        title: `Анализ завершён: ${new URL(url).hostname}`,
+        message: `SEO Health: ${finalResult.scores?.seoHealth || 0}% | Total: ${((Date.now() - tGlobalStart) / 1000).toFixed(1)}s`,
+        metadata: { analysis_id: analysisId, url },
+      });
+    } catch (notifErr) {
+      console.warn("Notification insert failed:", notifErr);
+    }
+
+    // Check low credits and notify
+    const newCredits = Math.max(0, profile.credits - 1);
+    if (newCredits <= 2 && newCredits >= 0) {
+      try {
+        await supabase.from("notifications").insert({
+          user_id: cd.user.id,
+          type: "credits_low",
+          title: newCredits === 0 ? "Кредиты закончились!" : `Осталось кредитов: ${newCredits}`,
+          message: "Обратитесь к администратору для пополнения.",
+        });
+      } catch (_) {}
+    }
+
     console.log("Done:", url, `Total: ${((Date.now() - tGlobalStart) / 1000).toFixed(1)}s`);
 
     clearTimeout(globalTimer);
