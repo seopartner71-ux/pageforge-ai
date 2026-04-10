@@ -164,6 +164,21 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   const modules = (results?.modules as any[]) || [];
   const quickWins = (results?.quick_wins as any[]) || [];
   const tabData = (results?.tab_data as any) || {};
+  const hasTfidf = Array.isArray(tabData?.tfidf) && tabData.tfidf.length > 0;
+
+  const handleExportXlsx = async (config: XlsxExportConfig) => {
+    if (!analysisId) return;
+    setXlsxLoading(true);
+    try {
+      await exportReportXlsx({ analysisId, lang, config });
+      toast.success(lang === 'ru' ? 'Excel-файл скачан!' : 'Excel file downloaded!');
+      setXlsxDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setXlsxLoading(false);
+    }
+  };
 
   const activeTpl = templates.find(t => t.is_active);
 
@@ -319,6 +334,12 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
           </>
         )}
       </main>
+      <ExcelExportDialog
+        open={xlsxDialogOpen}
+        onOpenChange={setXlsxDialogOpen}
+        onExport={handleExportXlsx}
+        loading={xlsxLoading}
+        hasTfidf={hasTfidf}
+      />
     </div>
-  );
 }
