@@ -342,4 +342,5 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
         hasTfidf={hasTfidf}
       />
     </div>
+  );
 }
