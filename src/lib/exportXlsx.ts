@@ -1,9 +1,12 @@
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 
+import type { XlsxExportConfig } from '@/components/ExcelExportDialog';
+
 interface ExportXlsxOptions {
   analysisId: string;
   lang: string;
+  config?: XlsxExportConfig;
 }
 
 export async function exportReportXlsx(opts: ExportXlsxOptions): Promise<void> {

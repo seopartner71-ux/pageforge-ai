@@ -9,6 +9,7 @@ import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palett
 import { GscWidget } from '@/components/GscWidget';
 import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
 import { exportReportXlsx } from '@/lib/exportXlsx';
+import { ExcelExportDialog, type XlsxExportConfig } from '@/components/ExcelExportDialog';
 import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -52,6 +53,7 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
   const [results, setResults] = useState<any>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [xlsxLoading, setXlsxLoading] = useState(false);
+  const [xlsxDialogOpen, setXlsxDialogOpen] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
@@ -210,21 +212,10 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
               variant="outline"
               size="sm"
               className="text-xs gap-1.5"
-              disabled={xlsxLoading || !analysisId}
-              onClick={async () => {
-                if (!analysisId) return;
-                setXlsxLoading(true);
-                try {
-                  await exportReportXlsx({ analysisId, lang });
-                  toast.success(lang === 'ru' ? 'Excel-файл скачан!' : 'Excel file downloaded!');
-                } catch (err: any) {
-                  toast.error(err.message);
-                } finally {
-                  setXlsxLoading(false);
-                }
-              }}
+              disabled={!analysisId}
+              onClick={() => setXlsxDialogOpen(true)}
             >
-              {xlsxLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Table2 className="w-3 h-3" />}
+              <Table2 className="w-3 h-3" />
               {lang === 'ru' ? 'Excel' : 'Excel'}
             </Button>
 
