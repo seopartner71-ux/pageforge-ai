@@ -1,6 +1,10 @@
 import { useLang } from '@/contexts/LangContext';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, AlertTriangle, ExternalLink } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle, ExternalLink, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer, Tooltip, Legend,
+} from 'recharts';
 
 interface TabDataProps { data: any; }
 
