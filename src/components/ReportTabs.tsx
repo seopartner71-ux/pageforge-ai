@@ -43,6 +43,7 @@ const tabLabels: Record<string, Record<TabKey, string>> = {
     urlStructure: '🔗 URL', contentFreshness: '📅 Свежесть',
     schemaValidator: '📐 Schema', contentMetrics: '📊 Контент-метрики',
     internalLinking: '🔗 Перелинковка',
+    competitorComparison: '📊 vs ТОП-10',
     dataSources: '📋 Источники', verification: '✅ До/После',
   },
   en: {
