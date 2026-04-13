@@ -2408,7 +2408,8 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
 
   // Split tabs into two rows matching the screenshot layout
   const row1Keys = ['optimizer', 'aiReport', 'priorities', 'blueprint', 'semanticMap', 'tfidf', 'ngrams', 'implementationPlan'] as const;
-  const row2Keys = ['zipf', 'images', 'anchors', 'pageSpeed', 'stealth', 'dataSources', 'verification'] as const;
+  const row2Keys = ['zipf', 'images', 'anchors', 'pageSpeed', 'stealth', 'readability', 'headings', 'snippetPreview'] as const;
+  const row3Keys = ['metaDirectives', 'urlStructure', 'contentFreshness', 'schemaValidator', 'contentMetrics', 'internalLinking', 'dataSources', 'verification'] as const;
 
   const renderTrigger = (key: string) => (
     <TabsTrigger
@@ -2428,12 +2429,15 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
 
   return (
     <Tabs value={activeTab || 'optimizer'} onValueChange={onTabChange} className="w-full">
-      <div className="bg-card/60 border border-border/50 rounded-lg overflow-hidden">
+      <div className="bg-card/60 border border-border/50 rounded-lg overflow-hidden overflow-x-auto">
         <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent p-0 rounded-none border-b border-border/30">
           {row1Keys.map(renderTrigger)}
         </TabsList>
-        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent p-0 rounded-none">
+        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent p-0 rounded-none border-b border-border/30">
           {row2Keys.map(renderTrigger)}
+        </TabsList>
+        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent p-0 rounded-none">
+          {row3Keys.map(renderTrigger)}
         </TabsList>
       </div>
 
@@ -2455,6 +2459,15 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
           anchors: () => <AnchorsTab data={data} />,
           pageSpeed: () => <PageSpeedTab />,
           stealth: () => <StealthTab data={data} />,
+          readability: () => <ReadabilityTab data={data} />,
+          headings: () => <HeadingsTab data={data} />,
+          snippetPreview: () => <SnippetPreviewTab data={data} />,
+          metaDirectives: () => <MetaDirectivesTab data={data} />,
+          urlStructure: () => <UrlStructureTab data={data} />,
+          contentFreshness: () => <ContentFreshnessTab data={data} />,
+          schemaValidator: () => <SchemaValidatorTab data={data} />,
+          contentMetrics: () => <ContentMetricsTab data={data} />,
+          internalLinking: () => <InternalLinkingTab data={data} />,
           dataSources: () => <DataSourcesTab data={data} />,
           verification: () => <VerificationTab data={data} />,
         };
