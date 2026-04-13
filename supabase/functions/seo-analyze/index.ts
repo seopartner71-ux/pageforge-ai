@@ -1532,7 +1532,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
         imagesData,
         anchorsData,
         competitorUrls: competitorUrls.slice(0, 10),
-        competitorCount: compContents.length,
+        competitorCount: validCompContents.length,
         sourcesData,
         pageStats,
         perfTiming: { ...perfTiming, total_ms: Date.now() - tGlobalStart },
