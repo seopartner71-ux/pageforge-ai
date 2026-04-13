@@ -1179,6 +1179,19 @@ Deno.serve(async (req) => {
     await setStage(si, "running");
     const t6 = Date.now();
     const audit = technicalAudit(rawHtml, targetContent);
+
+    // ── New On-Page modules (computed in parallel, same stage) ──
+    const readabilityData = calculateReadability(targetContent, isRU);
+    const headingHierarchy = parseHeadingHierarchy(rawHtml);
+    const metaDirectives = parseMetaDirectives(rawHtml);
+    const urlStructure = analyzeUrlStructure(url);
+    const contentFreshness = parseContentFreshness(rawHtml);
+    const schemaValidation = validateSchemaMarkup(rawHtml, pageType || 'homepage');
+    const contentMetrics = calculateContentMetrics(rawHtml, targetContent, targetWords);
+    const internalLinking = calculateInternalLinkingScore(anchorsData, url);
+    const snippetPreview = buildSnippetPreview(audit, url);
+
+    console.log(`On-Page modules: readability=${readabilityData.score}, urlScore=${urlStructure.score}, schemas=${schemaValidation.totalSchemas}, headings=${headingHierarchy.headings.length}`);
     await setStage(si, "done", `${((Date.now() - t6) / 1000).toFixed(1)}s`);
     si++;
 
