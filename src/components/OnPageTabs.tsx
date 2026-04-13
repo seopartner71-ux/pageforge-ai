@@ -1,6 +1,10 @@
 import { useLang } from '@/contexts/LangContext';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, AlertTriangle, ExternalLink } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle, ExternalLink, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer, Tooltip, Legend,
+} from 'recharts';
 
 interface TabDataProps { data: any; }
 
@@ -413,6 +417,173 @@ export function InternalLinkingTab({ data }: TabDataProps) {
           {il.issues.map((issue: string, i: number) => (
             <p key={i} className="text-sm text-destructive flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />{issue}</p>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────── Competitor Comparison Tab ─────────── */
+export function CompetitorComparisonTab({ data }: TabDataProps) {
+  const { lang } = useLang();
+  const isRu = lang === 'ru';
+  const cc = data?.competitorComparison;
+  if (!cc || !cc.medians) return <p className="text-muted-foreground text-sm">{isRu ? 'Нет данных для сравнения.' : 'No comparison data.'}</p>;
+
+  const yours = cc.yours || {};
+  const medians = cc.medians || {};
+
+  const metricLabels: Record<string, { ru: string; en: string }> = {
+    wordCount: { ru: 'Слова', en: 'Words' },
+    headingCount: { ru: 'Заголовки', en: 'Headings' },
+    h2Count: { ru: 'H2', en: 'H2' },
+    h3Count: { ru: 'H3', en: 'H3' },
+    imageCount: { ru: 'Изображения', en: 'Images' },
+    schemaCount: { ru: 'Schema', en: 'Schema' },
+    paragraphs: { ru: 'Параграфы', en: 'Paragraphs' },
+    lists: { ru: 'Списки', en: 'Lists' },
+    tables: { ru: 'Таблицы', en: 'Tables' },
+    videos: { ru: 'Видео', en: 'Videos' },
+  };
+
+  const metrics = Object.keys(metricLabels);
+
+  // Radar data: normalize to 0-100 scale based on max(yours, median)
+  const radarData = metrics.map(key => {
+    const y = yours[key] || 0;
+    const m = medians[key] || 0;
+    const max = Math.max(y, m, 1);
+    return {
+      metric: isRu ? metricLabels[key].ru : metricLabels[key].en,
+      yours: Math.round((y / max) * 100),
+      top: Math.round((m / max) * 100),
+    };
+  });
+
+  const getStatus = (yours: number, median: number) => {
+    if (median === 0) return 'neutral';
+    const ratio = yours / median;
+    if (ratio >= 0.9) return 'good';
+    if (ratio >= 0.5) return 'warning';
+    return 'bad';
+  };
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-lg font-bold text-foreground">{isRu ? '📊 Сравнение с ТОП-10' : '📊 Comparison vs TOP-10'}</h2>
+      <p className="text-xs text-muted-foreground">{isRu ? `Сравнение с ${cc.competitors?.length || 0} конкурентами из поисковой выдачи` : `Compared with ${cc.competitors?.length || 0} competitors from SERP`}</p>
+
+      {/* Radar Chart */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-bold text-foreground mb-4">{isRu ? 'Радарная диаграмма' : 'Radar Chart'}</h3>
+        <div className="h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart data={radarData} outerRadius="70%">
+              <PolarGrid stroke="hsl(var(--border))" />
+              <PolarAngleAxis dataKey="metric" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+              <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
+              <Radar name={isRu ? 'Ваша страница' : 'Your page'} dataKey="yours" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} strokeWidth={2} />
+              <Radar name={isRu ? 'Медиана ТОП-10' : 'TOP-10 Median'} dataKey="top" stroke="hsl(var(--accent))" fill="hsl(var(--accent))" fillOpacity={0.15} strokeWidth={2} strokeDasharray="4 4" />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Detailed Table */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-bold text-foreground mb-4">{isRu ? 'Детальное сравнение' : 'Detailed Comparison'}</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border/50">
+                <th className="text-left py-3 px-3 text-muted-foreground font-medium">{isRu ? 'Метрика' : 'Metric'}</th>
+                <th className="text-center py-3 px-3 text-primary font-medium">{isRu ? 'Ваша страница' : 'Your page'}</th>
+                <th className="text-center py-3 px-3 text-accent font-medium">{isRu ? 'Медиана ТОП-10' : 'TOP-10 Median'}</th>
+                <th className="text-center py-3 px-3 text-muted-foreground font-medium">{isRu ? 'Разница' : 'Diff'}</th>
+                <th className="text-center py-3 px-3 text-muted-foreground font-medium">{isRu ? 'Статус' : 'Status'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {metrics.map(key => {
+                const y = yours[key] || 0;
+                const m = medians[key] || 0;
+                const diff = y - m;
+                const diffPercent = m > 0 ? Math.round((diff / m) * 100) : 0;
+                const status = getStatus(y, m);
+
+                return (
+                  <tr key={key} className="border-b border-border/20 hover:bg-secondary/20 transition-colors">
+                    <td className="py-3 px-3 font-medium text-foreground">{isRu ? metricLabels[key].ru : metricLabels[key].en}</td>
+                    <td className="py-3 px-3 text-center">
+                      <span className="text-lg font-bold text-primary">{y}</span>
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <span className="text-lg font-bold text-accent">{m}</span>
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <span className={`flex items-center justify-center gap-1 text-sm font-medium ${diff > 0 ? 'text-accent' : diff < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        {diff > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : diff < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+                        {diff > 0 ? '+' : ''}{diff} {m > 0 ? `(${diffPercent > 0 ? '+' : ''}${diffPercent}%)` : ''}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                        status === 'good' ? 'bg-accent/20 text-accent' :
+                        status === 'warning' ? 'bg-yellow-500/20 text-yellow-500' :
+                        status === 'bad' ? 'bg-destructive/20 text-destructive' :
+                        'bg-secondary text-muted-foreground'
+                      }`}>
+                        {status === 'good' ? '✅' : status === 'warning' ? '⚠️' : status === 'bad' ? '❌' : '—'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Competitor Details */}
+      {cc.competitors?.length > 0 && (
+        <div className="glass-card p-5">
+          <h3 className="text-sm font-bold text-foreground mb-4">{isRu ? 'Детали конкурентов' : 'Competitor Details'}</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border/50">
+                  <th className="text-left py-2 px-2 text-muted-foreground">#</th>
+                  <th className="text-left py-2 px-2 text-muted-foreground">URL</th>
+                  <th className="text-center py-2 px-2 text-muted-foreground">{isRu ? 'Слова' : 'Words'}</th>
+                  <th className="text-center py-2 px-2 text-muted-foreground">H2</th>
+                  <th className="text-center py-2 px-2 text-muted-foreground">{isRu ? 'Изобр.' : 'Imgs'}</th>
+                  <th className="text-center py-2 px-2 text-muted-foreground">Schema</th>
+                  <th className="text-center py-2 px-2 text-muted-foreground">{isRu ? 'Списки' : 'Lists'}</th>
+                  <th className="text-center py-2 px-2 text-muted-foreground">{isRu ? 'Табл.' : 'Tables'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cc.competitors.map((c: any, i: number) => {
+                  let hostname = c.url;
+                  try { hostname = new URL(c.url).hostname; } catch {}
+                  return (
+                    <tr key={i} className="border-b border-border/10 hover:bg-secondary/10">
+                      <td className="py-2 px-2 text-muted-foreground">{i + 1}</td>
+                      <td className="py-2 px-2 text-foreground truncate max-w-[200px]" title={c.url}>{hostname}</td>
+                      <td className="py-2 px-2 text-center text-foreground">{c.wordCount}</td>
+                      <td className="py-2 px-2 text-center text-foreground">{c.h2Count}</td>
+                      <td className="py-2 px-2 text-center text-foreground">{c.imageCount}</td>
+                      <td className="py-2 px-2 text-center text-foreground">{c.schemaCount}</td>
+                      <td className="py-2 px-2 text-center text-foreground">{c.lists}</td>
+                      <td className="py-2 px-2 text-center text-foreground">{c.tables}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

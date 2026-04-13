@@ -1114,25 +1114,33 @@ Deno.serve(async (req) => {
     await setStage(si, "done", `${((Date.now() - t1) / 1000).toFixed(1)}s`);
     si++;
 
-    // ── Competitor Fetch ──
+    // ── Competitor Fetch (markdown + raw HTML in parallel) ──
     await setStage(si, "running");
     const t2 = Date.now();
     const fetchUrls = competitorUrls.slice(0, 10);
-    console.log(`Fetching ${fetchUrls.length} competitors in parallel...`);
+    console.log(`Fetching ${fetchUrls.length} competitors in parallel (markdown + HTML)...`);
     const compContents: string[] = [];
-    const compRes = await Promise.allSettled(fetchUrls.map(u => fetchPage(u)));
-    for (const r of compRes) { if (r.status === "fulfilled" && r.value) compContents.push(r.value); }
+    const compRawHtmls: string[] = [];
+    const [compMdRes, compHtmlRes] = await Promise.all([
+      Promise.allSettled(fetchUrls.map(u => fetchPage(u))),
+      Promise.allSettled(fetchUrls.map(u => fetchRawHtml(u))),
+    ]);
+    for (const r of compMdRes) { compContents.push(r.status === "fulfilled" && r.value ? r.value : ''); }
+    for (const r of compHtmlRes) { compRawHtmls.push(r.status === "fulfilled" && r.value ? r.value : ''); }
     perfTiming.competitor_fetch_ms = Date.now() - t2;
     await setStage(si, "done", `${((Date.now() - t2) / 1000).toFixed(1)}s`);
     si++;
 
+    // Filter out empty competitor fetches
+    const validCompContents = compContents.filter(c => c.length > 0);
+    const validCompHtmls = compRawHtmls.filter(c => c.length > 0);
+
     // Extract competitor headings for cluster analysis
     if (clusterMode && clusterData) {
       const allHeadings: string[] = [];
-      for (const content of compContents) {
+      for (const content of validCompContents) {
         allHeadings.push(...extractHeadings(content));
       }
-      // Find headings that appear in 2+ competitors
       const headingCounts: Record<string, number> = {};
       for (const h of allHeadings) {
         const normalized = h.toLowerCase().trim();
@@ -1153,7 +1161,7 @@ Deno.serve(async (req) => {
     await setStage(si, "running");
     const t3 = Date.now();
     const targetWords = tokenize(targetContent, isRU);
-    const compWordArrays = compContents.map(c => tokenize(c, isRU));
+    const compWordArrays = validCompContents.map(c => tokenize(c, isRU));
     const tfidfResults = calculateTFIDF(targetWords, compWordArrays);
     await setStage(si, "done", `${((Date.now() - t3) / 1000).toFixed(1)}s`);
     si++;
@@ -1191,7 +1199,75 @@ Deno.serve(async (req) => {
     const internalLinking = calculateInternalLinkingScore(anchorsData, url);
     const snippetPreview = buildSnippetPreview(audit, url);
 
+    // ── Competitor Comparison Metrics ──
+    const compMetrics = validCompHtmls.map((cHtml, idx) => {
+      const cHeadings = parseHeadingHierarchy(cHtml);
+      const cImages = parseImages(cHtml, fetchUrls[idx] || '');
+      const cSchema = validateSchemaMarkup(cHtml, pageType || 'homepage');
+      const cWords = compWordArrays[idx]?.length || 0;
+      const cBodyMatch = cHtml.match(/<body[\s>]([\s\S]*)<\/body>/i);
+      const cBody = cBodyMatch ? cBodyMatch[1] : cHtml;
+      const cParagraphs = (cBody.match(/<p[\s>]/gi) || []).length;
+      const cUl = (cBody.match(/<ul[\s>]/gi) || []).length;
+      const cOl = (cBody.match(/<ol[\s>]/gi) || []).length;
+      const cTables = (cBody.match(/<table[\s>]/gi) || []).length;
+      const cVideos = (cBody.match(/<video[\s>]|<iframe[^>]*(?:youtube|vimeo|rutube)/gi) || []).length;
+      return {
+        url: fetchUrls[idx] || '',
+        wordCount: cWords,
+        headingCount: cHeadings.headings.length,
+        h1Count: cHeadings.counts.h1,
+        h2Count: cHeadings.counts.h2,
+        h3Count: cHeadings.counts.h3,
+        imageCount: cImages.length,
+        imagesWithoutAlt: cImages.filter(img => !img.hasAlt).length,
+        schemaCount: cSchema.totalSchemas,
+        schemaTypes: cSchema.schemas.map(s => s.type),
+        paragraphs: cParagraphs,
+        lists: cUl + cOl,
+        tables: cTables,
+        videos: cVideos,
+      };
+    });
+
+    const medianOf = (arr: number[]) => {
+      const valid = arr.filter(n => n > 0);
+      if (!valid.length) return 0;
+      const s = valid.slice().sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+    };
+
+    const competitorComparison = {
+      competitors: compMetrics,
+      medians: {
+        wordCount: medianOf(compMetrics.map(c => c.wordCount)),
+        headingCount: medianOf(compMetrics.map(c => c.headingCount)),
+        h2Count: medianOf(compMetrics.map(c => c.h2Count)),
+        h3Count: medianOf(compMetrics.map(c => c.h3Count)),
+        imageCount: medianOf(compMetrics.map(c => c.imageCount)),
+        schemaCount: medianOf(compMetrics.map(c => c.schemaCount)),
+        paragraphs: medianOf(compMetrics.map(c => c.paragraphs)),
+        lists: medianOf(compMetrics.map(c => c.lists)),
+        tables: medianOf(compMetrics.map(c => c.tables)),
+        videos: medianOf(compMetrics.map(c => c.videos)),
+      },
+      yours: {
+        wordCount: targetWords.length,
+        headingCount: headingHierarchy.headings.length,
+        h2Count: headingHierarchy.counts.h2,
+        h3Count: headingHierarchy.counts.h3,
+        imageCount: imagesData.length,
+        schemaCount: schemaValidation.totalSchemas,
+        paragraphs: contentMetrics.paragraphs,
+        lists: contentMetrics.ulCount + contentMetrics.olCount,
+        tables: contentMetrics.tables,
+        videos: contentMetrics.videos,
+      },
+    };
+
     console.log(`On-Page modules: readability=${readabilityData.score}, urlScore=${urlStructure.score}, schemas=${schemaValidation.totalSchemas}, headings=${headingHierarchy.headings.length}`);
+    console.log(`Competitor comparison: ${compMetrics.length} competitors analyzed, median wordCount=${competitorComparison.medians.wordCount}`);
     await setStage(si, "done", `${((Date.now() - t6) / 1000).toFixed(1)}s`);
     si++;
 
@@ -1285,7 +1361,7 @@ H1 видимых: ${audit.h1Count}${audit.h1Tags.length ? `\nТексты H1: $
 JSON-LD: ${audit.hasJsonLd ? "Есть" : "Нет"}, og:title: ${audit.hasOgTitle ? "Есть" : "Нет"}, og:description: ${audit.hasOgDesc ? "Есть" : "Нет"}, og:image: ${audit.hasOgImage ? "Есть" : "Нет"}
 Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: ${audit.metaDesc ? `"${audit.metaDesc.slice(0, 100)}..."` : "Нет"}, Canonical: ${audit.canonical || "Нет"}
 Проблемы: ${audit.issues.join("; ") || "нет"}
-Конкурентов: ${compContents.length}`;
+Конкурентов: ${validCompContents.length}`;
     } else {
       systemPrompt = `Ты — Senior SEO Architect, работающий по методологии "Доказательное SEO 2026".${regionContext} Данные:
 1. Markdown страницы (до 15000 символов)
@@ -1372,7 +1448,7 @@ H1 видимых: ${audit.h1Count}${audit.h1Tags.length ? `\nТексты H1: $
 JSON-LD: ${audit.hasJsonLd ? "Есть" : "Нет"}, og:title: ${audit.hasOgTitle ? "Есть" : "Нет"}, og:description: ${audit.hasOgDesc ? "Есть" : "Нет"}, og:image: ${audit.hasOgImage ? "Есть" : "Нет"}
 Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: ${audit.metaDesc ? `"${audit.metaDesc.slice(0, 100)}..."` : "Нет"}, Canonical: ${audit.canonical || "Нет"}
 Проблемы: ${audit.issues.join("; ") || "нет"}
-Конкурентов: ${compContents.length}`;
+Конкурентов: ${validCompContents.length}`;
     }
 
     console.log("Calling OpenRouter...");
@@ -1425,7 +1501,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
     // ── Competitor sources data (URL + snippet of content for transparency) ──
     const sourcesData = fetchUrls.map((u, i) => ({
       url: u,
-      fetched: i < compContents.length,
+      fetched: !!compContents[i],
       contentPreview: compContents[i]?.slice(0, 500) || '',
       rawContent: compContents[i]?.slice(0, 15000) || '',
       wordCount: compWordArrays[i]?.length || 0,
@@ -1452,10 +1528,11 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
         contentMetrics,
         internalLinking,
         snippetPreview,
+        competitorComparison,
         imagesData,
         anchorsData,
         competitorUrls: competitorUrls.slice(0, 10),
-        competitorCount: compContents.length,
+        competitorCount: validCompContents.length,
         sourcesData,
         pageStats,
         perfTiming: { ...perfTiming, total_ms: Date.now() - tGlobalStart },

@@ -17,6 +17,7 @@ import {
 import {
   ReadabilityTab, HeadingsTab, SnippetPreviewTab, MetaDirectivesTab,
   UrlStructureTab, ContentFreshnessTab, SchemaValidatorTab, ContentMetricsTab, InternalLinkingTab,
+  CompetitorComparisonTab,
 } from '@/components/OnPageTabs';
 
 const tabKeys = [
@@ -24,6 +25,7 @@ const tabKeys = [
   'zipf', 'images', 'anchors', 'pageSpeed', 'stealth',
   'readability', 'headings', 'snippetPreview', 'metaDirectives', 'urlStructure',
   'contentFreshness', 'schemaValidator', 'contentMetrics', 'internalLinking',
+  'competitorComparison',
   'dataSources', 'verification',
 ] as const;
 
@@ -41,6 +43,7 @@ const tabLabels: Record<string, Record<TabKey, string>> = {
     urlStructure: '🔗 URL', contentFreshness: '📅 Свежесть',
     schemaValidator: '📐 Schema', contentMetrics: '📊 Контент-метрики',
     internalLinking: '🔗 Перелинковка',
+    competitorComparison: '📊 vs ТОП-10',
     dataSources: '📋 Источники', verification: '✅ До/После',
   },
   en: {
@@ -54,6 +57,7 @@ const tabLabels: Record<string, Record<TabKey, string>> = {
     urlStructure: '🔗 URL', contentFreshness: '📅 Freshness',
     schemaValidator: '📐 Schema', contentMetrics: '📊 Content Metrics',
     internalLinking: '🔗 Internal Links',
+    competitorComparison: '📊 vs TOP-10',
     dataSources: '📋 Sources', verification: '✅ Before/After',
   },
 };
@@ -2409,7 +2413,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
   // Split tabs into two rows matching the screenshot layout
   const row1Keys = ['optimizer', 'aiReport', 'priorities', 'blueprint', 'semanticMap', 'tfidf', 'ngrams', 'implementationPlan'] as const;
   const row2Keys = ['zipf', 'images', 'anchors', 'pageSpeed', 'stealth', 'readability', 'headings', 'snippetPreview'] as const;
-  const row3Keys = ['metaDirectives', 'urlStructure', 'contentFreshness', 'schemaValidator', 'contentMetrics', 'internalLinking', 'dataSources', 'verification'] as const;
+  const row3Keys = ['metaDirectives', 'urlStructure', 'contentFreshness', 'schemaValidator', 'contentMetrics', 'internalLinking', 'competitorComparison', 'dataSources', 'verification'] as const;
 
   const renderTrigger = (key: string) => (
     <TabsTrigger
@@ -2468,6 +2472,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
           schemaValidator: () => <SchemaValidatorTab data={data} />,
           contentMetrics: () => <ContentMetricsTab data={data} />,
           internalLinking: () => <InternalLinkingTab data={data} />,
+          competitorComparison: () => <CompetitorComparisonTab data={data} />,
           dataSources: () => <DataSourcesTab data={data} />,
           verification: () => <VerificationTab data={data} />,
         };
