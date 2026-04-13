@@ -362,6 +362,352 @@ function findTopicalGaps(targetWords: string[], competitorWordArrays: string[][]
     .map(([text, competitorCount]) => ({ text, competitorCount }));
 }
 
+// ─── Readability Score (Flesch-Kincaid adapted for RU) ───
+function calculateReadability(text: string, isRU: boolean) {
+  const cleanText = text.replace(/[#*_\[\]()>|`~]/g, '').replace(/\s+/g, ' ').trim();
+  const sentences = cleanText.split(/[.!?…]+/).filter(s => s.trim().length > 5);
+  const words = cleanText.split(/\s+/).filter(w => w.length > 1);
+  const sentenceCount = Math.max(sentences.length, 1);
+  const wordCount = Math.max(words.length, 1);
+
+  // Syllable estimation
+  const countSyllables = (word: string): number => {
+    if (isRU) {
+      return (word.match(/[аеёиоуыэюяАЕЁИОУЫЭЮЯ]/g) || []).length || 1;
+    }
+    const w = word.toLowerCase().replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '').replace(/^y/, '');
+    return Math.max((w.match(/[aeiouy]{1,2}/g) || []).length, 1);
+  };
+
+  const totalSyllables = words.reduce((sum, w) => sum + countSyllables(w), 0);
+  const avgWordsPerSentence = wordCount / sentenceCount;
+  const avgSyllablesPerWord = totalSyllables / wordCount;
+
+  // Flesch Reading Ease (adapted)
+  const fleschScore = Math.round(206.835 - 1.015 * avgWordsPerSentence - 84.6 * avgSyllablesPerWord);
+  const clampedScore = Math.max(0, Math.min(100, fleschScore));
+
+  // Complex words (3+ syllables)
+  const complexWords = words.filter(w => countSyllables(w) >= 3).length;
+  const complexPercent = Math.round((complexWords / wordCount) * 100);
+
+  // Grade level
+  let grade: string;
+  if (clampedScore >= 80) grade = isRU ? 'Очень лёгкий' : 'Very Easy';
+  else if (clampedScore >= 60) grade = isRU ? 'Лёгкий' : 'Easy';
+  else if (clampedScore >= 40) grade = isRU ? 'Средний' : 'Average';
+  else if (clampedScore >= 20) grade = isRU ? 'Сложный' : 'Difficult';
+  else grade = isRU ? 'Очень сложный' : 'Very Difficult';
+
+  return {
+    score: clampedScore,
+    grade,
+    avgWordsPerSentence: Math.round(avgWordsPerSentence * 10) / 10,
+    avgSyllablesPerWord: Math.round(avgSyllablesPerWord * 10) / 10,
+    sentenceCount,
+    wordCount,
+    complexWords,
+    complexPercent,
+    totalSyllables,
+  };
+}
+
+// ─── Heading Hierarchy (H1-H6) ───
+function parseHeadingHierarchy(html: string) {
+  const headings: { level: number; text: string; issues: string[] }[] = [];
+  const re = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const level = parseInt(m[1]);
+    const text = m[2].replace(/<[^>]+>/g, '').trim();
+    if (!text) continue;
+    headings.push({ level, text, issues: [] });
+  }
+  // Check hierarchy issues
+  const issues: string[] = [];
+  let prevLevel = 0;
+  for (let i = 0; i < headings.length; i++) {
+    const h = headings[i];
+    if (h.level > prevLevel + 1 && prevLevel > 0) {
+      const msg = `H${h.level} после H${prevLevel} — пропуск уровня`;
+      h.issues.push(msg);
+      issues.push(msg);
+    }
+    prevLevel = h.level;
+  }
+  const h1Count = headings.filter(h => h.level === 1).length;
+  if (h1Count > 1) issues.push(`${h1Count} тегов H1 (должен быть 1)`);
+  if (h1Count === 0) issues.push('Отсутствует H1');
+  return { headings, issues, counts: { h1: h1Count, h2: headings.filter(h => h.level === 2).length, h3: headings.filter(h => h.level === 3).length, h4: headings.filter(h => h.level === 4).length, h5: headings.filter(h => h.level === 5).length, h6: headings.filter(h => h.level === 6).length } };
+}
+
+// ─── Canonical / Hreflang / Robots ───
+function parseMetaDirectives(html: string) {
+  const headMatch = html.match(/<head[\s>]([\s\S]*?)<\/head>/i);
+  const headHtml = headMatch ? headMatch[1] : '';
+
+  const canonical = headHtml.match(/rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']*)["']/i)?.[1] || null;
+
+  // Hreflang
+  const hreflangs: { lang: string; url: string }[] = [];
+  const hlRe = /rel\s*=\s*["']alternate["'][^>]*hreflang\s*=\s*["']([^"']*)["'][^>]*href\s*=\s*["']([^"']*)["']/gi;
+  let hlm;
+  while ((hlm = hlRe.exec(headHtml)) !== null) {
+    hreflangs.push({ lang: hlm[1], url: hlm[2] });
+  }
+  // Also try reversed attribute order
+  const hlRe2 = /hreflang\s*=\s*["']([^"']*)["'][^>]*href\s*=\s*["']([^"']*)["'][^>]*rel\s*=\s*["']alternate["']/gi;
+  while ((hlm = hlRe2.exec(headHtml)) !== null) {
+    if (!hreflangs.find(h => h.lang === hlm[1])) {
+      hreflangs.push({ lang: hlm[1], url: hlm[2] });
+    }
+  }
+
+  // Meta robots
+  const robotsMatch = headHtml.match(/name\s*=\s*["']robots["'][^>]*content\s*=\s*["']([^"']*)["']/i) ||
+                       headHtml.match(/content\s*=\s*["']([^"']*)["'][^>]*name\s*=\s*["']robots["']/i);
+  const metaRobots = robotsMatch?.[1] || null;
+
+  // X-Robots (can't get from HTML, note as unknown)
+  const hasNoindex = metaRobots ? /noindex/i.test(metaRobots) : false;
+  const hasNofollow = metaRobots ? /nofollow/i.test(metaRobots) : false;
+
+  const issues: string[] = [];
+  if (!canonical) issues.push('Нет canonical URL');
+  if (hasNoindex) issues.push('Страница помечена noindex!');
+  if (hasNofollow) issues.push('Страница помечена nofollow');
+  if (hreflangs.length === 0) issues.push('Нет hreflang (мультиязычность)');
+
+  return { canonical, hreflangs, metaRobots, hasNoindex, hasNofollow, issues };
+}
+
+// ─── URL Structure Score ───
+function analyzeUrlStructure(url: string) {
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return { score: 0, issues: ['Невалидный URL'], path: url, depth: 0, length: url.length, hasTrailingSlash: false, hasCyrillic: false, hasUppercase: false, hasUnderscores: false, hasStopWords: false }; }
+
+  const path = parsed.pathname;
+  const depth = path.split('/').filter(Boolean).length;
+  const length = url.length;
+  const hasTrailingSlash = path.length > 1 && path.endsWith('/');
+  const hasCyrillic = /[\u0400-\u04FF]/.test(path);
+  const hasUppercase = /[A-Z]/.test(path);
+  const hasUnderscores = /_/.test(path);
+  const hasStopWords = /\/(and|the|or|of|in|to|for|a|an|is)\//i.test(path);
+  const hasParams = parsed.search.length > 1;
+  const hasNumbers = /\/\d{5,}/.test(path); // long numeric IDs
+
+  const issues: string[] = [];
+  let score = 100;
+  if (length > 75) { issues.push(`URL слишком длинный (${length} символов)`); score -= 15; }
+  if (depth > 4) { issues.push(`Глубокая вложенность (${depth} уровней)`); score -= 10; }
+  if (hasCyrillic) { issues.push('Кириллица в URL (может вызвать проблемы)'); score -= 10; }
+  if (hasUppercase) { issues.push('Заглавные буквы в URL'); score -= 10; }
+  if (hasUnderscores) { issues.push('Нижние подчёркивания вместо дефисов'); score -= 10; }
+  if (hasStopWords) { issues.push('Стоп-слова в URL'); score -= 5; }
+  if (hasParams) { issues.push('Параметры в URL'); score -= 10; }
+  if (hasNumbers) { issues.push('Длинные числовые ID в URL'); score -= 10; }
+  if (!hasTrailingSlash && path !== '/') { issues.push('Нет trailing slash (проверьте консистентность)'); }
+
+  return { score: Math.max(0, score), issues, path, depth, length, hasTrailingSlash, hasCyrillic, hasUppercase, hasUnderscores, hasStopWords };
+}
+
+// ─── Content Freshness ───
+function parseContentFreshness(html: string) {
+  // Look for dates in JSON-LD
+  const jsonLdBlocks = html.match(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+  let datePublished: string | null = null;
+  let dateModified: string | null = null;
+
+  for (const block of jsonLdBlocks) {
+    const content = block.replace(/<\/?script[^>]*>/gi, '');
+    try {
+      const data = JSON.parse(content);
+      if (data.datePublished) datePublished = data.datePublished;
+      if (data.dateModified) dateModified = data.dateModified;
+    } catch {}
+  }
+
+  // Fallback: meta tags
+  const headMatch = html.match(/<head[\s>]([\s\S]*?)<\/head>/i);
+  const headHtml = headMatch ? headMatch[1] : '';
+  if (!datePublished) {
+    datePublished = headHtml.match(/property\s*=\s*["']article:published_time["'][^>]*content\s*=\s*["']([^"']*)["']/i)?.[1] || null;
+  }
+  if (!dateModified) {
+    dateModified = headHtml.match(/property\s*=\s*["']article:modified_time["'][^>]*content\s*=\s*["']([^"']*)["']/i)?.[1] || null;
+  }
+
+  // Calculate age
+  let ageInDays: number | null = null;
+  const refDate = dateModified || datePublished;
+  if (refDate) {
+    try {
+      ageInDays = Math.floor((Date.now() - new Date(refDate).getTime()) / 86400000);
+    } catch {}
+  }
+
+  let freshness: string;
+  if (ageInDays === null) freshness = 'unknown';
+  else if (ageInDays <= 30) freshness = 'fresh';
+  else if (ageInDays <= 180) freshness = 'recent';
+  else if (ageInDays <= 365) freshness = 'aging';
+  else freshness = 'stale';
+
+  return { datePublished, dateModified, ageInDays, freshness };
+}
+
+// ─── Schema Markup Validator ───
+function validateSchemaMarkup(html: string, pageType: string) {
+  const jsonLdBlocks = html.match(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+  const schemas: { type: string; fields: string[]; missingRequired: string[] }[] = [];
+
+  const requiredFieldsMap: Record<string, string[]> = {
+    'Product': ['name', 'description', 'image', 'offers'],
+    'Article': ['headline', 'author', 'datePublished', 'image'],
+    'FAQPage': ['mainEntity'],
+    'HowTo': ['name', 'step'],
+    'LocalBusiness': ['name', 'address', 'telephone'],
+    'Organization': ['name', 'url', 'logo'],
+    'BreadcrumbList': ['itemListElement'],
+    'WebPage': ['name'],
+    'WebSite': ['name', 'url'],
+  };
+
+  const recommendedForPage: Record<string, string[]> = {
+    'product': ['Product', 'BreadcrumbList', 'Organization'],
+    'article': ['Article', 'BreadcrumbList', 'Organization'],
+    'service': ['LocalBusiness', 'FAQPage', 'BreadcrumbList'],
+    'homepage': ['Organization', 'WebSite', 'BreadcrumbList'],
+    'category': ['BreadcrumbList', 'Organization', 'CollectionPage'],
+    'landing': ['Organization', 'FAQPage', 'WebPage'],
+  };
+
+  for (const block of jsonLdBlocks) {
+    const content = block.replace(/<\/?script[^>]*>/gi, '');
+    try {
+      const data = JSON.parse(content);
+      const processSchema = (obj: any) => {
+        const type = obj['@type'];
+        if (!type) return;
+        const types = Array.isArray(type) ? type : [type];
+        for (const t of types) {
+          const fields = Object.keys(obj).filter(k => !k.startsWith('@'));
+          const required = requiredFieldsMap[t] || [];
+          const missing = required.filter(f => !obj[f]);
+          schemas.push({ type: t, fields, missingRequired: missing });
+        }
+        // Check @graph
+        if (obj['@graph'] && Array.isArray(obj['@graph'])) {
+          for (const item of obj['@graph']) processSchema(item);
+        }
+      };
+      processSchema(data);
+    } catch {}
+  }
+
+  const foundTypes = schemas.map(s => s.type);
+  const recommended = recommendedForPage[pageType] || recommendedForPage['homepage'] || [];
+  const missingSchemas = recommended.filter(r => !foundTypes.includes(r));
+
+  // Check for microdata
+  const hasMicrodata = /itemscope/i.test(html);
+  // Check for RDFa
+  const hasRdfa = /typeof\s*=\s*["']/i.test(html);
+
+  return { schemas, missingSchemas, recommended, hasMicrodata, hasRdfa, totalSchemas: schemas.length };
+}
+
+// ─── Content Metrics ───
+function calculateContentMetrics(html: string, markdown: string, targetWords: string[]) {
+  const bodyMatch = html.match(/<body[\s>]([\s\S]*)<\/body>/i);
+  const bodyHtml = bodyMatch ? bodyMatch[1] : html;
+
+  const wordCount = targetWords.length;
+  const htmlLength = html.length;
+  const textLength = markdown.replace(/[#*_\[\]()>|`~\n]/g, '').replace(/\s+/g, ' ').trim().length;
+  const textToHtmlRatio = htmlLength > 0 ? Math.round((textLength / htmlLength) * 100) : 0;
+
+  // Paragraphs
+  const paragraphs = (bodyHtml.match(/<p[\s>]/gi) || []).length;
+  // Lists
+  const ulCount = (bodyHtml.match(/<ul[\s>]/gi) || []).length;
+  const olCount = (bodyHtml.match(/<ol[\s>]/gi) || []).length;
+  const listItems = (bodyHtml.match(/<li[\s>]/gi) || []).length;
+  // Tables
+  const tables = (bodyHtml.match(/<table[\s>]/gi) || []).length;
+  // Videos
+  const videos = (bodyHtml.match(/<video[\s>]|<iframe[^>]*(?:youtube|vimeo|rutube)/gi) || []).length;
+  // Images
+  const images = (bodyHtml.match(/<img[\s]/gi) || []).length;
+  // Forms
+  const forms = (bodyHtml.match(/<form[\s>]/gi) || []).length;
+
+  // Media ratio (images + videos per 1000 words)
+  const mediaRatio = wordCount > 0 ? Math.round(((images + videos) / wordCount) * 1000 * 10) / 10 : 0;
+
+  return { wordCount, htmlLength, textLength, textToHtmlRatio, paragraphs, ulCount, olCount, listItems, tables, videos, images, forms, mediaRatio };
+}
+
+// ─── Internal Linking Score ───
+function calculateInternalLinkingScore(anchorsData: any[], url: string) {
+  const internal = anchorsData.filter((a: any) => a.type === 'internal');
+  const external = anchorsData.filter((a: any) => a.type === 'external');
+
+  const uniqueInternalHrefs = new Set(internal.map((a: any) => a.href));
+  const emptyAnchors = internal.filter((a: any) => !a.text || a.text === '(без текста)');
+  const nofollowInternal = internal.filter((a: any) => a.hasNofollow);
+
+  const issues: string[] = [];
+  let score = 100;
+
+  if (internal.length < 3) { issues.push('Менее 3 внутренних ссылок'); score -= 25; }
+  if (emptyAnchors.length > 0) { issues.push(`${emptyAnchors.length} ссылок без анкорного текста`); score -= 10; }
+  if (nofollowInternal.length > 0) { issues.push(`${nofollowInternal.length} внутренних ссылок с nofollow`); score -= 15; }
+  if (uniqueInternalHrefs.size < internal.length * 0.5 && internal.length > 5) { issues.push('Много дублирующихся внутренних ссылок'); score -= 10; }
+
+  return {
+    score: Math.max(0, score),
+    totalInternal: internal.length,
+    totalExternal: external.length,
+    uniqueInternalUrls: uniqueInternalHrefs.size,
+    emptyAnchors: emptyAnchors.length,
+    nofollowInternal: nofollowInternal.length,
+    issues,
+  };
+}
+
+// ─── SERP Snippet Preview ───
+function buildSnippetPreview(audit: any, url: string) {
+  const title = audit.metaTitle || '';
+  const description = audit.metaDesc || '';
+
+  const titleLength = title.length;
+  const descLength = description.length;
+
+  const titleTruncated = titleLength > 60 ? title.slice(0, 57) + '...' : title;
+  const descTruncated = descLength > 160 ? description.slice(0, 157) + '...' : description;
+
+  let displayUrl = url;
+  try { const u = new URL(url); displayUrl = u.hostname + u.pathname; } catch {}
+  if (displayUrl.length > 60) displayUrl = displayUrl.slice(0, 57) + '...';
+
+  const issues: string[] = [];
+  if (!title) issues.push('Нет meta title');
+  else if (titleLength < 30) issues.push(`Title слишком короткий (${titleLength} символов, рекомендуется 50-60)`);
+  else if (titleLength > 60) issues.push(`Title обрезается (${titleLength}/60 символов)`);
+
+  if (!description) issues.push('Нет meta description');
+  else if (descLength < 70) issues.push(`Description слишком короткий (${descLength} символов, рекомендуется 120-160)`);
+  else if (descLength > 160) issues.push(`Description обрезается (${descLength}/160 символов)`);
+
+  return {
+    title, titleTruncated, titleLength,
+    description, descTruncated, descLength,
+    displayUrl, issues,
+  };
+}
+
 // ─── Technical Audit (HTML-based, hard logic — no AI guessing) ───
 function technicalAudit(html: string, markdown: string) {
   // ── H1 tags: parse from HTML, filter hidden ones ──
