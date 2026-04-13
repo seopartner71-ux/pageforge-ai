@@ -1131,13 +1131,16 @@ Deno.serve(async (req) => {
     await setStage(si, "done", `${((Date.now() - t2) / 1000).toFixed(1)}s`);
     si++;
 
+    // Filter out empty competitor fetches
+    const validCompContents = compContents.filter(c => c.length > 0);
+    const validCompHtmls = compRawHtmls.filter(c => c.length > 0);
+
     // Extract competitor headings for cluster analysis
     if (clusterMode && clusterData) {
       const allHeadings: string[] = [];
-      for (const content of compContents) {
+      for (const content of validCompContents) {
         allHeadings.push(...extractHeadings(content));
       }
-      // Find headings that appear in 2+ competitors
       const headingCounts: Record<string, number> = {};
       for (const h of allHeadings) {
         const normalized = h.toLowerCase().trim();
