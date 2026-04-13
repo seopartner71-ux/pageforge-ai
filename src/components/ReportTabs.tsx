@@ -25,6 +25,7 @@ const tabKeys = [
   'zipf', 'images', 'anchors', 'pageSpeed', 'stealth',
   'readability', 'headings', 'snippetPreview', 'metaDirectives', 'urlStructure',
   'contentFreshness', 'schemaValidator', 'contentMetrics', 'internalLinking',
+  'competitorComparison',
   'dataSources', 'verification',
 ] as const;
 
