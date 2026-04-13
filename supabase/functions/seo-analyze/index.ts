@@ -1114,14 +1114,19 @@ Deno.serve(async (req) => {
     await setStage(si, "done", `${((Date.now() - t1) / 1000).toFixed(1)}s`);
     si++;
 
-    // ── Competitor Fetch ──
+    // ── Competitor Fetch (markdown + raw HTML in parallel) ──
     await setStage(si, "running");
     const t2 = Date.now();
     const fetchUrls = competitorUrls.slice(0, 10);
-    console.log(`Fetching ${fetchUrls.length} competitors in parallel...`);
+    console.log(`Fetching ${fetchUrls.length} competitors in parallel (markdown + HTML)...`);
     const compContents: string[] = [];
-    const compRes = await Promise.allSettled(fetchUrls.map(u => fetchPage(u)));
-    for (const r of compRes) { if (r.status === "fulfilled" && r.value) compContents.push(r.value); }
+    const compRawHtmls: string[] = [];
+    const [compMdRes, compHtmlRes] = await Promise.all([
+      Promise.allSettled(fetchUrls.map(u => fetchPage(u))),
+      Promise.allSettled(fetchUrls.map(u => fetchRawHtml(u))),
+    ]);
+    for (const r of compMdRes) { compContents.push(r.status === "fulfilled" && r.value ? r.value : ''); }
+    for (const r of compHtmlRes) { compRawHtmls.push(r.status === "fulfilled" && r.value ? r.value : ''); }
     perfTiming.competitor_fetch_ms = Date.now() - t2;
     await setStage(si, "done", `${((Date.now() - t2) / 1000).toFixed(1)}s`);
     si++;
