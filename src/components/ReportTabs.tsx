@@ -17,6 +17,7 @@ import {
 import {
   ReadabilityTab, HeadingsTab, SnippetPreviewTab, MetaDirectivesTab,
   UrlStructureTab, ContentFreshnessTab, SchemaValidatorTab, ContentMetricsTab, InternalLinkingTab,
+  CompetitorComparisonTab,
 } from '@/components/OnPageTabs';
 
 const tabKeys = [
