@@ -1161,7 +1161,7 @@ Deno.serve(async (req) => {
     await setStage(si, "running");
     const t3 = Date.now();
     const targetWords = tokenize(targetContent, isRU);
-    const compWordArrays = compContents.map(c => tokenize(c, isRU));
+    const compWordArrays = validCompContents.map(c => tokenize(c, isRU));
     const tfidfResults = calculateTFIDF(targetWords, compWordArrays);
     await setStage(si, "done", `${((Date.now() - t3) / 1000).toFixed(1)}s`);
     si++;
