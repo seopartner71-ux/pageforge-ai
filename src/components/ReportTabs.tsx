@@ -14,6 +14,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, LineChart, Line, Legend,
 } from 'recharts';
+import {
+  ReadabilityTab, HeadingsTab, SnippetPreviewTab, MetaDirectivesTab,
+  UrlStructureTab, ContentFreshnessTab, SchemaValidatorTab, ContentMetricsTab, InternalLinkingTab,
+} from '@/components/OnPageTabs';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, LineChart, Line, Legend,
+} from 'recharts';
 
 const tabKeys = [
   'aiReport', 'priorities', 'implementationPlan', 'blueprint', 'semanticMap', 'tfidf', 'ngrams',
