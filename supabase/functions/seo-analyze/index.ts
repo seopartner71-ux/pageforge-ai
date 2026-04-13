@@ -1199,7 +1199,75 @@ Deno.serve(async (req) => {
     const internalLinking = calculateInternalLinkingScore(anchorsData, url);
     const snippetPreview = buildSnippetPreview(audit, url);
 
+    // ── Competitor Comparison Metrics ──
+    const compMetrics = validCompHtmls.map((cHtml, idx) => {
+      const cHeadings = parseHeadingHierarchy(cHtml);
+      const cImages = parseImages(cHtml, fetchUrls[idx] || '');
+      const cSchema = validateSchemaMarkup(cHtml, pageType || 'homepage');
+      const cWords = compWordArrays[idx]?.length || 0;
+      const cBodyMatch = cHtml.match(/<body[\s>]([\s\S]*)<\/body>/i);
+      const cBody = cBodyMatch ? cBodyMatch[1] : cHtml;
+      const cParagraphs = (cBody.match(/<p[\s>]/gi) || []).length;
+      const cUl = (cBody.match(/<ul[\s>]/gi) || []).length;
+      const cOl = (cBody.match(/<ol[\s>]/gi) || []).length;
+      const cTables = (cBody.match(/<table[\s>]/gi) || []).length;
+      const cVideos = (cBody.match(/<video[\s>]|<iframe[^>]*(?:youtube|vimeo|rutube)/gi) || []).length;
+      return {
+        url: fetchUrls[idx] || '',
+        wordCount: cWords,
+        headingCount: cHeadings.headings.length,
+        h1Count: cHeadings.counts.h1,
+        h2Count: cHeadings.counts.h2,
+        h3Count: cHeadings.counts.h3,
+        imageCount: cImages.length,
+        imagesWithoutAlt: cImages.filter(img => !img.hasAlt).length,
+        schemaCount: cSchema.totalSchemas,
+        schemaTypes: cSchema.schemas.map(s => s.type),
+        paragraphs: cParagraphs,
+        lists: cUl + cOl,
+        tables: cTables,
+        videos: cVideos,
+      };
+    });
+
+    const medianOf = (arr: number[]) => {
+      const valid = arr.filter(n => n > 0);
+      if (!valid.length) return 0;
+      const s = valid.slice().sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+    };
+
+    const competitorComparison = {
+      competitors: compMetrics,
+      medians: {
+        wordCount: medianOf(compMetrics.map(c => c.wordCount)),
+        headingCount: medianOf(compMetrics.map(c => c.headingCount)),
+        h2Count: medianOf(compMetrics.map(c => c.h2Count)),
+        h3Count: medianOf(compMetrics.map(c => c.h3Count)),
+        imageCount: medianOf(compMetrics.map(c => c.imageCount)),
+        schemaCount: medianOf(compMetrics.map(c => c.schemaCount)),
+        paragraphs: medianOf(compMetrics.map(c => c.paragraphs)),
+        lists: medianOf(compMetrics.map(c => c.lists)),
+        tables: medianOf(compMetrics.map(c => c.tables)),
+        videos: medianOf(compMetrics.map(c => c.videos)),
+      },
+      yours: {
+        wordCount: targetWords.length,
+        headingCount: headingHierarchy.headings.length,
+        h2Count: headingHierarchy.counts.h2,
+        h3Count: headingHierarchy.counts.h3,
+        imageCount: imagesData.length,
+        schemaCount: schemaValidation.totalSchemas,
+        paragraphs: contentMetrics.paragraphs,
+        lists: contentMetrics.ulCount + contentMetrics.olCount,
+        tables: contentMetrics.tables,
+        videos: contentMetrics.videos,
+      },
+    };
+
     console.log(`On-Page modules: readability=${readabilityData.score}, urlScore=${urlStructure.score}, schemas=${schemaValidation.totalSchemas}, headings=${headingHierarchy.headings.length}`);
+    console.log(`Competitor comparison: ${compMetrics.length} competitors analyzed, median wordCount=${competitorComparison.medians.wordCount}`);
     await setStage(si, "done", `${((Date.now() - t6) / 1000).toFixed(1)}s`);
     si++;
 
