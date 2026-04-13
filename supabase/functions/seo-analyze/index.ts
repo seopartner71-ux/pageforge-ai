@@ -1361,7 +1361,7 @@ H1 видимых: ${audit.h1Count}${audit.h1Tags.length ? `\nТексты H1: $
 JSON-LD: ${audit.hasJsonLd ? "Есть" : "Нет"}, og:title: ${audit.hasOgTitle ? "Есть" : "Нет"}, og:description: ${audit.hasOgDesc ? "Есть" : "Нет"}, og:image: ${audit.hasOgImage ? "Есть" : "Нет"}
 Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: ${audit.metaDesc ? `"${audit.metaDesc.slice(0, 100)}..."` : "Нет"}, Canonical: ${audit.canonical || "Нет"}
 Проблемы: ${audit.issues.join("; ") || "нет"}
-Конкурентов: ${compContents.length}`;
+Конкурентов: ${validCompContents.length}`;
     } else {
       systemPrompt = `Ты — Senior SEO Architect, работающий по методологии "Доказательное SEO 2026".${regionContext} Данные:
 1. Markdown страницы (до 15000 символов)
@@ -1448,7 +1448,7 @@ H1 видимых: ${audit.h1Count}${audit.h1Tags.length ? `\nТексты H1: $
 JSON-LD: ${audit.hasJsonLd ? "Есть" : "Нет"}, og:title: ${audit.hasOgTitle ? "Есть" : "Нет"}, og:description: ${audit.hasOgDesc ? "Есть" : "Нет"}, og:image: ${audit.hasOgImage ? "Есть" : "Нет"}
 Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: ${audit.metaDesc ? `"${audit.metaDesc.slice(0, 100)}..."` : "Нет"}, Canonical: ${audit.canonical || "Нет"}
 Проблемы: ${audit.issues.join("; ") || "нет"}
-Конкурентов: ${compContents.length}`;
+Конкурентов: ${validCompContents.length}`;
     }
 
     console.log("Calling OpenRouter...");
