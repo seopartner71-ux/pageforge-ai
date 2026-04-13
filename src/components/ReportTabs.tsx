@@ -57,6 +57,7 @@ const tabLabels: Record<string, Record<TabKey, string>> = {
     urlStructure: '🔗 URL', contentFreshness: '📅 Freshness',
     schemaValidator: '📐 Schema', contentMetrics: '📊 Content Metrics',
     internalLinking: '🔗 Internal Links',
+    competitorComparison: '📊 vs TOP-10',
     dataSources: '📋 Sources', verification: '✅ Before/After',
   },
 };
