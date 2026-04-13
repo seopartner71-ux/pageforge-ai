@@ -2413,7 +2413,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
   // Split tabs into two rows matching the screenshot layout
   const row1Keys = ['optimizer', 'aiReport', 'priorities', 'blueprint', 'semanticMap', 'tfidf', 'ngrams', 'implementationPlan'] as const;
   const row2Keys = ['zipf', 'images', 'anchors', 'pageSpeed', 'stealth', 'readability', 'headings', 'snippetPreview'] as const;
-  const row3Keys = ['metaDirectives', 'urlStructure', 'contentFreshness', 'schemaValidator', 'contentMetrics', 'internalLinking', 'dataSources', 'verification'] as const;
+  const row3Keys = ['metaDirectives', 'urlStructure', 'contentFreshness', 'schemaValidator', 'contentMetrics', 'internalLinking', 'competitorComparison', 'dataSources', 'verification'] as const;
 
   const renderTrigger = (key: string) => (
     <TabsTrigger
