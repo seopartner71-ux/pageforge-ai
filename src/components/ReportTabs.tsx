@@ -17,7 +17,10 @@ import {
 
 const tabKeys = [
   'aiReport', 'priorities', 'implementationPlan', 'blueprint', 'semanticMap', 'tfidf', 'ngrams',
-  'zipf', 'images', 'anchors', 'pageSpeed', 'stealth', 'dataSources', 'verification',
+  'zipf', 'images', 'anchors', 'pageSpeed', 'stealth',
+  'readability', 'headings', 'snippetPreview', 'metaDirectives', 'urlStructure',
+  'contentFreshness', 'schemaValidator', 'contentMetrics', 'internalLinking',
+  'dataSources', 'verification',
 ] as const;
 
 type TabKey = typeof tabKeys[number];
@@ -29,6 +32,11 @@ const tabLabels: Record<string, Record<TabKey, string>> = {
     semanticMap: '🧬 Семантическая карта',
     tfidf: 'TF-IDF', ngrams: 'N-граммы', zipf: 'Закон Ципфа',
     images: 'Изображения', anchors: 'Анкоры', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
+    readability: '📖 Читабельность', headings: '🏗️ Заголовки H1-H6',
+    snippetPreview: '🔍 Сниппет', metaDirectives: '🏷️ Meta/Canonical',
+    urlStructure: '🔗 URL', contentFreshness: '📅 Свежесть',
+    schemaValidator: '📐 Schema', contentMetrics: '📊 Контент-метрики',
+    internalLinking: '🔗 Перелинковка',
     dataSources: '📋 Источники', verification: '✅ До/После',
   },
   en: {
@@ -37,6 +45,11 @@ const tabLabels: Record<string, Record<TabKey, string>> = {
     semanticMap: '🧬 Semantic Map',
     tfidf: 'TF-IDF', ngrams: 'N-grams', zipf: "Zipf's Law",
     images: 'Images', anchors: 'Anchors', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
+    readability: '📖 Readability', headings: '🏗️ Headings H1-H6',
+    snippetPreview: '🔍 Snippet', metaDirectives: '🏷️ Meta/Canonical',
+    urlStructure: '🔗 URL', contentFreshness: '📅 Freshness',
+    schemaValidator: '📐 Schema', contentMetrics: '📊 Content Metrics',
+    internalLinking: '🔗 Internal Links',
     dataSources: '📋 Sources', verification: '✅ Before/After',
   },
 };
