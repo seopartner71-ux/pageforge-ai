@@ -1528,6 +1528,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
         contentMetrics,
         internalLinking,
         snippetPreview,
+        competitorComparison,
         imagesData,
         anchorsData,
         competitorUrls: competitorUrls.slice(0, 10),
