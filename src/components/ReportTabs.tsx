@@ -2472,6 +2472,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
           schemaValidator: () => <SchemaValidatorTab data={data} />,
           contentMetrics: () => <ContentMetricsTab data={data} />,
           internalLinking: () => <InternalLinkingTab data={data} />,
+          competitorComparison: () => <CompetitorComparisonTab data={data} />,
           dataSources: () => <DataSourcesTab data={data} />,
           verification: () => <VerificationTab data={data} />,
         };
