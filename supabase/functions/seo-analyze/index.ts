@@ -1501,7 +1501,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
     // ── Competitor sources data (URL + snippet of content for transparency) ──
     const sourcesData = fetchUrls.map((u, i) => ({
       url: u,
-      fetched: i < compContents.length,
+      fetched: !!compContents[i],
       contentPreview: compContents[i]?.slice(0, 500) || '',
       rawContent: compContents[i]?.slice(0, 15000) || '',
       wordCount: compWordArrays[i]?.length || 0,
