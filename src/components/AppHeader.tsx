@@ -20,6 +20,7 @@ export function AppHeader() {
 
   const navItems = [
     { label: tr.nav.analysis, path: '/dashboard' },
+    { label: 'GEO Audit', path: '/geo-audit' },
     { label: tr.nav.history, path: '/history' },
     { label: tr.nav.account, path: '/account' },
     { label: tr.nav.pdfEditor, path: '/pdf-editor' },
