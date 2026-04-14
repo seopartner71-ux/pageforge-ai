@@ -292,9 +292,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
           <div className="space-y-2">
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-foreground whitespace-pre-line leading-tight">
+              <h1 className="text-2xl font-bold text-foreground whitespace-pre-line leading-tight">
                 {tr.tagline.split('\n')[0]}{' '}
-                <span className="gradient-text">{tr.tagline.split('\n')[1]}</span>
+                <span className="text-primary">{tr.tagline.split('\n')[1]}</span>
               </h1>
               <p className="text-sm text-muted-foreground mt-3 whitespace-pre-line leading-relaxed">{tr.taglineDesc}</p>
             </div>
