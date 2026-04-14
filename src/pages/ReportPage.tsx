@@ -24,11 +24,11 @@ interface ReportPageProps {
   onReanalyze?: (url: string) => void;
 }
 
-const scoreColors = [
-  'hsl(25, 95%, 53%)',
-  'hsl(210, 100%, 52%)',
-  'hsl(142, 71%, 45%)',
-  'hsl(280, 67%, 55%)',
+const scoreConfig = [
+  { color: '#F97316', gradient: ['#F97316', '#EF4444'] as [string, string], gId: 'g-seo' },
+  { color: '#00A3FF', gradient: ['#00A3FF', '#3B82F6'] as [string, string], gId: 'g-llm' },
+  { color: '#22C55E', gradient: ['#22C55E', '#10B981'] as [string, string], gId: 'g-human' },
+  { color: '#A855F7', gradient: ['#A855F7', '#8B5CF6'] as [string, string], gId: 'g-sge' },
 ];
 const scoreLabelsEN = ['SEO Health', 'LLM-Friendly', 'Human Touch', 'SGE Adapt'];
 const scoreLabelsRU = ['SEO Здоровье', 'LLM-Дружелюбность', 'Человечность', 'SGE Адаптация'];
@@ -157,11 +157,11 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
   const scores = results?.scores as any;
   const scoreLabels = lang === 'ru' ? scoreLabelsRU : scoreLabelsEN;
   const scoreCards = scores ? [
-    { score: scores.seoHealth || 0, label: scoreLabels[0], description: '', color: scoreColors[0] },
-    { score: scores.llmFriendly || 0, label: scoreLabels[1], description: '', color: scoreColors[1] },
-    { score: scores.humanTouch || 0, label: scoreLabels[2], description: '', color: scoreColors[2] },
-    { score: scores.sgeAdapt || 0, label: scoreLabels[3], description: '', color: scoreColors[3] },
-  ] : scoreLabels.map((l, i) => ({ score: 0, label: l, description: '', color: scoreColors[i] }));
+    { score: scores.seoHealth || 0, label: scoreLabels[0], description: '', color: scoreConfig[0].color, gradientColors: scoreConfig[0].gradient, gradientId: scoreConfig[0].gId },
+    { score: scores.llmFriendly || 0, label: scoreLabels[1], description: '', color: scoreConfig[1].color, gradientColors: scoreConfig[1].gradient, gradientId: scoreConfig[1].gId },
+    { score: scores.humanTouch || 0, label: scoreLabels[2], description: '', color: scoreConfig[2].color, gradientColors: scoreConfig[2].gradient, gradientId: scoreConfig[2].gId },
+    { score: scores.sgeAdapt || 0, label: scoreLabels[3], description: '', color: scoreConfig[3].color, gradientColors: scoreConfig[3].gradient, gradientId: scoreConfig[3].gId },
+  ] : scoreLabels.map((l, i) => ({ score: 0, label: l, description: '', color: scoreConfig[i].color, gradientColors: scoreConfig[i].gradient, gradientId: scoreConfig[i].gId }));
 
   const modules = (results?.modules as any[]) || [];
   const quickWins = (results?.quick_wins as any[]) || [];
@@ -187,7 +187,7 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
   return (
     <div className="report-shell">
       <AppHeader />
-      <main className="container space-y-10 py-8 lg:py-10">
+      <main className="container max-w-[1440px] space-y-14 py-10 lg:py-14">
         <div className="flex items-center justify-between gap-4">
           <Button variant="outline" size="sm" onClick={onBack} className="gap-2 rounded-full border-border/70 bg-card/60 px-4">
             <ArrowLeft className="w-4 h-4" />
@@ -291,11 +291,12 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
           </div>
         ) : (
           <>
-            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
               {scoreCards.map((s, i) => (
                 <ScoreGauge
                   key={i}
                   {...s}
+                  featured={i === 0}
                   clickable={i === 3}
                   onClick={i === 3 ? () => {
                     setActiveTab('aiReport');
@@ -305,7 +306,7 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
               ))}
             </section>
 
-            <section className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <section className="grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_340px]">
               <div className="space-y-6">
                 <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
                   <ReportTabs
