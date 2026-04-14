@@ -45,25 +45,25 @@ export function ReportSidebar({ modules, quickWins, modulesTitle, readyLabel, qu
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="report-soft-panel p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <div className="report-pill mb-3">{modulesTitle}</div>
-            <h3 className="text-base font-semibold text-foreground">Состояние анализа</h3>
+            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground/60 mb-2">{modulesTitle}</div>
+            <h3 className="text-sm font-bold text-foreground">Состояние анализа</h3>
           </div>
-          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
             ✓ {readyLabel}
           </span>
         </div>
-        <div className="space-y-2.5">
+        <div className="space-y-1.5">
           {modules.map((m, i) => (
-            <div key={i} className="flex items-center justify-between rounded-xl border border-border/50 bg-background/40 px-3 py-2.5">
-              <div className="flex items-center gap-3">
-                <div className={`h-2.5 w-2.5 rounded-full ${m.done ? 'bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.7)]' : 'bg-muted-foreground/70'}`} />
-                <span className="text-sm text-foreground">{m.name}</span>
+            <div key={i} className="flex items-center justify-between rounded-xl border border-border/30 bg-background/30 px-3 py-2">
+              <div className="flex items-center gap-2.5">
+                <div className={`h-2 w-2 rounded-full ${m.done ? 'bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]' : 'bg-muted-foreground/40'}`} />
+                <span className="text-[13px] text-foreground/90">{m.name}</span>
               </div>
-              <span className="text-xs text-muted-foreground">{m.time}</span>
+              <span className="text-[11px] text-muted-foreground/60 font-medium">{m.time}</span>
             </div>
           ))}
         </div>
