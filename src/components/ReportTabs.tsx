@@ -2564,30 +2564,25 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
     <TabsTrigger
       key={key}
       value={key}
-      className={`relative min-h-[48px] px-5 py-3 text-[13px] font-bold whitespace-nowrap transition-all duration-300
-        text-muted-foreground/70 hover:text-foreground/90
-        data-[state=active]:text-foreground data-[state=active]:bg-transparent
-        data-[state=active]:shadow-none rounded-none border-b-[2.5px] border-transparent
-        data-[state=active]:border-primary`}
+      className="relative min-h-[40px] px-4 py-2.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-200
+        text-muted-foreground hover:text-foreground
+        data-[state=active]:text-primary data-[state=active]:bg-transparent
+        data-[state=active]:shadow-none rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
     >
-      <span className="relative z-10 flex items-center gap-2">
-        {key === 'optimizer' && <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.9)] inline-block animate-pulse" />}
-        {key === 'aiReport' && <span className="h-2 w-2 rounded-full bg-accent shadow-[0_0_12px_hsl(var(--accent)/0.9)] inline-block" />}
-        {labels[key as keyof typeof labels]}
-      </span>
+      {labels[key as keyof typeof labels]}
     </TabsTrigger>
   );
 
   return (
     <Tabs value={activeTab || 'optimizer'} onValueChange={onTabChange} className="w-full">
-      <div className="report-soft-panel overflow-hidden border-border/70">
-        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent px-2 pt-2 rounded-none border-b border-border/40">
+      <div className="report-soft-panel overflow-hidden">
+        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent px-1 pt-1 rounded-none border-b border-border/60">
           {row1Keys.map(renderTrigger)}
         </TabsList>
-        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent px-2 rounded-none border-b border-border/40">
+        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent px-1 rounded-none border-b border-border/60">
           {row2Keys.map(renderTrigger)}
         </TabsList>
-        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent px-2 pb-2 rounded-none">
+        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent px-1 pb-1 rounded-none">
           {row3Keys.map(renderTrigger)}
         </TabsList>
       </div>
