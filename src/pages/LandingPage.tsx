@@ -49,19 +49,13 @@ function AnimatedGauge({ value, label, delay = 0 }: { value: number; label: stri
     <div ref={ref} className="flex flex-col items-center gap-3">
       <div className="relative w-32 h-32">
         <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-          <circle cx="60" cy="60" r={r} fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
+          <circle cx="60" cy="60" r={r} fill="none" stroke="hsl(var(--border))" strokeWidth="6" />
           <circle
             cx="60" cy="60" r={r} fill="none"
-            stroke="url(#gaugeGrad)" strokeWidth="8" strokeLinecap="round"
+            stroke="hsl(var(--primary))" strokeWidth="6" strokeLinecap="round"
             strokeDasharray={c} strokeDashoffset={offset}
             className="transition-all duration-1000 ease-out"
           />
-          <defs>
-            <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="hsl(217, 91%, 60%)" />
-              <stop offset="100%" stopColor="hsl(263, 70%, 58%)" />
-            </linearGradient>
-          </defs>
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-2xl font-bold text-foreground">{current}%</span>
@@ -140,20 +134,20 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* ── NAV ── */}
-      <header className="fixed top-0 inset-x-0 z-50 border-b border-border/20 bg-background/70 backdrop-blur-2xl">
-        <div className="container flex items-center justify-between h-16">
+      <header className="fixed top-0 inset-x-0 z-50 border-b border-border/60 bg-background/90 backdrop-blur-xl">
+        <div className="container flex items-center justify-between h-14">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
-              <Zap className="w-4 h-4 text-primary-foreground" />
+            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+              <Zap className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
-            <span className="font-bold text-lg gradient-text tracking-tight">SEO-Аудит</span>
+            <span className="font-bold text-foreground tracking-tight">SEO-Аудит</span>
           </div>
           <div className="flex items-center gap-3">
             <LangToggle />
-            <Button variant="ghost" size="sm" onClick={() => navigate('/auth')} className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/auth')} className="text-muted-foreground hover:text-foreground text-sm">
               {tr.login}
             </Button>
-            <Button size="sm" className="btn-gradient border-0" onClick={() => navigate('/auth?mode=signup')}>
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground border-0 text-sm" onClick={() => navigate('/auth?mode=signup')}>
               {l.ctaStart} <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </div>
@@ -161,35 +155,28 @@ export default function LandingPage() {
       </header>
 
       {/* ── HERO ── */}
-      <section className="pt-36 pb-24 relative">
-        {/* Background effects */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-primary/[0.04] blur-[150px]" />
-          <div className="absolute top-40 right-1/4 w-[400px] h-[400px] rounded-full bg-accent/[0.03] blur-[120px]" />
-          <div className="absolute inset-0 grid-pattern opacity-30" />
-        </div>
-
-        <div className="container relative text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border/40 bg-secondary/40 backdrop-blur text-sm text-muted-foreground mb-8 animate-shimmer">
-            <Zap className="w-3.5 h-3.5 text-primary" />
+      <section className="pt-32 pb-20 relative">
+        <div className="container relative text-center max-w-3xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-border/60 bg-secondary text-xs text-muted-foreground mb-8">
+            <Zap className="w-3 h-3 text-primary" />
             {l.heroSubtitle}
           </div>
 
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] mb-6">
-            <span className="text-gradient-muted">{lang === 'ru' ? 'Полный SEO-аудит' : 'Complete SEO audit'}</span>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] mb-6 text-foreground">
+            {lang === 'ru' ? 'Полный SEO-аудит' : 'Complete SEO audit'}
             <br />
-            <span className="gradient-text">{lang === 'ru' ? 'за 30 секунд' : 'in 30 seconds'}</span>
+            <span className="text-primary">{lang === 'ru' ? 'за 30 секунд' : 'in 30 seconds'}</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-base text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed">
             {l.heroDesc}
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" className="btn-gradient border-0 h-13 px-10 text-base font-semibold" onClick={() => navigate('/auth?mode=signup')}>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground border-0 h-12 px-8 text-sm font-semibold" onClick={() => navigate('/auth?mode=signup')}>
               {l.ctaStart} <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
-            <Button variant="outline" size="lg" className="h-13 px-8 text-base border-border/40 hover:border-primary/40 hover:bg-primary/5" onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
+            <Button variant="outline" size="lg" className="h-12 px-6 text-sm border-border/80 hover:border-primary/40 hover:bg-primary/5" onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
               {l.ctaLearn}
             </Button>
           </div>
@@ -242,9 +229,9 @@ export default function LandingPage() {
           </div>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {plans.map((plan) => (
-              <div key={plan.name} className={`glass-card p-8 relative flex flex-col ${plan.popular ? 'border-primary/40 glow-effect' : ''}`}>
+              <div key={plan.name} className={`glass-card p-7 relative flex flex-col ${plan.popular ? 'border-primary/40' : ''}`}>
                 {plan.popular && plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full btn-gradient text-xs font-semibold">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold">
                     {plan.badge}
                   </div>
                 )}
@@ -292,25 +279,22 @@ export default function LandingPage() {
       {/* ── CTA ── */}
       <Section className="py-24">
         <div className="container">
-          <div className="glass-card p-14 text-center max-w-2xl mx-auto relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-accent/[0.04]" />
-            <div className="relative">
-              <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-foreground">
-                {lang === 'ru' ? 'Готовы к аудиту?' : 'Ready for an audit?'}
-              </h2>
-              <p className="text-muted-foreground mb-8">
-                {lang === 'ru' ? '3 бесплатных анализа. Без привязки карты.' : '3 free analyses. No credit card required.'}
-              </p>
-              <Button size="lg" className="btn-gradient border-0 h-13 px-10 text-base font-semibold" onClick={() => navigate('/auth?mode=signup')}>
-                {l.ctaStart} <ArrowRight className="w-4 h-4 ml-1.5" />
-              </Button>
-            </div>
+          <div className="glass-card p-12 text-center max-w-2xl mx-auto">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-foreground">
+              {lang === 'ru' ? 'Готовы к аудиту?' : 'Ready for an audit?'}
+            </h2>
+            <p className="text-muted-foreground mb-8">
+              {lang === 'ru' ? '3 бесплатных анализа. Без привязки карты.' : '3 free analyses. No credit card required.'}
+            </p>
+            <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground border-0 h-12 px-8 text-sm font-semibold" onClick={() => navigate('/auth?mode=signup')}>
+              {l.ctaStart} <ArrowRight className="w-4 h-4 ml-1.5" />
+            </Button>
           </div>
         </div>
       </Section>
 
       {/* ── FOOTER ── */}
-      <footer className="py-10 border-t border-border/20">
+      <footer className="py-8 border-t border-border/60">
         <div className="container">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">

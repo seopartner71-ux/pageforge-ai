@@ -6,12 +6,7 @@ import { Loader2, Lock } from 'lucide-react';
 
 const ReportTabs = lazy(() => import('@/components/ReportTabs').then((m) => ({ default: m.ReportTabs })));
 
-const scoreColors = [
-  'hsl(25, 95%, 53%)',
-  'hsl(210, 100%, 52%)',
-  'hsl(142, 71%, 45%)',
-  'hsl(280, 67%, 55%)',
-];
+const scoreColors = ['#3B82F6', '#60A5FA', '#34D399', '#A78BFA'];
 const scoreLabels = ['SEO Health', 'LLM-Friendly', 'Human Touch', 'SGE Adapt'];
 
 export default function SharedReportPage() {
@@ -81,10 +76,10 @@ export default function SharedReportPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border/40 bg-card/50 backdrop-blur-sm">
+      <header className="border-b border-border/80 bg-card">
         <div className="container flex items-center justify-between py-3">
-          <span className="font-bold text-sm gradient-text">SEO-Аудит</span>
-          <span className="text-xs text-muted-foreground px-2 py-1 bg-secondary rounded">Read-Only</span>
+          <span className="font-semibold text-sm text-foreground">SEO-Аудит</span>
+          <span className="text-xs text-muted-foreground px-2 py-0.5 bg-secondary rounded-md">Read-Only</span>
         </div>
       </header>
 
@@ -110,9 +105,9 @@ export default function SharedReportPage() {
         </Suspense>
       </main>
 
-      <footer className="border-t border-border/40 py-4 text-center">
+      <footer className="border-t border-border/80 py-4 text-center">
         <p className="text-xs text-muted-foreground">
-          Powered by <span className="gradient-text font-semibold">SEO-Аудит</span>
+          Powered by <span className="text-foreground font-medium">SEO-Аудит</span>
         </p>
       </footer>
     </div>

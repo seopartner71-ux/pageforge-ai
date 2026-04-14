@@ -98,17 +98,13 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Left — branding + demo */}
-      <div className="hidden lg:flex flex-col justify-between w-[45%] p-10 relative overflow-hidden border-r border-border/20">
-        <div className="absolute inset-0 grid-pattern opacity-20" />
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full bg-primary/[0.03] blur-[120px]" />
-        <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] rounded-full bg-accent/[0.03] blur-[100px]" />
-
+      <div className="hidden lg:flex flex-col justify-between w-[45%] p-10 relative overflow-hidden border-r border-border/80">
         <div className="relative">
-          <Link to="/" className="inline-flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
-              <Zap className="w-4 h-4 text-primary-foreground" />
+          <Link to="/" className="inline-flex items-center gap-2">
+            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+              <Zap className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
-            <span className="font-bold text-lg gradient-text tracking-tight">SEO-Аудит</span>
+            <span className="font-semibold text-foreground tracking-tight">SEO-Аудит</span>
           </Link>
         </div>
 
@@ -139,13 +135,13 @@ export default function AuthPage() {
 
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2.5 mb-10">
+          <div className="lg:hidden flex items-center gap-2 mb-10">
             <Link to="/">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-primary-foreground" />
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+                  <Zap className="w-3.5 h-3.5 text-primary-foreground" />
                 </div>
-                <span className="font-bold text-lg gradient-text tracking-tight">SEO-Аудит</span>
+                <span className="font-semibold text-foreground tracking-tight">SEO-Аудит</span>
               </div>
             </Link>
           </div>
@@ -211,7 +207,7 @@ export default function AuthPage() {
                 </button>
               </div>
             </div>
-            <Button type="submit" disabled={loading} className="w-full btn-gradient border-0 h-11 text-sm font-semibold mt-2">
+            <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground border-0 h-11 text-sm font-semibold mt-2">
               {loading ? '...' : isLogin ? a.signInBtn : a.signUpBtn}
             </Button>
           </form>

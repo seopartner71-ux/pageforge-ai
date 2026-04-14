@@ -27,29 +27,28 @@ export function AppHeader() {
   ];
 
   return (
-    <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-      <div className="container flex items-center h-14">
+    <header className="border-b border-border/80 bg-card sticky top-0 z-50">
+      <div className="container flex items-center h-12">
         {/* Left: Logo */}
         <div className="flex items-center gap-2 shrink-0 mr-6">
           <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => navigate('/dashboard')}>
-            <div className="w-7 h-7 rounded-lg btn-gradient flex items-center justify-center">
-              <Zap className="w-3.5 h-3.5" />
+            <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
+              <Zap className="w-3 h-3 text-primary-foreground" />
             </div>
-            <span className="font-bold gradient-text whitespace-nowrap">{tr.appName}</span>
-            <span className="text-xs text-muted-foreground hidden lg:inline whitespace-nowrap">{tr.subtitle}</span>
+            <span className="font-semibold text-sm text-foreground whitespace-nowrap">{tr.appName}</span>
           </div>
         </div>
 
         {/* Center: Navigation */}
-        <nav className="hidden md:flex items-center justify-center gap-6 flex-1">
+        <nav className="hidden md:flex items-center justify-center gap-1 flex-1">
           {navItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`text-sm whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 text-[13px] rounded-md whitespace-nowrap transition-colors ${
                 location.pathname === item.path
-                  ? 'font-medium text-foreground border-b-2 border-primary pb-0.5'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'font-medium text-foreground bg-secondary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
               }`}
             >
               {item.label}

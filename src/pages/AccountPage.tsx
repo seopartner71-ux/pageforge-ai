@@ -216,12 +216,12 @@ export default function AccountPage() {
         <div className="glass-card p-6">
           <h2 className="text-sm font-semibold tracking-widest text-muted-foreground mb-4">{tr.stats}</h2>
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-secondary/50 rounded-xl p-4 text-center">
-              <p className="text-3xl font-bold gradient-text">{stats.total}</p>
+            <div className="bg-secondary rounded-xl p-4 text-center">
+              <p className="text-3xl font-bold text-primary">{stats.total}</p>
               <p className="text-xs text-muted-foreground mt-1">{tr.totalAnalyses}</p>
             </div>
-            <div className="bg-secondary/50 rounded-xl p-4 text-center">
-              <p className="text-3xl font-bold gradient-text">{stats.month}</p>
+            <div className="bg-secondary rounded-xl p-4 text-center">
+              <p className="text-3xl font-bold text-primary">{stats.month}</p>
               <p className="text-xs text-muted-foreground mt-1">{tr.thisMonth}</p>
             </div>
           </div>
