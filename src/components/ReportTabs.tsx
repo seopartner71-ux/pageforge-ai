@@ -2584,7 +2584,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
 
       {tabKeys.map((key) => {
         const tabComponents: Record<TabKey, () => JSX.Element> = {
-          aiReport: () => <AiReportTab data={data} scrollToSge={scrollToSge} onSgeScrolled={onSgeScrolled} />,
+          aiReport: () => <AiReportTab data={data} scrollToSge={scrollToSge} onSgeScrolled={onSgeScrolled} onSwitchToForge={() => onTabChange?.('optimizer')} />,
           priorities: () => <PrioritiesTab data={data} />,
           implementationPlan: () => <ImplementationPlanTab data={data} />,
           blueprint: () => <BlueprintTab data={data} />,
@@ -2607,7 +2607,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
           internalLinking: () => <InternalLinkingTab data={data} />,
           competitorComparison: () => <CompetitorComparisonTab data={data} />,
           dataSources: () => <DataSourcesTab data={data} />,
-          verification: () => <VerificationTab data={data} />,
+          verification: () => <VerificationTab data={{ ...data, _scores: scores }} analysisId={analysisId} onReanalyze={onReanalyze} />,
         };
         const Component = tabComponents[key];
         return (
