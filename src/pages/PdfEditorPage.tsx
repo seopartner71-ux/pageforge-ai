@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { downloadPdf } from '@/lib/downloadPdf';
+import { rewritePublicStorageUrl } from '@/lib/backendProxy';
 import {
   FileText, Download, Loader2, Upload, X, Save, Plus, GripVertical,
   Palette, Type, Image, Maximize, Sun, Moon, Trash2
@@ -180,7 +181,7 @@ export default function PdfEditorPage() {
           font_family: d.font_family,
           font_sizes: d.font_sizes as any,
           margins: d.margins as any,
-          logo_url: d.logo_url,
+          logo_url: rewritePublicStorageUrl(d.logo_url),
           company_name: d.company_name || '',
           enabled_sections: (d.enabled_sections || []) as SectionKey[],
           section_order: (d.section_order || [...ALL_SECTIONS]) as SectionKey[],
@@ -318,7 +319,7 @@ export default function PdfEditorPage() {
       const { error } = await supabase.storage.from('report-logos').upload(path, file, { upsert: true });
       if (error) throw error;
       const { data: { publicUrl } } = supabase.storage.from('report-logos').getPublicUrl(path);
-      update({ logo_url: publicUrl });
+      update({ logo_url: rewritePublicStorageUrl(publicUrl) });
       toast.success(lang === 'ru' ? 'Логотип загружен' : 'Logo uploaded');
     } catch (err: any) {
       toast.error(err.message);
@@ -502,7 +503,7 @@ export default function PdfEditorPage() {
               {/* Cover */}
               <div className="text-center mb-8 pt-12">
                 {tpl.logo_url && (
-                  <img src={tpl.logo_url} alt="Logo" className="mx-auto mb-4" style={{ maxHeight: 60, maxWidth: 180 }} />
+                  <img src={rewritePublicStorageUrl(tpl.logo_url) || undefined} alt="Logo" className="mx-auto mb-4" style={{ maxHeight: 60, maxWidth: 180 }} />
                 )}
                 <h1 style={{ fontSize: tpl.font_sizes.heading + 6, color: tpl.primary_color, fontWeight: 700 }}>
                   SEO Report
@@ -681,7 +682,7 @@ export default function PdfEditorPage() {
               <CardContent className="px-4 pb-4 space-y-3">
                 {tpl.logo_url ? (
                   <div className="flex items-center gap-2 p-2 rounded border bg-muted/20">
-                    <img src={tpl.logo_url} alt="Logo" className="h-8 max-w-[100px] object-contain" />
+                    <img src={rewritePublicStorageUrl(tpl.logo_url) || undefined} alt="Logo" className="h-8 max-w-[100px] object-contain" />
                     <Button variant="ghost" size="sm" className="text-xs ml-auto" onClick={() => update({ logo_url: null })}>
                       <X className="w-3 h-3 mr-1" /> {t.removeLogo}
                     </Button>
