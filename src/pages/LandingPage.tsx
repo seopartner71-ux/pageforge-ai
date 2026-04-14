@@ -1,152 +1,212 @@
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useLang } from '@/contexts/LangContext';
 import { LangToggle } from '@/components/LangToggle';
 import { Button } from '@/components/ui/button';
 import {
-  Zap, BarChart3, Search, FileText, Shield, Globe, Brain,
-  ArrowRight, CheckCircle2, Layers, TrendingUp, Eye, Radar,
-  FileSpreadsheet, Users, Lock
+  Zap, ArrowRight, BarChart3, Globe, FileText, Layers,
+  Check, ChevronDown, ChevronUp
 } from 'lucide-react';
 
-const featuresRu = [
-  { icon: BarChart3, title: 'TF·IDF анализ', desc: 'Сравнение плотности ключевых слов с медианой ТОП-10 конкурентов' },
-  { icon: TrendingUp, title: 'Закон Ципфа', desc: 'Оценка естественности текста через частотное распределение слов' },
-  { icon: Layers, title: 'N-граммы', desc: 'Биграммы и триграммы с визуализацией и сравнением с конкурентами' },
-  { icon: Brain, title: 'Topical Gap', desc: 'Поиск пропущенных сущностей и тем по сравнению с лидерами выдачи' },
-  { icon: Globe, title: 'GEO Score', desc: 'Готовность страницы к AI Overview и SGE — оценка по 9 критериям' },
-  { icon: FileText, title: 'Golden Source Blueprint', desc: 'AI генерирует идеальную структуру страницы на основе ТОП-10' },
-  { icon: Eye, title: 'Читабельность', desc: 'Flesch-Kincaid / Оборнева индексы, длина предложений, абзацев' },
-  { icon: Search, title: 'SERP Preview', desc: 'Предпросмотр сниппета в Google: title, description, URL' },
-  { icon: Shield, title: 'Schema Validator', desc: 'Проверка структурированных данных — Article, Product, FAQ, HowTo' },
-  { icon: Radar, title: 'vs ТОП-10', desc: 'Радарная диаграмма и таблица сравнения метрик с конкурентами' },
-  { icon: FileSpreadsheet, title: 'Excel & PDF экспорт', desc: 'Настраиваемый экспорт отчётов с выбором листов и колонок' },
-  { icon: Lock, title: 'Stealth Engine', desc: 'Антидетект-оптимизация: рекомендации по снижению следов SEO' },
-];
+/* ──────────────────── Intersection Observer hook ──────────────────── */
+function useInView(threshold = 0.15) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+  return { ref, visible };
+}
 
-const featuresEn = [
-  { icon: BarChart3, title: 'TF·IDF Analysis', desc: 'Keyword density comparison against TOP-10 competitor median' },
-  { icon: TrendingUp, title: "Zipf's Law", desc: 'Text naturalness assessment via word frequency distribution' },
-  { icon: Layers, title: 'N-grams', desc: 'Bigrams and trigrams with visualization and competitor comparison' },
-  { icon: Brain, title: 'Topical Gap', desc: 'Find missing entities and topics compared to SERP leaders' },
-  { icon: Globe, title: 'GEO Score', desc: 'Page readiness for AI Overview & SGE — 9-criteria score' },
-  { icon: FileText, title: 'Golden Source Blueprint', desc: 'AI generates ideal page structure based on TOP-10' },
-  { icon: Eye, title: 'Readability', desc: 'Flesch-Kincaid indices, sentence length, paragraph analysis' },
-  { icon: Search, title: 'SERP Preview', desc: 'Google snippet preview: title, description, URL structure' },
-  { icon: Shield, title: 'Schema Validator', desc: 'Structured data validation — Article, Product, FAQ, HowTo' },
-  { icon: Radar, title: 'vs TOP-10', desc: 'Radar chart and comparison table of metrics vs competitors' },
-  { icon: FileSpreadsheet, title: 'Excel & PDF Export', desc: 'Customizable report export with sheet and column selection' },
-  { icon: Lock, title: 'Stealth Engine', desc: 'Anti-detect optimization: reduce SEO footprint recommendations' },
-];
+/* ──────────────────── Animated counter ──────────────────── */
+function AnimatedGauge({ value, label, delay = 0 }: { value: number; label: string; delay?: number }) {
+  const [current, setCurrent] = useState(0);
+  const { ref, visible } = useInView(0.3);
 
-const statsRu = [
-  { value: '12+', label: 'Модулей анализа' },
-  { value: '5', label: 'Параллельных AI-потоков' },
-  { value: 'ТОП-10', label: 'Бенчмарк конкурентов' },
-  { value: '< 60с', label: 'Время полного аудита' },
-];
+  useEffect(() => {
+    if (!visible) return;
+    const timeout = setTimeout(() => {
+      let start = 0;
+      const step = () => {
+        start += Math.ceil(value / 40);
+        if (start >= value) { setCurrent(value); return; }
+        setCurrent(start);
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }, delay);
+    return () => clearTimeout(timeout);
+  }, [visible, value, delay]);
 
-const statsEn = [
-  { value: '12+', label: 'Analysis Modules' },
-  { value: '5', label: 'Parallel AI Streams' },
-  { value: 'TOP-10', label: 'Competitor Benchmark' },
-  { value: '< 60s', label: 'Full Audit Time' },
-];
-
-export default function LandingPage() {
-  const { lang } = useLang();
-  const navigate = useNavigate();
-  const isRu = lang === 'ru';
-  const features = isRu ? featuresRu : featuresEn;
-  const stats = isRu ? statsRu : statsEn;
+  const r = 54, c = 2 * Math.PI * r;
+  const offset = c - (current / 100) * c;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Nav */}
-      <header className="fixed top-0 inset-x-0 z-50 border-b border-border/30 bg-background/80 backdrop-blur-xl">
+    <div ref={ref} className="flex flex-col items-center gap-3">
+      <div className="relative w-32 h-32">
+        <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+          <circle cx="60" cy="60" r={r} fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
+          <circle
+            cx="60" cy="60" r={r} fill="none"
+            stroke="url(#gaugeGrad)" strokeWidth="8" strokeLinecap="round"
+            strokeDasharray={c} strokeDashoffset={offset}
+            className="transition-all duration-1000 ease-out"
+          />
+          <defs>
+            <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="hsl(217, 91%, 60%)" />
+              <stop offset="100%" stopColor="hsl(263, 70%, 58%)" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-2xl font-bold text-foreground">{current}%</span>
+        </div>
+      </div>
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+/* ──────────────────── FAQ Accordion ──────────────────── */
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-border/40">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between py-5 text-left group">
+        <span className="font-medium text-foreground pr-4 group-hover:text-primary transition-colors">{q}</span>
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+      </button>
+      {open && <p className="pb-5 text-sm text-muted-foreground leading-relaxed">{a}</p>}
+    </div>
+  );
+}
+
+/* ──────────────────── Section wrapper ──────────────────── */
+function Section({ children, className = '', id }: { children: React.ReactNode; className?: string; id?: string }) {
+  const { ref, visible } = useInView();
+  return (
+    <section id={id} ref={ref} className={`transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${className}`}>
+      {children}
+    </section>
+  );
+}
+
+/* ──────────────────── LANDING ──────────────────── */
+export default function LandingPage() {
+  const { lang, tr } = useLang();
+  const navigate = useNavigate();
+  const l = tr.landing;
+
+  const featureCards = [
+    { icon: BarChart3, title: l.features.tfidf, desc: l.features.tfidfDesc },
+    { icon: Globe, title: l.features.geo, desc: l.features.geoDesc },
+    { icon: FileText, title: l.features.blueprint, desc: l.features.blueprintDesc },
+    { icon: Layers, title: l.features.modules, desc: l.features.modulesDesc },
+  ];
+
+  const plans = [
+    {
+      name: l.pricing.starter,
+      price: l.pricing.starterPrice,
+      period: l.pricing.starterPeriod,
+      feature: l.pricing.starterFeature,
+      items: l.pricing.features,
+      popular: false,
+    },
+    {
+      name: l.pricing.pro,
+      price: l.pricing.proPrice,
+      period: l.pricing.proPeriod,
+      feature: l.pricing.proFeature,
+      items: [...l.pricing.features, ...l.pricing.proExtra],
+      popular: true,
+      badge: l.pricing.proBadge,
+    },
+    {
+      name: l.pricing.agency,
+      price: l.pricing.agencyPrice,
+      period: l.pricing.agencyPeriod,
+      feature: l.pricing.agencyFeature,
+      items: [...l.pricing.features, ...l.pricing.agencyExtra],
+      popular: false,
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+      {/* ── NAV ── */}
+      <header className="fixed top-0 inset-x-0 z-50 border-b border-border/20 bg-background/70 backdrop-blur-2xl">
         <div className="container flex items-center justify-between h-16">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
               <Zap className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-bold text-lg gradient-text">PageForge AI</span>
+            <span className="font-bold text-lg gradient-text tracking-tight">PageForge AI</span>
           </div>
           <div className="flex items-center gap-3">
             <LangToggle />
-            <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>
-              {isRu ? 'Войти' : 'Sign In'}
+            <Button variant="ghost" size="sm" onClick={() => navigate('/auth')} className="text-muted-foreground hover:text-foreground">
+              {tr.login}
             </Button>
             <Button size="sm" className="btn-gradient border-0" onClick={() => navigate('/auth?mode=signup')}>
-              {isRu ? 'Начать бесплатно' : 'Get Started'}
+              {l.ctaStart} <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="pt-32 pb-20 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px]" />
+      {/* ── HERO ── */}
+      <section className="pt-36 pb-24 relative">
+        {/* Background effects */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-primary/[0.04] blur-[150px]" />
+          <div className="absolute top-40 right-1/4 w-[400px] h-[400px] rounded-full bg-accent/[0.03] blur-[120px]" />
+          <div className="absolute inset-0 grid-pattern opacity-30" />
         </div>
+
         <div className="container relative text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border/50 bg-secondary/50 text-sm text-muted-foreground mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border/40 bg-secondary/40 backdrop-blur text-sm text-muted-foreground mb-8 animate-shimmer">
             <Zap className="w-3.5 h-3.5 text-primary" />
-            {isRu ? 'On-Page SEO + GEO оптимизация' : 'On-Page SEO + GEO Optimization'}
+            {l.heroSubtitle}
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
-            {isRu ? (
-              <>Глубокий аудит страницы<br /><span className="gradient-text">с ИИ-рекомендациями</span></>
-            ) : (
-              <>Deep Page Audit<br /><span className="gradient-text">with AI Recommendations</span></>
-            )}
+
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] mb-6">
+            <span className="text-gradient-muted">{lang === 'ru' ? 'Полный SEO-аудит' : 'Complete SEO audit'}</span>
+            <br />
+            <span className="gradient-text">{lang === 'ru' ? 'за 30 секунд' : 'in 30 seconds'}</span>
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            {isRu
-              ? 'TF·IDF · Закон Ципфа · N-граммы · Topical Gap · GEO Score · Golden Source Blueprint — 12 модулей анализа через 5 параллельных AI-потоков'
-              : "TF·IDF · Zipf's Law · N-grams · Topical Gap · GEO Score · Golden Source Blueprint — 12 analysis modules via 5 parallel AI streams"}
+
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+            {l.heroDesc}
           </p>
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" className="btn-gradient border-0 h-12 px-8 text-base" onClick={() => navigate('/auth?mode=signup')}>
-              {isRu ? 'Попробовать бесплатно' : 'Try for Free'}
-              <ArrowRight className="w-4 h-4 ml-1" />
+            <Button size="lg" className="btn-gradient border-0 h-13 px-10 text-base font-semibold" onClick={() => navigate('/auth?mode=signup')}>
+              {l.ctaStart} <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
-            <Button variant="outline" size="lg" className="h-12 px-8 text-base" onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
-              {isRu ? 'Узнать больше' : 'Learn More'}
+            <Button variant="outline" size="lg" className="h-13 px-8 text-base border-border/40 hover:border-primary/40 hover:bg-primary/5" onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
+              {l.ctaLearn}
             </Button>
           </div>
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="py-12 border-y border-border/30">
+      {/* ── FEATURES ── */}
+      <Section id="features" className="py-24">
         <div className="container">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((s, i) => (
-              <div key={i} className="text-center">
-                <div className="text-3xl font-bold gradient-text mb-1">{s.value}</div>
-                <div className="text-sm text-muted-foreground">{s.label}</div>
-              </div>
-            ))}
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">{l.features.title}</h2>
+            <p className="text-muted-foreground max-w-lg mx-auto">{l.features.subtitle}</p>
           </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="py-20">
-        <div className="container">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold mb-3">
-              {isRu ? 'Полный арсенал On-Page SEO' : 'Complete On-Page SEO Arsenal'}
-            </h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              {isRu
-                ? 'Каждый модуль сравнивает вашу страницу с ТОП-10 конкурентов и даёт конкретные рекомендации'
-                : 'Every module compares your page against TOP-10 competitors and provides actionable recommendations'}
-            </p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {features.map((f, i) => (
-              <div key={i} className="glass-card p-6 hover:border-primary/30 transition-colors group">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {featureCards.map((f, i) => (
+              <div key={i} className="glass-card-hover p-6 group">
+                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/20 transition-colors">
                   <f.icon className="w-5 h-5 text-primary" />
                 </div>
                 <h3 className="font-semibold text-foreground mb-2">{f.title}</h3>
@@ -155,71 +215,114 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-      </section>
+      </Section>
 
-      {/* How it works */}
-      <section className="py-20 border-t border-border/30">
-        <div className="container max-w-3xl">
-          <h2 className="text-3xl font-bold text-center mb-14">
-            {isRu ? 'Как это работает' : 'How It Works'}
-          </h2>
-          <div className="space-y-8">
-            {(isRu
-              ? [
-                  { step: '01', title: 'Введите URL', desc: 'Укажите страницу для анализа и выберите тип контента' },
-                  { step: '02', title: 'Конкуренты найдены', desc: 'Система автоматически находит ТОП-10 через SERP API или вы добавляете вручную' },
-                  { step: '03', title: 'AI-анализ', desc: '5 параллельных модулей анализируют контент, структуру и техническую оптимизацию' },
-                  { step: '04', title: 'Отчёт готов', desc: 'Получите детальный отчёт со скорами, рекомендациями и экспортом в Excel/PDF' },
-                ]
-              : [
-                  { step: '01', title: 'Enter URL', desc: 'Specify the page to analyze and select content type' },
-                  { step: '02', title: 'Competitors Found', desc: 'System auto-finds TOP-10 via SERP API or you add manually' },
-                  { step: '03', title: 'AI Analysis', desc: '5 parallel modules analyze content, structure and technical optimization' },
-                  { step: '04', title: 'Report Ready', desc: 'Get a detailed report with scores, recommendations and Excel/PDF export' },
-                ]
-            ).map((item) => (
-              <div key={item.step} className="flex gap-5 items-start">
-                <div className="shrink-0 w-12 h-12 rounded-xl btn-gradient flex items-center justify-center text-sm font-bold text-primary-foreground">
-                  {item.step}
+      {/* ── METRICS ── */}
+      <Section className="py-24 border-t border-border/20">
+        <div className="container">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">{l.metrics.title}</h2>
+            <p className="text-muted-foreground">{l.metrics.subtitle}</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto">
+            <AnimatedGauge value={87} label={l.metrics.seoHealth} delay={0} />
+            <AnimatedGauge value={72} label={l.metrics.llm} delay={200} />
+            <AnimatedGauge value={94} label={l.metrics.humanness} delay={400} />
+            <AnimatedGauge value={68} label={l.metrics.sge} delay={600} />
+          </div>
+        </div>
+      </Section>
+
+      {/* ── PRICING ── */}
+      <Section className="py-24 border-t border-border/20">
+        <div className="container">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">{l.pricing.title}</h2>
+            <p className="text-muted-foreground">{l.pricing.subtitle}</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {plans.map((plan) => (
+              <div key={plan.name} className={`glass-card p-8 relative flex flex-col ${plan.popular ? 'border-primary/40 glow-effect' : ''}`}>
+                {plan.popular && plan.badge && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full btn-gradient text-xs font-semibold">
+                    {plan.badge}
+                  </div>
+                )}
+                <div className="mb-6">
+                  <div className="text-xs font-semibold tracking-wider text-muted-foreground mb-3">{plan.name}</div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-extrabold text-foreground">{plan.price}</span>
+                    <span className="text-muted-foreground text-sm">{plan.period}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">{plan.feature}</p>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-1">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground">{item.desc}</p>
-                </div>
+                <ul className="space-y-3 mb-8 flex-1">
+                  {plan.items.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                      <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  className={`w-full h-11 ${plan.popular ? 'btn-gradient border-0' : 'border-border/40 hover:border-primary/40 hover:bg-primary/5'}`}
+                  variant={plan.popular ? 'default' : 'outline'}
+                  onClick={() => navigate('/auth?mode=signup')}
+                >
+                  {l.pricing.chooseBtn}
+                </Button>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </Section>
 
-      {/* CTA */}
-      <section className="py-20">
-        <div className="container">
-          <div className="glass-card p-12 text-center max-w-2xl mx-auto glow-effect">
-            <h2 className="text-2xl font-bold mb-3">
-              {isRu ? 'Готовы к аудиту?' : 'Ready for an Audit?'}
-            </h2>
-            <p className="text-muted-foreground mb-8">
-              {isRu
-                ? 'Зарегистрируйтесь и запустите первый анализ за 60 секунд'
-                : 'Sign up and launch your first analysis in 60 seconds'}
-            </p>
-            <Button size="lg" className="btn-gradient border-0 h-12 px-8 text-base" onClick={() => navigate('/auth?mode=signup')}>
-              {isRu ? 'Начать бесплатно' : 'Get Started Free'}
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+      {/* ── FAQ ── */}
+      <Section className="py-24 border-t border-border/20">
+        <div className="container max-w-2xl">
+          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12 text-foreground">{l.faq.title}</h2>
+          <div>
+            {l.faq.items.map((item, i) => (
+              <FaqItem key={i} q={item.q} a={item.a} />
+            ))}
           </div>
         </div>
-      </section>
+      </Section>
 
-      {/* Footer */}
-      <footer className="py-8 border-t border-border/30">
-        <div className="container flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Zap className="w-3.5 h-3.5 text-primary" />
-            <span>PageForge AI</span>
+      {/* ── CTA ── */}
+      <Section className="py-24">
+        <div className="container">
+          <div className="glass-card p-14 text-center max-w-2xl mx-auto relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-accent/[0.04]" />
+            <div className="relative">
+              <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-foreground">
+                {lang === 'ru' ? 'Готовы к аудиту?' : 'Ready for an audit?'}
+              </h2>
+              <p className="text-muted-foreground mb-8">
+                {lang === 'ru' ? '3 бесплатных анализа. Без привязки карты.' : '3 free analyses. No credit card required.'}
+              </p>
+              <Button size="lg" className="btn-gradient border-0 h-13 px-10 text-base font-semibold" onClick={() => navigate('/auth?mode=signup')}>
+                {l.ctaStart} <ArrowRight className="w-4 h-4 ml-1.5" />
+              </Button>
+            </div>
           </div>
-          <span>© {new Date().getFullYear()}</span>
+        </div>
+      </Section>
+
+      {/* ── FOOTER ── */}
+      <footer className="py-10 border-t border-border/20">
+        <div className="container">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5 text-primary" />
+              <span>{l.footer.company}</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <Link to="/privacy" className="hover:text-foreground transition-colors">{l.footer.privacy}</Link>
+              <Link to="/terms" className="hover:text-foreground transition-colors">{l.footer.terms}</Link>
+              <span>© {new Date().getFullYear()}</span>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
