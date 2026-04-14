@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LangProvider } from "@/contexts/LangContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PendingApprovalScreen } from "@/components/PendingApprovalScreen";
+import { useAdminRole } from "@/hooks/useAdminRole";
 import LandingPage from "./pages/LandingPage.tsx";
 import AuthPage from "./pages/AuthPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -22,21 +23,32 @@ import TermsPage from "./pages/TermsPage.tsx";
 
 const queryClient = new QueryClient();
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function useAuthSession() {
   const [session, setSession] = useState<any>(undefined);
-  const [isApproved, setIsApproved] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (!session) setIsApproved(undefined);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
     });
+
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
+
     return () => subscription.unsubscribe();
   }, []);
 
+  return session;
+}
+
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const session = useAuthSession();
+  const [isApproved, setIsApproved] = useState<boolean | undefined>(undefined);
+
   useEffect(() => {
-    if (!session?.user) return;
+    if (!session?.user) {
+      setIsApproved(undefined);
+      return;
+    }
+
     supabase
       .from('profiles')
       .select('is_approved')
@@ -51,6 +63,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   if (!session) return <AuthPage />;
   if (isApproved === undefined) return null;
   if (!isApproved) return <PendingApprovalScreen />;
+  return <>{children}</>;
+}
+
+function AdminGate({ children }: { children: React.ReactNode }) {
+  const session = useAuthSession();
+  const { isAdmin, loading } = useAdminRole();
+
+  if (session === undefined || loading) return null;
+  if (!session) return <AuthPage />;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+
   return <>{children}</>;
 }
 
@@ -71,7 +94,7 @@ const App = () => (
             <Route path="/report/:id" element={<AuthGate><ReportRouterPage /></AuthGate>} />
             <Route path="/account" element={<AuthGate><AccountPage /></AuthGate>} />
             <Route path="/pdf-editor" element={<AuthGate><PdfEditorPage /></AuthGate>} />
-            <Route path="/admin" element={<AuthGate><AdminPage /></AuthGate>} />
+            <Route path="/admin" element={<AdminGate><AdminPage /></AdminGate>} />
             <Route path="/shared/:token" element={<SharedReportPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
