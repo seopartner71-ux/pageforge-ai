@@ -2564,14 +2564,15 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
     <TabsTrigger
       key={key}
       value={key}
-      className={`relative min-h-[52px] px-4 py-3 text-[13px] font-semibold whitespace-nowrap transition-all duration-300
-        text-muted-foreground hover:text-foreground
+      className={`relative min-h-[48px] px-5 py-3 text-[13px] font-bold whitespace-nowrap transition-all duration-300
+        text-muted-foreground/70 hover:text-foreground/90
         data-[state=active]:text-foreground data-[state=active]:bg-transparent
-        data-[state=active]:shadow-none rounded-none border-b-2 border-transparent data-[state=active]:border-primary`}
+        data-[state=active]:shadow-none rounded-none border-b-[2.5px] border-transparent
+        data-[state=active]:border-primary`}
     >
       <span className="relative z-10 flex items-center gap-2">
-        {key === 'optimizer' && <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.9)] inline-block animate-pulse" />}
-        {key === 'aiReport' && <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_10px_hsl(var(--accent)/0.9)] inline-block" />}
+        {key === 'optimizer' && <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.9)] inline-block animate-pulse" />}
+        {key === 'aiReport' && <span className="h-2 w-2 rounded-full bg-accent shadow-[0_0_12px_hsl(var(--accent)/0.9)] inline-block" />}
         {labels[key as keyof typeof labels]}
       </span>
     </TabsTrigger>

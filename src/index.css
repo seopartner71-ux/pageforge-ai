@@ -170,23 +170,32 @@
     box-shadow: var(--shadow-card);
   }
 
-  .report-metric-card {
-    @apply relative overflow-hidden rounded-[24px] border border-border/70 bg-card/90;
+  .report-metric-card,
+  .score-gauge-card {
+    @apply relative overflow-hidden rounded-[20px] border border-border/50 bg-card/80;
+    background-image: linear-gradient(180deg, hsl(0 0% 9% / 0.96), hsl(0 0% 6% / 0.96));
+    box-shadow: 0 12px 40px hsl(0 0% 0% / 0.35);
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .score-gauge-card:hover {
+    border-color: hsl(var(--border) / 0.8);
+    box-shadow: 0 16px 50px hsl(0 0% 0% / 0.45);
+  }
+
+  .score-gauge-featured {
+    @apply relative overflow-hidden rounded-[20px] border bg-card/90;
+    border-color: hsl(var(--primary) / 0.25);
     background-image:
-      radial-gradient(circle at top left, hsl(var(--primary) / 0.08), transparent 34%),
-      radial-gradient(circle at bottom right, hsl(var(--accent) / 0.08), transparent 28%),
-      linear-gradient(180deg, hsl(0 0% 10% / 0.98), hsl(0 0% 7% / 0.98));
-    box-shadow: var(--shadow-card);
+      radial-gradient(circle at 50% 0%, hsl(var(--primary) / 0.08), transparent 60%),
+      linear-gradient(180deg, hsl(0 0% 10% / 0.98), hsl(0 0% 6% / 0.98));
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.08), 0 20px 60px hsl(var(--primary) / 0.12);
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .report-metric-card::after {
-    content: '';
-    @apply pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500;
-    background: linear-gradient(135deg, hsl(var(--primary) / 0.06), transparent 50%, hsl(var(--accent) / 0.06));
-  }
-
-  .report-metric-card:hover::after {
-    @apply opacity-100;
+  .score-gauge-featured:hover {
+    border-color: hsl(var(--primary) / 0.4);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.14), 0 24px 70px hsl(var(--primary) / 0.18);
   }
 
   .report-pill {
@@ -194,8 +203,8 @@
   }
 
   .report-soft-panel {
-    @apply rounded-2xl border border-border/60 bg-card/70 backdrop-blur-xl;
-    box-shadow: var(--shadow-card);
+    @apply rounded-[18px] border border-border/50 bg-card/70 backdrop-blur-xl;
+    box-shadow: 0 8px 32px hsl(0 0% 0% / 0.3);
   }
 }
 
