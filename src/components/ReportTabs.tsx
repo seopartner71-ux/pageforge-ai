@@ -2534,7 +2534,7 @@ interface ReportTabsProps {
   scores?: any;
 }
 
-export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scrollToSge, onSgeScrolled }: ReportTabsProps) {
+export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scrollToSge, onSgeScrolled, onReanalyze, scores }: ReportTabsProps) {
   const { lang } = useLang();
   const labels = {
     ...(tabLabels[lang] || tabLabels.en),
