@@ -324,7 +324,7 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
                   scrollToSge={scrollToSge}
                   onSgeScrolled={() => setScrollToSge(false)}
                   scores={scores}
-                  onReanalyze={handleReanalyze}
+                  onReanalyze={onReanalyze ? () => onReanalyze(url) : undefined}
                 />
               </div>
               <div className="hidden lg:block">
