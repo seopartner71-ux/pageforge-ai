@@ -1878,36 +1878,49 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
           </Button>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Summary */}
+        <div className="space-y-5">
           {result.summary && (
-            <div className="glass-card p-4 border-l-2 border-primary">
-              <span className="text-xs font-bold text-primary uppercase tracking-wider">
-                {lang === 'ru' ? 'Что изменено' : 'Changes Summary'}
-              </span>
-              <p className="text-sm text-foreground mt-1">{result.summary}</p>
+            <div className="report-soft-panel overflow-hidden border-primary/20">
+              <div className="bg-gradient-to-r from-primary/12 via-transparent to-accent/12 px-5 py-4 border-b border-border/50">
+                <span className="text-xs font-bold text-primary uppercase tracking-[0.22em]">
+                  {lang === 'ru' ? 'Что изменено' : 'Changes Summary'}
+                </span>
+                <p className="mt-2 text-base font-medium leading-relaxed text-foreground">{result.summary}</p>
+              </div>
             </div>
           )}
 
-          {/* Checklist badges */}
           <ContentChecklist
             text={result.optimizedText}
             checklist={result.contentChecklist}
             onGenerateTable={() => setTableModalOpen(true)}
           />
 
-          {/* Changes detail */}
           {result.changes?.length > 0 && (
-            <div className="glass-card p-4">
-              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-                {lang === 'ru' ? 'Детали изменений' : 'Change Details'} ({result.changes.length})
-              </h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+            <div className="report-soft-panel p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h4 className="text-xs font-bold uppercase tracking-[0.22em] text-muted-foreground">
+                  {lang === 'ru' ? 'Детали изменений' : 'Change Details'} ({result.changes.length})
+                </h4>
+              </div>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                 {result.changes.map((c: any, i: number) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <span className={`px-1.5 py-0.5 rounded font-bold ${
-                      c.type === 'added' ? 'bg-accent/20 text-accent' :
-                      c.type === 'reduced' ? 'bg-destructive/20 text-destructive' :
+                  <div key={i} className="flex items-start gap-3 rounded-2xl border border-border/50 bg-background/35 px-3 py-3 text-sm">
+                    <span className={`mt-0.5 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                      c.type === 'added' ? 'bg-primary/15 text-primary' :
+                      c.type === 'reduced' ? 'bg-destructive/15 text-destructive' :
+                      'bg-accent/15 text-accent'
+                    }`}>
+                      {c.type === 'added' ? 'ADD' : c.type === 'reduced' ? 'TRIM' : 'EDIT'}
+                    </span>
+                    <div className="min-w-0 flex-1 text-muted-foreground leading-relaxed">
+                      <span className="text-foreground">{c.text || c.term || c.message}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
                       c.type === 'structure' ? 'bg-secondary text-foreground' :
                       'bg-primary/20 text-primary'
                     }`}>
@@ -2552,28 +2565,29 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
     <TabsTrigger
       key={key}
       value={key}
-      className={`px-3 py-2 text-[13px] font-medium whitespace-nowrap transition-colors
+      className={`relative min-h-[52px] px-4 py-3 text-[13px] font-semibold whitespace-nowrap transition-all duration-300
         text-muted-foreground hover:text-foreground
-        data-[state=active]:text-primary data-[state=active]:bg-transparent
-        data-[state=active]:shadow-none
-        rounded-none border-b-2 border-transparent data-[state=active]:border-primary`}
+        data-[state=active]:text-foreground data-[state=active]:bg-transparent
+        data-[state=active]:shadow-none rounded-none border-b-2 border-transparent data-[state=active]:border-primary`}
     >
-      {key === 'optimizer' && <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5 inline-block animate-pulse" />}
-      {key === 'aiReport' && <span className="w-1.5 h-1.5 rounded-full bg-accent mr-1.5 inline-block" />}
-      {labels[key as keyof typeof labels]}
+      <span className="relative z-10 flex items-center gap-2">
+        {key === 'optimizer' && <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.9)] inline-block animate-pulse" />}
+        {key === 'aiReport' && <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_10px_hsl(var(--accent)/0.9)] inline-block" />}
+        {labels[key as keyof typeof labels]}
+      </span>
     </TabsTrigger>
   );
 
   return (
     <Tabs value={activeTab || 'optimizer'} onValueChange={onTabChange} className="w-full">
-      <div className="bg-card/60 border border-border/50 rounded-lg overflow-hidden overflow-x-auto">
-        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent p-0 rounded-none border-b border-border/30">
+      <div className="report-soft-panel overflow-hidden border-border/70">
+        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent px-2 pt-2 rounded-none border-b border-border/40">
           {row1Keys.map(renderTrigger)}
         </TabsList>
-        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent p-0 rounded-none border-b border-border/30">
+        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent px-2 rounded-none border-b border-border/40">
           {row2Keys.map(renderTrigger)}
         </TabsList>
-        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent p-0 rounded-none">
+        <TabsList className="w-full h-auto flex flex-nowrap justify-start gap-0 bg-transparent px-2 pb-2 rounded-none">
           {row3Keys.map(renderTrigger)}
         </TabsList>
       </div>
@@ -2611,7 +2625,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
         };
         const Component = tabComponents[key];
         return (
-          <TabsContent key={key} value={key} className="mt-6">
+          <TabsContent key={key} value={key} className="mt-8">
             <Component />
           </TabsContent>
         );
