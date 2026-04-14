@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, TrendingUp } from 'lucide-react';
+import { CheckCircle2, Circle, TrendingUp, Sparkles, ArrowUpRight } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip,
 } from 'recharts';
@@ -34,7 +34,6 @@ export function ReportSidebar({ modules, quickWins, modulesTitle, readyLabel, qu
     });
   };
 
-  // 90-day forecast data
   const currentScore = scores?.seoHealth || 50;
   const forecastData = Array.from({ length: 7 }, (_, i) => {
     const month = i * 15;
@@ -46,18 +45,22 @@ export function ReportSidebar({ modules, quickWins, modulesTitle, readyLabel, qu
   });
 
   return (
-    <div className="space-y-4">
-      {/* Module status */}
-      <div className="glass-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs tracking-widest text-muted-foreground font-semibold">{modulesTitle}</h3>
-          <span className="text-xs font-semibold text-accent">✓ {readyLabel}</span>
+    <div className="space-y-5">
+      <div className="report-soft-panel p-5">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div className="report-pill mb-3">{modulesTitle}</div>
+            <h3 className="text-base font-semibold text-foreground">Состояние анализа</h3>
+          </div>
+          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+            ✓ {readyLabel}
+          </span>
         </div>
         <div className="space-y-2.5">
           {modules.map((m, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${m.done ? 'bg-accent' : 'bg-muted-foreground'}`} />
+            <div key={i} className="flex items-center justify-between rounded-xl border border-border/50 bg-background/40 px-3 py-2.5">
+              <div className="flex items-center gap-3">
+                <div className={`h-2.5 w-2.5 rounded-full ${m.done ? 'bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.7)]' : 'bg-muted-foreground/70'}`} />
                 <span className="text-sm text-foreground">{m.name}</span>
               </div>
               <span className="text-xs text-muted-foreground">{m.time}</span>
@@ -66,61 +69,81 @@ export function ReportSidebar({ modules, quickWins, modulesTitle, readyLabel, qu
         </div>
       </div>
 
-      {/* Quick Wins Checklist */}
       {quickWins.length > 0 && (
-        <div className="glass-card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs tracking-widest text-muted-foreground font-semibold">{quickWinsTitle}</h3>
-            <span className="text-xs text-accent font-medium">{checkedWins.size}/{quickWins.length}</span>
+        <div className="report-soft-panel overflow-hidden">
+          <div className="border-b border-border/60 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 px-5 py-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-foreground">{quickWinsTitle}</h3>
+              </div>
+              <span className="rounded-full border border-border/70 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">{checkedWins.size}/{quickWins.length}</span>
+            </div>
+            <p className="text-sm text-muted-foreground">Быстрые улучшения с максимальным эффектом без полной переработки страницы.</p>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 p-4">
             {quickWins.map((w, i) => (
               <button
                 key={i}
                 onClick={() => toggleWin(i)}
-                className={`w-full flex items-start gap-2.5 text-left p-2 rounded-lg transition-all ${
-                  checkedWins.has(i) ? 'bg-accent/5 opacity-60' : 'hover:bg-secondary/50'
+                className={`w-full rounded-2xl border px-3 py-3 text-left transition-all duration-300 ${
+                  checkedWins.has(i)
+                    ? 'border-primary/25 bg-primary/10 opacity-70'
+                    : 'border-border/60 bg-background/35 hover:border-primary/25 hover:bg-background/55'
                 }`}
               >
-                {checkedWins.has(i) ? (
-                  <CheckCircle2 className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                ) : (
-                  <Circle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                )}
-                <span className={`text-sm leading-snug ${checkedWins.has(i) ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                  {w.text}
-                </span>
+                <div className="flex items-start gap-3">
+                  {checkedWins.has(i) ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  ) : (
+                    <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <div className="min-w-0">
+                    <div className={`text-sm leading-snug ${checkedWins.has(i) ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                      {w.text}
+                    </div>
+                    {!checkedWins.has(i) && <div className="mt-1 text-xs text-primary">Быстрый выигрыш →</div>}
+                  </div>
+                </div>
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* 90-day Forecast */}
-      <div className="glass-card p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp className="w-4 h-4 text-accent" />
-          <h3 className="text-xs tracking-widest text-muted-foreground font-semibold">ПРОГНОЗ НА 90 ДНЕЙ</h3>
+      <div className="report-soft-panel p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-foreground">Прогноз на 90 дней</h3>
         </div>
-        <p className="text-xs text-muted-foreground mb-3">
-          Ожидаемый рост SEO Health при выполнении всех рекомендаций
+        <p className="mb-4 text-sm text-muted-foreground">
+          Если внедрить все рекомендации, метрика SEO Health будет расти более предсказуемо и стабильно.
         </p>
-        <div className="h-32">
+        <div className="h-36 rounded-2xl border border-border/60 bg-background/30 p-2">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={forecastData}>
-              <XAxis dataKey="day" tick={{ fill: 'hsl(215,20%,55%)', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fill: 'hsl(215,20%,55%)', fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
+              <XAxis dataKey="day" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
               <Tooltip
-                contentStyle={{ background: 'hsl(222,47%,9%)', border: '1px solid hsl(222,30%,18%)', borderRadius: '8px', color: '#fff', fontSize: 12 }}
+                contentStyle={{
+                  background: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '16px',
+                  color: 'hsl(var(--foreground))',
+                  fontSize: 12,
+                }}
                 formatter={(value: number) => [`${value}`, 'SEO Score']}
               />
-              <Area type="monotone" dataKey="score" stroke="hsl(142,71%,45%)" fill="hsl(142,71%,45%)" fillOpacity={0.15} strokeWidth={2} />
+              <Area type="monotone" dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.16} strokeWidth={2.5} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-between mt-2 text-xs">
-          <span className="text-muted-foreground">Сейчас: <span className="text-foreground font-bold">{currentScore}</span></span>
-          <span className="text-accent font-bold">→ {forecastData[forecastData.length - 1]?.score}</span>
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Сейчас: <span className="font-bold text-foreground">{currentScore}</span></span>
+          <span className="inline-flex items-center gap-1 font-semibold text-primary">
+            {forecastData[forecastData.length - 1]?.score}
+            <ArrowUpRight className="h-4 w-4" />
+          </span>
         </div>
       </div>
     </div>

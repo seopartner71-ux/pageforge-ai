@@ -185,123 +185,113 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
   const activeTpl = templates.find(t => t.is_active);
 
   return (
-    <div className="min-h-screen">
+    <div className="report-shell">
       <AppHeader />
-      <main className="container py-6 space-y-6">
-        <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          {lang === 'ru' ? '← Назад' : '← Back'}
-        </Button>
-
-        <div className="flex items-center justify-between glass-card px-6 py-3">
-          <div className="flex items-center gap-3">
-            <span className="font-bold text-sm gradient-text">{tr.appName}</span>
-            <span className="text-sm text-muted-foreground">{url}</span>
-            <span className="px-2 py-0.5 rounded text-[10px] bg-secondary text-muted-foreground">
-              {lang === 'ru' ? 'Анализ' : 'Analysis'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            {activeTpl && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Palette className="w-3 h-3" />
-                {activeTpl.name}
-              </span>
-            )}
-            {/* Share button */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1.5"
-              onClick={handleShare}
-              disabled={shareLoading}
-            >
-              {shareLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : shareCopied ? <Check className="w-3 h-3 text-green-500" /> : shareToken ? <Link className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
-              {shareCopied
-                ? (lang === 'ru' ? 'Скопировано!' : 'Copied!')
-                : shareToken
-                  ? (lang === 'ru' ? 'Копировать ссылку' : 'Copy Link')
-                  : (lang === 'ru' ? 'Поделиться' : 'Share')}
-            </Button>
-
-            {/* Excel Export */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1.5"
-              disabled={!analysisId}
-              onClick={() => setXlsxDialogOpen(true)}
-            >
-              <Table2 className="w-3 h-3" />
-              {lang === 'ru' ? 'Excel' : 'Excel'}
-            </Button>
-
-            <Button variant="outline" size="sm" className="text-xs gap-1.5">
-              <Code className="w-3 h-3" />
-              {lang === 'ru' ? 'Посмотреть JSON' : 'View JSON'}
-            </Button>
-
-            {/* PDF Export with template selector */}
-            {templates.length > 0 ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-xs gap-1.5" disabled={pdfLoading || !analysisId}>
-                    {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-                    {lang === 'ru' ? 'Экспорт в PDF' : 'Export PDF'}
-                    <ChevronDown className="w-3 h-3 ml-0.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={() => handleExportPdf(null)} className="gap-2 text-xs">
-                    <FileText className="w-3.5 h-3.5" />
-                    {lang === 'ru' ? 'По умолчанию' : 'Default'}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {templates.map(t => (
-                    <DropdownMenuItem key={t.id} onClick={() => handleExportPdf(t)} className="gap-2 text-xs">
-                      <Palette className="w-3.5 h-3.5" style={{ color: t.primary_color }} />
-                      {t.name}
-                      {t.is_active && (
-                        <span className="ml-auto text-[10px] text-primary font-medium">
-                          {lang === 'ru' ? 'активный' : 'active'}
-                        </span>
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => handleExportPdf(null)} disabled={pdfLoading || !analysisId}>
-                {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-                {lang === 'ru' ? 'Экспорт в PDF' : 'Export PDF'}
-              </Button>
-            )}
-
-            <Button size="sm" className="btn-gradient border-0 text-xs gap-1.5" onClick={onBack}>
-              <Plus className="w-3 h-3" />
-              {lang === 'ru' ? '+ Новый анализ' : '+ New Analysis'}
-            </Button>
-          </div>
+      <main className="container space-y-10 py-8 lg:py-10">
+        <div className="flex items-center justify-between gap-4">
+          <Button variant="outline" size="sm" onClick={onBack} className="gap-2 rounded-full border-border/70 bg-card/60 px-4">
+            <ArrowLeft className="w-4 h-4" />
+            {lang === 'ru' ? '← Назад' : '← Back'}
+          </Button>
+          {!tplLoading && templates.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              {lang === 'ru' ? 'Создайте фирменный стиль в PDF-Редакторе → /pdf-editor' : 'Create your branded style in PDF Editor → /pdf-editor'}
+            </p>
+          )}
         </div>
 
-        {/* Hint if no templates */}
-        {!tplLoading && templates.length === 0 && (
-          <div className="text-center py-2">
-            <p className="text-xs text-muted-foreground">
-              {lang === 'ru'
-                ? '💡 Создайте свой фирменный стиль в PDF-Редакторе → /pdf-editor'
-                : '💡 Create your branded style in PDF Editor → /pdf-editor'}
-            </p>
+        <section className="report-hero p-7 md:p-8 lg:p-10">
+          <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-3xl space-y-5">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="report-pill">SEO-Аудит</span>
+                <span className="report-pill">{lang === 'ru' ? 'Премиальный анализ страницы' : 'Premium page analysis'}</span>
+                {activeTpl && (
+                  <span className="report-pill gap-1.5">
+                    <Palette className="h-3 w-3" />
+                    {activeTpl.name}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+                  {lang === 'ru' ? 'Глубокий аудит и AI-оптимизация страницы' : 'Deep audit and AI optimization'}
+                </h1>
+                <p className="max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                  {url}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 xl:max-w-[29rem] xl:justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full border-border/70 bg-card/60 text-xs gap-1.5"
+                onClick={handleShare}
+                disabled={shareLoading}
+              >
+                {shareLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : shareCopied ? <Check className="w-3 h-3 text-primary" /> : shareToken ? <Link className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+                {shareCopied ? (lang === 'ru' ? 'Скопировано!' : 'Copied!') : shareToken ? (lang === 'ru' ? 'Копировать ссылку' : 'Copy Link') : (lang === 'ru' ? 'Поделиться' : 'Share')}
+              </Button>
+
+              <Button variant="outline" size="sm" className="rounded-full border-border/70 bg-card/60 text-xs gap-1.5" disabled={!analysisId} onClick={() => setXlsxDialogOpen(true)}>
+                <Table2 className="w-3 h-3" />
+                Excel
+              </Button>
+
+              <Button variant="outline" size="sm" className="rounded-full border-border/70 bg-card/60 text-xs gap-1.5">
+                <Code className="w-3 h-3" />
+                {lang === 'ru' ? 'Посмотреть JSON' : 'View JSON'}
+              </Button>
+
+              {templates.length > 0 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="rounded-full border-border/70 bg-card/60 text-xs gap-1.5" disabled={pdfLoading || !analysisId}>
+                      {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                      {lang === 'ru' ? 'Экспорт в PDF' : 'Export PDF'}
+                      <ChevronDown className="w-3 h-3 ml-0.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 rounded-2xl border-border/70 bg-card/95 backdrop-blur-xl">
+                    <DropdownMenuItem onClick={() => handleExportPdf(null)} className="gap-2 text-xs">
+                      <FileText className="w-3.5 h-3.5" />
+                      {lang === 'ru' ? 'По умолчанию' : 'Default'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {templates.map(t => (
+                      <DropdownMenuItem key={t.id} onClick={() => handleExportPdf(t)} className="gap-2 text-xs">
+                        <Palette className="w-3.5 h-3.5" style={{ color: t.primary_color }} />
+                        {t.name}
+                        {t.is_active && <span className="ml-auto text-[10px] text-primary font-medium">{lang === 'ru' ? 'активный' : 'active'}</span>}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button variant="outline" size="sm" className="rounded-full border-border/70 bg-card/60 text-xs gap-1.5" onClick={() => handleExportPdf(null)} disabled={pdfLoading || !analysisId}>
+                  {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                  {lang === 'ru' ? 'Экспорт в PDF' : 'Export PDF'}
+                </Button>
+              )}
+
+              <Button size="sm" className="btn-gradient border-0 rounded-full px-4 text-xs gap-1.5" onClick={onBack}>
+                <Plus className="w-3 h-3" />
+                {lang === 'ru' ? '+ Новый анализ' : '+ New Analysis'}
+              </Button>
+            </div>
           </div>
-        )}
+        </section>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
+          <div className="flex items-center justify-center py-24">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
               {scoreCards.map((s, i) => (
                 <ScoreGauge
                   key={i}
@@ -313,10 +303,10 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
                   } : undefined}
                 />
               ))}
-            </div>
+            </section>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
-              <div>
+            <section className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="space-y-6">
                 <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
                   <ReportTabs
                     data={tabData}
@@ -330,8 +320,8 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
                   />
                 </Suspense>
               </div>
-              <div className="hidden lg:block">
-                <div className="sticky top-20 space-y-4">
+              <aside className="hidden xl:block">
+                <div className="sticky top-24 space-y-5">
                   <ReportSidebar
                     modules={modules}
                     quickWins={quickWins}
@@ -340,10 +330,12 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
                     quickWinsTitle="QUICK WINS"
                     scores={scores}
                   />
-                  <GscWidget />
+                  <div className="report-soft-panel p-4">
+                    <GscWidget />
+                  </div>
                 </div>
-              </div>
-            </div>
+              </aside>
+            </section>
           </>
         )}
       </main>
