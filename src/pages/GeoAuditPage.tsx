@@ -3,135 +3,53 @@ import { AppHeader } from '@/components/AppHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import {
-  Globe, Play, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp,
-  Bot, Search, FileCode2, BookOpen, ShieldCheck, Loader2, ArrowRight, Target, Zap, Clock,
+  Play, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp,
+  Bot, Search, FileCode2, BookOpen, ShieldCheck, Loader2, Target, Zap, Clock,
 } from 'lucide-react';
 
 /* ─── Types ─── */
 interface CheckItem {
+  id: string;
   label: string;
-  status: 'pass' | 'warn' | 'fail' | 'pending';
+  status: 'pass' | 'warn' | 'fail';
   detail: string;
 }
 
-interface AuditStage {
+interface StageResult {
+  id: string;
   title: string;
-  icon: React.ElementType;
-  color: string;
   score: number;
   items: CheckItem[];
 }
 
-/* ─── Mock data generator ─── */
-function generateMockAudit(): { stages: AuditStage[]; geoScore: number; criticals: string[]; strategy: string[] } {
-  const stages: AuditStage[] = [
-    {
-      title: 'Этап 1: Техническая доступность для ИИ',
-      icon: Bot,
-      color: 'hsl(var(--primary))',
-      score: 72,
-      items: [
-        { label: 'robots.txt — блокировка GPTBot', status: 'fail', detail: 'GPTBot заблокирован в robots.txt. ИИ-поисковики не смогут проиндексировать контент.' },
-        { label: 'robots.txt — Google-Extended', status: 'pass', detail: 'Google-Extended не заблокирован. AI Overview может использовать контент.' },
-        { label: 'robots.txt — PerplexityBot', status: 'warn', detail: 'PerplexityBot не указан явно. Рекомендуется добавить разрешение.' },
-        { label: 'robots.txt — ChatGPT-User', status: 'fail', detail: 'ChatGPT-User заблокирован. ChatGPT не сможет цитировать сайт.' },
-        { label: 'XML Sitemap', status: 'pass', detail: 'Sitemap найден и валиден. 147 URL в индексе.' },
-        { label: 'Индексация в GSC', status: 'pass', detail: 'Страница проиндексирована в Google Search Console.' },
-        { label: 'Индексация в Bing', status: 'warn', detail: 'Страница не проверена в Bing Webmaster Tools.' },
-        { label: 'Core Web Vitals', status: 'pass', detail: 'LCP: 1.8s, FID: 45ms, CLS: 0.05 — все в зелёной зоне.' },
-        { label: 'TTFB', status: 'pass', detail: 'Time to First Byte: 320ms — хороший показатель.' },
-        { label: 'Рендеринг JS-контента', status: 'warn', detail: 'Часть контента загружается через JavaScript. Риск неполного извлечения ИИ.' },
-      ],
-    },
-    {
-      title: 'Этап 2: Прямая проверка в ИИ',
-      icon: Search,
-      color: '#60A5FA',
-      score: 58,
-      items: [
-        { label: 'Google AI Overview', status: 'warn', detail: 'Сайт упоминается в 2 из 5 тестовых AI Overviews. Низкая видимость.' },
-        { label: 'ChatGPT (тестовый запрос)', status: 'fail', detail: 'ChatGPT не цитирует сайт. GPTBot заблокирован в robots.txt.' },
-        { label: 'Perplexity (тестовый запрос)', status: 'warn', detail: 'Perplexity частично цитирует контент, но с ошибками в данных.' },
-        { label: 'YandexGPT', status: 'pass', detail: 'YandexGPT корректно извлекает основную информацию.' },
-        { label: 'Корректность цен', status: 'fail', detail: 'ИИ извлекает устаревшие цены. Schema.org Product не обновлена.' },
-        { label: 'Корректность характеристик', status: 'warn', detail: 'Часть характеристик извлекается неполно из-за табличной вёрстки.' },
-        { label: 'Корректность контактов', status: 'pass', detail: 'Контактные данные извлекаются корректно всеми ИИ.' },
-        { label: 'Анализ "чанков" контента', status: 'warn', detail: 'Контент слабо структурирован для chunking. Рекомендуется добавить подзаголовки.' },
-      ],
-    },
-    {
-      title: 'Этап 3: Структура страниц и семантическая вёрстка',
-      icon: FileCode2,
-      color: '#34D399',
-      score: 81,
-      items: [
-        { label: 'Единственный H1', status: 'pass', detail: 'На странице один H1 тег с релевантным заголовком.' },
-        { label: 'Иерархия заголовков H1→H6', status: 'warn', detail: 'Пропущен уровень H3. Структура: H1→H2→H4.' },
-        { label: 'Семантические теги <article>, <section>', status: 'pass', detail: 'Основной контент обёрнут в <article>, секции размечены.' },
-        { label: 'Тег <nav>', status: 'pass', detail: 'Навигация корректно обёрнута в <nav>.' },
-        { label: 'Тег <aside>', status: 'warn', detail: 'Боковой контент не обёрнут в <aside>.' },
-        { label: 'Schema.org — основная разметка', status: 'pass', detail: 'Найдена разметка Organization и WebPage.' },
-        { label: 'Schema.org — Product/Service', status: 'fail', detail: 'Отсутствует разметка Product/Service для основного контента.' },
-        { label: 'Schema.org — FAQ', status: 'warn', detail: 'На странице есть FAQ-блок, но без FAQPage разметки.' },
-        { label: 'Schema.org — Breadcrumbs', status: 'pass', detail: 'BreadcrumbList разметка валидна.' },
-      ],
-    },
-    {
-      title: 'Этап 4: Контент и тематический авторитет',
-      icon: BookOpen,
-      color: '#FBBF24',
-      score: 65,
-      items: [
-        { label: 'Подход "Ответ-прежде-всего"', status: 'warn', detail: 'Прямой ответ на основной запрос появляется только в 3-м абзаце.' },
-        { label: 'Topical Gap — покрытие темы', status: 'fail', detail: 'Обнаружены 8 подтем, которые не раскрыты у вас, но есть у конкурентов.' },
-        { label: 'Topical Gap — глубина', status: 'warn', detail: 'Средняя глубина раскрытия темы: 62% от ТОП-5 конкурентов.' },
-        { label: 'Мультимодальность — изображения', status: 'pass', detail: 'Релевантные изображения с alt-текстом присутствуют.' },
-        { label: 'Мультимодальность — видео', status: 'fail', detail: 'Видеоконтент отсутствует. Конкуренты используют видео в 4 из 5 случаев.' },
-        { label: 'Мультимодальность — таблицы/графики', status: 'warn', detail: 'Данные представлены текстом. Рекомендуется добавить таблицы сравнения.' },
-        { label: 'Уникальность контента', status: 'pass', detail: 'Уникальность текста: 94%. Копипаст не обнаружен.' },
-      ],
-    },
-    {
-      title: 'Этап 5: E-E-A-T и репутация бренда',
-      icon: ShieldCheck,
-      color: '#A78BFA',
-      score: 70,
-      items: [
-        { label: 'Опыт (Experience) на странице', status: 'warn', detail: 'Отсутствуют маркеры личного опыта: кейсы, отзывы, примеры использования.' },
-        { label: 'Экспертиза (Expertise)', status: 'pass', detail: 'Указан автор с профессиональными регалиями. Ссылки на исследования.' },
-        { label: 'Авторитетность (Authority)', status: 'warn', detail: 'Мало обратных ссылок с авторитетных доменов (DA < 30).' },
-        { label: 'Доверие (Trust)', status: 'pass', detail: 'SSL сертификат, политика конфиденциальности, контакты — всё на месте.' },
-        { label: 'Авторская страница', status: 'fail', detail: 'Нет отдельной страницы автора с bio и ссылками на профили.' },
-        { label: 'Упоминания бренда', status: 'warn', detail: 'Бренд упоминается в 12 источниках. Среднее для ниши — 45.' },
-        { label: 'Отзывы и рейтинги', status: 'warn', detail: 'Отзывы присутствуют, но не размечены AggregateRating.' },
-      ],
-    },
-  ];
-
-  const geoScore = Math.round(stages.reduce((s, st) => s + st.score, 0) / stages.length);
-
-  const criticals = [
-    'Разблокировать GPTBot и ChatGPT-User в robots.txt для индексации ИИ-поисковиками',
-    'Добавить Schema.org Product/Service разметку для корректного извлечения цен',
-    'Создать страницу автора для усиления E-E-A-T сигналов',
-    'Добавить видеоконтент — конкуренты используют видео в 80% случаев',
-    'Закрыть Topical Gap: раскрыть 8 недостающих подтем',
-  ];
-
-  const strategy = [
-    'Неделя 1–2: Исправить robots.txt, добавить Schema.org разметку, создать авторскую страницу',
-    'Неделя 3–4: Реструктурировать контент по принципу "Ответ-прежде-всего", добавить FAQ разметку',
-    'Неделя 5–6: Создать видеоконтент, добавить таблицы сравнения и инфографику',
-    'Неделя 7–8: Закрыть Topical Gap — написать контент по 8 недостающим подтемам',
-    'Месяц 2: Наращивание E-E-A-T: публикация кейсов, получение упоминаний, линкбилдинг',
-    'Месяц 2+: Мониторинг AI Overview и Perplexity, A/B тесты структуры контента',
-  ];
-
-  return { stages, geoScore, criticals, strategy };
+interface AuditResult {
+  geoScore: number;
+  stages: StageResult[];
+  criticals: string[];
+  strategy: string[];
 }
 
-/* ─── Status icon helper ─── */
+/* ─── Icon map for stages ─── */
+const stageIcons: Record<string, React.ElementType> = {
+  stage1: Bot,
+  stage2: Search,
+  stage3: FileCode2,
+  stage4: BookOpen,
+  stage5: ShieldCheck,
+};
+
+const stageColors: Record<string, string> = {
+  stage1: 'hsl(var(--primary))',
+  stage2: '#60A5FA',
+  stage3: '#34D399',
+  stage4: '#FBBF24',
+  stage5: '#A78BFA',
+};
+
+/* ─── Status icon ─── */
 function StatusIcon({ status }: { status: string }) {
   if (status === 'pass') return <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />;
   if (status === 'warn') return <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />;
@@ -157,26 +75,26 @@ function ScoreRing({ score, size = 120, strokeWidth = 8, color = 'hsl(var(--prim
 }
 
 /* ─── Stage Card ─── */
-function StageCard({ stage }: { stage: AuditStage }) {
+function StageCard({ stage }: { stage: StageResult }) {
   const [expanded, setExpanded] = useState(true);
-  const Icon = stage.icon;
+  const Icon = stageIcons[stage.id] || Bot;
+  const color = stageColors[stage.id] || 'hsl(var(--primary))';
   const passCount = stage.items.filter(i => i.status === 'pass').length;
   const warnCount = stage.items.filter(i => i.status === 'warn').length;
   const failCount = stage.items.filter(i => i.status === 'fail').length;
 
   return (
     <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
-      {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-4 px-6 py-5 text-left hover:bg-secondary/30 transition-colors"
       >
         <div className="shrink-0">
-          <ScoreRing score={stage.score} size={56} strokeWidth={5} color={stage.color} />
+          <ScoreRing score={stage.score} size={56} strokeWidth={5} color={color} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <Icon className="w-4 h-4 shrink-0" style={{ color: stage.color }} />
+            <Icon className="w-4 h-4 shrink-0" style={{ color }} />
             <h3 className="text-sm font-semibold text-foreground truncate">{stage.title}</h3>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -190,11 +108,10 @@ function StageCard({ stage }: { stage: AuditStage }) {
         </div>
       </button>
 
-      {/* Checklist */}
       {expanded && (
         <div className="border-t border-border/40 divide-y divide-border/30">
           {stage.items.map((item, i) => (
-            <div key={i} className="flex items-start gap-3 px-6 py-3.5 hover:bg-secondary/20 transition-colors">
+            <div key={item.id || i} className="flex items-start gap-3 px-6 py-3.5 hover:bg-secondary/20 transition-colors">
               <div className="mt-0.5">
                 <StatusIcon status={item.status} />
               </div>
@@ -207,11 +124,10 @@ function StageCard({ stage }: { stage: AuditStage }) {
                 className={`text-[10px] shrink-0 mt-0.5 ${
                   item.status === 'pass' ? 'border-green-500/40 text-green-500' :
                   item.status === 'warn' ? 'border-yellow-500/40 text-yellow-500' :
-                  item.status === 'fail' ? 'border-red-500/40 text-red-500' :
-                  'border-border text-muted-foreground'
+                  'border-red-500/40 text-red-500'
                 }`}
               >
-                {item.status === 'pass' ? 'OK' : item.status === 'warn' ? 'Внимание' : item.status === 'fail' ? 'Ошибка' : 'Ожидание'}
+                {item.status === 'pass' ? 'OK' : item.status === 'warn' ? 'Внимание' : 'Ошибка'}
               </Badge>
             </div>
           ))}
@@ -221,20 +137,54 @@ function StageCard({ stage }: { stage: AuditStage }) {
   );
 }
 
+/* ─── Progress steps ─── */
+const PROGRESS_STEPS = [
+  'Загрузка страницы...',
+  'Проверка robots.txt и sitemap...',
+  'Анализ структуры HTML...',
+  'Проверка Schema.org разметки...',
+  'Анализ контента и E-E-A-T...',
+  'Формирование рекомендаций...',
+];
+
 /* ─── Main Page ─── */
 export default function GeoAuditPage() {
   const [url, setUrl] = useState('');
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<ReturnType<typeof generateMockAudit> | null>(null);
+  const [progressStep, setProgressStep] = useState(0);
+  const [result, setResult] = useState<AuditResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const handleRun = () => {
+  const handleRun = async () => {
     if (!url.trim()) return;
     setRunning(true);
     setResult(null);
-    setTimeout(() => {
-      setResult(generateMockAudit());
-      setRunning(false);
+    setError(null);
+    setProgressStep(0);
+
+    // Animate progress
+    const interval = setInterval(() => {
+      setProgressStep(prev => (prev < PROGRESS_STEPS.length - 1 ? prev + 1 : prev));
     }, 3000);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('geo-audit', {
+        body: { url: url.trim() },
+      });
+
+      if (fnError) throw new Error(fnError.message);
+      if (data?.error) throw new Error(data.error);
+
+      setResult(data as AuditResult);
+    } catch (err: any) {
+      const msg = err?.message || 'Ошибка при выполнении аудита';
+      setError(msg);
+      toast({ title: 'Ошибка GEO Audit', description: msg, variant: 'destructive' });
+    } finally {
+      clearInterval(interval);
+      setRunning(false);
+    }
   };
 
   const scoreColor = useMemo(() => {
@@ -244,6 +194,8 @@ export default function GeoAuditPage() {
     return '#EF4444';
   }, [result]);
 
+  const totalChecks = result ? result.stages.reduce((s, st) => s + st.items.length, 0) : 0;
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
@@ -252,10 +204,10 @@ export default function GeoAuditPage() {
         {/* Hero */}
         <div className="text-center space-y-3">
           <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-            Глубокий GEO Audit страницы
+            GEO Audit v2.0 — Полный чек-лист AI Optimization
           </h1>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
-            Полный чек-лист AI Optimization — 5 этапов, 41 проверка. Узнайте, насколько ваша страница готова к эпохе AI-поиска.
+            5 этапов глубокого аудита: техническая доступность для ИИ, структура, контент, E-E-A-T и репутация бренда.
           </p>
         </div>
 
@@ -274,20 +226,43 @@ export default function GeoAuditPage() {
             className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2 shrink-0"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            {running ? 'Анализ...' : 'Запустить GEO Audit'}
+            {running ? 'Анализ...' : 'Запустить полный GEO Audit'}
           </Button>
         </div>
 
         {/* Loading */}
         {running && (
-          <div className="flex flex-col items-center gap-4 py-16">
+          <div className="flex flex-col items-center gap-6 py-12">
             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <Loader2 className="w-6 h-6 text-primary animate-spin" />
             </div>
-            <div className="text-center">
+            <div className="text-center space-y-2">
               <p className="text-sm font-medium text-foreground">Выполняется глубокий GEO Audit</p>
-              <p className="text-xs text-muted-foreground mt-1">Проверяем 41 параметр по 5 этапам...</p>
+              <p className="text-xs text-muted-foreground">{PROGRESS_STEPS[progressStep]}</p>
             </div>
+            <div className="w-64 space-y-2">
+              {PROGRESS_STEPS.map((step, i) => (
+                <div key={i} className={`flex items-center gap-2 text-xs transition-opacity duration-300 ${i <= progressStep ? 'opacity-100' : 'opacity-30'}`}>
+                  {i < progressStep ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                  ) : i === progressStep ? (
+                    <Loader2 className="w-3.5 h-3.5 text-primary animate-spin shrink-0" />
+                  ) : (
+                    <div className="w-3.5 h-3.5 rounded-full border border-border shrink-0" />
+                  )}
+                  <span className="text-muted-foreground">{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {error && !running && (
+          <div className="rounded-xl border border-red-500/30 bg-card p-6 text-center">
+            <XCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+            <p className="text-sm font-medium text-foreground mb-1">Не удалось выполнить аудит</p>
+            <p className="text-xs text-muted-foreground">{error}</p>
           </div>
         )}
 
@@ -305,10 +280,17 @@ export default function GeoAuditPage() {
                    result.geoScore >= 60 ? 'Есть потенциал для улучшения. Исправьте критические проблемы.' :
                    'Требуется серьёзная доработка для AI-видимости.'}
                 </p>
-                <div className="flex items-center gap-4 mt-4 justify-center md:justify-start">
-                  {result.stages.map((s, i) => (
-                    <div key={i} className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                <div className="flex items-center gap-4 mt-4 justify-center md:justify-start text-xs text-muted-foreground">
+                  <span>{totalChecks} проверок</span>
+                  <span>•</span>
+                  <span>{result.stages.flatMap(s => s.items).filter(i => i.status === 'pass').length} пройдено</span>
+                  <span>•</span>
+                  <span>{result.stages.flatMap(s => s.items).filter(i => i.status === 'fail').length} ошибок</span>
+                </div>
+                <div className="flex items-center gap-4 mt-3 justify-center md:justify-start">
+                  {result.stages.map(s => (
+                    <div key={s.id} className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stageColors[s.id] || 'hsl(var(--primary))' }} />
                       <span className="text-xs text-muted-foreground">{s.score}%</span>
                     </div>
                   ))}
@@ -318,46 +300,50 @@ export default function GeoAuditPage() {
 
             {/* Stages */}
             <div className="space-y-4">
-              {result.stages.map((stage, i) => (
-                <StageCard key={i} stage={stage} />
+              {result.stages.map(stage => (
+                <StageCard key={stage.id} stage={stage} />
               ))}
             </div>
 
             {/* Criticals */}
-            <div className="rounded-xl border border-red-500/20 bg-card p-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-red-500" />
-                <h2 className="text-base font-semibold text-foreground">Критические рекомендации</h2>
-              </div>
-              <div className="space-y-3">
-                {result.criticals.map((c, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="mt-1 w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
-                      <span className="text-[10px] font-bold text-red-500">{i + 1}</span>
+            {result.criticals.length > 0 && (
+              <div className="rounded-xl border border-red-500/20 bg-card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-red-500" />
+                  <h2 className="text-base font-semibold text-foreground">Критические рекомендации</h2>
+                </div>
+                <div className="space-y-3">
+                  {result.criticals.map((c, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="mt-1 w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
+                        <span className="text-[10px] font-bold text-red-500">{i + 1}</span>
+                      </div>
+                      <p className="text-sm text-foreground leading-relaxed">{c}</p>
                     </div>
-                    <p className="text-sm text-foreground leading-relaxed">{c}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Strategy */}
-            <div className="rounded-xl border border-primary/20 bg-card p-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-primary" />
-                <h2 className="text-base font-semibold text-foreground">Стратегия улучшения — 30–60 дней</h2>
-              </div>
-              <div className="space-y-3">
-                {result.strategy.map((s, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="mt-1 shrink-0">
-                      <Clock className="w-4 h-4 text-primary/60" />
+            {result.strategy.length > 0 && (
+              <div className="rounded-xl border border-primary/20 bg-card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-primary" />
+                  <h2 className="text-base font-semibold text-foreground">Стратегия улучшения — 30–60 дней</h2>
+                </div>
+                <div className="space-y-3">
+                  {result.strategy.map((s, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="mt-1 shrink-0">
+                        <Clock className="w-4 h-4 text-primary/60" />
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{s}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{s}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </main>
