@@ -279,25 +279,22 @@ export default function LandingPage() {
       {/* ── CTA ── */}
       <Section className="py-24">
         <div className="container">
-          <div className="glass-card p-14 text-center max-w-2xl mx-auto relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-accent/[0.04]" />
-            <div className="relative">
-              <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-foreground">
-                {lang === 'ru' ? 'Готовы к аудиту?' : 'Ready for an audit?'}
-              </h2>
-              <p className="text-muted-foreground mb-8">
-                {lang === 'ru' ? '3 бесплатных анализа. Без привязки карты.' : '3 free analyses. No credit card required.'}
-              </p>
-              <Button size="lg" className="btn-gradient border-0 h-13 px-10 text-base font-semibold" onClick={() => navigate('/auth?mode=signup')}>
-                {l.ctaStart} <ArrowRight className="w-4 h-4 ml-1.5" />
-              </Button>
-            </div>
+          <div className="glass-card p-12 text-center max-w-2xl mx-auto">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-foreground">
+              {lang === 'ru' ? 'Готовы к аудиту?' : 'Ready for an audit?'}
+            </h2>
+            <p className="text-muted-foreground mb-8">
+              {lang === 'ru' ? '3 бесплатных анализа. Без привязки карты.' : '3 free analyses. No credit card required.'}
+            </p>
+            <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground border-0 h-12 px-8 text-sm font-semibold" onClick={() => navigate('/auth?mode=signup')}>
+              {l.ctaStart} <ArrowRight className="w-4 h-4 ml-1.5" />
+            </Button>
           </div>
         </div>
       </Section>
 
       {/* ── FOOTER ── */}
-      <footer className="py-10 border-t border-border/20">
+      <footer className="py-8 border-t border-border/60">
         <div className="container">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
