@@ -230,6 +230,9 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {plans.map((plan) => (
               <div key={plan.name} className={`glass-card p-7 relative flex flex-col ${plan.popular ? 'border-primary/40' : ''}`}>
+                {plan.popular && plan.badge && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold">
+                    {plan.badge}
                   </div>
                 )}
                 <div className="mb-6">
