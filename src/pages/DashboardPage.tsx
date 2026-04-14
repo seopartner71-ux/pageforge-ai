@@ -227,7 +227,27 @@ export default function DashboardPage() {
   }
 
   if (analyzedUrl) {
-    return <ReportPage url={analyzedUrl} analysisId={analysisId} onBack={() => { setAnalyzedUrl(null); setAnalysisId(null); }} />;
+    return <ReportPage
+      url={analyzedUrl}
+      analysisId={analysisId}
+      onBack={() => { setAnalyzedUrl(null); setAnalysisId(null); }}
+      onReanalyze={(reUrl) => {
+        // Go back to dashboard and trigger re-analysis for the same URL
+        setAnalyzedUrl(null);
+        setAnalysisId(null);
+        handleStartAnalysis({
+          url: reUrl,
+          pageType: '',
+          competitors: [],
+          aiContext: '',
+          clusterMode: false,
+          region: '',
+          batchMode: false,
+          urls: [],
+          projectId: projects[0]?.id || '',
+        });
+      }}
+    />;
   }
 
   if (!projectsLoaded) {

@@ -182,7 +182,7 @@ function SgeBlueprintSection({ audit, report, bp }: { audit: any; report: any; b
 
 /* ─────────── AI Report Tab ─────────── */
 
-function AiReportTab({ data, scrollToSge, onSgeScrolled }: TabDataProps & { scrollToSge?: boolean; onSgeScrolled?: () => void }) {
+function AiReportTab({ data, scrollToSge, onSgeScrolled, onSwitchToForge }: TabDataProps & { scrollToSge?: boolean; onSgeScrolled?: () => void; onSwitchToForge?: () => void }) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const sgeRef = useRef<HTMLDivElement>(null);
   const report = data?.aiReport;
@@ -222,8 +222,30 @@ function AiReportTab({ data, scrollToSge, onSgeScrolled }: TabDataProps & { scro
 
   const semanticHtml = bp?.sections ? `<main>\n  <article>\n    <h1>${bp.h1 || 'Заголовок'}</h1>\n${bp.sections.map((s: any) => `    <section>\n      <${s.tag || 'h2'}>${s.text}</${s.tag || 'h2'}>\n      <p><!-- ${s.wordCount || 200} слов --></p>\n    </section>`).join('\n')}\n  </article>\n</main>` : '';
 
+  const missingCount = report.missingEntities?.length || 0;
+  const tfidfMissing = data?.tfidf?.filter((t: any) => t.status === 'Missing')?.length || 0;
+
   return (
     <div className="space-y-6">
+      {/* CTA: Optimize Content */}
+      {onSwitchToForge && (missingCount > 0 || tfidfMissing > 0) && (
+        <div className="glass-card p-4 border-l-2 border-accent/60 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold text-foreground flex items-center gap-2">
+              <Wand2 className="w-4 h-4 text-accent" />
+              {missingCount + tfidfMissing} пробелов обнаружено
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              AI Forge автоматически интегрирует недостающие ключевые слова и сущности в ваш текст
+            </p>
+          </div>
+          <Button size="sm" className="btn-gradient border-0 text-xs gap-1.5 shrink-0" onClick={onSwitchToForge}>
+            <Sparkles className="w-3 h-3" />
+            Оптимизировать текст
+          </Button>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-2">
         <h2 className="text-lg font-bold text-foreground">Глубокий SEO-аудит</h2>
         <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-accent/20 text-accent">ИИ-анализ</span>
@@ -2088,46 +2110,153 @@ function DataSourcesTab({ data }: TabDataProps) {
 
 /* ─────────── Verification (Before/After) Tab ─────────── */
 
-function VerificationTab({ data }: TabDataProps) {
+function VerificationTab({ data, analysisId, onReanalyze }: TabDataProps & { analysisId?: string | null; onReanalyze?: () => void }) {
+  const { lang } = useLang();
+  const isRu = lang === 'ru';
+  const [prevScores, setPrevScores] = useState<any>(null);
+  const [loadingPrev, setLoadingPrev] = useState(false);
   const pageStats = data?.pageStats;
   const tfidf = data?.tfidf;
+  const currentScores = data?._scores;
 
-  // Count proof-linked terms (found in competitors but missing from target)
+  // Load previous analysis scores for comparison
+  useEffect(() => {
+    if (!analysisId) return;
+    const loadPrev = async () => {
+      setLoadingPrev(true);
+      // Get the current analysis URL
+      const { data: analysis } = await supabase
+        .from('analyses')
+        .select('url, user_id, created_at')
+        .eq('id', analysisId)
+        .single();
+      if (!analysis) { setLoadingPrev(false); return; }
+
+      // Find previous analysis for the same URL
+      const { data: prevAnalyses } = await supabase
+        .from('analyses')
+        .select('id')
+        .eq('url', analysis.url)
+        .eq('user_id', analysis.user_id)
+        .lt('created_at', analysis.created_at)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (prevAnalyses?.length) {
+        const { data: prevResult } = await supabase
+          .from('analysis_results')
+          .select('scores')
+          .eq('analysis_id', prevAnalyses[0].id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (prevResult?.scores) setPrevScores(prevResult.scores as any);
+      }
+      setLoadingPrev(false);
+    };
+    loadPrev();
+  }, [analysisId]);
+
   const missingTerms = tfidf?.filter((t: any) => t.status === 'Missing') || [];
 
+  // Score diff items
+  const scoreDiffs = currentScores && prevScores ? [
+    { label: 'SEO Health', prev: prevScores.seoHealth || 0, curr: currentScores.seoHealth || 0 },
+    { label: 'LLM-Friendly', prev: prevScores.llmFriendly || 0, curr: currentScores.llmFriendly || 0 },
+    { label: 'Human Touch', prev: prevScores.humanTouch || 0, curr: currentScores.humanTouch || 0 },
+    { label: 'SGE Adapt', prev: prevScores.sgeAdapt || 0, curr: currentScores.sgeAdapt || 0 },
+  ] : null;
+
   const metrics = pageStats ? [
-    { label: 'Количество слов', before: pageStats.target?.wordCount || 0, median: pageStats.competitorMedian?.wordCount || 0 },
-    { label: 'Заголовки H2', before: pageStats.target?.h2Count || 0, median: pageStats.competitorMedian?.h2Count || 0 },
-    { label: 'Заголовки H3', before: pageStats.target?.h3Count || 0, median: '-' },
-    { label: 'Изображения', before: pageStats.target?.imgCount || 0, median: '-' },
-    { label: 'Ссылки', before: pageStats.target?.linkCount || 0, median: '-' },
+    { label: isRu ? 'Количество слов' : 'Word Count', before: pageStats.target?.wordCount || 0, median: pageStats.competitorMedian?.wordCount || 0 },
+    { label: isRu ? 'Заголовки H2' : 'H2 Headings', before: pageStats.target?.h2Count || 0, median: pageStats.competitorMedian?.h2Count || 0 },
+    { label: isRu ? 'Заголовки H3' : 'H3 Headings', before: pageStats.target?.h3Count || 0, median: '-' },
+    { label: isRu ? 'Изображения' : 'Images', before: pageStats.target?.imgCount || 0, median: '-' },
+    { label: isRu ? 'Ссылки' : 'Links', before: pageStats.target?.linkCount || 0, median: '-' },
   ] : [];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-bold text-foreground">Сверка: До и После</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Сравнение вашей страницы с медианой ТОП-10 конкурентов. Данные получены из реального парсинга.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">{isRu ? 'Сверка: До и После' : 'Verification: Before & After'}</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isRu
+              ? 'Сравнение метрик с предыдущим анализом и медианой ТОП-10.'
+              : 'Compare metrics with previous analysis and TOP-10 median.'}
+          </p>
+        </div>
+        {onReanalyze && (
+          <Button size="sm" className="btn-gradient border-0 text-xs gap-1.5" onClick={onReanalyze}>
+            <BarChart2 className="w-3 h-3" />
+            {isRu ? 'Повторный анализ' : 'Re-analyze'}
+          </Button>
+        )}
       </div>
+
+      {/* Score Diff Cards */}
+      {scoreDiffs && (
+        <div>
+          <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-3">
+            {isRu ? 'Динамика оценок' : 'Score Dynamics'}
+          </h3>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {scoreDiffs.map((s, i) => {
+              const diff = s.curr - s.prev;
+              const isUp = diff > 0;
+              const isNeutral = diff === 0;
+              return (
+                <div key={i} className="glass-card p-4 text-center space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">{s.label}</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-lg font-mono text-muted-foreground line-through">{s.prev}</span>
+                    <span className="text-xl">→</span>
+                    <span className="text-lg font-mono font-bold text-foreground">{s.curr}</span>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 rounded ${
+                    isNeutral ? 'bg-secondary text-muted-foreground' : isUp ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
+                  }`}>
+                    {isNeutral ? '=' : isUp ? `↑ +${diff}` : `↓ ${diff}`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {loadingPrev && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          {isRu ? 'Загружаю предыдущий анализ...' : 'Loading previous analysis...'}
+        </div>
+      )}
+
+      {!loadingPrev && !prevScores && currentScores && (
+        <div className="glass-card p-4 border-l-2 border-muted text-sm text-muted-foreground">
+          {isRu
+            ? '📌 Это первый анализ данной страницы. После повторного анализа здесь появится сравнение оценок.'
+            : '📌 This is the first analysis of this page. Score comparison will appear after re-analysis.'}
+        </div>
+      )}
 
       {metrics.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Метрика</th>
-                <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ваша страница</th>
-                <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Медиана ТОП-10</th>
-                <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Статус</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{isRu ? 'Метрика' : 'Metric'}</th>
+                <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{isRu ? 'Ваша страница' : 'Your Page'}</th>
+                <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{isRu ? 'Медиана ТОП-10' : 'TOP-10 Median'}</th>
+                <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{isRu ? 'Статус' : 'Status'}</th>
               </tr>
             </thead>
             <tbody>
               {metrics.map((m, i) => {
                 const diff = typeof m.median === 'number' && m.median > 0 ? m.before / m.median : null;
                 const statusColor = diff === null ? 'text-muted-foreground' : diff >= 0.8 ? 'text-green-500' : diff >= 0.5 ? 'text-yellow-500' : 'text-red-500';
-                const statusText = diff === null ? '—' : diff >= 0.8 ? '✓ OK' : diff >= 0.5 ? '⚠ Ниже' : '✕ Критично';
+                const statusText = diff === null ? '—' : diff >= 0.8 ? '✓ OK' : diff >= 0.5 ? (isRu ? '⚠ Ниже' : '⚠ Below') : (isRu ? '✕ Критично' : '✕ Critical');
                 return (
                   <tr key={i} className="border-b border-border/50">
                     <td className="py-3 px-4 text-foreground font-medium">{m.label}</td>
@@ -2145,10 +2274,12 @@ function VerificationTab({ data }: TabDataProps) {
       {missingTerms.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-3">
-            Подтверждённые пробелы (Proof-linked Gaps)
+            {isRu ? 'Подтверждённые пробелы (Proof-linked Gaps)' : 'Proof-linked Gaps'}
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
-            Каждый термин реально найден у конкурентов через TF-IDF анализ, а не сгенерирован ИИ.
+            {isRu
+              ? 'Каждый термин реально найден у конкурентов через TF-IDF анализ, а не сгенерирован ИИ.'
+              : 'Each term is verified from competitor TF-IDF analysis, not AI-generated.'}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {missingTerms.slice(0, 20).map((t: any, i: number) => (
@@ -2156,7 +2287,7 @@ function VerificationTab({ data }: TabDataProps) {
                 <span className="text-sm font-medium text-foreground">{t.term}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">
-                    Медиана: {(t.competitorMedianTfidf * 1000).toFixed(1)}
+                    {isRu ? 'Медиана' : 'Median'}: {(t.competitorMedianTfidf * 1000).toFixed(1)}
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary">GAP</span>
                 </div>
@@ -2166,8 +2297,8 @@ function VerificationTab({ data }: TabDataProps) {
         </div>
       )}
 
-      {!pageStats && !missingTerms.length && (
-        <p className="text-muted-foreground text-sm">Нет данных для верификации. Запустите анализ с конкурентами.</p>
+      {!pageStats && !missingTerms.length && !prevScores && (
+        <p className="text-muted-foreground text-sm">{isRu ? 'Нет данных для верификации. Запустите анализ с конкурентами.' : 'No verification data. Run analysis with competitors.'}</p>
       )}
     </div>
   );
@@ -2399,9 +2530,11 @@ interface ReportTabsProps {
   onTabChange?: (tab: string) => void;
   scrollToSge?: boolean;
   onSgeScrolled?: () => void;
+  onReanalyze?: () => void;
+  scores?: any;
 }
 
-export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scrollToSge, onSgeScrolled }: ReportTabsProps) {
+export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scrollToSge, onSgeScrolled, onReanalyze, scores }: ReportTabsProps) {
   const { lang } = useLang();
   const labels = {
     ...(tabLabels[lang] || tabLabels.en),
@@ -2451,7 +2584,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
 
       {tabKeys.map((key) => {
         const tabComponents: Record<TabKey, () => JSX.Element> = {
-          aiReport: () => <AiReportTab data={data} scrollToSge={scrollToSge} onSgeScrolled={onSgeScrolled} />,
+          aiReport: () => <AiReportTab data={data} scrollToSge={scrollToSge} onSgeScrolled={onSgeScrolled} onSwitchToForge={() => onTabChange?.('optimizer')} />,
           priorities: () => <PrioritiesTab data={data} />,
           implementationPlan: () => <ImplementationPlanTab data={data} />,
           blueprint: () => <BlueprintTab data={data} />,
@@ -2474,7 +2607,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
           internalLinking: () => <InternalLinkingTab data={data} />,
           competitorComparison: () => <CompetitorComparisonTab data={data} />,
           dataSources: () => <DataSourcesTab data={data} />,
-          verification: () => <VerificationTab data={data} />,
+          verification: () => <VerificationTab data={{ ...data, _scores: scores }} analysisId={analysisId} onReanalyze={onReanalyze} />,
         };
         const Component = tabComponents[key];
         return (

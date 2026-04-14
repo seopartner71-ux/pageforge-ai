@@ -5,7 +5,7 @@ import { ScoreGauge } from '@/components/ScoreGauge';
 import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link, Table2 } from 'lucide-react';
+import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link, Table2, RefreshCw } from 'lucide-react';
 import { GscWidget } from '@/components/GscWidget';
 import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
 import { exportReportXlsx } from '@/lib/exportXlsx';
@@ -20,6 +20,7 @@ interface ReportPageProps {
   url: string;
   analysisId?: string | null;
   onBack: () => void;
+  onReanalyze?: (url: string) => void;
 }
 
 const scoreColors = [
@@ -47,7 +48,7 @@ interface PdfTpl {
   section_order: any;
 }
 
-export default function ReportPage({ url, analysisId, onBack }: ReportPageProps) {
+export default function ReportPage({ url, analysisId, onBack, onReanalyze }: ReportPageProps) {
   const { tr, lang } = useLang();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
@@ -315,7 +316,16 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
               <div>
-                <ReportTabs data={tabData} analysisId={analysisId} activeTab={activeTab} onTabChange={setActiveTab} scrollToSge={scrollToSge} onSgeScrolled={() => setScrollToSge(false)} />
+                <ReportTabs
+                  data={tabData}
+                  analysisId={analysisId}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  scrollToSge={scrollToSge}
+                  onSgeScrolled={() => setScrollToSge(false)}
+                  scores={scores}
+                  onReanalyze={onReanalyze ? () => onReanalyze(url) : undefined}
+                />
               </div>
               <div className="hidden lg:block">
                 <div className="sticky top-20 space-y-4">
