@@ -200,16 +200,20 @@ function UsersTab() {
     load();
   }, []);
 
-  const getAnalysisCount = (userId: string) => analyses.filter(a => a.user_id === userId).length;
-
-  const getLastActivity = (userId: string) => {
-    const userAnalyses = analyses.filter(a => a.user_id === userId);
-    if (userAnalyses.length === 0) return null;
-    return userAnalyses.reduce((latest, a) => {
+  // Pre-compute analysis stats per user to avoid O(N*M) filtering on every render
+  const analysisStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const lastDates: Record<string, Date> = {};
+    for (const a of analyses) {
+      counts[a.user_id] = (counts[a.user_id] || 0) + 1;
       const d = new Date(a.created_at);
-      return d > latest ? d : latest;
-    }, new Date(0));
-  };
+      if (!lastDates[a.user_id] || d > lastDates[a.user_id]) lastDates[a.user_id] = d;
+    }
+    return { counts, lastDates };
+  }, [analyses]);
+
+  const getAnalysisCount = (userId: string) => analysisStats.counts[userId] || 0;
+  const getLastActivity = (userId: string) => analysisStats.lastDates[userId] || null;
 
   const getPlan = (credits: number) => {
     if (credits >= 100) return 'AGENCY';
@@ -256,15 +260,15 @@ function UsersTab() {
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
 
-  const pendingUsers = users.filter(u => !u.is_approved);
-  const activeUsers = users.filter(u => u.is_approved);
+  const pendingUsers = useMemo(() => users.filter(u => !u.is_approved), [users]);
+  const activeUsers = useMemo(() => users.filter(u => u.is_approved), [users]);
 
-  const filteredActive = activeUsers.filter(u => {
+  const filteredActive = useMemo(() => activeUsers.filter(u => {
     if (filterPlan !== 'all' && getPlan(u.credits) !== filterPlan) return false;
     if (filterActivity === 'active' && !isActiveRecently(u.user_id)) return false;
     if (filterActivity === 'inactive' && isActiveRecently(u.user_id)) return false;
     return true;
-  });
+  }), [activeUsers, filterPlan, filterActivity, analysisStats]);
 
   const displayUsers = userTab === 'pending' ? pendingUsers : filteredActive;
 
