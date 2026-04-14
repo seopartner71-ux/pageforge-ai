@@ -258,8 +258,6 @@ function UsersTab() {
     setEmailDialog({ open: false, to: '', subject: '', body: '' });
   };
 
-  if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
-
   const pendingUsers = useMemo(() => users.filter(u => !u.is_approved), [users]);
   const activeUsers = useMemo(() => users.filter(u => u.is_approved), [users]);
 
@@ -269,6 +267,8 @@ function UsersTab() {
     if (filterActivity === 'inactive' && isActiveRecently(u.user_id)) return false;
     return true;
   }), [activeUsers, filterPlan, filterActivity, analysisStats]);
+
+  if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
 
   const displayUsers = userTab === 'pending' ? pendingUsers : filteredActive;
 
