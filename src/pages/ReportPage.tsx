@@ -48,7 +48,7 @@ interface PdfTpl {
   section_order: any;
 }
 
-export default function ReportPage({ url, analysisId, onBack }: ReportPageProps) {
+export default function ReportPage({ url, analysisId, onBack, onReanalyze }: ReportPageProps) {
   const { tr, lang } = useLang();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
