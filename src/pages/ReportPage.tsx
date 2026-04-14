@@ -315,7 +315,16 @@ export default function ReportPage({ url, analysisId, onBack }: ReportPageProps)
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
               <div>
-                <ReportTabs data={tabData} analysisId={analysisId} activeTab={activeTab} onTabChange={setActiveTab} scrollToSge={scrollToSge} onSgeScrolled={() => setScrollToSge(false)} />
+                <ReportTabs
+                  data={tabData}
+                  analysisId={analysisId}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  scrollToSge={scrollToSge}
+                  onSgeScrolled={() => setScrollToSge(false)}
+                  scores={scores}
+                  onReanalyze={handleReanalyze}
+                />
               </div>
               <div className="hidden lg:block">
                 <div className="sticky top-20 space-y-4">
