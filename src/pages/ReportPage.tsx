@@ -5,7 +5,7 @@ import { ScoreGauge } from '@/components/ScoreGauge';
 import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link, Table2 } from 'lucide-react';
+import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link, Table2, RefreshCw } from 'lucide-react';
 import { GscWidget } from '@/components/GscWidget';
 import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
 import { exportReportXlsx } from '@/lib/exportXlsx';
