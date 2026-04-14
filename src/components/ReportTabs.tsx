@@ -1881,11 +1881,13 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
         <div className="space-y-5">
           {result.summary && (
             <div className="report-soft-panel overflow-hidden border-primary/20">
-              <div className="bg-gradient-to-r from-primary/12 via-transparent to-accent/12 px-5 py-4 border-b border-border/50">
-                <span className="text-xs font-bold text-primary uppercase tracking-[0.22em]">
+              <div className="border-b border-border/50 bg-gradient-to-r from-primary/12 via-transparent to-accent/12 px-5 py-4">
+                <span className="text-xs font-bold uppercase tracking-[0.22em] text-primary">
                   {lang === 'ru' ? 'Что изменено' : 'Changes Summary'}
                 </span>
-                <p className="mt-2 text-base font-medium leading-relaxed text-foreground">{result.summary}</p>
+                <p className="mt-2 text-base font-medium leading-relaxed text-foreground">
+                  {result.summary}
+                </p>
               </div>
             </div>
           )}
@@ -1906,30 +1908,27 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                 {result.changes.map((c: any, i: number) => (
                   <div key={i} className="flex items-start gap-3 rounded-2xl border border-border/50 bg-background/35 px-3 py-3 text-sm">
-                    <span className={`mt-0.5 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
-                      c.type === 'added' ? 'bg-primary/15 text-primary' :
-                      c.type === 'reduced' ? 'bg-destructive/15 text-destructive' :
-                      'bg-accent/15 text-accent'
-                    }`}>
-                      {c.type === 'added' ? 'ADD' : c.type === 'reduced' ? 'TRIM' : 'EDIT'}
+                    <span
+                      className={`mt-0.5 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                        c.type === 'added'
+                          ? 'bg-primary/15 text-primary'
+                          : c.type === 'reduced'
+                            ? 'bg-destructive/15 text-destructive'
+                            : c.type === 'structure'
+                              ? 'bg-secondary text-foreground'
+                              : 'bg-accent/15 text-accent'
+                      }`}
+                    >
+                      {c.type === 'added' ? 'ADD' : c.type === 'reduced' ? 'TRIM' : c.type === 'structure' ? 'STRUCT' : 'EDIT'}
                     </span>
-                    <div className="min-w-0 flex-1 text-muted-foreground leading-relaxed">
-                      <span className="text-foreground">{c.text || c.term || c.message}</span>
+                    <div className="min-w-0 flex-1 leading-relaxed text-muted-foreground">
+                      <span className="text-foreground">{c.text || c.term || c.message || c.phrase}</span>
+                      {(c.context || c.description || c.reason || c.from !== undefined) && (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {c.context || c.description || c.reason || `${c.from} → ${c.to}`}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-                      c.type === 'structure' ? 'bg-secondary text-foreground' :
-                      'bg-primary/20 text-primary'
-                    }`}>
-                      {c.type === 'added' ? '+' : c.type === 'reduced' ? '−' : c.type === 'structure' ? '▣' : '◆'}
-                    </span>
-                    <span className="text-foreground font-medium">{c.term || c.phrase}</span>
-                    <span className="text-muted-foreground">
-                      {c.context || (c.from !== undefined ? `${c.from} → ${c.to}` : '')}
-                    </span>
                   </div>
                 ))}
               </div>
