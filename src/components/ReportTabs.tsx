@@ -2530,6 +2530,8 @@ interface ReportTabsProps {
   onTabChange?: (tab: string) => void;
   scrollToSge?: boolean;
   onSgeScrolled?: () => void;
+  onReanalyze?: () => void;
+  scores?: any;
 }
 
 export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scrollToSge, onSgeScrolled }: ReportTabsProps) {
