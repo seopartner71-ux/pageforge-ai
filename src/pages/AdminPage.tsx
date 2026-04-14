@@ -260,15 +260,15 @@ function UsersTab() {
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
 
-  const pendingUsers = users.filter(u => !u.is_approved);
-  const activeUsers = users.filter(u => u.is_approved);
+  const pendingUsers = useMemo(() => users.filter(u => !u.is_approved), [users]);
+  const activeUsers = useMemo(() => users.filter(u => u.is_approved), [users]);
 
-  const filteredActive = activeUsers.filter(u => {
+  const filteredActive = useMemo(() => activeUsers.filter(u => {
     if (filterPlan !== 'all' && getPlan(u.credits) !== filterPlan) return false;
     if (filterActivity === 'active' && !isActiveRecently(u.user_id)) return false;
     if (filterActivity === 'inactive' && isActiveRecently(u.user_id)) return false;
     return true;
-  });
+  }), [activeUsers, filterPlan, filterActivity, analysisStats]);
 
   const displayUsers = userTab === 'pending' ? pendingUsers : filteredActive;
 
