@@ -10,6 +10,7 @@ import { PendingApprovalScreen } from "@/components/PendingApprovalScreen";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AuthPage from "./pages/AuthPage.tsx";
+import LandingPage from "./pages/LandingPage.tsx";
 import DashboardPage from "./pages/DashboardPage.tsx";
 import HistoryPage from "./pages/HistoryPage.tsx";
 import AccountPage from "./pages/AccountPage.tsx";
@@ -60,7 +61,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/auth" element={<AuthPage />} />
             <Route path="/dashboard" element={<AuthGate><DashboardPage /></AuthGate>} />
             <Route path="/history" element={<AuthGate><HistoryPage /></AuthGate>} />
             <Route path="/report/:id" element={<AuthGate><ReportRouterPage /></AuthGate>} />
