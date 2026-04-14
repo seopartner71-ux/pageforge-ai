@@ -15,7 +15,7 @@ export default function TermsPage() {
             <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
               <Zap className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-bold gradient-text">PageForge AI</span>
+            <span className="font-bold gradient-text">SEO-Аудит</span>
           </Link>
           <LangToggle />
         </div>
@@ -31,9 +31,9 @@ export default function TermsPage() {
         <div className="prose prose-invert prose-sm max-w-none space-y-4 text-muted-foreground">
           {isRu ? (
             <>
-              <p>Настоящий документ является публичной офертой ИП Синицын Владимир Николаевич и определяет условия использования сервиса PageForge AI.</p>
+              <p>Настоящий документ является публичной офертой ИП Синицын Владимир Николаевич и определяет условия использования сервиса SEO-Аудит.</p>
               <h2 className="text-foreground text-lg font-semibold mt-8">1. Предмет оферты</h2>
-              <p>Исполнитель предоставляет Заказчику доступ к онлайн-сервису SEO-аудита PageForge AI на условиях выбранного тарифного плана.</p>
+              <p>Исполнитель предоставляет Заказчику доступ к онлайн-сервису SEO-аудита SEO-Аудит на условиях выбранного тарифного плана.</p>
               <h2 className="text-foreground text-lg font-semibold mt-8">2. Условия использования</h2>
               <p>Пользователь обязуется использовать сервис в соответствии с действующим законодательством и не нарушать права третьих лиц.</p>
               <h2 className="text-foreground text-lg font-semibold mt-8">3. Оплата</h2>
@@ -43,9 +43,9 @@ export default function TermsPage() {
             </>
           ) : (
             <>
-              <p>This document constitutes the Terms of Service for PageForge AI and defines the conditions of use.</p>
+              <p>This document constitutes the Terms of Service for SEO-Аудит and defines the conditions of use.</p>
               <h2 className="text-foreground text-lg font-semibold mt-8">1. Subject</h2>
-              <p>The Provider grants the User access to the PageForge AI online SEO audit service under the selected pricing plan.</p>
+              <p>The Provider grants the User access to the SEO-Аудит online SEO audit service under the selected pricing plan.</p>
               <h2 className="text-foreground text-lg font-semibold mt-8">2. Terms of Use</h2>
               <p>The User agrees to use the service in accordance with applicable law and not to violate the rights of third parties.</p>
               <h2 className="text-foreground text-lg font-semibold mt-8">3. Payment</h2>

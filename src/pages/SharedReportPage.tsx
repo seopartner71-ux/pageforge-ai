@@ -82,7 +82,7 @@ export default function SharedReportPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/40 bg-card/50 backdrop-blur-sm">
         <div className="container flex items-center justify-between py-3">
-          <span className="font-bold text-sm gradient-text">PageForge AI</span>
+          <span className="font-bold text-sm gradient-text">SEO-Аудит</span>
           <span className="text-xs text-muted-foreground px-2 py-1 bg-secondary rounded">Read-Only</span>
         </div>
       </header>
@@ -109,7 +109,7 @@ export default function SharedReportPage() {
 
       <footer className="border-t border-border/40 py-4 text-center">
         <p className="text-xs text-muted-foreground">
-          Powered by <span className="gradient-text font-semibold">PageForge AI</span>
+          Powered by <span className="gradient-text font-semibold">SEO-Аудит</span>
         </p>
       </footer>
     </div>

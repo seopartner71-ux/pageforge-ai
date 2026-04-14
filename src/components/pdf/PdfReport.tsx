@@ -67,7 +67,7 @@ function scoreColor(v: number, t: ThemeColors): string {
 function PageHeader({ t, companyName }: { t: ThemeColors; companyName?: string }) {
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: t.border }} fixed>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: t.accent, letterSpacing: 1, fontFamily: 'Roboto' }}>PageForge AI</Text>
+      <Text style={{ fontSize: 11, fontWeight: 700, color: t.accent, letterSpacing: 1, fontFamily: 'Roboto' }}>SEO-Аудит</Text>
       {companyName ? <Text style={{ fontSize: 8, color: t.fgMuted, fontFamily: 'Roboto' }}>{companyName}</Text> : null}
     </View>
   );
@@ -76,7 +76,7 @@ function PageHeader({ t, companyName }: { t: ThemeColors; companyName?: string }
 function PageFooter({ t, projectName, isRu }: { t: ThemeColors; projectName?: string; isRu: boolean }) {
   return (
     <View style={{ position: 'absolute', bottom: 20, left: 56, right: 56, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 0.5, borderTopColor: t.border, paddingTop: 6 }} fixed>
-      <Text style={{ fontSize: 7, color: t.fgMuted, fontFamily: 'Roboto' }}>PageForge AI</Text>
+      <Text style={{ fontSize: 7, color: t.fgMuted, fontFamily: 'Roboto' }}>SEO-Аудит</Text>
       {projectName ? <Text style={{ fontSize: 7, color: t.fgMuted, fontFamily: 'Roboto' }}>{projectName}</Text> : null}
       <Text style={{ fontSize: 7, color: t.fgMuted, fontFamily: 'Roboto' }} render={({ pageNumber, totalPages }) =>
         `${isRu ? 'Страница' : 'Page'} ${pageNumber} ${isRu ? 'из' : 'of'} ${totalPages}`
@@ -241,7 +241,7 @@ export function PdfReportDocument({ analysis, results, template, companyName, la
   ];
 
   return (
-    <Document title={`SEO Report — ${url}`} author="PageForge AI" subject="SEO Analysis Report">
+    <Document title={`SEO Report — ${url}`} author="SEO-Аудит" subject="SEO Analysis Report">
 
       {/* ═══════ PAGE 1: COVER ═══════ */}
       <Page size="A4" style={{ ...pageStyle, justifyContent: 'center', alignItems: 'center' }}>
@@ -249,7 +249,7 @@ export function PdfReportDocument({ analysis, results, template, companyName, la
 
         <View style={{ width: 40, height: 3, backgroundColor: t.accent, marginBottom: 20 }} />
         <Text style={{ fontSize: 10, fontWeight: 300, color: t.accent, letterSpacing: 5, marginBottom: 10, fontFamily: 'Roboto' }}>
-          PAGEFORGE AI
+          SEO-АУДИТ
         </Text>
         <Text style={{ fontSize: 26, fontWeight: 700, color: t.fg, textAlign: 'center', marginBottom: 6, fontFamily: 'Roboto' }}>
           {isRu ? 'ОТЧЁТ АНАЛИЗА СТРАНИЦЫ' : 'PAGE ANALYSIS REPORT'}

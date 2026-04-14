@@ -2,7 +2,7 @@ export type Lang = 'ru' | 'en';
 
 const translations = {
   ru: {
-    appName: 'PageForge AI',
+    appName: 'SEO-Аудит',
     subtitle: 'GEO Content Optimizer',
     tagline: 'Анализ страницы\nдля SEO и GEO продвижения',
     taglineDesc: 'TF*IDF · Закон Ципфа · N-граммы · Topical Gap · GEO Score · Golden Source Blueprint\nAI-анализ через 5 параллельных модулей',
@@ -80,7 +80,7 @@ const translations = {
     logout: 'Выйти',
     // Landing
     landing: {
-      heroTitle: 'PageForge AI',
+      heroTitle: 'SEO-Аудит',
       heroSubtitle: 'GEO Content Optimizer',
       heroDesc: 'Полный SEO-аудит страницы за 30 секунд. TF-IDF, N-граммы, LLM-дружелюбность, Schema валидатор и 20+ модулей анализа.',
       ctaStart: 'Начать бесплатно',
@@ -159,7 +159,7 @@ const translations = {
     },
     // Auth
     auth: {
-      signInTitle: 'Войти в PageForge AI',
+      signInTitle: 'Войти в SEO-Аудит',
       signUpTitle: 'Начать бесплатно',
       signUpSubtitle: '3 анализа бесплатно. Без карты.',
       name: 'Имя',
@@ -185,7 +185,7 @@ const translations = {
     },
   },
   en: {
-    appName: 'PageForge AI',
+    appName: 'SEO-Аудит',
     subtitle: 'GEO Content Optimizer',
     tagline: 'Page analysis\nfor SEO & GEO optimization',
     taglineDesc: 'TF*IDF · Zipf\'s Law · N-grams · Topical Gap · GEO Score · Golden Source Blueprint\nAI analysis via 5 parallel modules',
@@ -263,7 +263,7 @@ const translations = {
     logout: 'Sign Out',
     // Landing
     landing: {
-      heroTitle: 'PageForge AI',
+      heroTitle: 'SEO-Аудит',
       heroSubtitle: 'GEO Content Optimizer',
       heroDesc: 'Complete SEO page audit in 30 seconds. TF-IDF, N-grams, LLM-friendliness, Schema validator and 20+ analysis modules.',
       ctaStart: 'Start for free',
@@ -335,14 +335,14 @@ const translations = {
         ],
       },
       footer: {
-        company: 'PageForge AI',
+        company: 'SEO-Аудит',
         privacy: 'Privacy Policy',
         terms: 'Terms of Service',
       },
     },
     // Auth
     auth: {
-      signInTitle: 'Sign in to PageForge AI',
+      signInTitle: 'Sign in to SEO-Аудит',
       signUpTitle: 'Start for free',
       signUpSubtitle: '3 analyses free. No card required.',
       name: 'Name',

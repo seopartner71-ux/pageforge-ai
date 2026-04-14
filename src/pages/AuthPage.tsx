@@ -108,7 +108,7 @@ export default function AuthPage() {
             <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
               <Zap className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-bold text-lg gradient-text tracking-tight">PageForge AI</span>
+            <span className="font-bold text-lg gradient-text tracking-tight">SEO-Аудит</span>
           </Link>
         </div>
 
@@ -127,7 +127,7 @@ export default function AuthPage() {
         </div>
 
         <div className="relative text-xs text-muted-foreground">
-          © {new Date().getFullYear()} PageForge AI
+          © {new Date().getFullYear()} SEO-Аудит
         </div>
       </div>
 
@@ -145,7 +145,7 @@ export default function AuthPage() {
                 <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
                   <Zap className="w-4 h-4 text-primary-foreground" />
                 </div>
-                <span className="font-bold text-lg gradient-text tracking-tight">PageForge AI</span>
+                <span className="font-bold text-lg gradient-text tracking-tight">SEO-Аудит</span>
               </div>
             </Link>
           </div>
