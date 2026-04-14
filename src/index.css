@@ -2,53 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
+    --background: 240 10% 4%;
     --foreground: 210 40% 96%;
 
-    --card: 222 47% 9%;
+    --card: 240 10% 7%;
     --card-foreground: 210 40% 96%;
 
-    --popover: 222 47% 9%;
+    --popover: 240 10% 7%;
     --popover-foreground: 210 40% 96%;
 
-    --primary: 245 58% 58%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 47% 14%;
+    --secondary: 240 10% 12%;
     --secondary-foreground: 210 40% 90%;
 
-    --muted: 222 30% 16%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 240 10% 14%;
+    --muted-foreground: 215 20% 50%;
 
-    --accent: 210 100% 52%;
+    --accent: 263 70% 58%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 30% 18%;
-    --input: 222 30% 18%;
-    --ring: 245 58% 58%;
+    --border: 240 10% 14%;
+    --input: 240 10% 14%;
+    --ring: 217 91% 60%;
 
     --radius: 0.75rem;
 
-    --gradient-primary: linear-gradient(135deg, hsl(245, 58%, 58%), hsl(210, 100%, 52%));
-    --gradient-glow: linear-gradient(135deg, hsl(245, 58%, 58%, 0.2), hsl(210, 100%, 52%, 0.2));
-    --shadow-glow: 0 0 30px hsl(245 58% 58% / 0.15);
-    --shadow-card: 0 4px 24px hsl(222 47% 4% / 0.5);
+    --gradient-primary: linear-gradient(135deg, hsl(217, 91%, 60%), hsl(263, 70%, 58%));
+    --gradient-glow: linear-gradient(135deg, hsl(217, 91%, 60%, 0.15), hsl(263, 70%, 58%, 0.15));
+    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.15);
+    --shadow-card: 0 4px 24px hsl(240 10% 2% / 0.6);
+    --shadow-glow-accent: 0 0 60px hsl(263 70% 58% / 0.1);
 
-    --sidebar-background: 222 47% 8%;
+    --sidebar-background: 240 10% 6%;
     --sidebar-foreground: 210 40% 90%;
-    --sidebar-primary: 245 58% 58%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 14%;
+    --sidebar-accent: 240 10% 12%;
     --sidebar-accent-foreground: 210 40% 90%;
-    --sidebar-border: 222 30% 18%;
-    --sidebar-ring: 245 58% 58%;
+    --sidebar-border: 240 10% 14%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -59,14 +60,24 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 }
 
 @layer utilities {
   .glass-card {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50 rounded-xl;
+    @apply bg-card/60 backdrop-blur-2xl border border-border/40 rounded-xl;
     box-shadow: var(--shadow-card);
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-500;
+  }
+
+  .glass-card-hover:hover {
+    border-color: hsl(217 91% 60% / 0.3);
+    box-shadow: var(--shadow-card), 0 0 30px hsl(217 91% 60% / 0.06);
+    transform: translateY(-2px);
   }
 
   .gradient-text {
@@ -102,12 +113,24 @@
   }
 
   .btn-gradient:hover {
-    box-shadow: 0 0 40px hsl(245 58% 58% / 0.3);
+    box-shadow: 0 0 50px hsl(217 91% 60% / 0.3), 0 0 20px hsl(263 70% 58% / 0.2);
     transform: translateY(-1px);
   }
-}
 
-@layer utilities {
+  .text-gradient-muted {
+    background: linear-gradient(180deg, hsl(210, 40%, 96%) 0%, hsl(215, 20%, 50%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .grid-pattern {
+    background-image:
+      linear-gradient(hsl(240 10% 14% / 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(240 10% 14% / 0.5) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -115,4 +138,40 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes counter {
+  from { --num: 0; }
+  to { --num: var(--target); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes gauge-fill {
+  from { stroke-dashoffset: var(--circumference); }
+  to { stroke-dashoffset: var(--offset); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(217 91% 60% / 0.08) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
 }

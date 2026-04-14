@@ -8,6 +8,42 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Zap, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 
+/* ── Animated demo metrics for left panel ── */
+function DemoMetrics() {
+  const { tr } = useLang();
+  const d = tr.auth.demoMetrics;
+  const metrics = [
+    { label: d.seoScore, value: 87, color: 'hsl(217, 91%, 60%)' },
+    { label: d.geoScore, value: 72, color: 'hsl(263, 70%, 58%)' },
+    { label: d.readability, value: 94, color: 'hsl(152, 69%, 45%)' },
+    { label: d.keywords, value: 156, color: 'hsl(217, 91%, 60%)', isCount: true },
+  ];
+
+  return (
+    <div className="space-y-6 w-full max-w-xs">
+      {metrics.map((m, i) => (
+        <div key={i} className="glass-card p-4 animate-float" style={{ animationDelay: `${i * 0.8}s` }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-muted-foreground">{m.label}</span>
+            <span className="text-sm font-bold text-foreground">
+              {m.isCount ? m.value : `${m.value}%`}
+            </span>
+          </div>
+          {!m.isCount && (
+            <div className="h-1.5 rounded-full bg-border/50 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-1000 ease-out"
+                style={{ width: `${m.value}%`, background: m.color }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── AUTH PAGE ── */
 export default function AuthPage() {
   const { tr, lang } = useLang();
   const { toast } = useToast();
@@ -16,15 +52,15 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(searchParams.get('mode') !== 'signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const isRu = lang === 'ru';
+  const a = tr.auth;
 
   useEffect(() => {
     setIsLogin(searchParams.get('mode') !== 'signup');
   }, [searchParams]);
 
-  // If already logged in, redirect
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate('/dashboard', { replace: true });
@@ -40,9 +76,17 @@ export default function AuthPage() {
         if (error) throw error;
         navigate('/dashboard');
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { display_name: name } },
+        });
         if (error) throw error;
-        toast({ title: isRu ? 'Проверьте email для подтверждения аккаунта.' : 'Check your email to confirm your account.' });
+        toast({
+          title: lang === 'ru'
+            ? 'Проверьте email для подтверждения аккаунта.'
+            : 'Check your email to confirm your account.',
+        });
       }
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' });
@@ -52,69 +96,82 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel — branding */}
-      <div className="hidden lg:flex flex-col justify-between w-1/2 p-10 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/5" />
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full bg-primary/5 blur-[100px]" />
+    <div className="min-h-screen flex bg-background">
+      {/* Left — branding + demo */}
+      <div className="hidden lg:flex flex-col justify-between w-[45%] p-10 relative overflow-hidden border-r border-border/20">
+        <div className="absolute inset-0 grid-pattern opacity-20" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full bg-primary/[0.03] blur-[120px]" />
+        <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] rounded-full bg-accent/[0.03] blur-[100px]" />
+
         <div className="relative">
-          <Link to="/" className="inline-flex items-center gap-2">
+          <Link to="/" className="inline-flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
               <Zap className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-bold text-lg gradient-text">PageForge AI</span>
+            <span className="font-bold text-lg gradient-text tracking-tight">PageForge AI</span>
           </Link>
         </div>
-        <div className="relative space-y-4">
-          <h2 className="text-3xl font-bold leading-tight">
-            {isRu ? (
-              <>Глубокий On-Page<br />SEO аудит<br /><span className="gradient-text">с ИИ-рекомендациями</span></>
-            ) : (
-              <>Deep On-Page<br />SEO Audit<br /><span className="gradient-text">with AI Recommendations</span></>
-            )}
-          </h2>
-          <p className="text-muted-foreground text-sm max-w-sm">
-            {isRu
-              ? '12 модулей анализа · Сравнение с ТОП-10 · TF·IDF · GEO Score · Golden Source Blueprint'
-              : '12 analysis modules · TOP-10 comparison · TF·IDF · GEO Score · Golden Source Blueprint'}
-          </p>
+
+        <div className="relative flex flex-col items-center gap-10">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-foreground mb-2">
+              {lang === 'ru' ? 'SEO-аудит нового поколения' : 'Next-gen SEO audit'}
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              {lang === 'ru'
+                ? '20+ модулей анализа · Сравнение с ТОП-10 · GEO Score'
+                : '20+ analysis modules · TOP-10 comparison · GEO Score'}
+            </p>
+          </div>
+          <DemoMetrics />
         </div>
+
         <div className="relative text-xs text-muted-foreground">
           © {new Date().getFullYear()} PageForge AI
         </div>
       </div>
 
-      {/* Right panel — form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10">
-        <div className="absolute top-4 right-4 flex items-center gap-2">
+      {/* Right — form */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 relative">
+        <div className="absolute top-5 right-5 flex items-center gap-2">
           <LangToggle />
         </div>
 
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <Link to="/" className="inline-flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
-                <Zap className="w-4 h-4 text-primary-foreground" />
+          <div className="lg:hidden flex items-center gap-2.5 mb-10">
+            <Link to="/">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <span className="font-bold text-lg gradient-text tracking-tight">PageForge AI</span>
               </div>
-              <span className="font-bold text-lg gradient-text">PageForge AI</span>
             </Link>
           </div>
 
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-foreground mb-2">
-              {isLogin
-                ? (isRu ? 'Добро пожаловать' : 'Welcome back')
-                : (isRu ? 'Создать аккаунт' : 'Create account')}
+              {isLogin ? a.signInTitle : a.signUpTitle}
             </h1>
-            <p className="text-sm text-muted-foreground">
-              {isLogin
-                ? (isRu ? 'Войдите в свой аккаунт PageForge AI' : 'Sign in to your PageForge AI account')
-                : (isRu ? 'Зарегистрируйтесь для начала работы' : 'Sign up to get started')}
-            </p>
+            {!isLogin && (
+              <p className="text-sm text-muted-foreground">{a.signUpSubtitle}</p>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">{a.name}</label>
+                <Input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={a.namePlaceholder}
+                  className="bg-secondary/40 border-border/40 focus:border-primary h-11"
+                />
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">{tr.email}</label>
               <Input
@@ -122,12 +179,19 @@ export default function AuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="name@company.com"
-                className="bg-secondary/50 border-border/50 focus:border-primary h-11"
+                placeholder={a.emailPlaceholder}
+                className="bg-secondary/40 border-border/40 focus:border-primary h-11"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">{tr.password}</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-foreground">{tr.password}</label>
+                {isLogin && (
+                  <button type="button" className="text-xs text-primary hover:underline">
+                    {a.forgotPassword}
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Input
                   type={showPassword ? 'text' : 'password'}
@@ -135,37 +199,45 @@ export default function AuthPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  placeholder="••••••••"
-                  className="bg-secondary/50 border-border/50 focus:border-primary h-11 pr-10"
+                  placeholder={a.passwordPlaceholder}
+                  className="bg-secondary/40 border-border/40 focus:border-primary h-11 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
-            <Button type="submit" disabled={loading} className="w-full btn-gradient border-0 h-11 text-sm font-semibold">
-              {loading ? '...' : isLogin ? tr.login : tr.signup}
+            <Button type="submit" disabled={loading} className="w-full btn-gradient border-0 h-11 text-sm font-semibold mt-2">
+              {loading ? '...' : isLogin ? a.signInBtn : a.signUpBtn}
             </Button>
           </form>
 
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            {isLogin ? tr.noAccount : tr.hasAccount}{' '}
+          {!isLogin && (
+            <p className="text-xs text-muted-foreground mt-4 text-center">
+              {a.privacyNote}{' '}
+              <Link to="/privacy" className="text-primary hover:underline">{a.privacyLink}</Link>
+              {' '}{a.and}{' '}
+              <Link to="/terms" className="text-primary hover:underline">{a.termsLink}</Link>
+            </p>
+          )}
+
+          <div className="text-center mt-6">
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline font-medium"
+              className="text-sm text-primary hover:underline font-medium"
             >
-              {isLogin ? tr.signup : tr.login}
+              {isLogin ? a.noAccountLink : a.hasAccountLink}
             </button>
-          </p>
+          </div>
 
           <div className="mt-8 text-center">
-            <Link to="/" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-3 h-3" />
-              {isRu ? 'На главную' : 'Back to home'}
+              {a.backHome}
             </Link>
           </div>
         </div>

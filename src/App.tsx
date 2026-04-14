@@ -7,10 +7,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LangProvider } from "@/contexts/LangContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PendingApprovalScreen } from "@/components/PendingApprovalScreen";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
-import AuthPage from "./pages/AuthPage.tsx";
 import LandingPage from "./pages/LandingPage.tsx";
+import AuthPage from "./pages/AuthPage.tsx";
+import NotFound from "./pages/NotFound.tsx";
 import DashboardPage from "./pages/DashboardPage.tsx";
 import HistoryPage from "./pages/HistoryPage.tsx";
 import AccountPage from "./pages/AccountPage.tsx";
@@ -18,6 +17,8 @@ import PdfEditorPage from "./pages/PdfEditorPage.tsx";
 import ReportRouterPage from "./pages/ReportRouterPage.tsx";
 import AdminPage from "./pages/AdminPage.tsx";
 import SharedReportPage from "./pages/SharedReportPage.tsx";
+import PrivacyPage from "./pages/PrivacyPage.tsx";
+import TermsPage from "./pages/TermsPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
             <Route path="/dashboard" element={<AuthGate><DashboardPage /></AuthGate>} />
             <Route path="/history" element={<AuthGate><HistoryPage /></AuthGate>} />
             <Route path="/report/:id" element={<AuthGate><ReportRouterPage /></AuthGate>} />
