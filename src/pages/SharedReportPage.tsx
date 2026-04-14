@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ScoreGauge } from '@/components/ScoreGauge';
-import { ReportTabs } from '@/components/ReportTabs';
 import { Loader2, Lock } from 'lucide-react';
+
+const ReportTabs = lazy(() => import('@/components/ReportTabs').then((m) => ({ default: m.ReportTabs })));
 
 const scoreColors = [
   'hsl(25, 95%, 53%)',

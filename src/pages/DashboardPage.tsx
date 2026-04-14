@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLang } from '@/contexts/LangContext';
 import { AppHeader } from '@/components/AppHeader';
@@ -6,9 +6,10 @@ import { AnalysisForm, type AnalysisFormData } from '@/components/AnalysisForm';
 import { ChecklistSidebar } from '@/components/ChecklistSidebar';
 import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import { AnalysisProgressModal } from '@/components/AnalysisProgressModal';
-import ReportPage from '@/pages/ReportPage';
-import BatchReportPage from '@/pages/BatchReportPage';
 import { useToast } from '@/hooks/use-toast';
+
+const ReportPage = lazy(() => import('@/pages/ReportPage'));
+const BatchReportPage = lazy(() => import('@/pages/BatchReportPage'));
 
 interface Project {
   id: string;
