@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useLang } from '@/contexts/LangContext';
 import { AppHeader } from '@/components/AppHeader';
 import { ScoreGauge } from '@/components/ScoreGauge';
-import { ReportTabs } from '@/components/ReportTabs';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link, Table2, RefreshCw } from 'lucide-react';
@@ -15,6 +14,8 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+
+const ReportTabs = lazy(() => import('@/components/ReportTabs').then((m) => ({ default: m.ReportTabs })));
 
 interface ReportPageProps {
   url: string;
@@ -316,16 +317,18 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
               <div>
-                <ReportTabs
-                  data={tabData}
-                  analysisId={analysisId}
-                  activeTab={activeTab}
-                  onTabChange={setActiveTab}
-                  scrollToSge={scrollToSge}
-                  onSgeScrolled={() => setScrollToSge(false)}
-                  scores={scores}
-                  onReanalyze={onReanalyze ? () => onReanalyze(url) : undefined}
-                />
+                <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+                  <ReportTabs
+                    data={tabData}
+                    analysisId={analysisId}
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    scrollToSge={scrollToSge}
+                    onSgeScrolled={() => setScrollToSge(false)}
+                    scores={scores}
+                    onReanalyze={onReanalyze ? () => onReanalyze(url) : undefined}
+                  />
+                </Suspense>
               </div>
               <div className="hidden lg:block">
                 <div className="sticky top-20 space-y-4">

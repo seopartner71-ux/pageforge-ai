@@ -224,31 +224,38 @@ export default function DashboardPage() {
 
   // Batch report view
   if (batchItems) {
-    return <BatchReportPage items={batchItems} onBack={() => { setBatchItems(null); }} />;
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 rounded-lg btn-gradient animate-pulse" /></div>}>
+        <BatchReportPage items={batchItems} onBack={() => { setBatchItems(null); }} />
+      </Suspense>
+    );
   }
 
   if (analyzedUrl) {
-    return <ReportPage
-      url={analyzedUrl}
-      analysisId={analysisId}
-      onBack={() => { setAnalyzedUrl(null); setAnalysisId(null); }}
-      onReanalyze={(reUrl) => {
-        // Go back to dashboard and trigger re-analysis for the same URL
-        setAnalyzedUrl(null);
-        setAnalysisId(null);
-        handleStartAnalysis({
-          url: reUrl,
-          pageType: '',
-          competitors: [],
-          aiContext: '',
-          clusterMode: false,
-          region: '',
-          batchMode: false,
-          urls: [],
-          projectId: projects[0]?.id || '',
-        });
-      }}
-    />;
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 rounded-lg btn-gradient animate-pulse" /></div>}>
+        <ReportPage
+          url={analyzedUrl}
+          analysisId={analysisId}
+          onBack={() => { setAnalyzedUrl(null); setAnalysisId(null); }}
+          onReanalyze={(reUrl) => {
+            setAnalyzedUrl(null);
+            setAnalysisId(null);
+            handleStartAnalysis({
+              url: reUrl,
+              pageType: '',
+              competitors: [],
+              aiContext: '',
+              clusterMode: false,
+              region: '',
+              batchMode: false,
+              urls: [],
+              projectId: projects[0]?.id || '',
+            });
+          }}
+        />
+      </Suspense>
+    );
   }
 
   if (!projectsLoaded) {

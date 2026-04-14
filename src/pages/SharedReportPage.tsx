@@ -105,7 +105,9 @@ export default function SharedReportPage() {
           ))}
         </div>
 
-        <ReportTabs data={tabData} />
+        <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+          <ReportTabs data={tabData} />
+        </Suspense>
       </main>
 
       <footer className="border-t border-border/40 py-4 text-center">
