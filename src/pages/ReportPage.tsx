@@ -20,6 +20,7 @@ interface ReportPageProps {
   url: string;
   analysisId?: string | null;
   onBack: () => void;
+  onReanalyze?: (url: string) => void;
 }
 
 const scoreColors = [
