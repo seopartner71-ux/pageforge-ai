@@ -2260,7 +2260,7 @@ function ImplementationPlanTab({ data }: TabDataProps) {
       }
     }
 
-    html += `<p style="${font};font-size:11px;${gray};margin-top:24px;">Сгенерировано PageForge AI | ${new Date().toLocaleDateString('ru-RU')}</p>`;
+    html += `<p style="${font};font-size:11px;${gray};margin-top:24px;">Сгенерировано SEO-Аудит | ${new Date().toLocaleDateString('ru-RU')}</p>`;
 
     // Plain text fallback
     const plainText = `Техническое задание на SEO-оптимизацию\nСтраница: ${stripEmojis(url)}\nДата: ${new Date().toLocaleDateString('ru-RU')}\n\n` +

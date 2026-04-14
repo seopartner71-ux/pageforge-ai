@@ -15,7 +15,7 @@ export default function PrivacyPage() {
             <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
               <Zap className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-bold gradient-text">PageForge AI</span>
+            <span className="font-bold gradient-text">SEO-Аудит</span>
           </Link>
           <LangToggle />
         </div>
@@ -31,7 +31,7 @@ export default function PrivacyPage() {
         <div className="prose prose-invert prose-sm max-w-none space-y-4 text-muted-foreground">
           {isRu ? (
             <>
-              <p>Настоящая Политика конфиденциальности определяет порядок обработки и защиты персональных данных пользователей сервиса PageForge AI.</p>
+              <p>Настоящая Политика конфиденциальности определяет порядок обработки и защиты персональных данных пользователей сервиса SEO-Аудит.</p>
               <h2 className="text-foreground text-lg font-semibold mt-8">1. Сбор информации</h2>
               <p>Мы собираем информацию, которую вы предоставляете при регистрации: email-адрес, имя. Также автоматически собираются данные об использовании сервиса.</p>
               <h2 className="text-foreground text-lg font-semibold mt-8">2. Использование информации</h2>
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
             </>
           ) : (
             <>
-              <p>This Privacy Policy describes how PageForge AI collects, uses, and protects your personal information.</p>
+              <p>This Privacy Policy describes how SEO-Аудит collects, uses, and protects your personal information.</p>
               <h2 className="text-foreground text-lg font-semibold mt-8">1. Information Collection</h2>
               <p>We collect information you provide during registration: email address, name. Usage data is also collected automatically.</p>
               <h2 className="text-foreground text-lg font-semibold mt-8">2. Use of Information</h2>

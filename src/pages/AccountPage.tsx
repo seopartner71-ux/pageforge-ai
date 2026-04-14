@@ -178,8 +178,8 @@ export default function AccountPage() {
           </div>
           <p className="text-xs text-muted-foreground">
             {lang === 'ru'
-              ? 'Эти данные будут использоваться в PDF-отчётах вместо стандартного PageForge AI.'
-              : 'This data will be used in PDF reports instead of default PageForge AI branding.'}
+              ? 'Эти данные будут использоваться в PDF-отчётах вместо стандартного SEO-Аудит.'
+              : 'This data will be used in PDF reports instead of default SEO-Аудит branding.'}
           </p>
           <div>
             <label className="text-sm text-muted-foreground mb-1.5 block">

@@ -225,7 +225,7 @@ serve(async (req) => {
 </head>
 <body>
 <div class="page-footer-brand">
-  <span>PageForge AI</span>
+  <span>SEO-Аудит</span>
   <span>${isRu ? 'Страница' : 'Page'} </span>
 </div>
 ${htmlSections.join('\n')}</body>
