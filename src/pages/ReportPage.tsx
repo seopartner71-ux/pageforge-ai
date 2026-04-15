@@ -51,6 +51,7 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
   const [results, setResults] = useState<any>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [xlsxLoading, setXlsxLoading] = useState(false);
+  const [seoXlsxLoading, setSeoXlsxLoading] = useState(false);
   const [xlsxDialogOpen, setXlsxDialogOpen] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
