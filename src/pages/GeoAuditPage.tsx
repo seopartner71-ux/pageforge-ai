@@ -2,18 +2,21 @@ import { useState, useMemo } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Play, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp,
-  Bot, Search, FileCode2, BookOpen, ShieldCheck, Loader2, Target, Zap, Clock,
+  Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+} from '@/components/ui/table';
+import {
+  Play, CheckCircle2, AlertTriangle, XCircle, Loader2, Target, Zap, Clock,
 } from 'lucide-react';
 
 /* ─── Types ─── */
 interface CheckItem {
   id: string;
   label: string;
+  criteria: string;
+  tools: string;
   status: 'pass' | 'warn' | 'fail';
   detail: string;
 }
@@ -21,6 +24,7 @@ interface CheckItem {
 interface StageResult {
   id: string;
   title: string;
+  subtitle: string;
   score: number;
   items: CheckItem[];
 }
@@ -32,108 +36,42 @@ interface AuditResult {
   strategy: string[];
 }
 
-/* ─── Icon map for stages ─── */
-const stageIcons: Record<string, React.ElementType> = {
-  stage1: Bot,
-  stage2: Search,
-  stage3: FileCode2,
-  stage4: BookOpen,
-  stage5: ShieldCheck,
-};
-
-const stageColors: Record<string, string> = {
-  stage1: 'hsl(var(--primary))',
-  stage2: '#60A5FA',
-  stage3: '#34D399',
-  stage4: '#FBBF24',
-  stage5: '#A78BFA',
-};
-
-/* ─── Status icon ─── */
-function StatusIcon({ status }: { status: string }) {
-  if (status === 'pass') return <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />;
-  if (status === 'warn') return <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />;
-  if (status === 'fail') return <XCircle className="w-4 h-4 text-red-500 shrink-0" />;
-  return <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />;
-}
-
 /* ─── Score Ring ─── */
-function ScoreRing({ score, size = 120, strokeWidth = 8, color = 'hsl(var(--primary))' }: { score: number; size?: number; strokeWidth?: number; color?: string }) {
+function ScoreRing({ score, size = 140, strokeWidth = 10 }: { score: number; size?: number; strokeWidth?: number }) {
   const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
+  const color = score >= 80 ? '#34D399' : score >= 60 ? '#FBBF24' : '#EF4444';
 
   return (
     <svg width={size} height={size} className="transform -rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--border))" strokeWidth={strokeWidth} opacity={0.3} />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth} strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-1000" />
-      <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central" className="fill-foreground rotate-90 origin-center" style={{ fontSize: size * 0.3, fontWeight: 700 }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="hsl(var(--border))" strokeWidth={strokeWidth} opacity={0.2} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
+        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-1000" />
+      <text x={size/2} y={size/2} textAnchor="middle" dominantBaseline="central"
+        className="fill-foreground rotate-90 origin-center" style={{ fontSize: size * 0.3, fontWeight: 700 }}>
         {score}
       </text>
     </svg>
   );
 }
 
-/* ─── Stage Card ─── */
-function StageCard({ stage }: { stage: StageResult }) {
-  const [expanded, setExpanded] = useState(true);
-  const Icon = stageIcons[stage.id] || Bot;
-  const color = stageColors[stage.id] || 'hsl(var(--primary))';
-  const passCount = stage.items.filter(i => i.status === 'pass').length;
-  const warnCount = stage.items.filter(i => i.status === 'warn').length;
-  const failCount = stage.items.filter(i => i.status === 'fail').length;
-
+/* ─── Status badge ─── */
+function StatusBadge({ status }: { status: string }) {
+  if (status === 'pass') return (
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-400">
+      <CheckCircle2 className="w-3.5 h-3.5" /> OK
+    </span>
+  );
+  if (status === 'warn') return (
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-yellow-400">
+      <AlertTriangle className="w-3.5 h-3.5" /> Внимание
+    </span>
+  );
   return (
-    <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-4 px-6 py-5 text-left hover:bg-secondary/30 transition-colors"
-      >
-        <div className="shrink-0">
-          <ScoreRing score={stage.score} size={56} strokeWidth={5} color={color} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Icon className="w-4 h-4 shrink-0" style={{ color }} />
-            <h3 className="text-sm font-semibold text-foreground truncate">{stage.title}</h3>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" />{passCount}</span>
-            <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-yellow-500" />{warnCount}</span>
-            <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-500" />{failCount}</span>
-          </div>
-        </div>
-        <div className="shrink-0 text-muted-foreground">
-          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="border-t border-border/40 divide-y divide-border/30">
-          {stage.items.map((item, i) => (
-            <div key={item.id || i} className="flex items-start gap-3 px-6 py-3.5 hover:bg-secondary/20 transition-colors">
-              <div className="mt-0.5">
-                <StatusIcon status={item.status} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">{item.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.detail}</p>
-              </div>
-              <Badge
-                variant="outline"
-                className={`text-[10px] shrink-0 mt-0.5 ${
-                  item.status === 'pass' ? 'border-green-500/40 text-green-500' :
-                  item.status === 'warn' ? 'border-yellow-500/40 text-yellow-500' :
-                  'border-red-500/40 text-red-500'
-                }`}
-              >
-                {item.status === 'pass' ? 'OK' : item.status === 'warn' ? 'Внимание' : 'Ошибка'}
-              </Badge>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-400">
+      <XCircle className="w-3.5 h-3.5" /> Ошибка
+    </span>
   );
 }
 
@@ -163,7 +101,6 @@ export default function GeoAuditPage() {
     setError(null);
     setProgressStep(0);
 
-    // Animate progress
     const interval = setInterval(() => {
       setProgressStep(prev => (prev < PROGRESS_STEPS.length - 1 ? prev + 1 : prev));
     }, 3000);
@@ -172,10 +109,8 @@ export default function GeoAuditPage() {
       const { data, error: fnError } = await supabase.functions.invoke('geo-audit', {
         body: { url: url.trim() },
       });
-
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
-
       setResult(data as AuditResult);
     } catch (err: any) {
       const msg = err?.message || 'Ошибка при выполнении аудита';
@@ -195,19 +130,22 @@ export default function GeoAuditPage() {
   }, [result]);
 
   const totalChecks = result ? result.stages.reduce((s, st) => s + st.items.length, 0) : 0;
+  const passCount = result ? result.stages.flatMap(s => s.items).filter(i => i.status === 'pass').length : 0;
+  const failCount = result ? result.stages.flatMap(s => s.items).filter(i => i.status === 'fail').length : 0;
+  const warnCount = result ? result.stages.flatMap(s => s.items).filter(i => i.status === 'warn').length : 0;
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
 
-      <main className="container max-w-[960px] py-10 space-y-10">
+      <main className="container max-w-[1200px] py-10 space-y-10">
         {/* Hero */}
         <div className="text-center space-y-3">
           <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
             GEO Audit v2.0 — Полный чек-лист AI Optimization
           </h1>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
-            5 этапов глубокого аудита: техническая доступность для ИИ, структура, контент, E-E-A-T и репутация бренда.
+            5 этапов глубокого аудита: техническая доступность, прямая проверка в ИИ, семантика, контент, E-E-A-T.
           </p>
         </div>
 
@@ -226,18 +164,16 @@ export default function GeoAuditPage() {
             className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2 shrink-0"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            {running ? 'Анализ...' : 'Запустить полный GEO Audit'}
+            {running ? 'Анализ...' : 'Запустить GEO Audit'}
           </Button>
         </div>
 
         {/* Loading */}
         {running && (
           <div className="flex flex-col items-center gap-6 py-12">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-primary animate-spin" />
-            </div>
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
             <div className="text-center space-y-2">
-              <p className="text-sm font-medium text-foreground">Выполняется глубокий GEO Audit</p>
+              <p className="text-sm font-medium text-foreground">Выполняется GEO Audit</p>
               <p className="text-xs text-muted-foreground">{PROGRESS_STEPS[progressStep]}</p>
             </div>
             <div className="w-64 space-y-2">
@@ -268,41 +204,91 @@ export default function GeoAuditPage() {
 
         {/* Results */}
         {result && !running && (
-          <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="space-y-10 animate-in fade-in duration-500">
             {/* Overall Score */}
             <div className="rounded-xl border border-border/60 bg-card p-8 flex flex-col md:flex-row items-center gap-8">
-              <ScoreRing score={result.geoScore} size={140} strokeWidth={10} color={scoreColor} />
+              <ScoreRing score={result.geoScore} size={140} strokeWidth={10} />
               <div className="flex-1 text-center md:text-left">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Общий GEO Score</p>
-                <p className="text-3xl font-bold text-foreground">{result.geoScore}<span className="text-lg text-muted-foreground font-normal"> / 100</span></p>
-                <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                <p className="text-3xl font-bold text-foreground">
+                  {result.geoScore}<span className="text-lg text-muted-foreground font-normal"> / 100</span>
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
                   {result.geoScore >= 80 ? 'Отличная оптимизация для AI-поисковиков.' :
-                   result.geoScore >= 60 ? 'Есть потенциал для улучшения. Исправьте критические проблемы.' :
-                   'Требуется серьёзная доработка для AI-видимости.'}
+                   result.geoScore >= 60 ? 'Есть потенциал для улучшения.' :
+                   'Требуется серьёзная доработка.'}
                 </p>
                 <div className="flex items-center gap-4 mt-4 justify-center md:justify-start text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" />{passCount} пройдено</span>
+                  <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-yellow-500" />{warnCount} внимание</span>
+                  <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-500" />{failCount} ошибок</span>
+                  <span>•</span>
                   <span>{totalChecks} проверок</span>
-                  <span>•</span>
-                  <span>{result.stages.flatMap(s => s.items).filter(i => i.status === 'pass').length} пройдено</span>
-                  <span>•</span>
-                  <span>{result.stages.flatMap(s => s.items).filter(i => i.status === 'fail').length} ошибок</span>
                 </div>
-                <div className="flex items-center gap-4 mt-3 justify-center md:justify-start">
+                {/* Stage scores */}
+                <div className="flex items-center gap-4 mt-3 justify-center md:justify-start flex-wrap">
                   {result.stages.map(s => (
-                    <div key={s.id} className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stageColors[s.id] || 'hsl(var(--primary))' }} />
-                      <span className="text-xs text-muted-foreground">{s.score}%</span>
+                    <div key={s.id} className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">{s.score}%</span> {s.subtitle}
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Stages */}
-            <div className="space-y-4">
-              {result.stages.map(stage => (
-                <StageCard key={stage.id} stage={stage} />
-              ))}
+            {/* Main Table */}
+            <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      <TableHead className="w-[160px] text-xs font-semibold text-foreground">Этап</TableHead>
+                      <TableHead className="w-[200px] text-xs font-semibold text-foreground">Пункт проверки</TableHead>
+                      <TableHead className="text-xs font-semibold text-foreground">Что проверять / Критерии</TableHead>
+                      <TableHead className="w-[100px] text-xs font-semibold text-foreground text-center">Статус</TableHead>
+                      <TableHead className="w-[280px] text-xs font-semibold text-foreground">Примечание / Рекомендация</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {result.stages.map(stage => (
+                      stage.items.map((item, idx) => (
+                        <TableRow
+                          key={`${stage.id}-${item.id}`}
+                          className={`${
+                            item.status === 'fail' ? 'bg-red-500/5' :
+                            item.status === 'warn' ? 'bg-yellow-500/5' : ''
+                          } hover:bg-muted/20`}
+                        >
+                          {/* Stage column - only show on first row of each stage */}
+                          {idx === 0 ? (
+                            <TableCell
+                              rowSpan={stage.items.length}
+                              className="align-top border-r border-border/30 font-medium text-xs"
+                            >
+                              <div className="space-y-1">
+                                <div className="text-foreground font-semibold">{stage.title}</div>
+                                <div className="text-muted-foreground">{stage.subtitle}</div>
+                                <div className="mt-2">
+                                  <span className={`text-lg font-bold ${
+                                    stage.score >= 80 ? 'text-green-400' :
+                                    stage.score >= 60 ? 'text-yellow-400' : 'text-red-400'
+                                  }`}>
+                                    {stage.score}%
+                                  </span>
+                                </div>
+                              </div>
+                            </TableCell>
+                          ) : null}
+                          <TableCell className="text-xs font-medium text-foreground">{item.label}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground leading-relaxed">{item.criteria}</TableCell>
+                          <TableCell className="text-center"><StatusBadge status={item.status} /></TableCell>
+                          <TableCell className="text-xs text-muted-foreground leading-relaxed">{item.detail}</TableCell>
+                        </TableRow>
+                      ))
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
 
             {/* Criticals */}
@@ -310,7 +296,7 @@ export default function GeoAuditPage() {
               <div className="rounded-xl border border-red-500/20 bg-card p-6 space-y-4">
                 <div className="flex items-center gap-2">
                   <Target className="w-5 h-5 text-red-500" />
-                  <h2 className="text-base font-semibold text-foreground">Критические рекомендации</h2>
+                  <h2 className="text-base font-semibold text-foreground">Критические рекомендации (ТОП-5)</h2>
                 </div>
                 <div className="space-y-3">
                   {result.criticals.map((c, i) => (
@@ -335,9 +321,7 @@ export default function GeoAuditPage() {
                 <div className="space-y-3">
                   {result.strategy.map((s, i) => (
                     <div key={i} className="flex items-start gap-3">
-                      <div className="mt-1 shrink-0">
-                        <Clock className="w-4 h-4 text-primary/60" />
-                      </div>
+                      <Clock className="w-4 h-4 text-primary/60 mt-0.5 shrink-0" />
                       <p className="text-sm text-muted-foreground leading-relaxed">{s}</p>
                     </div>
                   ))}
