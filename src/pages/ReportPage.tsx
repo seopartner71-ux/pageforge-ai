@@ -8,6 +8,7 @@ import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palett
 import { GscWidget } from '@/components/GscWidget';
 import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
 import { exportReportXlsx } from '@/lib/exportXlsx';
+import { exportSeoAuditXlsx } from '@/lib/exportSeoAuditXlsx';
 import { ExcelExportDialog, type XlsxExportConfig } from '@/components/ExcelExportDialog';
 import { supabase } from '@/integrations/supabase/client';
 import {
