@@ -179,6 +179,26 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
     }
   };
 
+  const handleSeoAuditXlsx = () => {
+    try {
+      setSeoXlsxLoading(true);
+      const tabData = (results?.tab_data as any) || {};
+      const aiReport = tabData?.aiReport || {};
+      exportSeoAuditXlsx({
+        url,
+        scores: results?.scores || {},
+        tabData,
+        quickWins: (results?.quick_wins as any[]) || [],
+        aiReport,
+      });
+      toast.success(lang === 'ru' ? 'SEO-отчёт Excel скачан!' : 'SEO report Excel downloaded!');
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSeoXlsxLoading(false);
+    }
+  };
+
   const activeTpl = templates.find(t => t.is_active);
 
   return (
