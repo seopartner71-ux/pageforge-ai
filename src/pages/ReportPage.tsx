@@ -236,10 +236,26 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
                 {shareCopied ? (lang === 'ru' ? 'Скопировано' : 'Copied') : shareToken ? (lang === 'ru' ? 'Ссылка' : 'Link') : (lang === 'ru' ? 'Поделиться' : 'Share')}
               </Button>
 
-              <Button variant="outline" size="sm" className="rounded-lg border-border/80 bg-card text-xs gap-1.5" disabled={!analysisId} onClick={() => setXlsxDialogOpen(true)}>
-                <Table2 className="w-3 h-3" />
-                Excel
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="rounded-lg border-border/80 bg-card text-xs gap-1.5" disabled={!analysisId || xlsxLoading || seoXlsxLoading}>
+                    {(xlsxLoading || seoXlsxLoading) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Table2 className="w-3 h-3" />}
+                    Excel
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 rounded-lg border-border/80 bg-card">
+                  <DropdownMenuItem onClick={() => setXlsxDialogOpen(true)} className="gap-2 text-xs">
+                    <Table2 className="w-3.5 h-3.5" />
+                    {lang === 'ru' ? 'Сводка метрик' : 'Metrics Summary'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSeoAuditXlsx} className="gap-2 text-xs">
+                    <Download className="w-3.5 h-3.5" />
+                    {lang === 'ru' ? 'SEO-Аудит (профи)' : 'SEO Audit (pro)'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {templates.length > 0 ? (
                 <DropdownMenu>
