@@ -27,6 +27,7 @@ export function AiInsights({ rows, onMarkdown }: Props) {
       const md = (data as any)?.markdown;
       if (!md) throw new Error('Пустой ответ AI');
       setMarkdown(md);
+      onMarkdown?.(md);
     } catch (e: any) {
       toast.error(`Ошибка AI-анализа: ${e?.message || e}`);
     } finally {
