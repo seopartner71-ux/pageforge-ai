@@ -15,6 +15,7 @@ export default function CompetitorsPage() {
   const [rows, setRows] = useState<CompetitorRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [aiMarkdown, setAiMarkdown] = useState<string | null>(null);
 
   useEffect(() => {
     if (rows.length > 0) setGuideOpen(false);
