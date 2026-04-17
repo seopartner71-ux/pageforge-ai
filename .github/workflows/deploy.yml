@@ -17,5 +17,6 @@ jobs:
           script: |
             cd /var/www/pageforge
             git pull
+            npm install
             npm run build
             systemctl restart nginx
