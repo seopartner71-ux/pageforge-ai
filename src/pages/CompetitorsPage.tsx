@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { CompetitorUpload } from '@/components/competitors/CompetitorUpload';
 import { CompetitorMetrics } from '@/components/competitors/CompetitorMetrics';
 import { CompetitorCharts } from '@/components/competitors/CompetitorCharts';
 import { CompetitorTable } from '@/components/competitors/CompetitorTable';
 import { AiInsights } from '@/components/competitors/AiInsights';
+import { CsvFormatGuide } from '@/components/competitors/CsvFormatGuide';
 import { CompetitorRow } from '@/lib/competitors/parseCompetitorsCsv';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
@@ -13,6 +14,11 @@ import { exportCompetitorsXlsx } from '@/lib/competitors/exportCompetitors';
 export default function CompetitorsPage() {
   const [rows, setRows] = useState<CompetitorRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(true);
+
+  useEffect(() => {
+    if (rows.length > 0) setGuideOpen(false);
+  }, [rows.length]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,6 +43,8 @@ export default function CompetitorsPage() {
             </Button>
           )}
         </div>
+
+        <CsvFormatGuide open={guideOpen} onOpenChange={setGuideOpen} />
 
         <CompetitorUpload
           rows={rows}
