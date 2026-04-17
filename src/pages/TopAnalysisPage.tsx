@@ -100,11 +100,18 @@ export default function TopAnalysisPage() {
           <div className="flex items-center gap-3">
             {rows.length > 0 && <SaveStatusBadge state={savingState} hasProject={hasProject} />}
             {rows.length > 0 && (
+              <ExcludedDomainsManager
+                excludedRows={excludedRows}
+                excludedDomains={excludedDomains}
+                onChange={() => setExcludedVersion((v) => v + 1)}
+              />
+            )}
+            {cleanRows.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => exportTopAnalysisXlsx(
-                  rows,
+                  cleanRows,
                   fileName?.replace(/\.csv$/i, '') || 'top_analysis',
                   { aiMarkdown, region, myDomain },
                 )}
