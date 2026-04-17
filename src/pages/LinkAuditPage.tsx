@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AppHeader } from '@/components/AppHeader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,8 @@ const exportLinkAuditXlsx = (...args: Parameters<typeof import('@/lib/exportLink
 import { parseDomainSummaryCsv, type DomainSummaryRow } from '@/lib/domainSummary';
 import { InsightsBlock, type Insight } from '@/components/InsightsBlock';
 import { CsvFormatGuide } from '@/components/CsvFormatGuide';
+import { useToolHistory } from '@/hooks/useToolHistory';
+import { SaveStatusBadge } from '@/components/SaveStatusBadge';
 
 interface SiteSlot {
   name: string;
@@ -30,6 +33,9 @@ interface SiteSlot {
 const DEFAULT_NAMES = ['Аудируемый сайт', 'Конкурент 1', 'Конкурент 2', 'Конкурент 3'];
 
 export default function LinkAuditPage() {
+  const [searchParams] = useSearchParams();
+  const restoreId = searchParams.get('restore');
+
   const [slots, setSlots] = useState<SiteSlot[]>(
     DEFAULT_NAMES.map((name) => ({ name, rows: null }))
   );
@@ -40,6 +46,37 @@ export default function LinkAuditPage() {
   const fileInputs = useRef<(HTMLInputElement | null)[]>([]);
   const summaryInput = useRef<HTMLInputElement | null>(null);
   const [insights, setInsights] = useState<Insight[]>([]);
+
+  // Автосохранение в историю
+  const filledSlots = slots.filter((s) => s.rows && s.rows.length);
+  const hasSummaryNow = summaryRows.length > 0;
+  const enabled = filledSlots.length > 0 || hasSummaryNow;
+  const saveName = filledSlots[0]?.name || summaryFile.replace(/\.csv$/i, '') || 'Ссылочный аудит';
+  const { savingState, hasProject, loadById } = useToolHistory({
+    table: 'link_audits',
+    enabled,
+    name: saveName,
+    data: {
+      sites: slots.map((s) => ({ name: s.name, fileName: s.fileName, count: s.rows?.length || 0 })),
+      payload: { slots, summaryRows, summaryFile, activeOnly, mode, insights },
+    },
+  });
+
+  useEffect(() => {
+    if (!restoreId) return;
+    (async () => {
+      const row = await loadById(restoreId);
+      if (!row) return;
+      const p = (row as any).payload || {};
+      if (p.slots) setSlots(p.slots);
+      if (p.summaryRows) setSummaryRows(p.summaryRows);
+      if (typeof p.summaryFile === 'string') setSummaryFile(p.summaryFile);
+      if (typeof p.activeOnly === 'boolean') setActiveOnly(p.activeOnly);
+      if (p.mode) setMode(p.mode);
+      if (p.insights) setInsights(p.insights);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreId]);
 
   const handleSummaryFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -154,6 +191,7 @@ export default function LinkAuditPage() {
             </p>
           </div>
           <div className="flex gap-2 print:hidden items-center">
+            {enabled && <SaveStatusBadge state={savingState} hasProject={hasProject} />}
             <Button
               variant={activeOnly ? 'default' : 'outline'}
               size="sm"

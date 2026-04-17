@@ -18,6 +18,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ClusterSynergyModal } from '@/components/ClusterSynergyModal';
+import { ToolHistoryList } from '@/components/history/ToolHistoryList';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 /* ── Types ── */
 
@@ -192,6 +194,19 @@ export default function HistoryPage() {
       <AppHeader />
       <main className="container py-8 space-y-6">
 
+        <Tabs defaultValue="url" className="w-full">
+          <TabsList>
+            <TabsTrigger value="url">{isRu ? 'Анализы URL' : 'URL Analyses'}</TabsTrigger>
+            <TabsTrigger value="link">Ссылочные</TabsTrigger>
+            <TabsTrigger value="competitors">Конкуренты</TabsTrigger>
+            <TabsTrigger value="top">Анализ топа</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="link" className="mt-6"><ToolHistoryList kind="link_audits" /></TabsContent>
+          <TabsContent value="competitors" className="mt-6"><ToolHistoryList kind="competitor_analyses" /></TabsContent>
+          <TabsContent value="top" className="mt-6"><ToolHistoryList kind="top_analyses" /></TabsContent>
+
+          <TabsContent value="url" className="mt-6 space-y-6">
         {/* ── Header + breadcrumbs ── */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -440,6 +455,8 @@ export default function HistoryPage() {
             )}
           </>
         )}
+          </TabsContent>
+        </Tabs>
 
         {/* Cluster Synergy Modal */}
         <ClusterSynergyModal
@@ -452,3 +469,4 @@ export default function HistoryPage() {
     </div>
   );
 }
+
