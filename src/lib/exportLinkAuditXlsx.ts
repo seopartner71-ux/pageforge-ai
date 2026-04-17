@@ -443,7 +443,8 @@ export async function exportLinkAuditXlsx(
     ov.addImage(id, { tl: { col: 1, row: chartRow }, ext: { width: 800, height: 380 } });
   }
 
+  const buffer = await wb.xlsx.writeBuffer();
   const date = new Date().toISOString().slice(0, 10);
-  const auditedName = (sites[0]?.name || 'audit').replace(/[^a-zA-Z0-9._а-яА-Я-]/g, '_');
+  const auditedName = (sites[0]?.name || summaryRows[0]?.domain || 'audit').replace(/[^a-zA-Z0-9._а-яА-Я-]/g, '_');
   saveBlob(buffer as ArrayBuffer, `${auditedName}__Ссылочный_аудит_${date}.xlsx`);
 }
