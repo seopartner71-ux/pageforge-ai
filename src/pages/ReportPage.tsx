@@ -179,12 +179,12 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
     }
   };
 
-  const handleSeoAuditXlsx = () => {
+  const handleSeoAuditXlsx = async () => {
     try {
       setSeoXlsxLoading(true);
       const tabData = (results?.tab_data as any) || {};
       const aiReport = tabData?.aiReport || {};
-      exportSeoAuditXlsx({
+      await exportSeoAuditXlsx({
         url,
         scores: results?.scores || {},
         tabData,
