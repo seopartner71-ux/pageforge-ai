@@ -16,6 +16,7 @@ import {
 } from '@/lib/linkAudit';
 import { exportLinkAuditXlsx } from '@/lib/exportLinkAuditXlsx';
 import { parseDomainSummaryCsv, type DomainSummaryRow } from '@/lib/domainSummary';
+import { InsightsBlock, type Insight } from '@/components/InsightsBlock';
 
 interface SiteSlot {
   name: string;
@@ -35,6 +36,7 @@ export default function LinkAuditPage() {
   const [summaryFile, setSummaryFile] = useState<string>('');
   const fileInputs = useRef<(HTMLInputElement | null)[]>([]);
   const summaryInput = useRef<HTMLInputElement | null>(null);
+  const [insights, setInsights] = useState<Insight[]>([]);
 
   const handleSummaryFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -123,7 +125,7 @@ export default function LinkAuditPage() {
     }
     try {
       toast.info('Готовлю Excel-файл с графиками…');
-      await exportLinkAuditXlsx(analyses, summaryRows);
+      await exportLinkAuditXlsx(analyses, summaryRows, insights);
       toast.success('Excel-файл скачан');
     } catch (e: any) {
       toast.error(`Ошибка экспорта: ${e?.message || e}`);
