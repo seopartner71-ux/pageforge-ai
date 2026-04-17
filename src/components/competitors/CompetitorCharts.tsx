@@ -140,10 +140,10 @@ export function CompetitorCharts({ rows }: Props) {
 
       <Card className="p-4">
         <h3 className="text-sm font-medium mb-3">Рекламный бюджет в контексте</h3>
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={budgetData} margin={{ bottom: 60 }}>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={budgetData} margin={{ bottom: 90 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="domain" angle={-30} textAnchor="end" interval={0} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+            <XAxis dataKey="domain" angle={-30} textAnchor="end" interval={0} height={70} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
             <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fmtTooltip} />
             <Tooltip contentStyle={tooltipStyle} formatter={fmtTooltip} />
             <Bar dataKey="value" name="Бюджет" fill="#EF4444" />
