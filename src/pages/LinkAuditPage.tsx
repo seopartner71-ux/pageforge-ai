@@ -89,13 +89,18 @@ export default function LinkAuditPage() {
 
   const hasData = analyses.length > 0;
 
-  const exportXlsx = () => {
+  const exportXlsx = async () => {
     if (!hasData) {
       toast.error('Нет данных для экспорта');
       return;
     }
-    exportLinkAuditXlsx(analyses);
-    toast.success('Excel-файл скачан');
+    try {
+      toast.info('Готовлю Excel-файл с графиками…');
+      await exportLinkAuditXlsx(analyses);
+      toast.success('Excel-файл скачан');
+    } catch (e: any) {
+      toast.error(`Ошибка экспорта: ${e?.message || e}`);
+    }
   };
 
   const exportPdf = () => {
