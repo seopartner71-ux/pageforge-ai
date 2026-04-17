@@ -1,13 +1,43 @@
 import { useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { CompetitorRow, COMPETITOR_COLUMNS } from '@/lib/competitors/parseCompetitorsCsv';
+import { cn } from '@/lib/utils';
 
 interface Props { rows: CompetitorRow[] }
 
-const fmt = (n: number) => n.toLocaleString('ru-RU');
+// Компактные заголовки — чтобы умещалось без горизонтального скролла
+const SHORT_LABELS: Record<string, string> = {
+  domain: 'Домен',
+  top1: 'ТОП-1',
+  top3: 'ТОП-3',
+  top5: 'ТОП-5',
+  top10: 'ТОП-10',
+  top50: 'ТОП-50',
+  aliceMentions: 'Алиса',
+  pages: 'Страниц',
+  byVisibility: 'По вид.',
+  keysCoverage: 'Охват',
+  reqPerPage: 'Зап./стр.',
+  effectiveness: 'Резул.',
+  visibility: 'Видимость',
+  traffic: 'Трафик',
+  ads: 'Объявл.',
+  contextRequests: 'Зап. контекст',
+  reqPerAd: 'Зап./объявл.',
+  contextTraffic: 'Траф. контекст',
+  contextBudget: 'Бюджет',
+};
+
+function fmtCompact(n: number): string {
+  if (n === 0) return '0';
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return (n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1).replace('.', ',') + ' млн';
+  if (abs >= 10_000) return Math.round(n / 1_000) + ' тыс';
+  return n.toLocaleString('ru-RU');
+}
+
+const fmtFull = (n: number) => n.toLocaleString('ru-RU');
 
 export function CompetitorTable({ rows }: Props) {
   const [sortKey, setSortKey] = useState<keyof CompetitorRow>('traffic');
@@ -39,36 +69,20 @@ export function CompetitorTable({ rows }: Props) {
   }, [rows, sortKey, sortDir]);
 
   const handleSort = (key: keyof CompetitorRow) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir('desc');
-    }
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('desc'); }
   };
 
-  const cellBadge = (key: keyof CompetitorRow, value: number, higherIsBetter?: boolean) => {
+  const cellClass = (key: keyof CompetitorRow, value: number, higherIsBetter?: boolean) => {
     const mm = minMaxByCol[key as string];
-    if (!mm || mm.min === mm.max) return <span>{fmt(value)}</span>;
+    if (!mm || mm.min === mm.max) return '';
     const isMax = value === mm.max;
     const isMin = value === mm.min;
     const isBest = higherIsBetter ? isMax : isMin;
     const isWorst = higherIsBetter ? isMin : isMax;
-    if (isBest) {
-      return (
-        <Badge variant="secondary" className="bg-green-500/15 text-green-600 dark:text-green-400 border-green-500/20 font-mono">
-          {fmt(value)}
-        </Badge>
-      );
-    }
-    if (isWorst) {
-      return (
-        <Badge variant="secondary" className="bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20 font-mono">
-          {fmt(value)}
-        </Badge>
-      );
-    }
-    return <span className="font-mono">{fmt(value)}</span>;
+    if (isBest) return 'text-green-600 dark:text-green-400 font-semibold';
+    if (isWorst) return 'text-red-600 dark:text-red-400 font-semibold';
+    return '';
   };
 
   if (rows.length === 0) return null;
@@ -81,43 +95,64 @@ export function CompetitorTable({ rows }: Props) {
           Зелёный — лучшее значение в столбце, красный — худшее. Клик по заголовку — сортировка.
         </p>
       </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
+      <div className="w-full">
+        <table className="w-full text-[11px] border-collapse" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            {COMPETITOR_COLUMNS.map((c) => (
+              <col key={c.key as string} style={c.key === 'domain' ? { width: '140px' } : undefined} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr className="border-b border-border bg-muted/30">
               {COMPETITOR_COLUMNS.map((c) => {
                 const active = sortKey === c.key;
                 const Icon = !active ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown;
                 return (
-                  <TableHead
+                  <th
                     key={c.key as string}
                     onClick={() => handleSort(c.key)}
-                    className="cursor-pointer whitespace-nowrap select-none hover:text-foreground"
+                    className={cn(
+                      'px-1.5 py-2 cursor-pointer select-none text-muted-foreground font-medium hover:text-foreground transition-colors',
+                      c.key === 'domain' ? 'text-left' : 'text-right',
+                    )}
+                    title={c.label}
                   >
-                    <div className="inline-flex items-center gap-1">
-                      {c.label}
-                      <Icon className="w-3 h-3 opacity-60" />
-                    </div>
-                  </TableHead>
+                    <span className="inline-flex items-center gap-0.5">
+                      <span className="truncate">{SHORT_LABELS[c.key as string] || c.label}</span>
+                      <Icon className="w-2.5 h-2.5 opacity-60 shrink-0" />
+                    </span>
+                  </th>
                 );
               })}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+            </tr>
+          </thead>
+          <tbody>
             {sorted.map((row) => (
-              <TableRow key={row.domain}>
+              <tr key={row.domain} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                 {COMPETITOR_COLUMNS.map((c) => {
                   const v = row[c.key];
+                  if (!c.numeric) {
+                    return (
+                      <td key={c.key as string} className="px-1.5 py-1.5 font-medium text-foreground truncate" title={String(v)}>
+                        {String(v)}
+                      </td>
+                    );
+                  }
+                  const num = Number(v) || 0;
                   return (
-                    <TableCell key={c.key as string} className="whitespace-nowrap">
-                      {c.numeric ? cellBadge(c.key, Number(v) || 0, c.higherIsBetter) : <span className="font-medium">{String(v)}</span>}
-                    </TableCell>
+                    <td
+                      key={c.key as string}
+                      className={cn('px-1.5 py-1.5 text-right font-mono tabular-nums', cellClass(c.key, num, c.higherIsBetter))}
+                      title={fmtFull(num)}
+                    >
+                      {fmtCompact(num)}
+                    </td>
                   );
                 })}
-              </TableRow>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
     </Card>
   );
