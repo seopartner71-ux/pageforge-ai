@@ -127,7 +127,7 @@ export default function TopAnalysisPage() {
         <TopAnalysisFormatGuide open={guideOpen} onOpenChange={setGuideOpen} />
 
         <TopAnalysisProjectBar
-          rows={rows}
+          rows={cleanRows}
           region={region}
           onRegionChange={setRegion}
           myDomain={myDomain}
