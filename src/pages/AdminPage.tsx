@@ -19,6 +19,7 @@ import {
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { AdminOverviewTab } from '@/components/admin/AdminOverviewTab';
+import { StatCard } from '@/components/dashboard/StatCard';
 import { LayoutDashboard } from 'lucide-react';
 
 interface ApiSetting {
