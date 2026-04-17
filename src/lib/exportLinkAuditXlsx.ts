@@ -1,5 +1,10 @@
 import ExcelJS from 'exceljs';
+import { Chart, registerables } from 'chart.js';
 import type { SiteAuditData } from './linkAudit';
+
+Chart.register(...registerables);
+
+const SITE_COLORS_HEX = ['#3B82F6', '#F59E0B', '#10B981', '#8B5CF6'];
 
 function saveBlob(buffer: ArrayBuffer, filename: string) {
   const blob = new Blob([buffer], {
@@ -15,7 +20,44 @@ function saveBlob(buffer: ArrayBuffer, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-const SITE_COLORS_HEX = ['3B82F6', 'F59E0B', '10B981', '8B5CF6'];
+/** Рендерит chart.js на offscreen canvas и возвращает PNG dataURL */
+async function renderChartPng(
+  config: any,
+  width = 720,
+  height = 380,
+): Promise<string> {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  // canvas нужен в DOM (некоторые браузеры) но скрыт
+  canvas.style.position = 'fixed';
+  canvas.style.left = '-99999px';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d')!;
+  // Белый фон чтобы PNG не был прозрачным
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+
+  const chart = new Chart(ctx, {
+    ...config,
+    options: {
+      ...(config.options || {}),
+      responsive: false,
+      animation: false,
+      devicePixelRatio: 2,
+    },
+  });
+  // Дать chart.js нарисоваться
+  await new Promise((r) => setTimeout(r, 50));
+  const dataUrl = canvas.toDataURL('image/png');
+  chart.destroy();
+  canvas.remove();
+  return dataUrl;
+}
+
+function dataUrlToBase64(dataUrl: string): string {
+  return dataUrl.split(',')[1];
+}
 
 export async function exportLinkAuditXlsx(sites: SiteAuditData[]) {
   const wb = new ExcelJS.Workbook();
@@ -24,128 +66,128 @@ export async function exportLinkAuditXlsx(sites: SiteAuditData[]) {
 
   // ========== Лист 1: Сводная ==========
   const summary = wb.addWorksheet('Сводная');
-  const headerRow = ['Показатель', ...sites.map((s) => s.name)];
-  summary.addRow(headerRow);
+  summary.addRow(['Показатель', ...sites.map((s) => s.name)]);
   summary.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
   summary.getRow(1).fill = {
     type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' },
   };
-
-  const rows: [string, ...(number | string)[]][] = [
+  const dataRows: [string, ...(number | string)[]][] = [
     ['Доменный рейтинг (средний)', ...sites.map((s) => s.avgDR)],
     ['Доменный рейтинг (медиана)', ...sites.map((s) => s.medianDR)],
     ['Уникальные ссылки', ...sites.map((s) => s.totalLinks)],
     ['Ссылающиеся домены', ...sites.map((s) => s.uniqueDomains)],
-    ['% follow ссылок', ...sites.map((s) => s.followPct)],
-    ['% текстовых ссылок', ...sites.map((s) => s.textPct)],
+    ['% follow ссылок', ...sites.map((s) => `${s.followPct}%`)],
+    ['% текстовых ссылок', ...sites.map((s) => `${s.textPct}%`)],
   ];
-  rows.forEach((r) => summary.addRow(r));
-
+  dataRows.forEach((r) => summary.addRow(r));
   summary.getColumn(1).width = 32;
   for (let i = 2; i <= sites.length + 1; i++) summary.getColumn(i).width = 24;
 
   // ========== Лист 2: Графики ==========
   const charts = wb.addWorksheet('Графики');
-  charts.getColumn(1).width = 28;
-  for (let i = 2; i <= sites.length + 1; i++) charts.getColumn(i).width = 18;
+  charts.getColumn(1).width = 4;
 
-  // Данные для bar-чартов (Sites x metric)
-  charts.addRow(['Метрика', ...sites.map((s) => s.name)]); // row 1
-  charts.addRow(['DR средний', ...sites.map((s) => s.avgDR)]); // row 2
-  charts.addRow(['Уникальные ссылки', ...sites.map((s) => s.totalLinks)]); // row 3
-  charts.addRow(['Ссылающиеся домены', ...sites.map((s) => s.uniqueDomains)]); // row 4
-  charts.getRow(1).font = { bold: true };
+  const labels = sites.map((s) => s.name);
+  const colors = sites.map((_, i) => SITE_COLORS_HEX[i % SITE_COLORS_HEX.length]);
 
-  const lastCol = sites.length + 1;
-  const colLetter = (n: number) => String.fromCharCode(64 + n); // 1->A
-
-  // Bar chart helpers — используем встроенные диаграммы ExcelJS
-  type ChartConfig = {
-    title: string;
-    dataRow: number;
-    anchorCell: string;
-  };
-  const barCharts: ChartConfig[] = [
-    { title: 'DR средний по сайтам', dataRow: 2, anchorCell: 'A6' },
-    { title: 'Уникальные ссылки по сайтам', dataRow: 3, anchorCell: 'A22' },
-    { title: 'Ссылающиеся домены по сайтам', dataRow: 4, anchorCell: 'A38' },
+  const barConfigs: { title: string; values: number[] }[] = [
+    { title: 'DR средний по сайтам', values: sites.map((s) => s.avgDR) },
+    { title: 'Уникальные ссылки по сайтам', values: sites.map((s) => s.totalLinks) },
+    { title: 'Ссылающиеся домены по сайтам', values: sites.map((s) => s.uniqueDomains) },
   ];
 
-  for (const cfg of barCharts) {
-    // ExcelJS типы графиков ограничены — используем bar
-    const chart = (charts as any).addChart?.('bar', {
-      title: { name: cfg.title },
-      legend: { position: 'b' },
-      plotArea: {
-        catAx: { title: { name: 'Сайты' } },
-        valAx: { title: { name: 'Значение' } },
+  let currentRow = 1;
+  // Bar charts (один под другим)
+  for (const cfg of barConfigs) {
+    const png = await renderChartPng({
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: cfg.title,
+          data: cfg.values,
+          backgroundColor: colors,
+          borderColor: colors,
+          borderWidth: 1,
+        }],
       },
-      series: [
-        {
-          name: cfg.title,
-          categories: {
-            sheet: 'Графики',
-            range: `B1:${colLetter(lastCol)}1`,
-          },
-          values: {
-            sheet: 'Графики',
-            range: `B${cfg.dataRow}:${colLetter(lastCol)}${cfg.dataRow}`,
-          },
+      options: {
+        plugins: {
+          title: { display: true, text: cfg.title, font: { size: 16, weight: 'bold' } },
+          legend: { display: false },
         },
-      ],
-      anchor: cfg.anchorCell,
+        scales: { y: { beginAtZero: true } },
+      },
+    }, 720, 360);
+
+    const imgId = wb.addImage({ base64: dataUrlToBase64(png), extension: 'png' });
+    charts.addImage(imgId, {
+      tl: { col: 1, row: currentRow },
+      ext: { width: 720, height: 360 },
     });
-    // Если addChart недоступен (некоторые сборки) — рисуем через images-фолбэк
-    if (!chart) break;
+    currentRow += 20; // отступ между графиками
   }
 
-  // ========== Per-site donut data + charts ==========
-  // Для каждого сайта добавим блок с follow/nofollow + текст/прочие
-  const startRow = 56;
-  sites.forEach((s, idx) => {
-    const base = startRow + idx * 14;
-    charts.getCell(`A${base}`).value = `${s.name} — Follow / Nofollow`;
-    charts.getCell(`A${base}`).font = { bold: true, color: { argb: `FF${SITE_COLORS_HEX[idx]}` } };
-    charts.getCell(`A${base + 1}`).value = 'Тип';
-    charts.getCell(`B${base + 1}`).value = '%';
-    charts.getCell(`A${base + 2}`).value = 'Follow';
-    charts.getCell(`B${base + 2}`).value = s.followPct;
-    charts.getCell(`A${base + 3}`).value = 'Nofollow';
-    charts.getCell(`B${base + 3}`).value = 100 - s.followPct;
+  // Pie: follow vs nofollow для каждого сайта (в одну строку 2x2)
+  for (let i = 0; i < sites.length; i++) {
+    const s = sites[i];
+    const png = await renderChartPng({
+      type: 'doughnut',
+      data: {
+        labels: ['Follow', 'Nofollow'],
+        datasets: [{
+          data: [s.followPct, 100 - s.followPct],
+          backgroundColor: ['#10B981', '#64748B'],
+        }],
+      },
+      options: {
+        plugins: {
+          title: { display: true, text: `${s.name}: Follow / Nofollow`, font: { size: 14, weight: 'bold' } },
+          legend: { position: 'bottom' },
+        },
+      },
+    }, 420, 360);
 
-    charts.getCell(`D${base}`).value = `${s.name} — Текстовые / Прочие`;
-    charts.getCell(`D${base}`).font = { bold: true, color: { argb: `FF${SITE_COLORS_HEX[idx]}` } };
-    charts.getCell(`D${base + 1}`).value = 'Тип';
-    charts.getCell(`E${base + 1}`).value = '%';
-    charts.getCell(`D${base + 2}`).value = 'Текстовые';
-    charts.getCell(`E${base + 2}`).value = s.textPct;
-    charts.getCell(`D${base + 3}`).value = 'Прочие';
-    charts.getCell(`E${base + 3}`).value = 100 - s.textPct;
-
-    // Pie charts (если поддерживается)
-    (charts as any).addChart?.('doughnut', {
-      title: { name: `${s.name}: Follow / Nofollow` },
-      legend: { position: 'r' },
-      series: [{
-        name: 'Follow %',
-        categories: { sheet: 'Графики', range: `A${base + 2}:A${base + 3}` },
-        values: { sheet: 'Графики', range: `B${base + 2}:B${base + 3}` },
-      }],
-      anchor: `G${base}`,
+    const imgId = wb.addImage({ base64: dataUrlToBase64(png), extension: 'png' });
+    const colOffset = (i % 2) * 8;
+    const rowOffset = Math.floor(i / 2) * 20;
+    charts.addImage(imgId, {
+      tl: { col: 1 + colOffset, row: currentRow + rowOffset },
+      ext: { width: 420, height: 360 },
     });
-    (charts as any).addChart?.('doughnut', {
-      title: { name: `${s.name}: Текстовые / Прочие` },
-      legend: { position: 'r' },
-      series: [{
-        name: 'Текстовые %',
-        categories: { sheet: 'Графики', range: `D${base + 2}:D${base + 3}` },
-        values: { sheet: 'Графики', range: `E${base + 2}:E${base + 3}` },
-      }],
-      anchor: `K${base}`,
-    });
-  });
+  }
+  currentRow += Math.ceil(sites.length / 2) * 20;
 
-  // ========== Детальные листы ==========
+  // Pie: текстовые vs прочие (2x2)
+  for (let i = 0; i < sites.length; i++) {
+    const s = sites[i];
+    const png = await renderChartPng({
+      type: 'doughnut',
+      data: {
+        labels: ['Текстовые', 'Прочие'],
+        datasets: [{
+          data: [s.textPct, 100 - s.textPct],
+          backgroundColor: [SITE_COLORS_HEX[i], '#CBD5E1'],
+        }],
+      },
+      options: {
+        plugins: {
+          title: { display: true, text: `${s.name}: Текстовые vs Прочие`, font: { size: 14, weight: 'bold' } },
+          legend: { position: 'bottom' },
+        },
+      },
+    }, 420, 360);
+
+    const imgId = wb.addImage({ base64: dataUrlToBase64(png), extension: 'png' });
+    const colOffset = (i % 2) * 8;
+    const rowOffset = Math.floor(i / 2) * 20;
+    charts.addImage(imgId, {
+      tl: { col: 1 + colOffset, row: currentRow + rowOffset },
+      ext: { width: 420, height: 360 },
+    });
+  }
+
+  // ========== Детальные листы для каждого сайта ==========
   sites.forEach((site, idx) => {
     const safeName = site.name.replace(/[\\\/\?\*\[\]:]/g, '_').slice(0, 28);
     const ws = wb.addWorksheet(`${idx + 1}. ${safeName}`.slice(0, 31));
@@ -153,22 +195,34 @@ export async function exportLinkAuditXlsx(sites: SiteAuditData[]) {
     ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
     ws.getRow(1).fill = {
       type: 'pattern', pattern: 'solid',
-      fgColor: { argb: `FF${SITE_COLORS_HEX[idx]}` },
+      fgColor: { argb: `FF${SITE_COLORS_HEX[idx].replace('#', '')}` },
     };
     site.rows.forEach((r) => {
-      ws.addRow([
+      const row = ws.addRow([
         r.sourceDomain, r.sourceUrl, r.dr, r.anchor, r.type, r.rel,
         r.status === 'inactive' ? 'Неактивная' : 'Активная',
       ]);
+      // Подсветка статуса
+      if (r.status === 'inactive') {
+        row.getCell(7).fill = {
+          type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' },
+        };
+        row.getCell(7).font = { color: { argb: 'FF64748B' } };
+      } else {
+        row.getCell(7).fill = {
+          type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' },
+        };
+        row.getCell(7).font = { color: { argb: 'FF065F46' } };
+      }
     });
     ws.columns = [
       { width: 28 }, { width: 50 }, { width: 6 },
-      { width: 35 }, { width: 14 }, { width: 12 }, { width: 12 },
+      { width: 35 }, { width: 14 }, { width: 12 }, { width: 14 },
     ];
   });
 
   const buffer = await wb.xlsx.writeBuffer();
   const date = new Date().toISOString().slice(0, 10);
-  const auditedName = (sites[0]?.name || 'audit').replace(/[^a-zA-Z0-9._-]/g, '_');
+  const auditedName = (sites[0]?.name || 'audit').replace(/[^a-zA-Z0-9._а-яА-Я-]/g, '_');
   saveBlob(buffer as ArrayBuffer, `${auditedName}__Ссылочный_аудит_${date}.xlsx`);
 }
