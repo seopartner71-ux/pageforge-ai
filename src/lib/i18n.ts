@@ -16,7 +16,6 @@ const translations = {
       analysis: 'Анализ',
       history: 'История',
       account: 'Личный кабинет',
-      pdfEditor: 'PDF-Редактор',
     },
     projectSection: {
       title: 'ВЫБОР ПРОЕКТА',
@@ -199,7 +198,6 @@ const translations = {
       analysis: 'Analysis',
       history: 'History',
       account: 'Account',
-      pdfEditor: 'PDF Editor',
     },
     projectSection: {
       title: 'SELECT PROJECT',

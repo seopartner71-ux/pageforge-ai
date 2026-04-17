@@ -4,16 +4,12 @@ import { AppHeader } from '@/components/AppHeader';
 import { ScoreGauge } from '@/components/ScoreGauge';
 import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Code, Plus, Loader2, Download, ChevronDown, FileText, Palette, Share2, Check, Link, Table2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Loader2, Share2, Check, Link, Table2 } from 'lucide-react';
 import { GscWidget } from '@/components/GscWidget';
-import { downloadPdf, getActiveTemplate } from '@/lib/downloadPdf';
 import { exportReportXlsx } from '@/lib/exportXlsx';
 import { exportSeoAuditXlsx } from '@/lib/exportSeoAuditXlsx';
 import { ExcelExportDialog, type XlsxExportConfig } from '@/components/ExcelExportDialog';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 
 const ReportTabs = lazy(() => import('@/components/ReportTabs').then((m) => ({ default: m.ReportTabs })));
@@ -29,77 +25,18 @@ const scoreColors = ['#3B82F6', '#60A5FA', '#34D399', '#A78BFA'];
 const scoreLabelsEN = ['SEO health', 'LLM-friendliness', 'Humanness', 'SGE adaptation'];
 const scoreLabelsRU = ['SEO здоровье', 'LLM-дружелюбность', 'Человечность', 'SGE адаптация'];
 
-interface PdfTpl {
-  id: string;
-  name: string;
-  is_active: boolean;
-  theme: string;
-  primary_color: string;
-  accent_color: string;
-  font_family: string;
-  font_sizes: any;
-  margins: any;
-  logo_url: string | null;
-  company_name: string | null;
-  enabled_sections: any;
-  section_order: any;
-}
-
 export default function ReportPage({ url, analysisId, onBack, onReanalyze }: ReportPageProps) {
   const { tr, lang } = useLang();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
   const [xlsxLoading, setXlsxLoading] = useState(false);
   const [seoXlsxLoading, setSeoXlsxLoading] = useState(false);
   const [xlsxDialogOpen, setXlsxDialogOpen] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
-  const [templates, setTemplates] = useState<PdfTpl[]>([]);
-  const [tplLoading, setTplLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('optimizer');
   const [scrollToSge, setScrollToSge] = useState(false);
-
-  // Load user templates
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setTplLoading(false); return; }
-      const { data } = await supabase
-        .from('pdf_templates')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-      if (data) setTemplates(data as any);
-      setTplLoading(false);
-    })();
-  }, []);
-
-  const handleExportPdf = async (tpl?: PdfTpl | null) => {
-    if (!analysisId) return;
-    setPdfLoading(true);
-    try {
-      const template = tpl ? {
-        theme: tpl.theme,
-        primary_color: tpl.primary_color,
-        accent_color: tpl.accent_color,
-        font_family: tpl.font_family,
-        font_sizes: tpl.font_sizes,
-        margins: tpl.margins,
-        logo_url: tpl.logo_url,
-        company_name: tpl.company_name,
-        enabled_sections: tpl.enabled_sections,
-        section_order: tpl.section_order,
-      } : undefined;
-
-      await downloadPdf({ analysisId, lang, template });
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setPdfLoading(false);
-    }
-  };
 
   // Load existing share token
   useEffect(() => {
@@ -198,8 +135,6 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
       setSeoXlsxLoading(false);
     }
   };
-
-  const activeTpl = templates.find(t => t.is_active);
 
   return (
     <div className="report-shell">
