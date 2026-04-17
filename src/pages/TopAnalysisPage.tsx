@@ -23,6 +23,8 @@ import { SaveStatusBadge } from '@/components/SaveStatusBadge';
 // exceljs (~700kb) — динамический импорт при клике
 const exportTopAnalysisXlsx = (...args: Parameters<typeof import('@/lib/topAnalysis/exportTopAnalysis').exportTopAnalysisXlsx>) =>
   import('@/lib/topAnalysis/exportTopAnalysis').then(m => m.exportTopAnalysisXlsx(...args));
+const exportCombinedTopAnalysisXlsx = (...args: Parameters<typeof import('@/lib/topAnalysis/exportTopAnalysis').exportCombinedTopAnalysisXlsx>) =>
+  import('@/lib/topAnalysis/exportTopAnalysis').then(m => m.exportCombinedTopAnalysisXlsx(...args));
 
 type Engine = 'yandex' | 'google';
 
