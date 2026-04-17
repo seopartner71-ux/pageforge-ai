@@ -94,12 +94,21 @@ function classifyTopic(domain: string): string {
   return 'другие';
 }
 
+function classifyStatus(raw: string): 'active' | 'inactive' {
+  const t = (raw || '').toLowerCase().trim();
+  if (!t) return 'active';
+  if (t.includes('неактив') || t.includes('inactive') || t.includes('lost') || t.includes('removed') || t === 'no') return 'inactive';
+  return 'active';
+}
+
 export function parseCsvToBacklinks(text: string): BacklinkRow[] {
-  const parsed = Papa.parse<Record<string, string>>(text, {
+  // Strip UTF-8 BOM if present
+  const clean = text.replace(/^\uFEFF/, '');
+  const parsed = Papa.parse<Record<string, string>>(clean, {
     header: true,
     skipEmptyLines: true,
     dynamicTyping: false,
-    delimitersToGuess: [',', ';', '\t', '|'],
+    delimitersToGuess: [';', ',', '\t', '|'],
   });
 
   const headers = parsed.meta.fields || [];
@@ -113,6 +122,8 @@ export function parseCsvToBacklinks(text: string): BacklinkRow[] {
     type: findKey(headers, FIELD_MAP.type),
     rel: findKey(headers, FIELD_MAP.rel),
     targetUrl: findKey(headers, FIELD_MAP.targetUrl),
+    sourceTitle: findKey(headers, FIELD_MAP.sourceTitle),
+    status: findKey(headers, FIELD_MAP.status),
   };
 
   return (parsed.data || []).map((row) => {
@@ -126,6 +137,8 @@ export function parseCsvToBacklinks(text: string): BacklinkRow[] {
     const type = map.type ? String(row[map.type] || '') : '';
     const rel = map.rel ? String(row[map.rel] || '') : '';
     const targetUrl = map.targetUrl ? String(row[map.targetUrl] || '') : '';
+    const sourceTitle = map.sourceTitle ? String(row[map.sourceTitle] || '') : '';
+    const status = map.status ? classifyStatus(String(row[map.status] || '')) : 'active';
     return {
       sourceDomain: sourceDomain.replace(/^www\./, ''),
       sourceUrl,
@@ -134,7 +147,9 @@ export function parseCsvToBacklinks(text: string): BacklinkRow[] {
       type: classifyType(type, anchor, sourceDomain),
       rel: classifyRel(rel),
       targetUrl,
-    };
+      sourceTitle,
+      status,
+    } as BacklinkRow;
   }).filter((r) => r.sourceDomain || r.sourceUrl);
 }
 
