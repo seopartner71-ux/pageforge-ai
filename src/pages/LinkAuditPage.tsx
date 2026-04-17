@@ -15,6 +15,7 @@ import {
   type SiteAuditData, type BacklinkRow,
 } from '@/lib/linkAudit';
 import { exportLinkAuditXlsx } from '@/lib/exportLinkAuditXlsx';
+import { parseDomainSummaryCsv, type DomainSummaryRow } from '@/lib/domainSummary';
 
 interface SiteSlot {
   name: string;
