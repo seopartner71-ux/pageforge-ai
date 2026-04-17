@@ -168,6 +168,7 @@ export interface TopAnalysisExportOptions {
   aiMarkdown?: string | null;
   region?: string;
   myDomain?: string;
+  engine?: string;
 }
 
 export async function exportTopAnalysisXlsx(
@@ -195,7 +196,7 @@ export async function exportTopAnalysisXlsx(
   // Заголовок документа
   summary.mergeCells('A1:H1');
   const titleCell = summary.getCell('A1');
-  titleCell.value = `Анализ ТОПа${opts.region ? ` · регион: ${opts.region}` : ''}${opts.myDomain ? ` · мой домен: ${opts.myDomain}` : ''}`;
+  titleCell.value = `Анализ ТОПа${opts.engine ? ` · ${opts.engine}` : ''}${opts.region ? ` · регион: ${opts.region}` : ''}${opts.myDomain ? ` · мой домен: ${opts.myDomain}` : ''}`;
   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_DARK } };
   titleCell.font = { name: 'Arial', size: 13, bold: true, color: { argb: WHITE } };
   titleCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };

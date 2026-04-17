@@ -15,6 +15,7 @@ import { applyFilters, uniqueQueries } from '@/lib/topAnalysis/aggregate';
 import { filterMarketplaces, getExcludedDomains } from '@/lib/topAnalysis/marketplaceFilter';
 import { ExcludedDomainsManager } from '@/components/topAnalysis/ExcludedDomainsManager';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download } from 'lucide-react';
 import { useToolHistory } from '@/hooks/useToolHistory';
 import { SaveStatusBadge } from '@/components/SaveStatusBadge';
@@ -23,48 +24,76 @@ import { SaveStatusBadge } from '@/components/SaveStatusBadge';
 const exportTopAnalysisXlsx = (...args: Parameters<typeof import('@/lib/topAnalysis/exportTopAnalysis').exportTopAnalysisXlsx>) =>
   import('@/lib/topAnalysis/exportTopAnalysis').then(m => m.exportTopAnalysisXlsx(...args));
 
+type Engine = 'yandex' | 'google';
+
+interface EngineState {
+  rows: TopRow[];
+  fileName: string | null;
+  selectedQueries: string[];
+  positionRange: PositionRange;
+  aiMarkdown: string | null;
+}
+
+const emptyEngine = (): EngineState => ({
+  rows: [],
+  fileName: null,
+  selectedQueries: [],
+  positionRange: 'all',
+  aiMarkdown: null,
+});
+
+const ENGINE_LABEL: Record<Engine, string> = { yandex: 'Яндекс', google: 'Google' };
+
 export default function TopAnalysisPage() {
   const [searchParams] = useSearchParams();
   const restoreId = searchParams.get('restore');
 
-  const [rows, setRows] = useState<TopRow[]>([]);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [engine, setEngine] = useState<Engine>('yandex');
+  const [engines, setEngines] = useState<Record<Engine, EngineState>>({
+    yandex: emptyEngine(),
+    google: emptyEngine(),
+  });
+
   const [guideOpen, setGuideOpen] = useState(false);
-  const [selectedQueries, setSelectedQueries] = useState<string[]>([]);
-  const [positionRange, setPositionRange] = useState<PositionRange>('all');
   const [region, setRegion] = useState<string>('');
   const [myDomain, setMyDomain] = useState<string>('');
-  const [aiMarkdown, setAiMarkdown] = useState<string | null>(null);
-  const [excludedVersion, setExcludedVersion] = useState(0); // bump → пересчёт фильтра
+  const [excludedVersion, setExcludedVersion] = useState(0);
+
+  const cur = engines[engine];
+  const updateCur = (patch: Partial<EngineState>) =>
+    setEngines((prev) => ({ ...prev, [engine]: { ...prev[engine], ...patch } }));
 
   useEffect(() => {
-    if (rows.length > 0) setGuideOpen(false);
-  }, [rows.length]);
+    if (cur.rows.length > 0) setGuideOpen(false);
+  }, [cur.rows.length]);
 
-  // Глобальный фильтр маркетплейсов/агрегаторов — применяется ДО всех агрегаций
+  // Глобальный фильтр маркетплейсов
   const { rows: cleanRows, excludedDomains, excludedRows } = useMemo(() => {
     const excluded = getExcludedDomains();
-    return filterMarketplaces(rows, excluded);
-  }, [rows, excludedVersion]);
+    return filterMarketplaces(cur.rows, excluded);
+  }, [cur.rows, excludedVersion]);
 
   const allQueries = useMemo(() => uniqueQueries(cleanRows), [cleanRows]);
   const filteredRows = useMemo(
-    () => applyFilters(cleanRows, selectedQueries, positionRange),
-    [cleanRows, selectedQueries, positionRange],
+    () => applyFilters(cleanRows, cur.selectedQueries, cur.positionRange),
+    [cleanRows, cur.selectedQueries, cur.positionRange],
   );
 
-  // Автосохранение в историю
-  const saveName = fileName?.replace(/\.csv$/i, '') || (rows.length ? 'Анализ топа' : '');
+  // Имя сохранения = имя любого загруженного файла
+  const anyName = engines.yandex.fileName?.replace(/\.csv$/i, '')
+    || engines.google.fileName?.replace(/\.csv$/i, '')
+    || '';
+  const hasAnyData = engines.yandex.rows.length > 0 || engines.google.rows.length > 0;
+
   const { savingState, hasProject, loadById } = useToolHistory({
     table: 'top_analyses',
-    enabled: rows.length > 0,
-    name: saveName,
+    enabled: hasAnyData,
+    name: anyName || 'Анализ топа',
     data: {
-      file_name: fileName || '',
+      file_name: cur.fileName || '',
       region,
       my_domain: myDomain,
-      payload: { rows, selectedQueries, positionRange },
-      ai_markdown: aiMarkdown || '',
+      payload: { engines, activeEngine: engine },
     },
   });
 
@@ -75,31 +104,59 @@ export default function TopAnalysisPage() {
       const row = await loadById(restoreId);
       if (!row) return;
       const p = (row as any).payload || {};
-      setRows(p.rows || []);
-      setFileName((row as any).file_name || null);
-      setSelectedQueries(p.selectedQueries || []);
-      setPositionRange(p.positionRange || 'all');
+      // Поддержка нового и старого формата
+      if (p.engines) {
+        setEngines({
+          yandex: { ...emptyEngine(), ...(p.engines.yandex || {}) },
+          google: { ...emptyEngine(), ...(p.engines.google || {}) },
+        });
+        setEngine(p.activeEngine || 'yandex');
+      } else {
+        // legacy: одна выгрузка → кладём в Яндекс
+        setEngines({
+          yandex: {
+            rows: p.rows || [],
+            fileName: (row as any).file_name || null,
+            selectedQueries: p.selectedQueries || [],
+            positionRange: p.positionRange || 'all',
+            aiMarkdown: (row as any).ai_markdown || null,
+          },
+          google: emptyEngine(),
+        });
+        setEngine('yandex');
+      }
       setRegion((row as any).region || '');
       setMyDomain((row as any).my_domain || '');
-      setAiMarkdown((row as any).ai_markdown || null);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restoreId]);
+
+  const exportExcel = () => {
+    const baseName = (cur.fileName?.replace(/\.csv$/i, '') || anyName || 'top_analysis') + `_${engine}`;
+    exportTopAnalysisXlsx(
+      cleanRows,
+      baseName,
+      { aiMarkdown: cur.aiMarkdown, region, myDomain, engine: ENGINE_LABEL[engine] },
+    );
+  };
+
+  const otherEngine: Engine = engine === 'yandex' ? 'google' : 'yandex';
+  const otherFilled = engines[otherEngine].rows.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container py-6 space-y-5">
-        <div className="flex items-end justify-between gap-4">
+        <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-semibold">Анализ топа</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Загрузите CSV с позициями (Запрос; Домен; URL; Позиция) — получите матрицу присутствия, графики и AI-аналитику ниши.
+              Загрузите отдельные CSV для Яндекса и Google — для каждой ПС своя матрица, графики, AI-анализ и Excel.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            {rows.length > 0 && <SaveStatusBadge state={savingState} hasProject={hasProject} />}
-            {rows.length > 0 && (
+          <div className="flex items-center gap-3 flex-wrap">
+            {hasAnyData && <SaveStatusBadge state={savingState} hasProject={hasProject} />}
+            {cur.rows.length > 0 && (
               <ExcludedDomainsManager
                 excludedRows={excludedRows}
                 excludedDomains={excludedDomains}
@@ -107,22 +164,35 @@ export default function TopAnalysisPage() {
               />
             )}
             {cleanRows.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportTopAnalysisXlsx(
-                  cleanRows,
-                  fileName?.replace(/\.csv$/i, '') || 'top_analysis',
-                  { aiMarkdown, region, myDomain },
-                )}
-                className="gap-2"
-              >
+              <Button variant="outline" size="sm" onClick={exportExcel} className="gap-2">
                 <Download className="w-3.5 h-3.5" />
-                Excel
+                Excel · {ENGINE_LABEL[engine]}
               </Button>
             )}
           </div>
         </div>
+
+        {/* Переключатель поисковых систем */}
+        <Tabs value={engine} onValueChange={(v) => setEngine(v as Engine)}>
+          <TabsList className="grid grid-cols-2 w-full max-w-md">
+            <TabsTrigger value="yandex" className="gap-2">
+              Яндекс
+              {engines.yandex.rows.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                  {engines.yandex.rows.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="google" className="gap-2">
+              Google
+              {engines.google.rows.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                  {engines.google.rows.length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         <TopAnalysisFormatGuide open={guideOpen} onOpenChange={setGuideOpen} />
 
@@ -135,22 +205,28 @@ export default function TopAnalysisPage() {
         />
 
         <TopAnalysisUpload
-          rows={rows}
-          fileName={fileName}
-          onLoaded={(r, n) => { setRows(r); setFileName(n); setSelectedQueries([]); setPositionRange('all'); setAiMarkdown(null); }}
-          onReset={() => { setRows([]); setFileName(null); setSelectedQueries([]); setPositionRange('all'); setAiMarkdown(null); }}
+          rows={cur.rows}
+          fileName={cur.fileName}
+          onLoaded={(r, n) => updateCur({ rows: r, fileName: n, selectedQueries: [], positionRange: 'all', aiMarkdown: null })}
+          onReset={() => updateCur(emptyEngine())}
         />
 
-        {rows.length > 0 && (
+        {cur.rows.length === 0 && otherFilled && (
+          <div className="text-xs text-muted-foreground italic px-1">
+            В «{ENGINE_LABEL[otherEngine]}» уже загружено {engines[otherEngine].rows.length} строк. Загрузите CSV и для «{ENGINE_LABEL[engine]}», чтобы получить отдельный анализ и Excel.
+          </div>
+        )}
+
+        {cur.rows.length > 0 && (
           <>
             <TopAnalysisMetrics rows={filteredRows} />
 
             <TopAnalysisFilters
               allQueries={allQueries}
-              selectedQueries={selectedQueries}
-              onSelectedQueriesChange={setSelectedQueries}
-              positionRange={positionRange}
-              onPositionRangeChange={setPositionRange}
+              selectedQueries={cur.selectedQueries}
+              onSelectedQueriesChange={(qs) => updateCur({ selectedQueries: qs })}
+              positionRange={cur.positionRange}
+              onPositionRangeChange={(r) => updateCur({ positionRange: r })}
             />
 
             <PresenceMatrix rows={filteredRows} myDomain={myDomain} />
@@ -160,8 +236,8 @@ export default function TopAnalysisPage() {
               rows={filteredRows}
               region={region}
               myDomain={myDomain}
-              initialMarkdown={aiMarkdown}
-              onMarkdown={setAiMarkdown}
+              initialMarkdown={cur.aiMarkdown}
+              onMarkdown={(md) => updateCur({ aiMarkdown: md })}
             />
           </>
         )}
