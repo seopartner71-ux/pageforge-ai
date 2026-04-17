@@ -45,7 +45,10 @@ export default function LinkAuditPage() {
       }
       setSlots((prev) => {
         const next = [...prev];
-        next[idx] = { ...next[idx], rows, fileName: file.name };
+        const detected = detectSiteDomain(rows);
+        // Авто-имя: реальный домен, если найден; иначе оставить дефолтное
+        const autoName = detected || next[idx].name;
+        next[idx] = { ...next[idx], rows, fileName: file.name, name: autoName };
         return next;
       });
       const activeCount = rows.filter((r) => r.status !== 'inactive').length;
