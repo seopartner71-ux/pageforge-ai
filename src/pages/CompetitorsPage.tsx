@@ -14,7 +14,7 @@ import { exportCompetitorsXlsx } from '@/lib/competitors/exportCompetitors';
 export default function CompetitorsPage() {
   const [rows, setRows] = useState<CompetitorRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [guideOpen, setGuideOpen] = useState(true);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   useEffect(() => {
     if (rows.length > 0) setGuideOpen(false);
