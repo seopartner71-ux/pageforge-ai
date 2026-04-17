@@ -1,182 +1,314 @@
-import XLSX from 'xlsx-js-style';
+import ExcelJS from 'exceljs';
+import { Chart, registerables } from 'chart.js';
 import { CompetitorRow, COMPETITOR_COLUMNS } from './parseCompetitorsCsv';
 
-// Метрики, которые попадут в транспонированную таблицу (без столбца "Домен")
-const METRIC_COLUMNS = COMPETITOR_COLUMNS.filter((c) => c.key !== 'domain');
+Chart.register(...registerables);
 
-const BORDER = {
-  top: { style: 'thin', color: { rgb: 'FFD1D5DB' } },
-  bottom: { style: 'thin', color: { rgb: 'FFD1D5DB' } },
-  left: { style: 'thin', color: { rgb: 'FFD1D5DB' } },
-  right: { style: 'thin', color: { rgb: 'FFD1D5DB' } },
-} as const;
+// Фирменные цвета (как в exportLinkAuditXlsx)
+const ORANGE = 'FFE8834A';
+const ZEBRA = 'FFF9F9F9';
+const WHITE = 'FFFFFFFF';
+const BORDER_GRAY = 'FFD0D0D0';
+const SITE_BAR_COLORS = ['#378ADD', '#EF9F27', '#1D9E75', '#7F77DD', '#EC4899', '#06B6D4', '#F43F5E', '#10B981'];
 
-export function exportCompetitorsXlsx(rows: CompetitorRow[], baseName = 'competitors') {
+const ARIAL_10 = { name: 'Arial', size: 10 } as const;
+const ARIAL_10_BOLD_WHITE = { name: 'Arial', size: 10, bold: true, color: { argb: WHITE } } as const;
+
+const thinBorder = {
+  top: { style: 'thin' as const, color: { argb: BORDER_GRAY } },
+  left: { style: 'thin' as const, color: { argb: BORDER_GRAY } },
+  bottom: { style: 'thin' as const, color: { argb: BORDER_GRAY } },
+  right: { style: 'thin' as const, color: { argb: BORDER_GRAY } },
+};
+
+// Метрики, попадающие в транспонированную таблицу (без столбца "Домен")
+const METRICS = COMPETITOR_COLUMNS.filter((c) => c.key !== 'domain');
+
+function saveBlob(buffer: ArrayBuffer, filename: string) {
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function renderChartPng(config: any, width = 800, height = 360): Promise<string> {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  canvas.style.position = 'fixed';
+  canvas.style.left = '-99999px';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+  const chart = new Chart(ctx, {
+    ...config,
+    options: {
+      ...(config.options || {}),
+      responsive: false,
+      animation: false,
+      devicePixelRatio: 2,
+    },
+  });
+  await new Promise((r) => setTimeout(r, 50));
+  const dataUrl = canvas.toDataURL('image/png');
+  chart.destroy();
+  canvas.remove();
+  return dataUrl;
+}
+
+const dataUrlToBase64 = (d: string) => d.split(',')[1];
+
+export async function exportCompetitorsXlsx(rows: CompetitorRow[], baseName = 'competitors') {
   if (rows.length === 0) return;
 
   const domains = rows.map((r) => r.domain);
   const totalCols = 1 + domains.length;
-
-  // ---- Build AOA ----
-  const aoa: any[][] = [];
-
-  // Row 1: title (merged across all columns)
-  aoa.push(['Анализ конкурентов — PageForge', ...Array(totalCols - 1).fill('')]);
-
-  // Row 2: column headers
-  aoa.push(['Показатель оценки', ...domains]);
-
-  // Rows 3+: one row per metric
-  for (const metric of METRIC_COLUMNS) {
-    const line: any[] = [metric.label];
-    for (const r of rows) {
-      const v = Number(r[metric.key]) || 0;
-      line.push(v);
+  const lastColLetter = (() => {
+    // Простой конвертер 1->A, 2->B ...
+    let n = totalCols;
+    let s = '';
+    while (n > 0) {
+      const m = (n - 1) % 26;
+      s = String.fromCharCode(65 + m) + s;
+      n = Math.floor((n - 1) / 26);
     }
-    aoa.push(line);
+    return s;
+  })();
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'PageForge';
+  wb.created = new Date();
+
+  // ============================================================
+  // ЛИСТ "Конкуренты" — транспонированная таблица + графики
+  // ============================================================
+  const ws = wb.addWorksheet('Конкуренты');
+  ws.views = [{ showGridLines: false }];
+
+  // Шапка: первая строка — заголовки (A = "Показатель оценки", дальше домены)
+  const headerRow = ws.getRow(1);
+  headerRow.height = 32;
+  headerRow.getCell(1).value = 'Показатель оценки';
+  domains.forEach((d, i) => {
+    headerRow.getCell(i + 2).value = d;
+  });
+  for (let c = 1; c <= totalCols; c++) {
+    const cell = headerRow.getCell(c);
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ORANGE } };
+    cell.font = ARIAL_10_BOLD_WHITE;
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.border = thinBorder;
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  // Строки данных: каждая = метрика
+  METRICS.forEach((metric, idx) => {
+    const rowIdx = idx + 2;
+    const row = ws.getRow(rowIdx);
+    row.getCell(1).value = metric.label;
 
-  // Merge title row across all columns
-  ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
-  ];
-
-  // Column widths: A=26, остальные=18
-  ws['!cols'] = [{ wch: 26 }, ...domains.map(() => ({ wch: 18 }))];
-
-  // Row heights
-  ws['!rows'] = [{ hpt: 28 }, { hpt: 26 }];
-
-  // ---- Styles ----
-
-  // Title row
-  for (let c = 0; c < totalCols; c++) {
-    const addr = XLSX.utils.encode_cell({ r: 0, c });
-    if (!ws[addr]) ws[addr] = { t: 's', v: c === 0 ? 'Анализ конкурентов — PageForge' : '' };
-    ws[addr].s = {
-      fill: { patternType: 'solid', fgColor: { rgb: 'FF1A1A18' } },
-      font: { bold: true, color: { rgb: 'FFFFFFFF' }, sz: 13 },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border: BORDER,
-    };
-  }
-
-  // Header row (row 2)
-  for (let c = 0; c < totalCols; c++) {
-    const addr = XLSX.utils.encode_cell({ r: 1, c });
-    if (!ws[addr]) continue;
-    const isFirst = c === 0;
-    ws[addr].s = {
-      fill: {
-        patternType: 'solid',
-        fgColor: { rgb: isFirst ? 'FFEA580C' : 'FFFB923C' },
-      },
-      font: { bold: true, color: { rgb: 'FFFFFFFF' }, sz: 11 },
-      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-      border: BORDER,
-    };
-  }
-
-  // Body rows: per-metric best/worst highlighting + zebra
-  for (let i = 0; i < METRIC_COLUMNS.length; i++) {
-    const metric = METRIC_COLUMNS[i];
-    const rIdx = i + 2; // row in sheet
     const values = rows.map((r) => Number(r[metric.key]) || 0);
+    values.forEach((v, i) => {
+      row.getCell(i + 2).value = v;
+      row.getCell(i + 2).numFmt = '#,##0';
+    });
+
+    // best / worst (worst = минимальное ненулевое)
     const max = Math.max(...values);
-    // worst = минимальное НЕНУЛЕВОЕ значение (если все нули — без подсветки)
     const nonZero = values.filter((v) => v > 0);
-    const min = nonZero.length > 0 ? Math.min(...nonZero) : null;
-    const allEqual = max === (min ?? max) && nonZero.length === values.length;
+    const min = nonZero.length ? Math.min(...nonZero) : null;
+    const allEqual = min !== null && max === min;
+    const higherBetter = metric.higherIsBetter !== false;
+    const isZebra = idx % 2 === 1;
 
-    const zebra = i % 2 === 0 ? 'FFFFFFFF' : 'FFF9FAFB';
-
-    // Label cell (col 0)
-    const labelAddr = XLSX.utils.encode_cell({ r: rIdx, c: 0 });
-    if (ws[labelAddr]) {
-      ws[labelAddr].s = {
-        fill: { patternType: 'solid', fgColor: { rgb: 'FFF2F2F2' } },
-        font: { bold: true, color: { rgb: 'FF1F2937' }, sz: 11 },
-        alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
-        border: BORDER,
+    for (let c = 1; c <= totalCols; c++) {
+      const cell = row.getCell(c);
+      cell.font = ARIAL_10;
+      cell.border = thinBorder;
+      cell.alignment = {
+        vertical: 'middle',
+        horizontal: c === 1 ? 'left' : 'right',
+        wrapText: true,
+      };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: isZebra ? ZEBRA : WHITE },
       };
     }
 
-    // Value cells
-    for (let c = 0; c < domains.length; c++) {
-      const addr = XLSX.utils.encode_cell({ r: rIdx, c: c + 1 });
-      if (!ws[addr]) continue;
-      const v = values[c];
-
-      let fill = zebra;
-      let fontColor = 'FF1F2937';
-      let bold = false;
-
-      if (!allEqual) {
-        const higherBetter = metric.higherIsBetter !== false;
+    // Подсветка best/worst в значениях
+    if (!allEqual) {
+      values.forEach((v, i) => {
+        const cell = row.getCell(i + 2);
         const isBest = higherBetter ? v === max && v > 0 : v === min && v > 0;
         const isWorst = higherBetter ? v === min && v > 0 : v === max && v > 0;
         if (isBest) {
-          fill = 'FFD1FAE5';
-          fontColor = 'FF065F46';
-          bold = true;
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF065F46' } };
         } else if (isWorst) {
-          fill = 'FFFEE2E2';
-          fontColor = 'FF991B1B';
-          bold = true;
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF991B1B' } };
         }
-      }
-
-      ws[addr].s = {
-        fill: { patternType: 'solid', fgColor: { rgb: fill } },
-        font: { sz: 11, color: { rgb: fontColor }, bold },
-        alignment: { horizontal: 'right', vertical: 'center' },
-        border: BORDER,
-        numFmt: '#,##0',
-      };
-      ws[addr].z = '#,##0';
+      });
     }
-  }
+  });
 
-  // Freeze header rows + first column
-  (ws as any)['!freeze'] = { xSplit: 1, ySplit: 2 };
+  // Ширина колонок
+  ws.getColumn(1).width = 30;
+  for (let c = 2; c <= totalCols; c++) ws.getColumn(c).width = 20;
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Конкуренты');
+  // ============================================================
+  // ГРАФИКИ — встраиваем под таблицей
+  // Данные занимают строки 1..(1 + METRICS.length). Графики начинаем через 2 пустые строки.
+  // ============================================================
+  const labels = domains;
+  const colors = labels.map((_, i) => SITE_BAR_COLORS[i % SITE_BAR_COLORS.length]);
+  let chartRow = 1 + METRICS.length + 2; // 0-индексированный для anchor
 
-  // ---- Дополнительный лист «Для графиков» ----
-  const chartAoa: any[][] = [];
-  chartAoa.push(['Выделите данные ниже и вставьте диаграмму (Вставка → Диаграмма)']);
-  chartAoa.push([]);
-  chartAoa.push(['График 1: Трафик по доменам']);
-  chartAoa.push(['Домен', 'Трафик']);
-  rows.forEach((r) => chartAoa.push([r.domain, Number(r.traffic) || 0]));
-  chartAoa.push([]);
-  chartAoa.push(['График 2: Видимость и В топ 1']);
-  chartAoa.push(['Домен', 'Видимость', 'В топ 1']);
-  rows.forEach((r) =>
-    chartAoa.push([r.domain, Number(r.visibility) || 0, Number(r.top1) || 0])
-  );
+  // График 1 — Трафик по доменам
+  const png1 = await renderChartPng({
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Трафик',
+        data: rows.map((r) => Number(r.traffic) || 0),
+        backgroundColor: colors,
+        borderColor: colors,
+        borderWidth: 1,
+      }],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Трафик по доменам', font: { size: 16, weight: 'bold' } },
+        legend: { display: false },
+      },
+      scales: { y: { beginAtZero: true } },
+    },
+  });
+  let imgId = wb.addImage({ base64: dataUrlToBase64(png1), extension: 'png' });
+  ws.addImage(imgId, { tl: { col: 0, row: chartRow }, ext: { width: 800, height: 360 } });
 
-  const ws2 = XLSX.utils.aoa_to_sheet(chartAoa);
-  ws2['!cols'] = [{ wch: 30 }, { wch: 18 }, { wch: 18 }];
+  // График 2 — Видимость и ТОП-1
+  chartRow += 20;
+  const png2 = await renderChartPng({
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Видимость', data: rows.map((r) => Number(r.visibility) || 0), backgroundColor: '#378ADD' },
+        { label: 'В топ 1', data: rows.map((r) => Number(r.top1) || 0), backgroundColor: '#EF9F27' },
+      ],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Видимость и позиции в ТОП-1', font: { size: 16, weight: 'bold' } },
+        legend: { position: 'bottom' },
+      },
+      scales: { y: { beginAtZero: true } },
+    },
+  });
+  imgId = wb.addImage({ base64: dataUrlToBase64(png2), extension: 'png' });
+  ws.addImage(imgId, { tl: { col: 0, row: chartRow }, ext: { width: 800, height: 360 } });
 
-  // Заголовки секций жирным
-  const sectionRows = [0, 2, 3, 5 + rows.length, 6 + rows.length];
-  for (const r of sectionRows) {
-    const addr = XLSX.utils.encode_cell({ r, c: 0 });
-    if (ws2[addr]) {
-      ws2[addr].s = {
-        font: { bold: true, sz: 11, color: { rgb: 'FF1F2937' } },
-        fill: { patternType: 'solid', fgColor: { rgb: 'FFF2F2F2' } },
-        alignment: { horizontal: 'left', vertical: 'center' },
+  // График 3 — ТОП-1 / ТОП-3 / ТОП-10 (сгруппированный)
+  chartRow += 20;
+  const png3 = await renderChartPng({
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'ТОП-1', data: rows.map((r) => Number(r.top1) || 0), backgroundColor: '#1D9E75' },
+        { label: 'ТОП-3', data: rows.map((r) => Number(r.top3) || 0), backgroundColor: '#378ADD' },
+        { label: 'ТОП-10', data: rows.map((r) => Number(r.top10) || 0), backgroundColor: '#EF9F27' },
+      ],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Распределение по ТОП-позициям', font: { size: 16, weight: 'bold' } },
+        legend: { position: 'bottom' },
+      },
+      scales: { y: { beginAtZero: true } },
+    },
+  });
+  imgId = wb.addImage({ base64: dataUrlToBase64(png3), extension: 'png' });
+  ws.addImage(imgId, { tl: { col: 0, row: chartRow }, ext: { width: 800, height: 360 } });
+
+  // График 4 — Бюджет в контексте
+  chartRow += 20;
+  const png4 = await renderChartPng({
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Бюджет в контексте',
+        data: rows.map((r) => Number(r.contextBudget) || 0),
+        backgroundColor: colors,
+      }],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Бюджет в контексте', font: { size: 16, weight: 'bold' } },
+        legend: { display: false },
+      },
+      scales: { y: { beginAtZero: true } },
+    },
+  });
+  imgId = wb.addImage({ base64: dataUrlToBase64(png4), extension: 'png' });
+  ws.addImage(imgId, { tl: { col: 0, row: chartRow }, ext: { width: 800, height: 360 } });
+
+  // ============================================================
+  // ЛИСТ "Сырые данные" — обычная плоская таблица как backup
+  // ============================================================
+  const raw = wb.addWorksheet('Сырые данные');
+  raw.views = [{ showGridLines: false }];
+  const rawHeaders = COMPETITOR_COLUMNS.map((c) => c.label);
+  const rawHeaderRow = raw.addRow(rawHeaders);
+  rawHeaderRow.height = 22;
+  rawHeaders.forEach((_, i) => {
+    const c = rawHeaderRow.getCell(i + 1);
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ORANGE } };
+    c.font = ARIAL_10_BOLD_WHITE;
+    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    c.border = thinBorder;
+  });
+
+  rows.forEach((r, idx) => {
+    const line = COMPETITOR_COLUMNS.map((col) =>
+      col.numeric ? Number(r[col.key]) || 0 : (r[col.key] as string)
+    );
+    const rowEl = raw.addRow(line);
+    const isZebra = idx % 2 === 1;
+    for (let i = 1; i <= COMPETITOR_COLUMNS.length; i++) {
+      const c = rowEl.getCell(i);
+      c.font = ARIAL_10;
+      c.border = thinBorder;
+      c.alignment = {
+        vertical: 'middle',
+        horizontal: i === 1 ? 'left' : 'right',
+      };
+      if (COMPETITOR_COLUMNS[i - 1].numeric) c.numFmt = '#,##0';
+      c.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: isZebra ? ZEBRA : WHITE },
       };
     }
-  }
+  });
 
-  XLSX.utils.book_append_sheet(wb, ws2, 'Для графиков');
+  raw.getColumn(1).width = 28;
+  for (let i = 2; i <= COMPETITOR_COLUMNS.length; i++) raw.getColumn(i).width = 16;
 
+  // Сохранение
+  const buffer = await wb.xlsx.writeBuffer();
   const date = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `${baseName}_${date}.xlsx`);
+  saveBlob(buffer as ArrayBuffer, `${baseName}_${date}.xlsx`);
 }
