@@ -305,9 +305,6 @@ export default function LinkAuditPage() {
         {hasSummary && (
           <DomainSummarySection rows={summaryRows} />
         )}
-        <CsvFormatGuide />
-
-
         {hasData && (
           <>
             {/* Метрики-карточки */}
