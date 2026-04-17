@@ -35,9 +35,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Берём топ-5 ключевых метрик каждого домена
+    const AGGREGATOR_KEYWORDS = [
+      'wildberries', 'wb.ru', 'ozon', 'market.yandex', 'aliexpress', 'avito', 'youla',
+      'sbermegamarket', 'megamarket', 'lamoda', 'detmir',
+      '2gis', 'zoon.ru', 'yell.ru', 'tiu.ru', 'pulscen',
+      'youtube', 'rutube', 'dzen', 'zen.yandex',
+      'wikipedia', 'pikabu', 'otzovik', 'irecommend',
+      'vk.com', 'ok.ru', 't.me', 'instagram', 'tiktok',
+      'drom.ru', 'auto.ru', 'cian.ru', 'domclick',
+    ];
+    const isAggregator = (d: string) => {
+      const x = (d || '').toLowerCase();
+      return AGGREGATOR_KEYWORDS.some(k => x.includes(k));
+    };
+
+    // Передаём ВСЕХ конкурентов (не только топ-5), помечая агрегаторы
     const compact = competitors.map((c: any) => ({
-      domен: c.domain,
+      домен: c.domain,
+      агрегатор: isAggregator(c.domain || ''),
       трафик: c.traffic,
       видимость: c.visibility,
       топ1: c.top1,
@@ -47,16 +62,28 @@ Deno.serve(async (req) => {
       бюджет_контекст: c.contextBudget,
     }));
 
+    const real = compact.filter(c => !c.агрегатор);
+    const aggr = compact.filter(c => c.агрегатор);
+
     const prompt = `Ты SEO-аналитик. Проанализируй данные конкурентов и дай развёрнутый аналитический отчёт на русском языке в формате Markdown.
 
-Данные:
-${JSON.stringify(compact, null, 2)}
+ВАЖНО: Маркетплейсы и агрегаторы (Wildberries, Ozon, Яндекс.Маркет, Avito, YouTube, Wikipedia и т.п.) НЕ являются прямыми конкурентами для коммерческих сайтов. Упомяни их отдельным коротким блоком, но НЕ учитывай в основных рейтингах лидеров и рекомендациях. Фокус — на НАСТОЯЩИХ конкурентах.
+
+Всего доменов: ${compact.length} (настоящих конкурентов: ${real.length}, агрегаторов: ${aggr.length})
+
+Настоящие конкуренты (анализируй полностью):
+${JSON.stringify(real, null, 2)}
+
+Маркетплейсы/агрегаторы (для справки, НЕ как конкурентов):
+${JSON.stringify(aggr, null, 2)}
 
 Структура ответа (используй заголовки ## и списки):
-## Лидеры рынка
-Кто лидер по трафику, видимости, ТОП-1 и почему
+## Лидеры рынка (без агрегаторов)
+Кто лидер по трафику, видимости, ТОП-1 среди настоящих конкурентов и почему
 ## Слабые места конкурентов
-По каждому домену — ключевые проблемы
+По каждому ключевому домену — проблемы
+## Влияние агрегаторов
+Короткий блок: насколько маркетплейсы давят на нишу
 ## Рекомендации
 Конкретные действия, на чьём опыте можно учиться
 
@@ -72,6 +99,7 @@ ${JSON.stringify(compact, null, 2)}
         model: 'google/gemini-2.5-flash',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.4,
+        max_tokens: 4000,
       }),
     });
 
