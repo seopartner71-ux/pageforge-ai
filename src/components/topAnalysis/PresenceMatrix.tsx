@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { ArrowUpDown, ArrowUp, ArrowDown, Star } from 'lucide-react';
 import { TopRow } from '@/lib/topAnalysis/parseTopAnalysisCsv';
 import { aggregateDomains, uniqueQueries } from '@/lib/topAnalysis/aggregate';
+import { isAggregator } from '@/lib/topAnalysis/aggregators';
 
 interface Props { rows: TopRow[]; myDomain?: string }
 
@@ -128,19 +129,28 @@ export function PresenceMatrix({ rows, myDomain }: Props) {
           <tbody>
             {sortedDomains.map((d, idx) => {
               const isMine = myDomainNorm && d.domain === myDomainNorm;
+              const aggr = !isMine && isAggregator(d.domain);
               return (
                 <tr
                   key={d.domain}
                   className={
                     isMine
                       ? 'bg-primary/10 ring-1 ring-primary/40'
-                      : idx % 2 ? 'bg-muted/20' : ''
+                      : aggr
+                        ? 'bg-rose-500/5'
+                        : idx % 2 ? 'bg-muted/20' : ''
                   }
+                  title={aggr ? 'Маркетплейс / агрегатор — не учитывается в основном анализе' : undefined}
                 >
                   <td className={`${cellPad} font-medium border-r border-border break-all`}>
                     <div className="flex items-center gap-1.5">
                       {isMine && <Star className="w-3 h-3 text-primary fill-primary shrink-0" />}
-                      <span className={isMine ? 'text-primary font-semibold' : ''}>{d.domain}</span>
+                      <span className={
+                        isMine ? 'text-primary font-semibold'
+                        : aggr ? 'text-rose-500 dark:text-rose-400'
+                        : ''
+                      }>{d.domain}</span>
+                      {aggr && <span className="text-[9px] uppercase tracking-wide px-1 rounded bg-rose-500/15 text-rose-500 dark:text-rose-400 shrink-0">агрегатор</span>}
                     </div>
                   </td>
                   {queries.map(q => {
@@ -173,6 +183,10 @@ export function PresenceMatrix({ rows, myDomain }: Props) {
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="text-muted-foreground">—</span> нет в топе
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-rose-500/20 inline-block" />
+          <span className="text-rose-500 dark:text-rose-400">маркетплейс/агрегатор</span> (исключён из AI-анализа)
         </span>
         <span className="ml-auto">Σ — сумма позиций · ✓ — кол-во запросов с присутствием</span>
       </div>
