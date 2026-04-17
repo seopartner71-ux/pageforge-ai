@@ -409,6 +409,29 @@ export default function LinkAuditPage() {
             </Card>
           </>
         )}
+
+        {hasAnyData && (
+          <InsightsBlock
+            sites={analyses.map((s) => ({
+              name: s.name,
+              totalLinks: s.totalLinks,
+              uniqueDomains: s.uniqueDomains,
+              avgDR: s.avgDR,
+              followPct: s.followPct,
+              textPct: s.textPct,
+            }))}
+            summary={summaryRows.map((r) => ({
+              domain: r.domain,
+              dr: r.dr,
+              top10: r.top10,
+              top50: r.top50,
+              traffic: r.traffic,
+              backlinks: r.backlinks,
+              refDomains: r.refDomains,
+            }))}
+            onLoaded={setInsights}
+          />
+        )}
       </main>
     </div>
   );
