@@ -354,37 +354,21 @@ export async function exportSeoAuditXlsx(data: AuditData): Promise<void> {
   }
 
   // ============ DATA ROW(S) ============
-  const uniquenessRaw = stealth.uniqueness;
-  const uniquenessFact: number | string = typeof uniquenessRaw === 'number' ? uniquenessRaw : '';
-  const uniquenessRec = (() => {
-    const u = uniquenessRaw;
-    if (u === undefined || u === null) return 'Нет данных';
-    if (u >= 100) return 'Отличная уникальность';
-    if (u >= 90) return 'Уникальность в норме';
-    return `Уникальность ${u}% — требуется рерайт`;
-  })();
+  const uniquenessRaw = getUniqueness(data);
+  const uniquenessFact: number | string = uniquenessRaw !== null ? uniquenessRaw : 'Нет данных';
+  const uniquenessRec = uniquenessRecommendation(uniquenessRaw);
 
-  const contentComment = (() => {
-    const parts: string[] = [];
-    const wc = data.tabData?.pageStats?.wordCount;
-    if (wc) parts.push(`Слов: ${wc}`);
-    if (data.scores?.seoHealth !== undefined) parts.push(`SEO: ${data.scores.seoHealth}%`);
-    if (data.scores?.llmFriendly !== undefined) parts.push(`LLM: ${data.scores.llmFriendly}%`);
-    if (data.scores?.humanTouch !== undefined) parts.push(`Human: ${data.scores.humanTouch}%`);
-    return parts.join(' | ') || '—';
-  })();
-
-  const titleAfter = data.tabData?.recommendedTitle || data.aiReport?.recommendedTitle || '';
-  const descAfter = data.tabData?.recommendedDescription || data.aiReport?.recommendedDescription || '';
-  const pageName = audit.h1Text || audit.title || domain;
+  const titleAfter = getRecommendedTitle(data);
+  const descAfter = getRecommendedDescription(data);
+  const pageName = getH1(data) || getCurrentTitle(data) || domain;
 
   const dataRow = [
     1,
     pageName,
     data.url,
-    audit.title || '',
+    getCurrentTitle(data),
     titleAfter,
-    audit.metaDescription || '',
+    getCurrentDescription(data),
     descAfter,
     uniquenessFact,
     uniquenessRec,
@@ -392,7 +376,7 @@ export async function exportSeoAuditXlsx(data: AuditData): Promise<void> {
     buildKeywordsRecommendations(data),
     buildHeadingsFactText(data),
     buildHeadingsRecommendations(data),
-    contentComment,
+    buildContentComment(data),
     buildInternalLinksFact(data),
     buildInternalLinksRecs(data),
     '', '',
