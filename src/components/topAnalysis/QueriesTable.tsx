@@ -27,8 +27,10 @@ function normalizeUrl(url: string, domain: string): string {
   return `https://${u.replace(/^\/+/, '')}`;
 }
 
+export function QueriesTable({ rows }: Props) {
   const queries = useMemo(() => aggregateQueries(rows), [rows]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
 
   const toggle = (q: string) => {
     setExpanded(prev => {
