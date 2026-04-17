@@ -132,12 +132,12 @@ export function AdminOverviewTab() {
     <div className="space-y-6">
       {/* KPI grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <StatCard label="Всего пользователей" value={data.totalUsers} icon={Users} />
-        <StatCard label="Новых за 7д" value={data.newUsers7d} delta={{ value: userDelta }} icon={TrendingUp} />
-        <StatCard label="Активных (30д)" value={data.activeUsers30d} icon={UserCheck} hint={`${data.totalUsers > 0 ? Math.round(data.activeUsers30d / data.totalUsers * 100) : 0}% базы`} />
-        <StatCard label="Ожидают одобрения" value={data.pendingUsers} icon={AlertCircle} hint={`${approvalRate}% одобрено`} />
-        <StatCard label="Анализов всего" value={data.totalAnalyses} icon={FileBarChart2} />
-        <StatCard label="За 7 дней" value={data.analyses7d} delta={{ value: analysisDelta }} icon={Zap} />
+        <StatCard label="Всего пользователей" value={data.totalUsers} icon={Users} accent="blue" />
+        <StatCard label="Новых за 7д" value={data.newUsers7d} delta={{ value: userDelta }} icon={TrendingUp} accent="green" />
+        <StatCard label="Активных (30д)" value={data.activeUsers30d} icon={UserCheck} accent="teal" hint={`${data.totalUsers > 0 ? Math.round(data.activeUsers30d / data.totalUsers * 100) : 0}% базы`} />
+        <StatCard label="Ожидают одобрения" value={data.pendingUsers} icon={AlertCircle} accent="amber" hint={`${approvalRate}% одобрено`} />
+        <StatCard label="Анализов всего" value={data.totalAnalyses} icon={FileBarChart2} accent="violet" />
+        <StatCard label="За 7 дней" value={data.analyses7d} delta={{ value: analysisDelta }} icon={Zap} accent="pink" />
       </div>
 
       {/* Charts */}
