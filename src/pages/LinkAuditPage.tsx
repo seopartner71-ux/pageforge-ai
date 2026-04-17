@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import {
-  parseCsvToBacklinks, analyzeSite, SITE_COLORS,
+  parseCsvToBacklinks, analyzeSite, detectSiteDomain, SITE_COLORS,
   type SiteAuditData, type BacklinkRow,
 } from '@/lib/linkAudit';
 import { exportLinkAuditXlsx } from '@/lib/exportLinkAuditXlsx';
