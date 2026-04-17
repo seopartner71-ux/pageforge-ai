@@ -1,7 +1,7 @@
 // Маркетплейсы и агрегаторы — выделяются красным и исключаются из основного анализа
 
 export const AGGREGATOR_DOMAINS = new Set<string>([
-  // Маркетплейсы
+  // Универсальные маркетплейсы
   'wildberries.ru', 'wb.ru',
   'ozon.ru',
   'market.yandex.ru', 'yandex.market.ru',
@@ -11,16 +11,32 @@ export const AGGREGATOR_DOMAINS = new Set<string>([
   'lamoda.ru',
   'detmir.ru',
   'amazon.com', 'amazon.de',
-  // Агрегаторы / классифайды / прайс-агрегаторы
+  // Крупные DIY / инструменты / стройка / промышленные маркетплейсы
+  'vseinstrumenti.ru', 'vi.ru',
+  'leroymerlin.ru', 'leroy-merlin.ru',
+  'petrovich.ru',
+  'castorama.ru',
+  'obi.ru',
+  'maxidom.ru',
+  'tdsoyuz.ru',
+  '220-volt.ru', '220volt.ru',
+  'vimos.ru',
+  // Электроника
+  'mvideo.ru', 'eldorado.ru', 'dns-shop.ru', 'citilink.ru', 'technopark.ru',
+  // Авто / шины / запчасти
+  'exist.ru', 'emex.ru', 'autodoc.ru', 'kolesa-darom.ru',
+  // Промышленные B2B-агрегаторы
+  'tiu.ru', 'pulscen.ru', 'satom.ru', 'all.biz', 'blizko.ru', 'flagma.ru',
+  'rusprofile.ru', 'list-org.com',
+  // Классифайды
   'avito.ru',
   'youla.ru',
   'drom.ru', 'auto.ru',
-  'cian.ru', 'domclick.ru', 'avito.ru',
+  'cian.ru', 'domclick.ru',
   'irecommend.ru', 'otzovik.ru', 'flamp.ru',
   'pikabu.ru',
-  // Большие справочники / порталы
+  // Большие справочники
   '2gis.ru', 'zoon.ru', 'yell.ru',
-  'tiu.ru', 'pulscen.ru', 'satom.ru', 'all.biz',
   // Видео/контент-платформы
   'youtube.com', 'youtu.be',
   'rutube.ru',
@@ -37,14 +53,19 @@ export const AGGREGATOR_DOMAINS = new Set<string>([
   // Карты / поиск
   'maps.yandex.ru', 'yandex.ru',
   'google.com', 'google.ru',
-  // Каталоги статей / СМИ-агрегаторы
+  // СМИ-агрегаторы
   'rbc.ru', 'lenta.ru', 'kommersant.ru',
 ]);
 
 const AGGREGATOR_KEYWORDS = [
   'wildberries', 'ozon', 'market.yandex', 'aliexpress', 'avito', 'youla',
   'sbermegamarket', 'megamarket', 'lamoda', 'detmir',
-  '2gis', 'zoon', 'yell', 'tiu', 'pulscen', 'satom',
+  'vseinstrumenti', 'leroymerlin', 'leroy-merlin', 'petrovich.ru', 'castorama',
+  'obi.ru', 'maxidom', '220-volt', '220volt', 'vimos.ru',
+  'mvideo', 'eldorado', 'dns-shop', 'citilink', 'technopark',
+  'exist.ru', 'emex.ru', 'autodoc', 'kolesa-darom',
+  '2gis', 'zoon', 'yell.ru', 'tiu.ru', 'pulscen', 'satom', 'all.biz', 'blizko', 'flagma',
+  'rusprofile', 'list-org',
   'youtube', 'rutube', 'dzen', 'zen.yandex',
   'wikipedia', 'pikabu', 'otzovik', 'irecommend', 'flamp',
 ];

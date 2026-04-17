@@ -8,12 +8,24 @@ const corsHeaders = {
 interface TopRow { query: string; domain: string; url: string; position: number }
 
 const AGGREGATOR_KEYWORDS = [
+  // Универсальные маркетплейсы
   'wildberries', 'wb.ru', 'ozon', 'market.yandex', 'aliexpress', 'avito', 'youla',
   'sbermegamarket', 'megamarket', 'lamoda', 'detmir', 'kazanexpress',
-  '2gis', 'zoon.ru', 'yell.ru', 'tiu.ru', 'pulscen', 'satom', 'all.biz',
+  // Крупные DIY / инструменты / стройка
+  'vseinstrumenti', 'vi.ru', 'leroymerlin', 'leroy-merlin', 'petrovich.ru',
+  'castorama', 'obi.ru', 'maxidom', '220-volt', '220volt', 'vimos.ru',
+  // Электроника
+  'mvideo', 'eldorado', 'dns-shop', 'citilink', 'technopark',
+  // Авто
+  'exist.ru', 'emex.ru', 'autodoc', 'kolesa-darom',
+  // Промышленные B2B
+  '2gis', 'zoon.ru', 'yell.ru', 'tiu.ru', 'pulscen', 'satom', 'all.biz', 'blizko', 'flagma',
+  'rusprofile', 'list-org',
+  // Контент / соцсети / энциклопедии
   'youtube', 'youtu.be', 'rutube', 'dzen', 'zen.yandex',
   'wikipedia', 'pikabu', 'otzovik', 'irecommend', 'flamp',
   'vk.com', 'vk.ru', 'ok.ru', 't.me', 'telegram.org', 'instagram', 'tiktok',
+  // Классифайды
   'drom.ru', 'auto.ru', 'cian.ru', 'domclick',
   'otvet.mail.ru', 'thequestion',
   'rbc.ru', 'lenta.ru', 'kommersant',

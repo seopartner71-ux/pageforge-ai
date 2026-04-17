@@ -38,7 +38,12 @@ Deno.serve(async (req) => {
     const AGGREGATOR_KEYWORDS = [
       'wildberries', 'wb.ru', 'ozon', 'market.yandex', 'aliexpress', 'avito', 'youla',
       'sbermegamarket', 'megamarket', 'lamoda', 'detmir',
-      '2gis', 'zoon.ru', 'yell.ru', 'tiu.ru', 'pulscen',
+      'vseinstrumenti', 'vi.ru', 'leroymerlin', 'leroy-merlin', 'petrovich.ru',
+      'castorama', 'obi.ru', 'maxidom', '220-volt', '220volt', 'vimos.ru',
+      'mvideo', 'eldorado', 'dns-shop', 'citilink', 'technopark',
+      'exist.ru', 'emex.ru', 'autodoc', 'kolesa-darom',
+      '2gis', 'zoon.ru', 'yell.ru', 'tiu.ru', 'pulscen', 'all.biz', 'blizko', 'flagma',
+      'rusprofile', 'list-org',
       'youtube', 'rutube', 'dzen', 'zen.yandex',
       'wikipedia', 'pikabu', 'otzovik', 'irecommend',
       'vk.com', 'ok.ru', 't.me', 'instagram', 'tiktok',
