@@ -455,6 +455,8 @@ export default function HistoryPage() {
             )}
           </>
         )}
+          </TabsContent>
+        </Tabs>
 
         {/* Cluster Synergy Modal */}
         <ClusterSynergyModal
@@ -467,3 +469,4 @@ export default function HistoryPage() {
     </div>
   );
 }
+
