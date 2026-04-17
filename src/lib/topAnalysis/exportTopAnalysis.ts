@@ -1,14 +1,19 @@
 import ExcelJS from 'exceljs';
+import { Chart, registerables } from 'chart.js';
 import { TopRow } from './parseTopAnalysisCsv';
 import { aggregateDomains, aggregateQueries, uniqueQueries } from './aggregate';
 
-// Палитра по ТЗ
+Chart.register(...registerables);
+
+// ===== Палитра (как в ссылочном аудите) =====
+const ORANGE = 'FFE8834A';
+const ORANGE_DARK = 'FFC2410C';
 const HEADER_DARK = 'FF1A1A18';
-const HEADER_ORANGE = 'FFEA580C';
-const HEADER_ORANGE_DARK = 'FFC2410C';
-const WHITE = 'FFFFFFFF';
 const ZEBRA = 'FFF9F9F9';
+const WHITE = 'FFFFFFFF';
 const BORDER_GRAY = 'FFD0D0D0';
+const NAVY = 'FF1F3864';
+const SITE_BAR_COLORS = ['#378ADD', '#EF9F27', '#1D9E75', '#7F77DD', '#EC4899', '#06B6D4', '#F59E0B', '#10B981'];
 
 const POS_GREEN_BG = 'FFD1FAE5';
 const POS_GREEN_FG = 'FF065F46';
@@ -39,6 +44,34 @@ function saveBlob(buffer: ArrayBuffer, filename: string) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+async function renderChartPng(config: any, width = 800, height = 380): Promise<string> {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  canvas.style.position = 'fixed';
+  canvas.style.left = '-99999px';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+  const chart = new Chart(ctx, {
+    ...config,
+    options: {
+      ...(config.options || {}),
+      responsive: false,
+      animation: false,
+      devicePixelRatio: 2,
+    },
+  });
+  await new Promise((r) => setTimeout(r, 50));
+  const dataUrl = canvas.toDataURL('image/png');
+  chart.destroy();
+  canvas.remove();
+  return dataUrl;
+}
+
+const dataUrlToBase64 = (d: string) => d.split(',')[1];
 
 function applyPositionStyle(cell: ExcelJS.Cell, pos: number | undefined) {
   cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -73,6 +106,64 @@ function noteFor(coverage: number, totalQueries: number, avgPos: number): string
   return 'Средний охват';
 }
 
+function buildInsights(
+  domains: ReturnType<typeof aggregateDomains>,
+  totalQueries: number,
+  myDomain?: string,
+): { priority: 'critical' | 'warning' | 'good'; metric: string; fact: string; recommendation: string }[] {
+  const out: { priority: 'critical' | 'warning' | 'good'; metric: string; fact: string; recommendation: string }[] = [];
+  const sorted = [...domains].sort((a, b) => b.coverage - a.coverage || a.avgPos - b.avgPos);
+  const leader = sorted[0];
+  if (leader) {
+    out.push({
+      priority: 'good',
+      metric: 'Лидер ниши',
+      fact: `${leader.domain} — охват ${leader.coverage}/${totalQueries} запросов, средняя позиция ${leader.avgPos}`,
+      recommendation: 'Изучите контентную модель и структуру лидера для бенчмарка.',
+    });
+  }
+  const top3Pool = domains.filter(d => d.top3 >= 3).sort((a, b) => b.top3 - a.top3).slice(0, 3);
+  if (top3Pool.length) {
+    out.push({
+      priority: 'warning',
+      metric: 'Концентрация в Топ-3',
+      fact: `${top3Pool.map(d => `${d.domain} (${d.top3})`).join(', ')} удерживают большинство Топ-3 позиций`,
+      recommendation: 'Эти домены — основные конкуренты. Анализируйте их обратные ссылки и контент в первую очередь.',
+    });
+  }
+  if (myDomain) {
+    const me = domains.find(d => d.domain.toLowerCase().includes(myDomain.toLowerCase()));
+    if (me) {
+      const gapPct = Math.round((me.coverage / Math.max(1, totalQueries)) * 100);
+      out.push({
+        priority: gapPct < 30 ? 'critical' : gapPct < 60 ? 'warning' : 'good',
+        metric: 'Ваше присутствие',
+        fact: `${me.domain}: охват ${me.coverage}/${totalQueries} (${gapPct}%), средняя позиция ${me.avgPos}, в Топ-10: ${me.top10}`,
+        recommendation: gapPct < 60
+          ? 'Расширьте семантику и создайте контент под недостающие запросы.'
+          : 'Продолжайте укреплять позиции и работайте над переходом из Топ-10 в Топ-3.',
+      });
+    } else {
+      out.push({
+        priority: 'critical',
+        metric: 'Ваше присутствие',
+        fact: `Домен «${myDomain}» не найден в выгрузке`,
+        recommendation: 'Проверьте корректность написания домена или расширьте семантическое ядро.',
+      });
+    }
+  }
+  const niche = domains.filter(d => d.coverage <= 2 && d.avgPos <= 3);
+  if (niche.length >= 2) {
+    out.push({
+      priority: 'warning',
+      metric: 'Узкие специалисты',
+      fact: `${niche.length} доменов держат Топ-3 в 1–2 запросах`,
+      recommendation: 'Эти ниши слабо защищены — потенциал для быстрого захвата конкретных кластеров.',
+    });
+  }
+  return out;
+}
+
 export interface TopAnalysisExportOptions {
   aiMarkdown?: string | null;
   region?: string;
@@ -89,17 +180,225 @@ export async function exportTopAnalysisXlsx(
   const queries = uniqueQueries(rows);
   const domains = aggregateDomains(rows).sort((a, b) => b.coverage - a.coverage || a.avgPos - b.avgPos);
   const queriesAgg = aggregateQueries(rows);
+  const top10Domains = domains.slice(0, 10);
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'PageForge';
   wb.created = new Date();
 
-  // ============ ЛИСТ "Матрица" ============
+  // ============================================================
+  // ЛИСТ 1 — «Сводная таблица» (метрики + графики + выводы)
+  // ============================================================
+  const summary = wb.addWorksheet('Сводная таблица');
+  summary.views = [{ showGridLines: false }];
+
+  // Заголовок документа
+  summary.mergeCells('A1:H1');
+  const titleCell = summary.getCell('A1');
+  titleCell.value = `Анализ ТОПа${opts.region ? ` · регион: ${opts.region}` : ''}${opts.myDomain ? ` · мой домен: ${opts.myDomain}` : ''}`;
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_DARK } };
+  titleCell.font = { name: 'Arial', size: 13, bold: true, color: { argb: WHITE } };
+  titleCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+  summary.getRow(1).height = 30;
+
+  // Шапка таблицы метрик (строка 3)
+  const metricsHeader = ['Домен', 'Охват (запросов)', 'Средняя позиция', 'Топ-3', 'Топ-10', 'Сумма позиций', 'Замечание'];
+  metricsHeader.forEach((label, i) => {
+    const c = summary.getRow(3).getCell(i + 1);
+    c.value = label;
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ORANGE } };
+    c.font = ARIAL_10_BOLD_WHITE;
+    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    c.border = thinBorder;
+  });
+  summary.getRow(3).height = 28;
+
+  // Данные топ-10
+  top10Domains.forEach((d, idx) => {
+    const r = summary.getRow(4 + idx);
+    const vals: any[] = [d.domain, d.coverage, d.avgPos, d.top3, d.top10, d.sumPos, noteFor(d.coverage, queries.length, d.avgPos)];
+    vals.forEach((v, ci) => {
+      const c = r.getCell(ci + 1);
+      c.value = v;
+      c.font = ARIAL_10;
+      c.border = thinBorder;
+      c.alignment = { vertical: 'middle', horizontal: ci === 0 || ci === 6 ? 'left' : 'center', wrapText: true };
+      if (idx % 2 === 1) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ZEBRA } };
+    });
+    r.getCell(3).numFmt = '0.0';
+  });
+
+  summary.getColumn(1).width = 32;
+  summary.getColumn(2).width = 16;
+  summary.getColumn(3).width = 16;
+  summary.getColumn(4).width = 10;
+  summary.getColumn(5).width = 10;
+  summary.getColumn(6).width = 16;
+  summary.getColumn(7).width = 26;
+
+  // ===== Графики =====
+  const labels = top10Domains.map((d) => d.domain);
+  const colorList = top10Domains.map((_, i) => SITE_BAR_COLORS[i % SITE_BAR_COLORS.length]);
+
+  // График 1: Охват по запросам
+  const png1 = await renderChartPng({
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Охват (запросов)',
+        data: top10Domains.map((d) => d.coverage),
+        backgroundColor: colorList,
+      }],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Охват ниши (Топ-10 доменов)', font: { size: 16, weight: 'bold' } },
+        legend: { display: false },
+      },
+      scales: { y: { beginAtZero: true } },
+    },
+  }, 800, 380);
+  let imgId = wb.addImage({ base64: dataUrlToBase64(png1), extension: 'png' });
+  const chart1Row = 4 + top10Domains.length + 1;
+  summary.addImage(imgId, { tl: { col: 0, row: chart1Row }, ext: { width: 800, height: 380 } });
+
+  // График 2: Средняя позиция
+  const png2 = await renderChartPng({
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Средняя позиция (меньше = лучше)',
+        data: top10Domains.map((d) => d.avgPos),
+        backgroundColor: colorList,
+      }],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Средняя позиция доменов', font: { size: 16, weight: 'bold' } },
+        legend: { display: false },
+      },
+      scales: { y: { beginAtZero: true, reverse: false } },
+    },
+  }, 800, 380);
+  imgId = wb.addImage({ base64: dataUrlToBase64(png2), extension: 'png' });
+  const chart2Row = chart1Row + 21;
+  summary.addImage(imgId, { tl: { col: 0, row: chart2Row }, ext: { width: 800, height: 380 } });
+
+  // График 3: Топ-3 vs Топ-10
+  const png3 = await renderChartPng({
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Топ-3', data: top10Domains.map((d) => d.top3), backgroundColor: '#1D9E75' },
+        { label: 'Топ-10', data: top10Domains.map((d) => d.top10), backgroundColor: '#EF9F27' },
+      ],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Концентрация в Топ-3 / Топ-10', font: { size: 16, weight: 'bold' } },
+        legend: { position: 'bottom' },
+      },
+      scales: { y: { beginAtZero: true } },
+    },
+  }, 800, 380);
+  imgId = wb.addImage({ base64: dataUrlToBase64(png3), extension: 'png' });
+  const chart3Row = chart2Row + 21;
+  summary.addImage(imgId, { tl: { col: 0, row: chart3Row }, ext: { width: 800, height: 380 } });
+
+  // График 4: Распределение позиций (пончик)
+  const buckets = [
+    { label: 'Топ-1', count: rows.filter(r => r.position === 1).length, color: '#10B981' },
+    { label: 'Топ-2–3', count: rows.filter(r => r.position >= 2 && r.position <= 3).length, color: '#1D9E75' },
+    { label: 'Топ-4–10', count: rows.filter(r => r.position >= 4 && r.position <= 10).length, color: '#EF9F27' },
+    { label: 'Топ-11–20', count: rows.filter(r => r.position >= 11 && r.position <= 20).length, color: '#F97316' },
+    { label: '21+', count: rows.filter(r => r.position > 20).length, color: '#EF4444' },
+  ];
+  const png4 = await renderChartPng({
+    type: 'doughnut',
+    data: {
+      labels: buckets.map(b => b.label),
+      datasets: [{
+        data: buckets.map(b => b.count),
+        backgroundColor: buckets.map(b => b.color),
+      }],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Распределение позиций по диапазонам', font: { size: 16, weight: 'bold' } },
+        legend: { position: 'right' },
+      },
+    },
+  }, 800, 380);
+  imgId = wb.addImage({ base64: dataUrlToBase64(png4), extension: 'png' });
+  const chart4Row = chart3Row + 21;
+  summary.addImage(imgId, { tl: { col: 0, row: chart4Row }, ext: { width: 800, height: 380 } });
+
+  // ===== Выводы и рекомендации =====
+  const insights = buildInsights(domains, queries.length, opts.myDomain);
+  if (insights.length) {
+    const startRow = chart4Row + 21 + 1;
+    summary.mergeCells(`A${startRow}:G${startRow}`);
+    const tc = summary.getCell(`A${startRow}`);
+    tc.value = 'ВЫВОДЫ И РЕКОМЕНДАЦИИ';
+    tc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+    tc.font = { name: 'Arial', size: 12, bold: true, color: { argb: WHITE } };
+    tc.alignment = { horizontal: 'center', vertical: 'middle' };
+    tc.border = thinBorder;
+    summary.getRow(startRow).height = 24;
+
+    const headerRow = startRow + 1;
+    summary.mergeCells(`C${headerRow}:D${headerRow}`);
+    summary.mergeCells(`E${headerRow}:G${headerRow}`);
+    summary.getCell(`A${headerRow}`).value = 'Приоритет';
+    summary.getCell(`B${headerRow}`).value = 'Показатель';
+    summary.getCell(`C${headerRow}`).value = 'Факт';
+    summary.getCell(`E${headerRow}`).value = 'Рекомендация';
+    ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach((col) => {
+      const c = summary.getCell(`${col}${headerRow}`);
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ORANGE } };
+      c.font = ARIAL_10_BOLD_WHITE;
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.border = thinBorder;
+    });
+
+    const PRIO = {
+      critical: { label: '🔴 Критично', bg: 'FFFEE2E2', color: 'FFB91C1C' },
+      warning: { label: '🟡 Важно', bg: 'FFFEF3C7', color: 'FFB45309' },
+      good: { label: '🟢 Хорошо', bg: 'FFD1FAE5', color: 'FF065F46' },
+    } as const;
+
+    insights.forEach((ins, i) => {
+      const r = headerRow + 1 + i;
+      summary.mergeCells(`C${r}:D${r}`);
+      summary.mergeCells(`E${r}:G${r}`);
+      const p = PRIO[ins.priority];
+      summary.getCell(`A${r}`).value = p.label;
+      summary.getCell(`B${r}`).value = ins.metric;
+      summary.getCell(`C${r}`).value = ins.fact;
+      summary.getCell(`E${r}`).value = ins.recommendation;
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach((col) => {
+        const c = summary.getCell(`${col}${r}`);
+        c.font = ARIAL_10;
+        c.border = thinBorder;
+        c.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+      });
+      const prioCell = summary.getCell(`A${r}`);
+      prioCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: p.bg } };
+      prioCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: p.color } };
+      summary.getRow(r).height = 42;
+    });
+  }
+
+  // ============================================================
+  // ЛИСТ 2 — «Матрица присутствия»
+  // ============================================================
   const ws = wb.addWorksheet('Матрица');
-  ws.views = [{ showGridLines: false }];
+  ws.views = [{ showGridLines: false, state: 'frozen', xSplit: 1, ySplit: 1 }];
 
   const totalCols = 1 + queries.length + 2 + 1;
-
   const head = ws.getRow(1);
   head.height = 36;
   head.getCell(1).value = 'Домен';
@@ -110,7 +409,7 @@ export async function exportTopAnalysisXlsx(
 
   for (let c = 1; c <= totalCols; c++) {
     const cell = head.getCell(c);
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: c === 1 ? HEADER_DARK : HEADER_ORANGE_DARK } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: c === 1 ? HEADER_DARK : ORANGE_DARK } };
     cell.font = ARIAL_10_BOLD_WHITE;
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = thinBorder;
@@ -120,27 +419,22 @@ export async function exportTopAnalysisXlsx(
     const r = ws.getRow(idx + 2);
     const dc = r.getCell(1);
     dc.value = d.domain;
-    dc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_ORANGE } };
+    dc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ORANGE } };
     dc.font = { ...ARIAL_10_BOLD_WHITE };
     dc.alignment = { horizontal: 'left', vertical: 'middle' };
     dc.border = thinBorder;
 
-    queries.forEach((q, i) => {
-      const pos = d.byQuery.get(q);
-      applyPositionStyle(r.getCell(i + 2), pos);
-    });
+    queries.forEach((q, i) => applyPositionStyle(r.getCell(i + 2), d.byQuery.get(q)));
 
     const sc = r.getCell(queries.length + 2);
-    sc.value = d.sumPos;
-    sc.numFmt = '#,##0';
+    sc.value = d.sumPos; sc.numFmt = '#,##0';
     sc.alignment = { horizontal: 'center', vertical: 'middle' };
     sc.font = { ...ARIAL_10, bold: true };
     sc.border = thinBorder;
     sc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 ? ZEBRA : WHITE } };
 
     const tc = r.getCell(queries.length + 3);
-    tc.value = d.coverage;
-    tc.numFmt = '0';
+    tc.value = d.coverage; tc.numFmt = '0';
     tc.alignment = { horizontal: 'center', vertical: 'middle' };
     tc.font = { ...ARIAL_10, bold: true };
     tc.border = thinBorder;
@@ -159,18 +453,19 @@ export async function exportTopAnalysisXlsx(
   ws.getColumn(queries.length + 2).width = 14;
   ws.getColumn(queries.length + 3).width = 10;
   ws.getColumn(queries.length + 4).width = 24;
-  ws.views = [{ showGridLines: false, state: 'frozen', xSplit: 1, ySplit: 1 }];
 
-  // ============ ЛИСТ "По запросам" ============
+  // ============================================================
+  // ЛИСТ 3 — «По запросам»
+  // ============================================================
   const ws2 = wb.addWorksheet('По запросам');
-  ws2.views = [{ showGridLines: false }];
+  ws2.views = [{ showGridLines: false, state: 'frozen', ySplit: 1 }];
 
   const head2 = ws2.getRow(1);
   head2.height = 28;
   ['Запрос', '#', 'Домен', 'URL', 'Позиция'].forEach((label, i) => {
     const c = head2.getCell(i + 1);
     c.value = label;
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_ORANGE } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ORANGE } };
     c.font = ARIAL_10_BOLD_WHITE;
     c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     c.border = thinBorder;
@@ -192,7 +487,7 @@ export async function exportTopAnalysisXlsx(
           cell.font = isFirst && ci === 0 ? { ...ARIAL_10, bold: true } : ARIAL_10;
           cell.border = thinBorder;
           if (isFirst && ci === 0) {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_ORANGE } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ORANGE } };
             cell.font = ARIAL_10_BOLD_WHITE;
           }
         }
@@ -205,87 +500,12 @@ export async function exportTopAnalysisXlsx(
   ws2.getColumn(3).width = 28;
   ws2.getColumn(4).width = 50;
   ws2.getColumn(5).width = 12;
-  ws2.views = [{ showGridLines: false, state: 'frozen', ySplit: 1 }];
 
-  // ============ ЛИСТ "Графики" ============
-  const ws3 = wb.addWorksheet('Графики');
-  ws3.views = [{ showGridLines: false }];
-
-  const top15 = domains.slice(0, 15);
-  ws3.getCell('A1').value = 'Топ-15 доменов по охвату ниши';
-  ws3.getCell('A1').font = { name: 'Arial', size: 12, bold: true, color: { argb: HEADER_DARK } };
-  ws3.mergeCells('A1:E1');
-
-  ['Домен', 'Охват (запросов)', 'Средняя поз.', 'Топ-3', 'Топ-10'].forEach((label, i) => {
-    const c = ws3.getRow(3).getCell(i + 1);
-    c.value = label;
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_ORANGE_DARK } };
-    c.font = ARIAL_10_BOLD_WHITE;
-    c.alignment = { horizontal: 'center', vertical: 'middle' };
-    c.border = thinBorder;
-  });
-
-  top15.forEach((d, i) => {
-    const r = ws3.getRow(i + 4);
-    const vals: any[] = [d.domain, d.coverage, d.avgPos, d.top3, d.top10];
-    vals.forEach((v, ci) => {
-      const c = r.getCell(ci + 1);
-      c.value = v;
-      c.alignment = { horizontal: ci === 0 ? 'left' : 'center', vertical: 'middle' };
-      c.font = ARIAL_10;
-      c.border = thinBorder;
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 ? ZEBRA : WHITE } };
-    });
-    r.getCell(3).numFmt = '0.0';
-  });
-
-  const totalRows = rows.length;
-  const buckets = [
-    { label: 'Топ-1', count: rows.filter(r => r.position === 1).length },
-    { label: 'Топ-2–3', count: rows.filter(r => r.position >= 2 && r.position <= 3).length },
-    { label: 'Топ-4–10', count: rows.filter(r => r.position >= 4 && r.position <= 10).length },
-    { label: 'Топ-11–20', count: rows.filter(r => r.position >= 11 && r.position <= 20).length },
-    { label: '21+', count: rows.filter(r => r.position > 20).length },
-  ];
-
-  const bStartRow = 4 + top15.length + 2;
-  ws3.getCell(`A${bStartRow - 1}`).value = 'Распределение позиций по диапазонам';
-  ws3.getCell(`A${bStartRow - 1}`).font = { name: 'Arial', size: 12, bold: true, color: { argb: HEADER_DARK } };
-  ws3.mergeCells(`A${bStartRow - 1}:E${bStartRow - 1}`);
-
-  ['Диапазон', 'Кол-во', 'Доля'].forEach((label, i) => {
-    const c = ws3.getRow(bStartRow).getCell(i + 1);
-    c.value = label;
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_ORANGE_DARK } };
-    c.font = ARIAL_10_BOLD_WHITE;
-    c.alignment = { horizontal: 'center', vertical: 'middle' };
-    c.border = thinBorder;
-  });
-
-  buckets.forEach((b, i) => {
-    const r = ws3.getRow(bStartRow + 1 + i);
-    const ratio = totalRows > 0 ? b.count / totalRows : 0;
-    const vals: any[] = [b.label, b.count, ratio];
-    vals.forEach((v, ci) => {
-      const c = r.getCell(ci + 1);
-      c.value = v;
-      c.alignment = { horizontal: ci === 0 ? 'left' : 'center', vertical: 'middle' };
-      c.font = ARIAL_10;
-      c.border = thinBorder;
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 ? ZEBRA : WHITE } };
-    });
-    r.getCell(3).numFmt = '0.0%';
-  });
-
-  ws3.getColumn(1).width = 28;
-  ws3.getColumn(2).width = 18;
-  ws3.getColumn(3).width = 14;
-  ws3.getColumn(4).width = 10;
-  ws3.getColumn(5).width = 10;
-
-  // ============ ЛИСТ "Анализ ниши" (AI) ============
+  // ============================================================
+  // ЛИСТ 4 — «Анализ ниши» (AI markdown)
+  // ============================================================
   const ws4 = wb.addWorksheet('Анализ ниши');
-  ws4.views = [{ showGridLines: false }];
+  ws4.views = [{ showGridLines: false, state: 'frozen', ySplit: 2 }];
   ws4.getColumn(1).width = 110;
 
   ws4.getCell('A1').value = 'AI-анализ ниши';
@@ -316,7 +536,7 @@ export async function exportTopAnalysisXlsx(
 
       if (/^##\s+/.test(line)) {
         cell.value = line.replace(/^##\s+/, '');
-        cell.font = { name: 'Arial', size: 12, bold: true, color: { argb: HEADER_ORANGE_DARK } };
+        cell.font = { name: 'Arial', size: 12, bold: true, color: { argb: ORANGE_DARK } };
         ws4.getRow(row).height = 22;
       } else if (/^#\s+/.test(line)) {
         cell.value = line.replace(/^#\s+/, '');
@@ -335,9 +555,8 @@ export async function exportTopAnalysisXlsx(
     }
   }
 
-  ws4.views = [{ showGridLines: false, state: 'frozen', ySplit: 2 }];
-
   const buffer = await wb.xlsx.writeBuffer();
   const date = new Date().toISOString().slice(0, 10);
-  saveBlob(buffer as ArrayBuffer, `${baseName}_${date}.xlsx`);
+  const safeBase = baseName.replace(/[^a-zA-Z0-9._а-яА-Я-]/g, '_');
+  saveBlob(buffer as ArrayBuffer, `${safeBase}__Анализ_ТОПа_${date}.xlsx`);
 }
