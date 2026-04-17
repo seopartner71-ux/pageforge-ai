@@ -63,7 +63,10 @@ const thinBorder = {
   right: { style: 'thin' as const, color: { argb: BORDER_GRAY } },
 };
 
-export async function exportLinkAuditXlsx(sites: SiteAuditData[]) {
+export async function exportLinkAuditXlsx(
+  sites: SiteAuditData[],
+  summaryRows: DomainSummaryRow[] = [],
+) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'PageForge';
   wb.created = new Date();
