@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { Chart, registerables } from 'chart.js';
 import type { SiteAuditData } from './linkAudit';
+import type { DomainSummaryRow } from './domainSummary';
 
 Chart.register(...registerables);
 
