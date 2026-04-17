@@ -157,10 +157,10 @@ export default function LinkAuditPage() {
             >
               {activeOnly ? '✓ Только активные' : 'Все ссылки'}
             </Button>
-            <Button variant="outline" onClick={exportPdf} disabled={!hasData}>
+            <Button variant="outline" onClick={exportPdf} disabled={!hasAnyData}>
               <Download className="w-4 h-4 mr-1.5" /> Скачать PDF
             </Button>
-            <Button onClick={exportXlsx} disabled={!hasData}>
+            <Button onClick={exportXlsx} disabled={!hasAnyData}>
               <Download className="w-4 h-4 mr-1.5" /> Скачать Excel
             </Button>
           </div>
