@@ -104,13 +104,13 @@ export function TopAnalysisCharts({ rows }: Props) {
       {/* 3. Карта конкуренции */}
       <Card className="p-4">
         <h3 className="text-sm font-semibold mb-3">Карта конкуренции по запросам</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={competitionMap} margin={{ top: 5, right: 8, left: 0, bottom: 40 }}>
+        <ResponsiveContainer width="100%" height={360}>
+          <BarChart data={competitionMap} margin={{ top: 5, right: 8, left: 0, bottom: 90 }}>
             <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="query" stroke="hsl(var(--muted-foreground))" fontSize={10} angle={-25} textAnchor="end" height={50} interval={0} />
+            <XAxis dataKey="query" stroke="hsl(var(--muted-foreground))" fontSize={10} angle={-30} textAnchor="end" height={90} interval={0} tickMargin={6} />
             <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
             <Tooltip contentStyle={tooltipStyle} labelFormatter={(_l, p: any) => p?.[0]?.payload?.fullQuery || _l} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} verticalAlign="top" align="center" />
             <Bar dataKey="top3" stackId="a" fill="#16A34A" name="Топ-3" />
             <Bar dataKey="top5" stackId="a" fill="#EA580C" name="Топ 4–5" />
             <Bar dataKey="top10" stackId="a" fill="#3B82F6" name="Топ 6–10" />
