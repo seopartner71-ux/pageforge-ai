@@ -36,7 +36,7 @@ export default function CompetitorsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportCompetitorsXlsx(rows, fileName?.replace(/\.csv$/i, '') || 'competitors')}
+              onClick={() => exportCompetitorsXlsx(rows, fileName?.replace(/\.csv$/i, '') || 'competitors', aiMarkdown)}
               className="gap-2"
             >
               <Download className="w-3.5 h-3.5" />
