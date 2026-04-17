@@ -30,7 +30,31 @@ export default function LinkAuditPage() {
     DEFAULT_NAMES.map((name) => ({ name, rows: null }))
   );
   const [activeOnly, setActiveOnly] = useState(true);
+  const [mode, setMode] = useState<'separate' | 'summary'>('separate');
+  const [summaryRows, setSummaryRows] = useState<DomainSummaryRow[]>([]);
+  const [summaryFile, setSummaryFile] = useState<string>('');
   const fileInputs = useRef<(HTMLInputElement | null)[]>([]);
+  const summaryInput = useRef<HTMLInputElement | null>(null);
+
+  const handleSummaryFile = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast.error('Поддерживаются только CSV файлы');
+      return;
+    }
+    try {
+      const text = await file.text();
+      const rows = parseDomainSummaryCsv(text);
+      if (!rows.length) {
+        toast.error('Не удалось распознать колонки в CSV');
+        return;
+      }
+      setSummaryRows(rows);
+      setSummaryFile(file.name);
+      toast.success(`Загружено ${rows.length} сайтов: ${file.name}`);
+    } catch (e: any) {
+      toast.error(`Ошибка чтения файла: ${e?.message || e}`);
+    }
+  };
 
   const handleFile = async (idx: number, file: File) => {
     if (!file.name.toLowerCase().endsWith('.csv')) {
