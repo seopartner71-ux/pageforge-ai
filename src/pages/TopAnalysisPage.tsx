@@ -94,7 +94,11 @@ export default function TopAnalysisPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => exportTopAnalysisXlsx(rows, fileName?.replace(/\.csv$/i, '') || 'top_analysis')}
+                onClick={() => exportTopAnalysisXlsx(
+                  rows,
+                  fileName?.replace(/\.csv$/i, '') || 'top_analysis',
+                  { aiMarkdown, region, myDomain },
+                )}
                 className="gap-2"
               >
                 <Download className="w-3.5 h-3.5" />
