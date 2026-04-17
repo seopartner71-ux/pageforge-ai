@@ -4,6 +4,7 @@ import { TopAnalysisUpload } from '@/components/topAnalysis/TopAnalysisUpload';
 import { TopAnalysisFormatGuide } from '@/components/topAnalysis/TopAnalysisFormatGuide';
 import { TopAnalysisMetrics } from '@/components/topAnalysis/TopAnalysisMetrics';
 import { TopAnalysisFilters, type PositionRange } from '@/components/topAnalysis/TopAnalysisFilters';
+import { TopAnalysisProjectBar } from '@/components/topAnalysis/TopAnalysisProjectBar';
 import { PresenceMatrix } from '@/components/topAnalysis/PresenceMatrix';
 import { TopAnalysisCharts } from '@/components/topAnalysis/TopAnalysisCharts';
 import { QueriesTable } from '@/components/topAnalysis/QueriesTable';
@@ -23,6 +24,8 @@ export default function TopAnalysisPage() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [selectedQueries, setSelectedQueries] = useState<string[]>([]);
   const [positionRange, setPositionRange] = useState<PositionRange>('all');
+  const [region, setRegion] = useState<string>('');
+  const [myDomain, setMyDomain] = useState<string>('');
 
   useEffect(() => {
     if (rows.length > 0) setGuideOpen(false);
@@ -60,6 +63,14 @@ export default function TopAnalysisPage() {
 
         <TopAnalysisFormatGuide open={guideOpen} onOpenChange={setGuideOpen} />
 
+        <TopAnalysisProjectBar
+          rows={rows}
+          region={region}
+          onRegionChange={setRegion}
+          myDomain={myDomain}
+          onMyDomainChange={setMyDomain}
+        />
+
         <TopAnalysisUpload
           rows={rows}
           fileName={fileName}
@@ -79,10 +90,10 @@ export default function TopAnalysisPage() {
               onPositionRangeChange={setPositionRange}
             />
 
-            <PresenceMatrix rows={filteredRows} />
+            <PresenceMatrix rows={filteredRows} myDomain={myDomain} />
             <TopAnalysisCharts rows={filteredRows} />
             <QueriesTable rows={filteredRows} />
-            <TopAnalysisAiInsights rows={filteredRows} />
+            <TopAnalysisAiInsights rows={filteredRows} region={region} myDomain={myDomain} />
           </>
         )}
       </main>
