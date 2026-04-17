@@ -24,6 +24,7 @@ export function AppHeader() {
     { label: 'GEO Audit', path: '/geo-audit' },
     { label: 'Ссылочный аудит', path: '/link-audit' },
     { label: 'Конкуренты', path: '/competitors' },
+    { label: 'Анализ топа', path: '/top-analysis' },
     { label: tr.nav.history, path: '/history' },
     { label: tr.nav.account, path: '/account' },
     ...(isAdmin ? [{ label: '⚙ Админ', path: '/admin' }] : []),
