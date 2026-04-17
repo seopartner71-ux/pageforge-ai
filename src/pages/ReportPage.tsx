@@ -6,9 +6,12 @@ import { ReportSidebar } from '@/components/ReportSidebar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus, Loader2, Share2, Check, Link, Table2 } from 'lucide-react';
 import { GscWidget } from '@/components/GscWidget';
-import { exportReportXlsx } from '@/lib/exportXlsx';
-import { exportSeoAuditXlsx } from '@/lib/exportSeoAuditXlsx';
 import { ExcelExportDialog, type XlsxExportConfig } from '@/components/ExcelExportDialog';
+// xlsx/exceljs (~800kb) загружаются только при клике на «Экспорт»
+const exportReportXlsx = (...args: Parameters<typeof import('@/lib/exportXlsx').exportReportXlsx>) =>
+  import('@/lib/exportXlsx').then(m => m.exportReportXlsx(...args));
+const exportSeoAuditXlsx = (...args: Parameters<typeof import('@/lib/exportSeoAuditXlsx').exportSeoAuditXlsx>) =>
+  import('@/lib/exportSeoAuditXlsx').then(m => m.exportSeoAuditXlsx(...args));
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 

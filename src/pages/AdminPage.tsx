@@ -106,9 +106,12 @@ function ApiSettingsTab() {
 
   const handleSave = async () => {
     setSaving(true);
-    for (const s of settings) {
-      await supabase.from('system_settings').update({ key_value: s.key_value, updated_at: new Date().toISOString() }).eq('key_name', s.key_name);
-    }
+    // Параллельный апдейт всех ключей (раньше шло последовательно)
+    await Promise.all(
+      settings.map(s =>
+        supabase.from('system_settings').update({ key_value: s.key_value, updated_at: new Date().toISOString() }).eq('key_name', s.key_name)
+      )
+    );
     setSaving(false);
     toast({ title: 'Настройки API успешно обновлены ✓' });
   };
