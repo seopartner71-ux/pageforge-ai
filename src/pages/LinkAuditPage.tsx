@@ -28,6 +28,7 @@ export default function LinkAuditPage() {
   const [slots, setSlots] = useState<SiteSlot[]>(
     DEFAULT_NAMES.map((name) => ({ name, rows: null }))
   );
+  const [activeOnly, setActiveOnly] = useState(true);
   const fileInputs = useRef<(HTMLInputElement | null)[]>([]);
 
   const handleFile = async (idx: number, file: File) => {
@@ -47,7 +48,8 @@ export default function LinkAuditPage() {
         next[idx] = { ...next[idx], rows, fileName: file.name };
         return next;
       });
-      toast.success(`Загружено ${rows.length} ссылок: ${file.name}`);
+      const activeCount = rows.filter((r) => r.status !== 'inactive').length;
+      toast.success(`Загружено ${rows.length} ссылок (активных: ${activeCount}): ${file.name}`);
     } catch (e: any) {
       toast.error(`Ошибка чтения файла: ${e?.message || e}`);
     }
@@ -77,7 +79,10 @@ export default function LinkAuditPage() {
 
   const analyses: SiteAuditData[] = slots
     .filter((s) => s.rows && s.rows.length)
-    .map((s) => analyzeSite(s.name, s.rows!));
+    .map((s) => {
+      const filtered = activeOnly ? s.rows!.filter((r) => r.status !== 'inactive') : s.rows!;
+      return analyzeSite(s.name, filtered);
+    });
 
   const hasData = analyses.length > 0;
 
@@ -108,7 +113,15 @@ export default function LinkAuditPage() {
               Загрузите CSV-экспорты бэклинков из Ahrefs / SEO-инструментов и сравните до 4 сайтов.
             </p>
           </div>
-          <div className="flex gap-2 print:hidden">
+          <div className="flex gap-2 print:hidden items-center">
+            <Button
+              variant={activeOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveOnly((v) => !v)}
+              title="Учитывать только активные ссылки"
+            >
+              {activeOnly ? '✓ Только активные' : 'Все ссылки'}
+            </Button>
             <Button variant="outline" onClick={exportPdf} disabled={!hasData}>
               <Download className="w-4 h-4 mr-1.5" /> Скачать PDF
             </Button>
