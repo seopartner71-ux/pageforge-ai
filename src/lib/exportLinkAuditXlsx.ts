@@ -153,16 +153,13 @@ export async function exportLinkAuditXlsx(
   summary.getRow(1).height = 32;
 
   // ============================================================
-  // ЛИСТ 2 — Графики
+  // ГРАФИКИ — встраиваем прямо на лист "Сводная таблица" под данными
+  // Данные занимают строки 1-8 (шапка 1-2 + 6 метрик), графики с 12-й
   // ============================================================
-  const charts = wb.addWorksheet('Графики');
-  charts.views = [{ showGridLines: false }];
-  charts.getColumn(1).width = 3;
-
   const labels = sites.map((s) => s.name);
   const barColors = sites.map((_, i) => SITE_BAR_COLORS[i % SITE_BAR_COLORS.length]);
 
-  // ----- График 1: Доменный рейтинг (DR средний) -----
+  // График 1 (строки 12-30): Доменный рейтинг (DR)
   const png1 = await renderChartPng({
     type: 'bar',
     data: {
@@ -177,31 +174,24 @@ export async function exportLinkAuditXlsx(
     },
     options: {
       plugins: {
-        title: { display: true, text: 'Доменный рейтинг (средний)', font: { size: 16, weight: 'bold' } },
+        title: { display: true, text: 'Доменный рейтинг (DR)', font: { size: 16, weight: 'bold' } },
         legend: { display: false },
       },
       scales: { y: { beginAtZero: true } },
     },
-  }, 800, 380);
+  }, 800, 360);
   let imgId = wb.addImage({ base64: dataUrlToBase64(png1), extension: 'png' });
-  charts.addImage(imgId, { tl: { col: 1, row: 1 }, ext: { width: 800, height: 380 } });
+  // ExcelJS колонки/строки 0-индексированы для anchor
+  summary.addImage(imgId, { tl: { col: 0, row: 11 }, ext: { width: 800, height: 360 } });
 
-  // ----- График 2: Ссылочная масса (Уникальные ссылки + Домены) -----
+  // График 2 (строки 32-50): Ссылочная масса
   const png2 = await renderChartPng({
     type: 'bar',
     data: {
       labels,
       datasets: [
-        {
-          label: 'Уникальные ссылки',
-          data: sites.map((s) => s.totalLinks),
-          backgroundColor: '#378ADD',
-        },
-        {
-          label: 'Ссылающиеся домены',
-          data: sites.map((s) => s.uniqueDomains),
-          backgroundColor: '#EF9F27',
-        },
+        { label: 'Уникальные ссылки', data: sites.map((s) => s.totalLinks), backgroundColor: '#378ADD' },
+        { label: 'Ссылающиеся домены', data: sites.map((s) => s.uniqueDomains), backgroundColor: '#EF9F27' },
       ],
     },
     options: {
@@ -211,11 +201,55 @@ export async function exportLinkAuditXlsx(
       },
       scales: { y: { beginAtZero: true } },
     },
-  }, 800, 380);
+  }, 800, 360);
   imgId = wb.addImage({ base64: dataUrlToBase64(png2), extension: 'png' });
-  charts.addImage(imgId, { tl: { col: 1, row: 22 }, ext: { width: 800, height: 380 } });
+  summary.addImage(imgId, { tl: { col: 0, row: 31 }, ext: { width: 800, height: 360 } });
 
-  // ----- График 3: Follow/Nofollow — 4 пончика (2x2) -----
+  // График 3 (строки 52-70): Видимость в поиске (из сводки если есть, иначе % текстовых)
+  let png3: string;
+  let title3: string;
+  if (summaryRows.length) {
+    const sLabels = summaryRows.map((r) => r.domain);
+    png3 = await renderChartPng({
+      type: 'bar',
+      data: {
+        labels: sLabels,
+        datasets: [
+          { label: 'В топ 10', data: summaryRows.map((r) => r.top10), backgroundColor: '#378ADD' },
+          { label: 'В топ 50', data: summaryRows.map((r) => r.top50), backgroundColor: '#EF9F27' },
+        ],
+      },
+      options: {
+        plugins: {
+          title: { display: true, text: 'Видимость в поиске', font: { size: 16, weight: 'bold' } },
+          legend: { position: 'bottom' },
+        },
+        scales: { y: { beginAtZero: true } },
+      },
+    }, 800, 360);
+    title3 = 'Видимость в поиске';
+  } else {
+    png3 = await renderChartPng({
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ label: '% текстовых ссылок', data: sites.map((s) => s.textPct), backgroundColor: barColors }],
+      },
+      options: {
+        plugins: {
+          title: { display: true, text: '% текстовых ссылок', font: { size: 16, weight: 'bold' } },
+          legend: { display: false },
+        },
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: (v: any) => `${v}%` } } },
+      },
+    }, 800, 360);
+    title3 = '% текстовых ссылок';
+  }
+  imgId = wb.addImage({ base64: dataUrlToBase64(png3), extension: 'png' });
+  summary.addImage(imgId, { tl: { col: 0, row: 51 }, ext: { width: 800, height: 360 } });
+
+  // График 4 (строки 72-90): Follow / Nofollow — пончики для каждого сайта рядом
+  // Размер каждого пончика ~190x360 чтобы 4 шт уместились в ширину 8 колонок
   for (let i = 0; i < sites.length; i++) {
     const s = sites[i];
     const png = await renderChartPng({
@@ -229,41 +263,22 @@ export async function exportLinkAuditXlsx(
       },
       options: {
         plugins: {
-          title: { display: true, text: `${s.name}: Follow / Nofollow`, font: { size: 14, weight: 'bold' } },
+          title: { display: true, text: `${s.name}: Follow/Nofollow`, font: { size: 12, weight: 'bold' } },
           legend: { position: 'bottom' },
         },
       },
-    }, 400, 360);
+    }, 380, 360);
     const id = wb.addImage({ base64: dataUrlToBase64(png), extension: 'png' });
-    const colOffset = (i % 2) * 7;
-    const rowOffset = Math.floor(i / 2) * 19;
-    charts.addImage(id, {
-      tl: { col: 1 + colOffset, row: 43 + rowOffset },
-      ext: { width: 400, height: 360 },
+    // 4 пончика в ряд: каждый занимает 2 колонки
+    summary.addImage(id, {
+      tl: { col: i * 2, row: 71 },
+      ext: { width: 380, height: 360 },
     });
   }
+  // Заголовок над пончиками
+  summary.getCell('A71').value = 'Follow / Nofollow %';
+  summary.getCell('A71').font = { name: 'Arial', size: 12, bold: true };
 
-  // ----- График 4: % текстовых ссылок (сравнение) -----
-  const png4 = await renderChartPng({
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: '% текстовых ссылок',
-        data: sites.map((s) => s.textPct),
-        backgroundColor: barColors,
-      }],
-    },
-    options: {
-      plugins: {
-        title: { display: true, text: '% текстовых ссылок', font: { size: 16, weight: 'bold' } },
-        legend: { display: false },
-      },
-      scales: { y: { beginAtZero: true, max: 100, ticks: { callback: (v: any) => `${v}%` } } },
-    },
-  }, 800, 380);
-  imgId = wb.addImage({ base64: dataUrlToBase64(png4), extension: 'png' });
-  charts.addImage(imgId, { tl: { col: 1, row: 82 }, ext: { width: 800, height: 380 } });
 
   // ============================================================
   // ЛИСТЫ 3-6 — детальные данные каждого сайта
