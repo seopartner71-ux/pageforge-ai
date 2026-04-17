@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { rows = [] } = (await req.json()) as { rows: TopRow[] };
+    const { rows = [], region = '', myDomain = '' } = (await req.json()) as { rows: TopRow[]; region?: string; myDomain?: string };
 
     if (!Array.isArray(rows) || rows.length === 0) {
       return new Response(JSON.stringify({ error: 'Нет данных для анализа' }), {
@@ -58,25 +58,40 @@ Deno.serve(async (req) => {
 
     const top10 = stats.sort((a, b) => b.coverage - a.coverage || a.avgPos - b.avgPos).slice(0, 10);
 
+    const myDomainNorm = (myDomain || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].trim();
+    const myStats = myDomainNorm ? stats.find(s => s.domain === myDomainNorm) : null;
+    const myRank = myStats
+      ? stats.sort((a, b) => b.coverage - a.coverage || a.avgPos - b.avgPos).findIndex(s => s.domain === myDomainNorm) + 1
+      : 0;
+
+    const regionLine = region ? `Регион выдачи: ${region}` : 'Регион не указан';
+    const myBlock = myStats
+      ? `\n\nЗАКАЗЧИК (анализируемый проект): ${myDomainNorm}\n- Место в нише: #${myRank} из ${stats.length}\n- Запросов в топе: ${myStats.coverage} из ${queries.size}\n- Средняя позиция: ${myStats.avgPos}\n- В топ-3: ${myStats.top3}, в топ-10: ${myStats.top10}\n`
+      : myDomainNorm
+        ? `\n\nЗАКАЗЧИК: ${myDomainNorm} — НЕ НАЙДЕН в загруженных данных по этим запросам.`
+        : '';
+
     const prompt = `Ты SEO-аналитик. Проанализируй данные присутствия доменов в топе поисковой выдачи. Дай развёрнутый отчёт на русском в формате Markdown.
 
+${regionLine}
 Всего запросов: ${queries.size}
 Всего доменов: ${stats.length}
+${myBlock}
 
 ТОП-10 доменов по охвату запросов:
 ${JSON.stringify(top10, null, 2)}
 
 Структура ответа (используй заголовки ## и списки):
 ## Доминирующие игроки
-Кто реально доминирует в нише (охват + средняя позиция)
+Кто реально доминирует в нише (охват + средняя позиция)${region ? `, с учётом региона «${region}»` : ''}
 ## Универсальные лидеры
 Домены, представленные в большинстве запросов
 ## Узкие специалисты
 Домены с малым охватом, но высокими позициями
 ## Слабые места рынка
-Запросы со слабой конкуренцией, точки входа
+Запросы со слабой конкуренцией, точки входа${myStats ? `\n## Позиция вашего проекта (${myDomainNorm})\nГде вы сильны, где отстаёте от лидеров, конкретные точки роста` : ''}
 ## Рекомендации
-Конкретные действия для конкуренции в этой нише
+Конкретные действия для конкуренции в этой нише${myStats ? ` — с акцентом на проект ${myDomainNorm}` : ''}
 
 Будь конкретным, используй цифры из данных.`;
 
