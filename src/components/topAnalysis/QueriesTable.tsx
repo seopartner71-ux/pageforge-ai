@@ -20,7 +20,13 @@ function compBadge(level: string) {
   return 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30';
 }
 
-export function QueriesTable({ rows }: Props) {
+function normalizeUrl(url: string, domain: string): string {
+  const u = (url || '').trim();
+  if (!u) return `https://${domain}`;
+  if (/^https?:\/\//i.test(u)) return u;
+  return `https://${u.replace(/^\/+/, '')}`;
+}
+
   const queries = useMemo(() => aggregateQueries(rows), [rows]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -63,7 +69,7 @@ export function QueriesTable({ rows }: Props) {
                       <span className="text-muted-foreground tabular-nums w-6 shrink-0">{i + 1}.</span>
                       <span className="font-medium truncate w-44 shrink-0" title={d.domain}>{d.domain}</span>
                       <a
-                        href={d.url || `https://${d.domain}`}
+                        href={normalizeUrl(d.url, d.domain)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-muted-foreground hover:text-primary truncate flex-1 inline-flex items-center gap-1 min-w-0"
