@@ -17,6 +17,7 @@ import {
 import { exportLinkAuditXlsx } from '@/lib/exportLinkAuditXlsx';
 import { parseDomainSummaryCsv, type DomainSummaryRow } from '@/lib/domainSummary';
 import { InsightsBlock, type Insight } from '@/components/InsightsBlock';
+import { CsvFormatGuide } from '@/components/CsvFormatGuide';
 
 interface SiteSlot {
   name: string;
@@ -189,6 +190,8 @@ export default function LinkAuditPage() {
           </div>
         </div>
 
+        <CsvFormatGuide />
+
         {/* Drop zones — separate mode */}
         {mode === 'separate' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
@@ -304,8 +307,6 @@ export default function LinkAuditPage() {
         {hasSummary && (
           <DomainSummarySection rows={summaryRows} />
         )}
-
-
         {hasData && (
           <>
             {/* Метрики-карточки */}
