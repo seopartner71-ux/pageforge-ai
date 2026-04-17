@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { AdminOverviewTab } from '@/components/admin/AdminOverviewTab';
+import { LayoutDashboard } from 'lucide-react';
 
 interface ApiSetting {
   id: string;
@@ -50,16 +52,23 @@ export default function AdminPage() {
     <div className="min-h-screen">
       <AppHeader />
       <main className="container py-8">
-        <h1 className="text-2xl font-bold text-foreground mb-6">Админ-панель</h1>
-        <Tabs defaultValue="api" className="w-full">
+        <div className="flex items-baseline justify-between mb-6 flex-wrap gap-2">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Админ-панель</h1>
+            <p className="text-sm text-muted-foreground mt-1">Управление платформой, пользователями и мониторинг системы</p>
+          </div>
+        </div>
+        <Tabs defaultValue="overview" className="w-full">
           <TabsList className="mb-6 flex-wrap">
-            <TabsTrigger value="api" className="gap-1.5"><Settings className="w-4 h-4" /> Настройки API</TabsTrigger>
+            <TabsTrigger value="overview" className="gap-1.5"><LayoutDashboard className="w-4 h-4" /> Обзор</TabsTrigger>
             <TabsTrigger value="users" className="gap-1.5"><Users className="w-4 h-4" /> Пользователи</TabsTrigger>
             <TabsTrigger value="stats" className="gap-1.5"><BarChart3 className="w-4 h-4" /> Статистика</TabsTrigger>
             <TabsTrigger value="logs" className="gap-1.5"><ScrollText className="w-4 h-4" /> Логи анализов</TabsTrigger>
             <TabsTrigger value="system" className="gap-1.5"><ShieldCheck className="w-4 h-4" /> Системная проверка</TabsTrigger>
+            <TabsTrigger value="api" className="gap-1.5"><Settings className="w-4 h-4" /> API ключи</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="overview"><AdminOverviewTab /></TabsContent>
           <TabsContent value="api"><ApiSettingsTab /></TabsContent>
           <TabsContent value="users"><UsersTab /></TabsContent>
           <TabsContent value="stats"><StatsTab /></TabsContent>
