@@ -12,6 +12,8 @@ import { QueriesTable } from '@/components/topAnalysis/QueriesTable';
 import { TopAnalysisAiInsights } from '@/components/topAnalysis/TopAnalysisAiInsights';
 import { TopRow } from '@/lib/topAnalysis/parseTopAnalysisCsv';
 import { applyFilters, uniqueQueries } from '@/lib/topAnalysis/aggregate';
+import { filterMarketplaces, getExcludedDomains } from '@/lib/topAnalysis/marketplaceFilter';
+import { ExcludedDomainsManager } from '@/components/topAnalysis/ExcludedDomainsManager';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { useToolHistory } from '@/hooks/useToolHistory';
@@ -33,15 +35,22 @@ export default function TopAnalysisPage() {
   const [region, setRegion] = useState<string>('');
   const [myDomain, setMyDomain] = useState<string>('');
   const [aiMarkdown, setAiMarkdown] = useState<string | null>(null);
+  const [excludedVersion, setExcludedVersion] = useState(0); // bump → пересчёт фильтра
 
   useEffect(() => {
     if (rows.length > 0) setGuideOpen(false);
   }, [rows.length]);
 
-  const allQueries = useMemo(() => uniqueQueries(rows), [rows]);
+  // Глобальный фильтр маркетплейсов/агрегаторов — применяется ДО всех агрегаций
+  const { rows: cleanRows, excludedDomains, excludedRows } = useMemo(() => {
+    const excluded = getExcludedDomains();
+    return filterMarketplaces(rows, excluded);
+  }, [rows, excludedVersion]);
+
+  const allQueries = useMemo(() => uniqueQueries(cleanRows), [cleanRows]);
   const filteredRows = useMemo(
-    () => applyFilters(rows, selectedQueries, positionRange),
-    [rows, selectedQueries, positionRange],
+    () => applyFilters(cleanRows, selectedQueries, positionRange),
+    [cleanRows, selectedQueries, positionRange],
   );
 
   // Автосохранение в историю
