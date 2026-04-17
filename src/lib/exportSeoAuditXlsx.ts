@@ -268,10 +268,6 @@ const thinBorder = {
 };
 
 export async function exportSeoAuditXlsx(data: AuditData): Promise<void> {
-  const domain0 = (() => {
-    try { return new URL(data.url).hostname; } catch { return 'site'; }
-  })();
-  // (audit/stealth helpers used inside builder functions)
   const domain = (() => {
     try { return new URL(data.url).hostname; } catch { return 'site'; }
   })();
