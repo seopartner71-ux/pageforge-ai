@@ -166,68 +166,143 @@ export default function LinkAuditPage() {
           </div>
         </div>
 
-        {/* Drop zones */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
-          {slots.map((slot, idx) => {
-            const color = SITE_COLORS[idx];
-            return (
-              <Card key={idx} className="p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
-                  <Input
-                    value={slot.name}
-                    onChange={(e) => renameSlot(idx, e.target.value)}
-                    className="h-7 text-xs"
-                  />
-                </div>
-                <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => handleDrop(idx, e)}
-                  onClick={() => fileInputs.current[idx]?.click()}
-                  className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer hover:border-primary/60 transition-colors"
-                >
-                  {slot.rows ? (
-                    <div className="space-y-1">
-                      <FileText className="w-6 h-6 mx-auto text-primary" />
-                      <p className="text-xs font-medium truncate">{slot.fileName}</p>
-                      <p className="text-[11px] text-muted-foreground">{slot.rows.length} строк</p>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); clearSlot(idx); }}
-                        className="text-[11px] text-destructive hover:underline inline-flex items-center gap-1"
-                      >
-                        <X className="w-3 h-3" /> Удалить
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <Upload className="w-6 h-6 mx-auto text-muted-foreground" />
-                      <p className="text-xs text-muted-foreground">Перетащите CSV или нажмите</p>
-                    </div>
-                  )}
-                  <input
-                    ref={(el) => (fileInputs.current[idx] = el)}
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleFile(idx, f);
-                      e.target.value = '';
-                    }}
-                  />
-                </div>
-              </Card>
-            );
-          })}
+        {/* Mode switcher */}
+        <div className="flex items-center gap-2 print:hidden">
+          <span className="text-xs text-muted-foreground">Режим загрузки:</span>
+          <div className="inline-flex rounded-md border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setMode('separate')}
+              className={`px-3 py-1.5 text-xs ${mode === 'separate' ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground hover:bg-accent'}`}
+            >
+              Отдельные CSV (4 файла)
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('summary')}
+              className={`px-3 py-1.5 text-xs ${mode === 'summary' ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground hover:bg-accent'}`}
+            >
+              Сводная таблица
+            </button>
+          </div>
         </div>
 
-        {!hasData && (
-          <Card className="p-8 text-center text-sm text-muted-foreground">
-            Загрузите хотя бы один CSV, чтобы увидеть отчёт. Поддерживаются форматы Ahrefs (EN-колонки)
-            и русские заголовки (Домен источник, URL источник, DR, Анкор, Тип, Атрибуты).
+        {/* Drop zones — separate mode */}
+        {mode === 'separate' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
+            {slots.map((slot, idx) => {
+              const color = SITE_COLORS[idx];
+              return (
+                <Card key={idx} className="p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
+                    <Input
+                      value={slot.name}
+                      onChange={(e) => renameSlot(idx, e.target.value)}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleDrop(idx, e)}
+                    onClick={() => fileInputs.current[idx]?.click()}
+                    className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer hover:border-primary/60 transition-colors"
+                  >
+                    {slot.rows ? (
+                      <div className="space-y-1">
+                        <FileText className="w-6 h-6 mx-auto text-primary" />
+                        <p className="text-xs font-medium truncate">{slot.fileName}</p>
+                        <p className="text-[11px] text-muted-foreground">{slot.rows.length} строк</p>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); clearSlot(idx); }}
+                          className="text-[11px] text-destructive hover:underline inline-flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" /> Удалить
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Upload className="w-6 h-6 mx-auto text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground">Перетащите CSV или нажмите</p>
+                      </div>
+                    )}
+                    <input
+                      ref={(el) => (fileInputs.current[idx] = el)}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFile(idx, f);
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Drop zone — summary mode */}
+        {mode === 'summary' && (
+          <Card className="p-4 print:hidden">
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const f = e.dataTransfer.files?.[0];
+                if (f) handleSummaryFile(f);
+              }}
+              onClick={() => summaryInput.current?.click()}
+              className="border-2 border-dashed border-border rounded-md p-8 text-center cursor-pointer hover:border-primary/60 transition-colors"
+            >
+              {hasSummary ? (
+                <div className="space-y-1">
+                  <FileText className="w-8 h-8 mx-auto text-primary" />
+                  <p className="text-sm font-medium">{summaryFile}</p>
+                  <p className="text-xs text-muted-foreground">{summaryRows.length} сайтов загружено</p>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setSummaryRows([]); setSummaryFile(''); }}
+                    className="text-xs text-destructive hover:underline inline-flex items-center gap-1"
+                  >
+                    <X className="w-3 h-3" /> Удалить
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Загрузите CSV со всеми сайтами</p>
+                  <p className="text-xs text-muted-foreground">Первая строка = аудируемый сайт. Разделитель «;»</p>
+                </div>
+              )}
+              <input
+                ref={summaryInput}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleSummaryFile(f);
+                  e.target.value = '';
+                }}
+              />
+            </div>
           </Card>
         )}
+
+        {!hasAnyData && (
+          <Card className="p-8 text-center text-sm text-muted-foreground">
+            Загрузите хотя бы один CSV, чтобы увидеть отчёт.
+          </Card>
+        )}
+
+        {hasSummary && (
+          <DomainSummarySection rows={summaryRows} />
+        )}
+
 
         {hasData && (
           <>
