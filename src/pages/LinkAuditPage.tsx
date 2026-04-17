@@ -191,6 +191,7 @@ export default function LinkAuditPage() {
             </p>
           </div>
           <div className="flex gap-2 print:hidden items-center">
+            {enabled && <SaveStatusBadge state={savingState} hasProject={hasProject} />}
             <Button
               variant={activeOnly ? 'default' : 'outline'}
               size="sm"
