@@ -52,15 +52,27 @@ export function CompetitorUpload({ rows, fileName, onLoaded, onReset }: Props) {
 
   if (rows.length > 0 && fileName) {
     return (
-      <Card className="p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <FileText className="w-5 h-5 text-primary" />
-          <div>
-            <div className="font-medium text-sm">{fileName}</div>
-            <div className="text-xs text-muted-foreground">{rows.length} доменов загружено</div>
+      <Card className="p-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <FileText className="w-5 h-5 text-primary shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs text-muted-foreground mb-1">
+              Анализируем {rows.length} {rows.length === 1 ? 'домен' : rows.length < 5 ? 'домена' : 'доменов'}:
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {rows.map((r) => (
+                <span
+                  key={r.domain}
+                  className="inline-flex items-center px-2 py-0.5 rounded-md bg-secondary text-xs font-medium text-foreground"
+                  title={r.domain}
+                >
+                  {r.domain}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={onReset} className="gap-2">
+        <Button variant="outline" size="sm" onClick={onReset} className="gap-2 shrink-0">
           <RefreshCw className="w-3.5 h-3.5" />
           Сбросить
         </Button>
