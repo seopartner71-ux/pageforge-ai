@@ -113,7 +113,15 @@ export default function LinkAuditPage() {
               Загрузите CSV-экспорты бэклинков из Ahrefs / SEO-инструментов и сравните до 4 сайтов.
             </p>
           </div>
-          <div className="flex gap-2 print:hidden">
+          <div className="flex gap-2 print:hidden items-center">
+            <Button
+              variant={activeOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveOnly((v) => !v)}
+              title="Учитывать только активные ссылки"
+            >
+              {activeOnly ? '✓ Только активные' : 'Все ссылки'}
+            </Button>
             <Button variant="outline" onClick={exportPdf} disabled={!hasData}>
               <Download className="w-4 h-4 mr-1.5" /> Скачать PDF
             </Button>
