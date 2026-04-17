@@ -573,13 +573,13 @@ function StatsTab() {
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
 
-  const statCards = [
-    { label: 'Всего пользователей', value: stats.totalUsers, icon: Users, color: 'text-primary' },
-    { label: 'Анализов за день', value: stats.todayAnalyses, icon: Calendar, color: 'text-green-500' },
-    { label: 'Анализов за неделю', value: stats.weekAnalyses, icon: TrendingUp, color: 'text-accent' },
-    { label: 'Анализов за месяц', value: stats.monthAnalyses, icon: BarChart3, color: 'text-foreground' },
-    { label: 'Всего анализов', value: stats.totalAnalyses, icon: Layers, color: 'text-primary' },
-    { label: 'Завершённых', value: stats.completedAnalyses, icon: CheckCircle2, color: 'text-green-500' },
+  const statCards: { label: string; value: number; icon: typeof Users; accent: 'blue' | 'green' | 'teal' | 'violet' | 'amber' | 'pink' }[] = [
+    { label: 'Всего пользователей', value: stats.totalUsers, icon: Users, accent: 'blue' },
+    { label: 'Анализов за день', value: stats.todayAnalyses, icon: Calendar, accent: 'green' },
+    { label: 'Анализов за неделю', value: stats.weekAnalyses, icon: TrendingUp, accent: 'teal' },
+    { label: 'Анализов за месяц', value: stats.monthAnalyses, icon: BarChart3, accent: 'violet' },
+    { label: 'Всего анализов', value: stats.totalAnalyses, icon: Layers, accent: 'amber' },
+    { label: 'Завершённых', value: stats.completedAnalyses, icon: CheckCircle2, accent: 'pink' },
   ];
 
   const chartConfig = { count: { label: 'Регистрации', color: 'hsl(var(--primary))' } };
@@ -589,11 +589,7 @@ function StatsTab() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {statCards.map(c => (
-          <div key={c.label} className="glass-card p-4 text-center">
-            <c.icon className={`w-5 h-5 mx-auto mb-2 ${c.color}`} />
-            <div className={`text-2xl font-bold ${c.color}`}>{c.value}</div>
-            <div className="text-[11px] text-muted-foreground mt-1">{c.label}</div>
-          </div>
+          <StatCard key={c.label} label={c.label} value={c.value} icon={c.icon} accent={c.accent} />
         ))}
       </div>
 

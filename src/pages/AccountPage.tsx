@@ -188,19 +188,21 @@ export default function AccountPage() {
           <TabsContent value="overview" className="space-y-6 mt-6">
             {/* KPI grid */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <StatCard label={t.totalAnalyses} value={metrics.total} icon={FileBarChart2} />
+              <StatCard label={t.totalAnalyses} value={metrics.total} icon={FileBarChart2} accent="blue" />
               <StatCard
                 label={t.monthAnalyses}
                 value={metrics.month}
                 delta={metrics.prevMonth > 0 || metrics.month > 0 ? { value: metrics.monthDelta } : null}
                 icon={TrendingUp}
+                accent="green"
               />
-              <StatCard label={t.weekAnalyses} value={metrics.week} icon={Clock} />
-              <StatCard label={t.creditsLeft} value={credits} icon={Coins} hint={lang === 'ru' ? '1 анализ = 1 кредит' : '1 analysis = 1 credit'} />
+              <StatCard label={t.weekAnalyses} value={metrics.week} icon={Clock} accent="teal" />
+              <StatCard label={t.creditsLeft} value={credits} icon={Coins} accent="amber" hint={lang === 'ru' ? '1 анализ = 1 кредит' : '1 analysis = 1 credit'} />
               <StatCard
                 label={t.successRate}
                 value={`${metrics.successRate}%`}
                 icon={CheckCircle2}
+                accent="violet"
                 hint={`${metrics.completed}/${metrics.total} ${lang === 'ru' ? 'успешно' : 'completed'}`}
               />
             </div>
