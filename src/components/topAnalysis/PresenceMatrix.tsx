@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Star } from 'lucide-react';
 import { TopRow } from '@/lib/topAnalysis/parseTopAnalysisCsv';
 import { aggregateDomains, uniqueQueries } from '@/lib/topAnalysis/aggregate';
 
-interface Props { rows: TopRow[] }
+interface Props { rows: TopRow[]; myDomain?: string }
 
-type SortKey = 'domain' | 'sum' | 'top' | string; // string = query
+type SortKey = 'domain' | 'sum' | 'top' | string;
 
 function cellStyle(pos: number | undefined) {
   if (!pos) return { className: 'text-muted-foreground', text: '—' };
@@ -16,23 +16,29 @@ function cellStyle(pos: number | undefined) {
   return { className: 'text-muted-foreground', text: String(pos) };
 }
 
-export function PresenceMatrix({ rows }: Props) {
+export function PresenceMatrix({ rows, myDomain }: Props) {
   const queries = useMemo(() => uniqueQueries(rows), [rows]);
   const domains = useMemo(() => aggregateDomains(rows), [rows]);
 
   const [sortKey, setSortKey] = useState<SortKey>('top');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
+  const myDomainNorm = (myDomain || '').toLowerCase().trim();
+
   const sortedDomains = useMemo(() => {
     const arr = [...domains];
     arr.sort((a, b) => {
+      // мой домен всегда наверху
+      if (myDomainNorm) {
+        if (a.domain === myDomainNorm && b.domain !== myDomainNorm) return -1;
+        if (b.domain === myDomainNorm && a.domain !== myDomainNorm) return 1;
+      }
       let av: number | string = 0;
       let bv: number | string = 0;
       if (sortKey === 'domain') { av = a.domain; bv = b.domain; }
       else if (sortKey === 'sum') { av = a.sumPos; bv = b.sumPos; }
       else if (sortKey === 'top') { av = a.coverage; bv = b.coverage; }
       else {
-        // sort by position в данном запросе (нет = большое число)
         av = a.byQuery.get(sortKey) ?? 9999;
         bv = b.byQuery.get(sortKey) ?? 9999;
       }
@@ -41,14 +47,13 @@ export function PresenceMatrix({ rows }: Props) {
       return 0;
     });
     return arr;
-  }, [domains, sortKey, sortDir]);
+  }, [domains, sortKey, sortDir, myDomainNorm]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortKey(key);
-      // sum — лучше asc (меньше = лучше), остальные — desc
       setSortDir(key === 'sum' || key === 'domain' ? 'asc' : 'desc');
     }
   };
@@ -62,6 +67,12 @@ export function PresenceMatrix({ rows }: Props) {
 
   if (rows.length === 0) return null;
 
+  // Адаптивная ширина колонки запроса в зависимости от их количества
+  const qCount = queries.length;
+  const cellW = qCount <= 8 ? 'min-w-[80px]' : qCount <= 14 ? 'min-w-[60px]' : 'min-w-[44px]';
+  const cellPad = qCount <= 14 ? 'p-1.5' : 'p-1';
+  const fontSize = qCount <= 14 ? 'text-[11px]' : 'text-[10px]';
+
   return (
     <Card className="p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -71,13 +82,19 @@ export function PresenceMatrix({ rows }: Props) {
         </span>
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full text-xs border-collapse">
+      <div className="rounded-md border border-border w-full">
+        <table className={`w-full ${fontSize} border-collapse table-fixed`}>
+          <colgroup>
+            <col style={{ width: qCount <= 8 ? '180px' : qCount <= 14 ? '150px' : '130px' }} />
+            {queries.map((q) => <col key={q} />)}
+            <col style={{ width: '60px' }} />
+            <col style={{ width: '60px' }} />
+          </colgroup>
           <thead>
             <tr className="bg-secondary/60">
               <th
                 onClick={() => toggleSort('domain')}
-                className="sticky left-0 z-10 bg-secondary/60 text-left p-2 font-semibold cursor-pointer hover:text-primary border-r border-border min-w-[180px]"
+                className={`text-left ${cellPad} font-semibold cursor-pointer hover:text-primary border-r border-border align-bottom`}
               >
                 Домен <SortIcon k="domain" />
               </th>
@@ -85,46 +102,61 @@ export function PresenceMatrix({ rows }: Props) {
                 <th
                   key={q}
                   onClick={() => toggleSort(q)}
-                  className="p-2 font-medium cursor-pointer hover:text-primary text-center border-r border-border min-w-[110px] max-w-[140px]"
+                  className={`${cellPad} font-medium cursor-pointer hover:text-primary text-center border-r border-border ${cellW} align-bottom`}
                   title={q}
                 >
-                  <div className="truncate">{q}</div>
+                  <div className="break-words leading-tight" style={{ wordBreak: 'break-word', hyphens: 'auto' }}>
+                    {q}
+                  </div>
                   <SortIcon k={q} />
                 </th>
               ))}
               <th
                 onClick={() => toggleSort('sum')}
-                className="p-2 font-semibold cursor-pointer hover:text-primary text-center border-r border-border bg-secondary"
+                className={`${cellPad} font-semibold cursor-pointer hover:text-primary text-center border-r border-border bg-secondary align-bottom`}
               >
-                Сумма <SortIcon k="sum" />
+                Σ <SortIcon k="sum" />
               </th>
               <th
                 onClick={() => toggleSort('top')}
-                className="p-2 font-semibold cursor-pointer hover:text-primary text-center bg-secondary"
+                className={`${cellPad} font-semibold cursor-pointer hover:text-primary text-center bg-secondary align-bottom`}
               >
-                В топах <SortIcon k="top" />
+                ✓ <SortIcon k="top" />
               </th>
             </tr>
           </thead>
           <tbody>
-            {sortedDomains.map((d, idx) => (
-              <tr key={d.domain} className={idx % 2 ? 'bg-muted/20' : ''}>
-                <td className="sticky left-0 z-10 bg-card p-2 font-medium border-r border-border truncate">
-                  {d.domain}
-                </td>
-                {queries.map(q => {
-                  const pos = d.byQuery.get(q);
-                  const s = cellStyle(pos);
-                  return (
-                    <td key={q} className={`p-2 text-center border-r border-border ${s.className}`}>
-                      {s.text}
-                    </td>
-                  );
-                })}
-                <td className="p-2 text-center border-r border-border tabular-nums">{d.sumPos}</td>
-                <td className="p-2 text-center font-semibold tabular-nums">{d.coverage}</td>
-              </tr>
-            ))}
+            {sortedDomains.map((d, idx) => {
+              const isMine = myDomainNorm && d.domain === myDomainNorm;
+              return (
+                <tr
+                  key={d.domain}
+                  className={
+                    isMine
+                      ? 'bg-primary/10 ring-1 ring-primary/40'
+                      : idx % 2 ? 'bg-muted/20' : ''
+                  }
+                >
+                  <td className={`${cellPad} font-medium border-r border-border break-all`}>
+                    <div className="flex items-center gap-1.5">
+                      {isMine && <Star className="w-3 h-3 text-primary fill-primary shrink-0" />}
+                      <span className={isMine ? 'text-primary font-semibold' : ''}>{d.domain}</span>
+                    </div>
+                  </td>
+                  {queries.map(q => {
+                    const pos = d.byQuery.get(q);
+                    const s = cellStyle(pos);
+                    return (
+                      <td key={q} className={`${cellPad} text-center border-r border-border ${s.className}`}>
+                        {s.text}
+                      </td>
+                    );
+                  })}
+                  <td className={`${cellPad} text-center border-r border-border tabular-nums`}>{d.sumPos}</td>
+                  <td className={`${cellPad} text-center font-semibold tabular-nums`}>{d.coverage}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -142,6 +174,7 @@ export function PresenceMatrix({ rows }: Props) {
         <span className="inline-flex items-center gap-1.5">
           <span className="text-muted-foreground">—</span> нет в топе
         </span>
+        <span className="ml-auto">Σ — сумма позиций · ✓ — кол-во запросов с присутствием</span>
       </div>
     </Card>
   );
