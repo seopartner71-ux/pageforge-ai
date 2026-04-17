@@ -113,15 +113,17 @@ export default function LinkAuditPage() {
     });
 
   const hasData = analyses.length > 0;
+  const hasSummary = summaryRows.length > 0;
+  const hasAnyData = hasData || hasSummary;
 
   const exportXlsx = async () => {
-    if (!hasData) {
+    if (!hasAnyData) {
       toast.error('Нет данных для экспорта');
       return;
     }
     try {
       toast.info('Готовлю Excel-файл с графиками…');
-      await exportLinkAuditXlsx(analyses);
+      await exportLinkAuditXlsx(analyses, summaryRows);
       toast.success('Excel-файл скачан');
     } catch (e: any) {
       toast.error(`Ошибка экспорта: ${e?.message || e}`);
