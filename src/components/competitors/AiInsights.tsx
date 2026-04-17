@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2 } from 'lucide-react';
@@ -8,11 +8,15 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-interface Props { rows: CompetitorRow[]; onMarkdown?: (md: string | null) => void }
+interface Props { rows: CompetitorRow[]; initialMarkdown?: string | null; onMarkdown?: (md: string | null) => void }
 
-export function AiInsights({ rows, onMarkdown }: Props) {
+export function AiInsights({ rows, initialMarkdown, onMarkdown }: Props) {
   const [loading, setLoading] = useState(false);
-  const [markdown, setMarkdown] = useState<string | null>(null);
+  const [markdown, setMarkdown] = useState<string | null>(initialMarkdown ?? null);
+
+  useEffect(() => {
+    if (initialMarkdown !== undefined) setMarkdown(initialMarkdown);
+  }, [initialMarkdown]);
 
   const fetchInsights = async () => {
     if (rows.length === 0) return;
