@@ -8,9 +8,9 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-interface Props { rows: CompetitorRow[] }
+interface Props { rows: CompetitorRow[]; onMarkdown?: (md: string | null) => void }
 
-export function AiInsights({ rows }: Props) {
+export function AiInsights({ rows, onMarkdown }: Props) {
   const [loading, setLoading] = useState(false);
   const [markdown, setMarkdown] = useState<string | null>(null);
 
@@ -27,6 +27,7 @@ export function AiInsights({ rows }: Props) {
       const md = (data as any)?.markdown;
       if (!md) throw new Error('Пустой ответ AI');
       setMarkdown(md);
+      onMarkdown?.(md);
     } catch (e: any) {
       toast.error(`Ошибка AI-анализа: ${e?.message || e}`);
     } finally {

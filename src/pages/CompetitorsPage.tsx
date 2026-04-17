@@ -15,6 +15,7 @@ export default function CompetitorsPage() {
   const [rows, setRows] = useState<CompetitorRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [aiMarkdown, setAiMarkdown] = useState<string | null>(null);
 
   useEffect(() => {
     if (rows.length > 0) setGuideOpen(false);
@@ -35,7 +36,7 @@ export default function CompetitorsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportCompetitorsXlsx(rows, fileName?.replace(/\.csv$/i, '') || 'competitors')}
+              onClick={() => exportCompetitorsXlsx(rows, fileName?.replace(/\.csv$/i, '') || 'competitors', aiMarkdown)}
               className="gap-2"
             >
               <Download className="w-3.5 h-3.5" />
@@ -58,7 +59,7 @@ export default function CompetitorsPage() {
             <CompetitorMetrics rows={rows} />
             <CompetitorCharts rows={rows} />
             <CompetitorTable rows={rows} />
-            <AiInsights rows={rows} />
+            <AiInsights rows={rows} onMarkdown={setAiMarkdown} />
           </>
         )}
       </main>
