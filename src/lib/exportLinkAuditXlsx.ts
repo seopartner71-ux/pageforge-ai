@@ -3,6 +3,13 @@ import { Chart, registerables } from 'chart.js';
 import type { SiteAuditData } from './linkAudit';
 import type { DomainSummaryRow } from './domainSummary';
 
+export interface InsightItem {
+  priority: 'critical' | 'warning' | 'good';
+  metric: string;
+  fact: string;
+  recommendation: string;
+}
+
 Chart.register(...registerables);
 
 // Фирменные цвета (по образцу шаблона)
@@ -66,6 +73,7 @@ const thinBorder = {
 export async function exportLinkAuditXlsx(
   sites: SiteAuditData[],
   summaryRows: DomainSummaryRow[] = [],
+  insights: InsightItem[] = [],
 ) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'PageForge';
