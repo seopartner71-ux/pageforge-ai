@@ -8,9 +8,9 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-interface Props { rows: TopRow[]; onMarkdown?: (md: string | null) => void }
+interface Props { rows: TopRow[]; region?: string; myDomain?: string; onMarkdown?: (md: string | null) => void }
 
-export function TopAnalysisAiInsights({ rows, onMarkdown }: Props) {
+export function TopAnalysisAiInsights({ rows, region, myDomain, onMarkdown }: Props) {
   const [loading, setLoading] = useState(false);
   const [markdown, setMarkdown] = useState<string | null>(null);
 
@@ -20,7 +20,7 @@ export function TopAnalysisAiInsights({ rows, onMarkdown }: Props) {
     setMarkdown(null);
     try {
       const { data, error } = await supabase.functions.invoke('top-analysis-insights', {
-        body: { rows },
+        body: { rows, region: region || '', myDomain: myDomain || '' },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
