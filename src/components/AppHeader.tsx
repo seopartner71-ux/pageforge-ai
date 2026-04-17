@@ -23,6 +23,7 @@ export function AppHeader() {
     { label: tr.nav.analysis, path: '/dashboard' },
     { label: 'GEO Audit', path: '/geo-audit' },
     { label: 'Ссылочный аудит', path: '/link-audit' },
+    { label: 'Конкуренты', path: '/competitors' },
     { label: tr.nav.history, path: '/history' },
     { label: tr.nav.account, path: '/account' },
     { label: tr.nav.pdfEditor, path: '/pdf-editor' },
