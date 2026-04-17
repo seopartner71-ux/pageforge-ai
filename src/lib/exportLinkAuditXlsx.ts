@@ -287,6 +287,66 @@ export async function exportLinkAuditXlsx(
   summary.getCell('A71').value = 'Follow / Nofollow %';
   summary.getCell('A71').font = { name: 'Arial', size: 12, bold: true };
 
+  // ============================================================
+  // ВЫВОДЫ И РЕКОМЕНДАЦИИ — на том же листе под графиками (со строки 92)
+  // ============================================================
+  if (insights.length) {
+    const startRow = 92;
+    summary.mergeCells(`A${startRow}:H${startRow}`);
+    const titleCell = summary.getCell(`A${startRow}`);
+    titleCell.value = 'ВЫВОДЫ И РЕКОМЕНДАЦИИ';
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } };
+    titleCell.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.border = thinBorder;
+    summary.getRow(startRow).height = 24;
+
+    // Шапка таблицы выводов
+    const headerRow = startRow + 1;
+    const headers = ['Приоритет', 'Показатель', 'Факт', 'Рекомендация'];
+    summary.mergeCells(`C${headerRow}:D${headerRow}`);
+    summary.mergeCells(`E${headerRow}:H${headerRow}`);
+    summary.getCell(`A${headerRow}`).value = headers[0];
+    summary.getCell(`B${headerRow}`).value = headers[1];
+    summary.getCell(`C${headerRow}`).value = headers[2];
+    summary.getCell(`E${headerRow}`).value = headers[3];
+    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach((col) => {
+      const c = summary.getCell(`${col}${headerRow}`);
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ORANGE } };
+      c.font = ARIAL_10_BOLD_WHITE;
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.border = thinBorder;
+    });
+
+    const PRIO = {
+      critical: { label: '🔴 Критично', bg: 'FFFEE2E2', color: 'FFB91C1C' },
+      warning: { label: '🟡 Важно', bg: 'FFFEF3C7', color: 'FFB45309' },
+      good: { label: '🟢 Хорошо', bg: 'FFD1FAE5', color: 'FF065F46' },
+    } as const;
+
+    insights.forEach((ins, i) => {
+      const r = headerRow + 1 + i;
+      summary.mergeCells(`C${r}:D${r}`);
+      summary.mergeCells(`E${r}:H${r}`);
+      const p = PRIO[ins.priority];
+      summary.getCell(`A${r}`).value = p.label;
+      summary.getCell(`B${r}`).value = ins.metric;
+      summary.getCell(`C${r}`).value = ins.fact;
+      summary.getCell(`E${r}`).value = ins.recommendation;
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach((col) => {
+        const c = summary.getCell(`${col}${r}`);
+        c.font = ARIAL_10;
+        c.border = thinBorder;
+        c.alignment = { vertical: 'top', horizontal: col === 'A' || col === 'B' ? 'left' : 'left', wrapText: true };
+      });
+      // Подсветка приоритета
+      const prioCell = summary.getCell(`A${r}`);
+      prioCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: p.bg } };
+      prioCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: p.color } };
+      summary.getRow(r).height = 38;
+    });
+  }
+
 
   // ============================================================
   // ЛИСТЫ 3-6 — детальные данные каждого сайта
