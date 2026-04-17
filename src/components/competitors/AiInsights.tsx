@@ -6,6 +6,7 @@ import { CompetitorRow } from '@/lib/competitors/parseCompetitorsCsv';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Props { rows: CompetitorRow[] }
 
@@ -55,8 +56,12 @@ export function AiInsights({ rows }: Props) {
       </div>
 
       {markdown && (
-        <div className="prose prose-sm dark:prose-invert max-w-none mt-4 text-sm">
-          <ReactMarkdown>{markdown}</ReactMarkdown>
+        <div className="prose prose-sm dark:prose-invert max-w-none mt-4 text-sm overflow-x-auto
+          prose-table:w-full prose-table:border-collapse prose-table:my-3
+          prose-th:border prose-th:border-border prose-th:bg-muted prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold
+          prose-td:border prose-td:border-border prose-td:px-3 prose-td:py-2
+          prose-tr:even:bg-muted/30">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
         </div>
       )}
       {!markdown && !loading && (
