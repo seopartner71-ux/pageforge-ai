@@ -15,6 +15,7 @@ import {
   type SiteAuditData, type BacklinkRow,
 } from '@/lib/linkAudit';
 import { exportLinkAuditXlsx } from '@/lib/exportLinkAuditXlsx';
+import { parseDomainSummaryCsv, type DomainSummaryRow } from '@/lib/domainSummary';
 
 interface SiteSlot {
   name: string;
@@ -29,7 +30,31 @@ export default function LinkAuditPage() {
     DEFAULT_NAMES.map((name) => ({ name, rows: null }))
   );
   const [activeOnly, setActiveOnly] = useState(true);
+  const [mode, setMode] = useState<'separate' | 'summary'>('separate');
+  const [summaryRows, setSummaryRows] = useState<DomainSummaryRow[]>([]);
+  const [summaryFile, setSummaryFile] = useState<string>('');
   const fileInputs = useRef<(HTMLInputElement | null)[]>([]);
+  const summaryInput = useRef<HTMLInputElement | null>(null);
+
+  const handleSummaryFile = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast.error('Поддерживаются только CSV файлы');
+      return;
+    }
+    try {
+      const text = await file.text();
+      const rows = parseDomainSummaryCsv(text);
+      if (!rows.length) {
+        toast.error('Не удалось распознать колонки в CSV');
+        return;
+      }
+      setSummaryRows(rows);
+      setSummaryFile(file.name);
+      toast.success(`Загружено ${rows.length} сайтов: ${file.name}`);
+    } catch (e: any) {
+      toast.error(`Ошибка чтения файла: ${e?.message || e}`);
+    }
+  };
 
   const handleFile = async (idx: number, file: File) => {
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -88,15 +113,17 @@ export default function LinkAuditPage() {
     });
 
   const hasData = analyses.length > 0;
+  const hasSummary = summaryRows.length > 0;
+  const hasAnyData = hasData || hasSummary;
 
   const exportXlsx = async () => {
-    if (!hasData) {
+    if (!hasAnyData) {
       toast.error('Нет данных для экспорта');
       return;
     }
     try {
       toast.info('Готовлю Excel-файл с графиками…');
-      await exportLinkAuditXlsx(analyses);
+      await exportLinkAuditXlsx(analyses, summaryRows);
       toast.success('Excel-файл скачан');
     } catch (e: any) {
       toast.error(`Ошибка экспорта: ${e?.message || e}`);
@@ -130,77 +157,152 @@ export default function LinkAuditPage() {
             >
               {activeOnly ? '✓ Только активные' : 'Все ссылки'}
             </Button>
-            <Button variant="outline" onClick={exportPdf} disabled={!hasData}>
+            <Button variant="outline" onClick={exportPdf} disabled={!hasAnyData}>
               <Download className="w-4 h-4 mr-1.5" /> Скачать PDF
             </Button>
-            <Button onClick={exportXlsx} disabled={!hasData}>
+            <Button onClick={exportXlsx} disabled={!hasAnyData}>
               <Download className="w-4 h-4 mr-1.5" /> Скачать Excel
             </Button>
           </div>
         </div>
 
-        {/* Drop zones */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
-          {slots.map((slot, idx) => {
-            const color = SITE_COLORS[idx];
-            return (
-              <Card key={idx} className="p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
-                  <Input
-                    value={slot.name}
-                    onChange={(e) => renameSlot(idx, e.target.value)}
-                    className="h-7 text-xs"
-                  />
-                </div>
-                <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => handleDrop(idx, e)}
-                  onClick={() => fileInputs.current[idx]?.click()}
-                  className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer hover:border-primary/60 transition-colors"
-                >
-                  {slot.rows ? (
-                    <div className="space-y-1">
-                      <FileText className="w-6 h-6 mx-auto text-primary" />
-                      <p className="text-xs font-medium truncate">{slot.fileName}</p>
-                      <p className="text-[11px] text-muted-foreground">{slot.rows.length} строк</p>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); clearSlot(idx); }}
-                        className="text-[11px] text-destructive hover:underline inline-flex items-center gap-1"
-                      >
-                        <X className="w-3 h-3" /> Удалить
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <Upload className="w-6 h-6 mx-auto text-muted-foreground" />
-                      <p className="text-xs text-muted-foreground">Перетащите CSV или нажмите</p>
-                    </div>
-                  )}
-                  <input
-                    ref={(el) => (fileInputs.current[idx] = el)}
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleFile(idx, f);
-                      e.target.value = '';
-                    }}
-                  />
-                </div>
-              </Card>
-            );
-          })}
+        {/* Mode switcher */}
+        <div className="flex items-center gap-2 print:hidden">
+          <span className="text-xs text-muted-foreground">Режим загрузки:</span>
+          <div className="inline-flex rounded-md border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setMode('separate')}
+              className={`px-3 py-1.5 text-xs ${mode === 'separate' ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground hover:bg-accent'}`}
+            >
+              Отдельные CSV (4 файла)
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('summary')}
+              className={`px-3 py-1.5 text-xs ${mode === 'summary' ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground hover:bg-accent'}`}
+            >
+              Сводная таблица
+            </button>
+          </div>
         </div>
 
-        {!hasData && (
-          <Card className="p-8 text-center text-sm text-muted-foreground">
-            Загрузите хотя бы один CSV, чтобы увидеть отчёт. Поддерживаются форматы Ahrefs (EN-колонки)
-            и русские заголовки (Домен источник, URL источник, DR, Анкор, Тип, Атрибуты).
+        {/* Drop zones — separate mode */}
+        {mode === 'separate' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
+            {slots.map((slot, idx) => {
+              const color = SITE_COLORS[idx];
+              return (
+                <Card key={idx} className="p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
+                    <Input
+                      value={slot.name}
+                      onChange={(e) => renameSlot(idx, e.target.value)}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleDrop(idx, e)}
+                    onClick={() => fileInputs.current[idx]?.click()}
+                    className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer hover:border-primary/60 transition-colors"
+                  >
+                    {slot.rows ? (
+                      <div className="space-y-1">
+                        <FileText className="w-6 h-6 mx-auto text-primary" />
+                        <p className="text-xs font-medium truncate">{slot.fileName}</p>
+                        <p className="text-[11px] text-muted-foreground">{slot.rows.length} строк</p>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); clearSlot(idx); }}
+                          className="text-[11px] text-destructive hover:underline inline-flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" /> Удалить
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Upload className="w-6 h-6 mx-auto text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground">Перетащите CSV или нажмите</p>
+                      </div>
+                    )}
+                    <input
+                      ref={(el) => (fileInputs.current[idx] = el)}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFile(idx, f);
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Drop zone — summary mode */}
+        {mode === 'summary' && (
+          <Card className="p-4 print:hidden">
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const f = e.dataTransfer.files?.[0];
+                if (f) handleSummaryFile(f);
+              }}
+              onClick={() => summaryInput.current?.click()}
+              className="border-2 border-dashed border-border rounded-md p-8 text-center cursor-pointer hover:border-primary/60 transition-colors"
+            >
+              {hasSummary ? (
+                <div className="space-y-1">
+                  <FileText className="w-8 h-8 mx-auto text-primary" />
+                  <p className="text-sm font-medium">{summaryFile}</p>
+                  <p className="text-xs text-muted-foreground">{summaryRows.length} сайтов загружено</p>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setSummaryRows([]); setSummaryFile(''); }}
+                    className="text-xs text-destructive hover:underline inline-flex items-center gap-1"
+                  >
+                    <X className="w-3 h-3" /> Удалить
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Загрузите CSV со всеми сайтами</p>
+                  <p className="text-xs text-muted-foreground">Первая строка = аудируемый сайт. Разделитель «;»</p>
+                </div>
+              )}
+              <input
+                ref={summaryInput}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleSummaryFile(f);
+                  e.target.value = '';
+                }}
+              />
+            </div>
           </Card>
         )}
+
+        {!hasAnyData && (
+          <Card className="p-8 text-center text-sm text-muted-foreground">
+            Загрузите хотя бы один CSV, чтобы увидеть отчёт.
+          </Card>
+        )}
+
+        {hasSummary && (
+          <DomainSummarySection rows={summaryRows} />
+        )}
+
 
         {hasData && (
           <>
@@ -346,5 +448,106 @@ function DonutGrid({
         ))}
       </div>
     </Card>
+  );
+}
+
+function DomainSummarySection({ rows }: { rows: DomainSummaryRow[] }) {
+  const colors = ['#378ADD', '#EF9F27', '#1D9E75', '#7F77DD', '#EC4899', '#06B6D4'];
+  const metrics: { label: string; key: keyof DomainSummaryRow }[] = [
+    { label: 'DR', key: 'dr' },
+    { label: 'В топ 10', key: 'top10' },
+    { label: 'В топ 50', key: 'top50' },
+    { label: 'Трафик', key: 'traffic' },
+    { label: 'Обратные ссылки', key: 'backlinks' },
+    { label: 'Ссылающихся доменов', key: 'refDomains' },
+  ];
+
+  const visibilityData = rows.map((r) => ({
+    name: r.domain, 'В топ 10': r.top10, 'В топ 50': r.top50,
+  }));
+  const trafficData = rows.map((r, i) => ({
+    name: r.domain, Трафик: r.traffic, fill: colors[i % colors.length],
+  }));
+  const linkProfileData = rows.map((r) => ({
+    name: r.domain,
+    'Обратные ссылки': r.backlinks,
+    'Ссылающиеся домены': r.refDomains,
+    DR: r.dr,
+  }));
+
+  return (
+    <>
+      <Card className="p-4">
+        <h2 className="text-sm font-semibold mb-3">Общие показатели сайтов</h2>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Показатель</TableHead>
+              {rows.map((r, i) => (
+                <TableHead key={i} style={{ color: colors[i % colors.length] }}>{r.domain}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {metrics.map((m, mi) => (
+              <TableRow key={mi}>
+                <TableCell className="font-medium">{m.label}</TableCell>
+                {rows.map((r, ri) => (
+                  <TableCell key={ri}>{Number(r[m.key]).toLocaleString('ru')}</TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold mb-3">Видимость в поиске</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={visibilityData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="В топ 10" fill="#378ADD" />
+              <Bar dataKey="В топ 50" fill="#EF9F27" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold mb-3">Органический трафик</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={trafficData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+              <Bar dataKey="Трафик">
+                {trafficData.map((d, i) => (<Cell key={i} fill={d.fill} />))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      <Card className="p-4">
+        <h3 className="text-sm font-semibold mb-3">Ссылочный профиль</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={linkProfileData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+            <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey="Обратные ссылки" fill="#378ADD" />
+            <Bar dataKey="Ссылающиеся домены" fill="#EF9F27" />
+            <Bar dataKey="DR" fill="#1D9E75" />
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+    </>
   );
 }
