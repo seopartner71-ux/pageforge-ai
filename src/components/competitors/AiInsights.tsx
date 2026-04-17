@@ -6,6 +6,7 @@ import { CompetitorRow } from '@/lib/competitors/parseCompetitorsCsv';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Props { rows: CompetitorRow[] }
 
