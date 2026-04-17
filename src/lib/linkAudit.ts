@@ -206,7 +206,8 @@ export function analyzeSite(name: string, rows: BacklinkRow[]): SiteAuditData {
 
   const pageMap = new Map<string, number>();
   rows.forEach((r) => {
-    const key = r.targetUrl || r.sourceUrl;
+    // Приоритет: URL целевой (наша страница, на которую ведёт ссылка)
+    const key = (r.targetUrl && r.targetUrl.trim()) || r.sourceUrl;
     if (!key) return;
     pageMap.set(key, (pageMap.get(key) || 0) + 1);
   });
