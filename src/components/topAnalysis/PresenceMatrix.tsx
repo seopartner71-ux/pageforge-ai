@@ -114,15 +114,23 @@ export function PresenceMatrix({ rows, myDomain }: Props) {
               ))}
               <th
                 onClick={() => toggleSort('sum')}
+                title="Сумма позиций — суммарное место домена по всем запросам (меньше = лучше)"
                 className={`${cellPad} font-semibold cursor-pointer hover:text-primary text-center border-r border-border bg-secondary align-bottom`}
               >
-                Σ <SortIcon k="sum" />
+                <span className="inline-flex items-center gap-1">
+                  <span className="text-muted-foreground text-[10px] uppercase tracking-wide">Сум</span>
+                  <SortIcon k="sum" />
+                </span>
               </th>
               <th
                 onClick={() => toggleSort('top')}
+                title="Охват — в скольких запросах домен присутствует в топе (больше = лучше)"
                 className={`${cellPad} font-semibold cursor-pointer hover:text-primary text-center bg-secondary align-bottom`}
               >
-                ✓ <SortIcon k="top" />
+                <span className="inline-flex items-center gap-1">
+                  <span className="text-muted-foreground text-[10px] uppercase tracking-wide">Охв</span>
+                  <SortIcon k="top" />
+                </span>
               </th>
             </tr>
           </thead>
