@@ -1,7 +1,7 @@
 interface ScoreGaugeProps {
   score: number;
   label: string;
-  description: string;
+  description?: string;
   color: string;
   gradientId?: string;
   gradientColors?: [string, string];
@@ -10,7 +10,7 @@ interface ScoreGaugeProps {
   featured?: boolean;
 }
 
-export function ScoreGauge({ score, label, description, color, onClick, clickable, featured }: ScoreGaugeProps) {
+export function ScoreGauge({ score, label, color, onClick, clickable, featured }: ScoreGaugeProps) {
   const radius = 44;
   const circumference = 2 * Math.PI * radius;
   const progress = (score / 100) * circumference;
@@ -18,12 +18,11 @@ export function ScoreGauge({ score, label, description, color, onClick, clickabl
   return (
     <button
       type="button"
-      className={`group relative w-full text-left transition-all duration-300
-        ${featured ? 'score-gauge-featured' : 'score-gauge-card'}
+      className={`group relative w-full text-left bg-transparent border-0 shadow-none p-0 transition-all duration-300
         ${clickable ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default'}`}
       onClick={clickable ? onClick : undefined}
     >
-      <div className="relative flex flex-col items-center gap-5 p-8">
+      <div className="relative flex flex-col items-center gap-3 p-4">
         {/* Gauge */}
         <div className="relative">
           <svg viewBox="0 0 100 100" className={`relative -rotate-90 ${featured ? 'h-32 w-32' : 'h-28 w-28'}`}>
@@ -49,12 +48,9 @@ export function ScoreGauge({ score, label, description, color, onClick, clickabl
           </div>
         </div>
 
-        {/* Label */}
-        <div className="text-center space-y-1">
-          <div className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${featured ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</div>
-          {description && (
-            <div className="text-[11px] leading-relaxed text-muted-foreground/60 max-w-[14rem] mx-auto">{description}</div>
-          )}
+        {/* Label — без капслока */}
+        <div className="text-center">
+          <div className="text-sm font-medium text-foreground">{label}</div>
         </div>
 
         {clickable && (

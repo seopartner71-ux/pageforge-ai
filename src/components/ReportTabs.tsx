@@ -33,32 +33,32 @@ type TabKey = typeof tabKeys[number];
 
 const tabLabels: Record<string, Record<TabKey, string>> = {
   ru: {
-    aiReport: 'ИИ-отчёт', priorities: 'Приоритеты', implementationPlan: '📋 Пошаговое ТЗ',
+    aiReport: 'ИИ-отчёт', priorities: 'Приоритеты', implementationPlan: 'Пошаговое ТЗ',
     blueprint: 'Golden Blueprint',
-    semanticMap: '🧬 Семантическая карта',
+    semanticMap: 'Семантическая карта',
     tfidf: 'TF-IDF', ngrams: 'N-граммы', zipf: 'Закон Ципфа',
     images: 'Изображения', anchors: 'Анкоры', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
-    readability: '📖 Читабельность', headings: '🏗️ Заголовки H1-H6',
-    snippetPreview: '🔍 Сниппет', metaDirectives: '🏷️ Meta/Canonical',
-    urlStructure: '🔗 URL', contentFreshness: '📅 Свежесть',
-    schemaValidator: '📐 Schema', contentMetrics: '📊 Контент-метрики',
-    internalLinking: '🔗 Перелинковка',
-    competitorComparison: '📊 vs ТОП-10',
-    dataSources: '📋 Источники', verification: '✅ До/После',
+    readability: 'Читабельность', headings: 'Заголовки H1-H6',
+    snippetPreview: 'Сниппет', metaDirectives: 'Meta/Canonical',
+    urlStructure: 'URL', contentFreshness: 'Свежесть',
+    schemaValidator: 'Schema', contentMetrics: 'Контент-метрики',
+    internalLinking: 'Перелинковка',
+    competitorComparison: 'vs ТОП-10',
+    dataSources: 'Источники', verification: 'До/После',
   },
   en: {
-    aiReport: 'AI Report', priorities: 'Priorities', implementationPlan: '📋 Implementation Plan',
+    aiReport: 'AI Report', priorities: 'Priorities', implementationPlan: 'Implementation Plan',
     blueprint: 'Golden Blueprint',
-    semanticMap: '🧬 Semantic Map',
+    semanticMap: 'Semantic Map',
     tfidf: 'TF-IDF', ngrams: 'N-grams', zipf: "Zipf's Law",
     images: 'Images', anchors: 'Anchors', pageSpeed: 'PageSpeed', stealth: 'Stealth Engine',
-    readability: '📖 Readability', headings: '🏗️ Headings H1-H6',
-    snippetPreview: '🔍 Snippet', metaDirectives: '🏷️ Meta/Canonical',
-    urlStructure: '🔗 URL', contentFreshness: '📅 Freshness',
-    schemaValidator: '📐 Schema', contentMetrics: '📊 Content Metrics',
-    internalLinking: '🔗 Internal Links',
-    competitorComparison: '📊 vs TOP-10',
-    dataSources: '📋 Sources', verification: '✅ Before/After',
+    readability: 'Readability', headings: 'Headings H1-H6',
+    snippetPreview: 'Snippet', metaDirectives: 'Meta/Canonical',
+    urlStructure: 'URL', contentFreshness: 'Freshness',
+    schemaValidator: 'Schema', contentMetrics: 'Content Metrics',
+    internalLinking: 'Internal Links',
+    competitorComparison: 'vs TOP-10',
+    dataSources: 'Sources', verification: 'Before/After',
   },
 };
 
@@ -2550,7 +2550,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
   const { lang } = useLang();
   const labels = {
     ...(tabLabels[lang] || tabLabels.en),
-    optimizer: '🔮 AI Forge',
+    optimizer: 'AI Forge',
   };
 
   const allTabKeys = ['optimizer', ...tabKeys] as const;
@@ -2566,7 +2566,7 @@ export function ReportTabs({ data = {}, analysisId, activeTab, onTabChange, scro
       value={key}
       className="relative min-h-[40px] px-4 py-2.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-200
         text-muted-foreground hover:text-foreground
-        data-[state=active]:text-primary data-[state=active]:bg-transparent
+        data-[state=active]:text-foreground data-[state=active]:bg-transparent
         data-[state=active]:shadow-none rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
     >
       {labels[key as keyof typeof labels]}

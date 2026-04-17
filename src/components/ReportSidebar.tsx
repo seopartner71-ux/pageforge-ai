@@ -49,8 +49,8 @@ export function ReportSidebar({ modules, quickWins, modulesTitle, readyLabel, qu
       {/* Module status */}
       <div className="report-soft-panel p-4">
         <div className="mb-4 flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{modulesTitle}</span>
-          <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+          <span className="text-sm font-semibold text-foreground">{modulesTitle}</span>
+          <span className="text-[11px] font-medium text-emerald-500">
             {readyLabel}
           </span>
         </div>
@@ -74,7 +74,7 @@ export function ReportSidebar({ modules, quickWins, modulesTitle, readyLabel, qu
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground">{quickWinsTitle}</span>
+                <span className="text-sm font-semibold text-foreground">{quickWinsTitle}</span>
               </div>
               <span className="text-[10px] text-muted-foreground">{checkedWins.size}/{quickWins.length}</span>
             </div>

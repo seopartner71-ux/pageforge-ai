@@ -26,8 +26,8 @@ interface ReportPageProps {
 }
 
 const scoreColors = ['#3B82F6', '#60A5FA', '#34D399', '#A78BFA'];
-const scoreLabelsEN = ['SEO Health', 'LLM-Friendly', 'Human Touch', 'SGE Adapt'];
-const scoreLabelsRU = ['SEO Здоровье', 'LLM-Дружелюбность', 'Человечность', 'SGE Адаптация'];
+const scoreLabelsEN = ['SEO health', 'LLM-friendliness', 'Humanness', 'SGE adaptation'];
+const scoreLabelsRU = ['SEO здоровье', 'LLM-дружелюбность', 'Человечность', 'SGE адаптация'];
 
 interface PdfTpl {
   id: string;
@@ -219,10 +219,22 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
                 <span className="report-pill">SEO Audit</span>
               </div>
               <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                {lang === 'ru' ? 'Аудит страницы' : 'Page Audit'}
+                {lang === 'ru' ? 'Аудит:' : 'Audit:'}
               </h1>
-              <p className="text-sm text-muted-foreground truncate max-w-xl">
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-sm text-primary hover:underline truncate max-w-xl"
+                title={url}
+              >
                 {url}
+              </a>
+              <p className="text-xs text-muted-foreground">
+                {lang === 'ru' ? 'Дата анализа: ' : 'Analysis date: '}
+                {new Date().toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
+                  day: '2-digit', month: 'long', year: 'numeric',
+                })}
               </p>
             </div>
 
@@ -337,9 +349,9 @@ export default function ReportPage({ url, analysisId, onBack, onReanalyze }: Rep
                   <ReportSidebar
                     modules={modules}
                     quickWins={quickWins}
-                    modulesTitle={lang === 'ru' ? 'СТАТУС МОДУЛЕЙ' : 'MODULE STATUS'}
-                    readyLabel={lang === 'ru' ? 'ГОТОВО' : 'READY'}
-                    quickWinsTitle="QUICK WINS"
+                    modulesTitle={lang === 'ru' ? 'Статус модулей' : 'Module status'}
+                    readyLabel={lang === 'ru' ? 'готово' : 'ready'}
+                    quickWinsTitle={lang === 'ru' ? 'Quick wins' : 'Quick wins'}
                     scores={scores}
                   />
                   <div className="report-soft-panel p-4">
