@@ -38,7 +38,9 @@ const FIELD_MAP: Record<string, string[]> = {
   anchor: ['анкор', 'anchor', 'anchor text', 'link anchor'],
   type: ['тип', 'type', 'link type'],
   rel: ['атрибуты', 'rel', 'nofollow', 'attributes', 'link attributes', 'follow'],
-  targetUrl: ['target url', 'целевой url', 'destination', 'linked url'],
+  targetUrl: ['url целевой', 'целевой url', 'target url', 'destination', 'linked url', 'target'],
+  sourceTitle: ['title источника', 'source title', 'page title', 'title'],
+  status: ['статус ссылки', 'статус', 'status', 'link status'],
 };
 
 function findKey(headers: string[], aliases: string[]): string | undefined {
