@@ -69,7 +69,7 @@ ${JSON.stringify(compact, null, 2)}
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-flash-1.5',
+        model: 'google/gemini-2.5-flash',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.4,
       }),
