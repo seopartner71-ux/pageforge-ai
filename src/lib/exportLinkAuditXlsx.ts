@@ -322,7 +322,127 @@ export async function exportLinkAuditXlsx(
     ];
   });
 
-  const buffer = await wb.xlsx.writeBuffer();
+  // ============================================================
+  // ЛИСТ "Общие показатели" — из сводной таблицы (если загружена)
+  // ============================================================
+  if (summaryRows.length) {
+    const ov = wb.addWorksheet('Общие показатели');
+    ov.views = [{ showGridLines: false }];
+
+    const summaryColors = ['#378ADD', '#EF9F27', '#1D9E75', '#7F77DD', '#EC4899', '#06B6D4'];
+    const metrics: { label: string; key: keyof DomainSummaryRow }[] = [
+      { label: 'DR', key: 'dr' },
+      { label: 'В топ 10', key: 'top10' },
+      { label: 'В топ 50', key: 'top50' },
+      { label: 'Трафик', key: 'traffic' },
+      { label: 'Обратные ссылки', key: 'backlinks' },
+      { label: 'Ссылающихся доменов', key: 'refDomains' },
+      { label: 'Исходящих доменов', key: 'outDomains' },
+      { label: 'Исходящие ссылки', key: 'outLinks' },
+      { label: 'Ссылающихся IP', key: 'refIps' },
+    ];
+
+    // Шапка
+    const headerRow = ['Показатель', ...summaryRows.map((r) => r.domain)];
+    ov.addRow(headerRow);
+    const hr = ov.getRow(1);
+    hr.height = 26;
+    headerRow.forEach((_, i) => {
+      const c = hr.getCell(i + 1);
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ORANGE } };
+      c.font = ARIAL_10_BOLD_WHITE;
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.border = thinBorder;
+    });
+
+    metrics.forEach((m, mi) => {
+      const row = ov.addRow([m.label, ...summaryRows.map((r) => Number(r[m.key]))]);
+      const isZebra = mi % 2 === 1;
+      for (let i = 1; i <= summaryRows.length + 1; i++) {
+        const c = row.getCell(i);
+        c.font = ARIAL_10;
+        c.border = thinBorder;
+        c.alignment = { vertical: 'middle', horizontal: i === 1 ? 'left' : 'center' };
+        if (isZebra) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ZEBRA } };
+      }
+    });
+
+    ov.getColumn(1).width = 30;
+    for (let i = 2; i <= summaryRows.length + 1; i++) ov.getColumn(i).width = 18;
+
+    // Графики
+    const labels = summaryRows.map((r) => r.domain);
+    const colorList = summaryRows.map((_, i) => summaryColors[i % summaryColors.length]);
+    let chartRow = metrics.length + 4;
+
+    // 1. Видимость в поиске (топ-10 + топ-50)
+    const visPng = await renderChartPng({
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'В топ 10', data: summaryRows.map((r) => r.top10), backgroundColor: '#378ADD' },
+          { label: 'В топ 50', data: summaryRows.map((r) => r.top50), backgroundColor: '#EF9F27' },
+        ],
+      },
+      options: {
+        plugins: {
+          title: { display: true, text: 'Видимость в поиске', font: { size: 16, weight: 'bold' } },
+          legend: { position: 'bottom' },
+        },
+        scales: { y: { beginAtZero: true } },
+      },
+    }, 800, 380);
+    let id = wb.addImage({ base64: dataUrlToBase64(visPng), extension: 'png' });
+    ov.addImage(id, { tl: { col: 1, row: chartRow }, ext: { width: 800, height: 380 } });
+    chartRow += 21;
+
+    // 2. Трафик
+    const trafPng = await renderChartPng({
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Органический трафик',
+          data: summaryRows.map((r) => r.traffic),
+          backgroundColor: colorList,
+        }],
+      },
+      options: {
+        plugins: {
+          title: { display: true, text: 'Органический трафик', font: { size: 16, weight: 'bold' } },
+          legend: { display: false },
+        },
+        scales: { y: { beginAtZero: true } },
+      },
+    }, 800, 380);
+    id = wb.addImage({ base64: dataUrlToBase64(trafPng), extension: 'png' });
+    ov.addImage(id, { tl: { col: 1, row: chartRow }, ext: { width: 800, height: 380 } });
+    chartRow += 21;
+
+    // 3. Ссылочный профиль (Backlinks + RefDomains + DR)
+    const profPng = await renderChartPng({
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Обратные ссылки', data: summaryRows.map((r) => r.backlinks), backgroundColor: '#378ADD' },
+          { label: 'Ссылающиеся домены', data: summaryRows.map((r) => r.refDomains), backgroundColor: '#EF9F27' },
+          { label: 'DR', data: summaryRows.map((r) => r.dr), backgroundColor: '#1D9E75' },
+        ],
+      },
+      options: {
+        plugins: {
+          title: { display: true, text: 'Ссылочный профиль', font: { size: 16, weight: 'bold' } },
+          legend: { position: 'bottom' },
+        },
+        scales: { y: { beginAtZero: true } },
+      },
+    }, 800, 380);
+    id = wb.addImage({ base64: dataUrlToBase64(profPng), extension: 'png' });
+    ov.addImage(id, { tl: { col: 1, row: chartRow }, ext: { width: 800, height: 380 } });
+  }
+
   const date = new Date().toISOString().slice(0, 10);
   const auditedName = (sites[0]?.name || 'audit').replace(/[^a-zA-Z0-9._а-яА-Я-]/g, '_');
   saveBlob(buffer as ArrayBuffer, `${auditedName}__Ссылочный_аудит_${date}.xlsx`);
