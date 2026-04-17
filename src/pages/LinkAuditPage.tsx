@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import {
-  parseCsvToBacklinks, analyzeSite, SITE_COLORS,
+  parseCsvToBacklinks, analyzeSite, detectSiteDomain, SITE_COLORS,
   type SiteAuditData, type BacklinkRow,
 } from '@/lib/linkAudit';
 import { exportLinkAuditXlsx } from '@/lib/exportLinkAuditXlsx';
@@ -45,7 +45,10 @@ export default function LinkAuditPage() {
       }
       setSlots((prev) => {
         const next = [...prev];
-        next[idx] = { ...next[idx], rows, fileName: file.name };
+        const detected = detectSiteDomain(rows);
+        // Авто-имя: реальный домен, если найден; иначе оставить дефолтное
+        const autoName = detected || next[idx].name;
+        next[idx] = { ...next[idx], rows, fileName: file.name, name: autoName };
         return next;
       });
       const activeCount = rows.filter((r) => r.status !== 'inactive').length;
@@ -86,13 +89,18 @@ export default function LinkAuditPage() {
 
   const hasData = analyses.length > 0;
 
-  const exportXlsx = () => {
+  const exportXlsx = async () => {
     if (!hasData) {
       toast.error('Нет данных для экспорта');
       return;
     }
-    exportLinkAuditXlsx(analyses);
-    toast.success('Excel-файл скачан');
+    try {
+      toast.info('Готовлю Excel-файл с графиками…');
+      await exportLinkAuditXlsx(analyses);
+      toast.success('Excel-файл скачан');
+    } catch (e: any) {
+      toast.error(`Ошибка экспорта: ${e?.message || e}`);
+    }
   };
 
   const exportPdf = () => {

@@ -153,6 +153,31 @@ export function parseCsvToBacklinks(text: string): BacklinkRow[] {
   }).filter((r) => r.sourceDomain || r.sourceUrl);
 }
 
+/**
+ * Автоопределение домена аудируемого сайта из CSV.
+ * Берёт самый частый домен из "URL целевой", иначе — самый частый sourceDomain.
+ */
+export function detectSiteDomain(rows: BacklinkRow[]): string {
+  if (!rows.length) return '';
+  const counts = new Map<string, number>();
+  let hasTarget = false;
+  for (const r of rows) {
+    if (r.targetUrl && r.targetUrl.trim()) {
+      hasTarget = true;
+      const d = extractDomain(r.targetUrl).replace(/^www\./, '');
+      if (d) counts.set(d, (counts.get(d) || 0) + 1);
+    }
+  }
+  if (!hasTarget) {
+    for (const r of rows) {
+      const d = (r.sourceDomain || '').replace(/^www\./, '');
+      if (d) counts.set(d, (counts.get(d) || 0) + 1);
+    }
+  }
+  if (!counts.size) return '';
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
 function median(nums: number[]): number {
   if (!nums.length) return 0;
   const s = [...nums].sort((a, b) => a - b);
