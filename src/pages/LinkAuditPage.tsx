@@ -14,7 +14,9 @@ import {
   parseCsvToBacklinks, analyzeSite, detectSiteDomain, SITE_COLORS,
   type SiteAuditData, type BacklinkRow,
 } from '@/lib/linkAudit';
-import { exportLinkAuditXlsx } from '@/lib/exportLinkAuditXlsx';
+// exceljs+chart.js (~1MB) — грузим только при экспорте
+const exportLinkAuditXlsx = (...args: Parameters<typeof import('@/lib/exportLinkAuditXlsx').exportLinkAuditXlsx>) =>
+  import('@/lib/exportLinkAuditXlsx').then(m => m.exportLinkAuditXlsx(...args));
 import { parseDomainSummaryCsv, type DomainSummaryRow } from '@/lib/domainSummary';
 import { InsightsBlock, type Insight } from '@/components/InsightsBlock';
 import { CsvFormatGuide } from '@/components/CsvFormatGuide';

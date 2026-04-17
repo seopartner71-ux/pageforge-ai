@@ -9,7 +9,9 @@ import { CsvFormatGuide } from '@/components/competitors/CsvFormatGuide';
 import { CompetitorRow } from '@/lib/competitors/parseCompetitorsCsv';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import { exportCompetitorsXlsx } from '@/lib/competitors/exportCompetitors';
+// exceljs+chart.js (~1MB) — динамический импорт при клике
+const exportCompetitorsXlsx = (...args: Parameters<typeof import('@/lib/competitors/exportCompetitors').exportCompetitorsXlsx>) =>
+  import('@/lib/competitors/exportCompetitors').then(m => m.exportCompetitorsXlsx(...args));
 
 export default function CompetitorsPage() {
   const [rows, setRows] = useState<CompetitorRow[]>([]);
