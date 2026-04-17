@@ -190,6 +190,12 @@ export default function TopAnalysisPage() {
                 Excel · {ENGINE_LABEL[engine]}
               </Button>
             )}
+            {bothFilled && (
+              <Button variant="default" size="sm" onClick={exportCombined} className="gap-2">
+                <Download className="w-3.5 h-3.5" />
+                Объединённый Excel
+              </Button>
+            )}
           </div>
         </div>
 
