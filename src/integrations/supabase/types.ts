@@ -123,6 +123,94 @@ export type Database = {
           },
         ]
       }
+      competitor_analyses: {
+        Row: {
+          ai_markdown: string | null
+          created_at: string
+          file_name: string | null
+          id: string
+          name: string
+          payload: Json
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_markdown?: string | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          name?: string
+          payload?: Json
+          project_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_markdown?: string | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          name?: string
+          payload?: Json
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_analyses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      link_audits: {
+        Row: {
+          ai_markdown: string | null
+          created_at: string
+          id: string
+          name: string
+          payload: Json
+          project_id: string
+          sites: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_markdown?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          payload?: Json
+          project_id: string
+          sites?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_markdown?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          payload?: Json
+          project_id?: string
+          sites?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_audits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -299,6 +387,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      top_analyses: {
+        Row: {
+          ai_markdown: string | null
+          created_at: string
+          file_name: string | null
+          id: string
+          my_domain: string | null
+          name: string
+          payload: Json
+          project_id: string
+          region: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_markdown?: string | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          my_domain?: string | null
+          name?: string
+          payload?: Json
+          project_id: string
+          region?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_markdown?: string | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          my_domain?: string | null
+          name?: string
+          payload?: Json
+          project_id?: string
+          region?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "top_analyses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
