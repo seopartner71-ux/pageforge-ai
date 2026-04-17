@@ -23,6 +23,8 @@ import { SaveStatusBadge } from '@/components/SaveStatusBadge';
 // exceljs (~700kb) — динамический импорт при клике
 const exportTopAnalysisXlsx = (...args: Parameters<typeof import('@/lib/topAnalysis/exportTopAnalysis').exportTopAnalysisXlsx>) =>
   import('@/lib/topAnalysis/exportTopAnalysis').then(m => m.exportTopAnalysisXlsx(...args));
+const exportCombinedTopAnalysisXlsx = (...args: Parameters<typeof import('@/lib/topAnalysis/exportTopAnalysis').exportCombinedTopAnalysisXlsx>) =>
+  import('@/lib/topAnalysis/exportTopAnalysis').then(m => m.exportCombinedTopAnalysisXlsx(...args));
 
 type Engine = 'yandex' | 'google';
 
@@ -140,8 +142,27 @@ export default function TopAnalysisPage() {
     );
   };
 
+  // Очищенные данные для каждой ПС (с учётом фильтра маркетплейсов)
+  const cleanForEngine = (eng: Engine) => {
+    const excluded = getExcludedDomains();
+    return filterMarketplaces(engines[eng].rows, excluded).rows;
+  };
+
+  const exportCombined = () => {
+    const yRows = cleanForEngine('yandex');
+    const gRows = cleanForEngine('google');
+    const baseName = anyName || 'top_analysis';
+    exportCombinedTopAnalysisXlsx(
+      { rows: yRows, aiMarkdown: engines.yandex.aiMarkdown, label: 'Яндекс', shortPrefix: 'Я · ' },
+      { rows: gRows, aiMarkdown: engines.google.aiMarkdown, label: 'Google', shortPrefix: 'G · ' },
+      baseName,
+      { region, myDomain },
+    );
+  };
+
   const otherEngine: Engine = engine === 'yandex' ? 'google' : 'yandex';
   const otherFilled = engines[otherEngine].rows.length > 0;
+  const bothFilled = engines.yandex.rows.length > 0 && engines.google.rows.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -167,6 +188,12 @@ export default function TopAnalysisPage() {
               <Button variant="outline" size="sm" onClick={exportExcel} className="gap-2">
                 <Download className="w-3.5 h-3.5" />
                 Excel · {ENGINE_LABEL[engine]}
+              </Button>
+            )}
+            {bothFilled && (
+              <Button variant="default" size="sm" onClick={exportCombined} className="gap-2">
+                <Download className="w-3.5 h-3.5" />
+                Объединённый Excel
               </Button>
             )}
           </div>
