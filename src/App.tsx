@@ -16,7 +16,7 @@ const NotFound = lazy(() => import('./pages/NotFound.tsx'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage.tsx'));
 const HistoryPage = lazy(() => import('./pages/HistoryPage.tsx'));
 const AccountPage = lazy(() => import('./pages/AccountPage.tsx'));
-const PdfEditorPage = lazy(() => import('./pages/PdfEditorPage.tsx'));
+
 const ReportRouterPage = lazy(() => import('./pages/ReportRouterPage.tsx'));
 const AdminPage = lazy(() => import('./pages/AdminPage.tsx'));
 const GeoAuditPage = lazy(() => import('./pages/GeoAuditPage.tsx'));
@@ -108,7 +108,7 @@ const App = () => (
                 <Route path="/history" element={<AuthGate><HistoryPage /></AuthGate>} />
                 <Route path="/report/:id" element={<AuthGate><ReportRouterPage /></AuthGate>} />
                 <Route path="/account" element={<AuthGate><AccountPage /></AuthGate>} />
-                <Route path="/pdf-editor" element={<AuthGate><PdfEditorPage /></AuthGate>} />
+                
                 <Route path="/admin" element={<AdminGate><AdminPage /></AdminGate>} />
                 <Route path="/geo-audit" element={<AuthGate><GeoAuditPage /></AuthGate>} />
                 <Route path="/link-audit" element={<AuthGate><LinkAuditPage /></AuthGate>} />
