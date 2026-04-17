@@ -59,7 +59,7 @@ export default function CompetitorsPage() {
             <CompetitorMetrics rows={rows} />
             <CompetitorCharts rows={rows} />
             <CompetitorTable rows={rows} />
-            <AiInsights rows={rows} />
+            <AiInsights rows={rows} onMarkdown={setAiMarkdown} />
           </>
         )}
       </main>
