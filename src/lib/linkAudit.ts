@@ -5,9 +5,11 @@ export interface BacklinkRow {
   sourceUrl: string;
   dr: number;
   anchor: string;
-  type: string; // text | image | redirect
+  type: string; // text | image | redirect | naked
   rel: string; // follow | nofollow
   targetUrl?: string;
+  sourceTitle?: string;
+  status?: 'active' | 'inactive';
 }
 
 export interface SiteAuditData {
