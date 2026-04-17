@@ -1,5 +1,6 @@
 import { useLang } from '@/contexts/LangContext';
 import { LangToggle } from '@/components/LangToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Zap, LogOut, Shield } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,6 +62,7 @@ export function AppHeader() {
         {/* Right: Lang + Logout */}
         <div className="flex items-center justify-end gap-3 shrink-0 ml-6">
           <NotificationBell />
+          <ThemeToggle />
           <LangToggle />
           <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
             <LogOut className="w-4 h-4" />

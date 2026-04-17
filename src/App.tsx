@@ -5,6 +5,7 @@ import { Toaster as Sonner } from '@/components/ui/sonner';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { LangProvider } from '@/contexts/LangContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { PendingApprovalScreen } from '@/components/PendingApprovalScreen';
 import { useAdminRole } from '@/hooks/useAdminRole';
@@ -90,32 +91,34 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <LangProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/auth" element={<AuthPage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="/dashboard" element={<AuthGate><DashboardPage /></AuthGate>} />
-              <Route path="/history" element={<AuthGate><HistoryPage /></AuthGate>} />
-              <Route path="/report/:id" element={<AuthGate><ReportRouterPage /></AuthGate>} />
-              <Route path="/account" element={<AuthGate><AccountPage /></AuthGate>} />
-              <Route path="/pdf-editor" element={<AuthGate><PdfEditorPage /></AuthGate>} />
-              <Route path="/admin" element={<AdminGate><AdminPage /></AdminGate>} />
-              <Route path="/geo-audit" element={<AuthGate><GeoAuditPage /></AuthGate>} />
-              <Route path="/link-audit" element={<AuthGate><LinkAuditPage /></AuthGate>} />
-              <Route path="/shared/:token" element={<SharedReportPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </TooltipProvider>
-    </LangProvider>
+    <ThemeProvider>
+      <LangProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/auth" element={<AuthPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/dashboard" element={<AuthGate><DashboardPage /></AuthGate>} />
+                <Route path="/history" element={<AuthGate><HistoryPage /></AuthGate>} />
+                <Route path="/report/:id" element={<AuthGate><ReportRouterPage /></AuthGate>} />
+                <Route path="/account" element={<AuthGate><AccountPage /></AuthGate>} />
+                <Route path="/pdf-editor" element={<AuthGate><PdfEditorPage /></AuthGate>} />
+                <Route path="/admin" element={<AdminGate><AdminPage /></AdminGate>} />
+                <Route path="/geo-audit" element={<AuthGate><GeoAuditPage /></AuthGate>} />
+                <Route path="/link-audit" element={<AuthGate><LinkAuditPage /></AuthGate>} />
+                <Route path="/shared/:token" element={<SharedReportPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </TooltipProvider>
+      </LangProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
