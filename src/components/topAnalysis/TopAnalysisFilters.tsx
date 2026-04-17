@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ChevronDown, Filter, Check } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
-export type PositionRange = 'top3' | 'top5' | 'top10' | 'all';
+export type PositionRange = 'top3' | 'top5' | 'top10' | 'top30' | 'top50' | 'all';
 
 interface Props {
   allQueries: string[];
@@ -18,6 +18,8 @@ const RANGES: { value: PositionRange; label: string }[] = [
   { value: 'top3', label: 'Топ-3' },
   { value: 'top5', label: 'Топ-5' },
   { value: 'top10', label: 'Топ-10' },
+  { value: 'top30', label: 'Топ-30' },
+  { value: 'top50', label: 'Топ-50' },
   { value: 'all', label: 'Все' },
 ];
 

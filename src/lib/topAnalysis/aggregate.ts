@@ -77,9 +77,14 @@ export function uniqueQueries(rows: TopRow[]): string[] {
 export function applyFilters(
   rows: TopRow[],
   selectedQueries: string[] | null,
-  positionRange: 'top3' | 'top5' | 'top10' | 'all',
+  positionRange: 'top3' | 'top5' | 'top10' | 'top30' | 'top50' | 'all',
 ): TopRow[] {
-  const max = positionRange === 'top3' ? 3 : positionRange === 'top5' ? 5 : positionRange === 'top10' ? 10 : 999;
+  const max =
+    positionRange === 'top3' ? 3 :
+    positionRange === 'top5' ? 5 :
+    positionRange === 'top10' ? 10 :
+    positionRange === 'top30' ? 30 :
+    positionRange === 'top50' ? 50 : 999;
   return rows.filter(r =>
     (!selectedQueries || selectedQueries.length === 0 || selectedQueries.includes(r.query)) &&
     r.position <= max
