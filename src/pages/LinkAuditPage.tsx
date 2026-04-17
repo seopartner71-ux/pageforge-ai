@@ -17,6 +17,7 @@ import {
 import { exportLinkAuditXlsx } from '@/lib/exportLinkAuditXlsx';
 import { parseDomainSummaryCsv, type DomainSummaryRow } from '@/lib/domainSummary';
 import { InsightsBlock, type Insight } from '@/components/InsightsBlock';
+import { CsvFormatGuide } from '@/components/CsvFormatGuide';
 
 interface SiteSlot {
   name: string;
