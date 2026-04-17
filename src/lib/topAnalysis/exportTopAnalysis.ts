@@ -168,6 +168,7 @@ export interface TopAnalysisExportOptions {
   aiMarkdown?: string | null;
   region?: string;
   myDomain?: string;
+  engine?: string;
 }
 
 export async function exportTopAnalysisXlsx(
