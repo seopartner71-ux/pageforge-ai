@@ -200,6 +200,80 @@ export type Database = {
         }
         Relationships: []
       }
+      kb_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          document_id: string
+          heading: string | null
+          id: string
+          tsv: unknown
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string
+          document_id: string
+          heading?: string | null
+          id?: string
+          tsv?: unknown
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          document_id?: string
+          heading?: string | null
+          id?: string
+          tsv?: unknown
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kb_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "kb_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kb_documents: {
+        Row: {
+          author: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          source_type: string
+          storage_path: string | null
+          title: string
+          total_chunks: number
+          updated_at: string
+        }
+        Insert: {
+          author?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          source_type?: string
+          storage_path?: string | null
+          title: string
+          total_chunks?: number
+          updated_at?: string
+        }
+        Update: {
+          author?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          source_type?: string
+          storage_path?: string | null
+          title?: string
+          total_chunks?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       link_audits: {
         Row: {
           ai_markdown: string | null
@@ -503,6 +577,17 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      kb_search: {
+        Args: { max_results?: number; q: string }
+        Returns: {
+          chunk_id: string
+          content: string
+          document_id: string
+          document_title: string
+          heading: string
+          rank: number
+        }[]
       }
     }
     Enums: {
