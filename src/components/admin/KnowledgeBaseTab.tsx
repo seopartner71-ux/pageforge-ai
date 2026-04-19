@@ -35,10 +35,7 @@ interface KbDoc {
 
 /* ──────────── PDF parsing (lazy, через CDN worker) ──────────── */
 async function parsePdf(file: File): Promise<string> {
-  const pdfjs = await import('pdfjs-dist');
-  // Используем CDN-worker, чтобы не возиться с bundling
-  // @ts-ignore
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+  const pdfjs = await loadPdfjs();
   const arrayBuf = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: arrayBuf }).promise;
   let out = '';
