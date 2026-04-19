@@ -298,7 +298,7 @@ export default function DataCopilotWidget() {
     } catch { /* noop */ }
   };
 
-  const send = (raw?: string) => {
+  const send = async (raw?: string) => {
     const text = (raw ?? input).trim();
     if (!text || busy) return;
     setInput('');
@@ -307,19 +307,21 @@ export default function DataCopilotWidget() {
     setBusy(true);
     void logMessage('user', text);
 
-    setTimeout(() => {
-      const intent = classifyIntent(text);
-      const { text: replyText, card } = processUserMessage(text);
-      setMessages((m) => [...m, {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        text: replyText,
-        card,
-        ts: Date.now(),
-      }]);
-      void logMessage('assistant', replyText, intent, card?.name ?? null);
-      setBusy(false);
-    }, 400);
+    // Передаём в AI предыдущую историю (только текст) для контекста
+    const history = messages
+      .filter((m) => m.text)
+      .map((m) => ({ role: m.role, content: m.text }));
+
+    const { text: replyText, card, intent } = await processUserMessage(text, history);
+    setMessages((m) => [...m, {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      text: replyText,
+      card,
+      ts: Date.now(),
+    }]);
+    void logMessage('assistant', replyText, intent, card?.name ?? null);
+    setBusy(false);
   };
 
   const chips = [
