@@ -26,6 +26,7 @@ const TermsPage = lazy(() => import('./pages/TermsPage.tsx'));
 const LinkAuditPage = lazy(() => import('./pages/LinkAuditPage.tsx'));
 const CompetitorsPage = lazy(() => import('./pages/CompetitorsPage.tsx'));
 const TopAnalysisPage = lazy(() => import('./pages/TopAnalysisPage.tsx'));
+const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
 
 const queryClient = new QueryClient();
 
@@ -118,6 +119,7 @@ const App = () => (
                 <Route path="/shared/:token" element={<SharedReportPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              <DataCopilotWidget />
             </Suspense>
           </BrowserRouter>
         </TooltipProvider>
