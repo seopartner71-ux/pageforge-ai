@@ -18,11 +18,14 @@ type CardName = 'render_tfidf_alert' | 'render_sge_blueprint' | 'render_support_
 
 interface CardPayload { name: CardName; args?: any; }
 
+interface KbSource { title: string; heading: string; }
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   text: string;
   card?: CardPayload | null;
+  kbSources?: KbSource[];
   ts: number;
 }
 
