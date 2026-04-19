@@ -444,9 +444,8 @@ export default function DataCopilotWidget() {
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-card border border-border/60 text-foreground'
                   }`}>
-                    <MdText text={m.text} />
+                    {m.text && <MdText text={m.text} />}
                     {m.card && <CardRenderer card={m.card} />}
-                    {/* Источники намеренно скрыты — экспертиза подаётся как собственная */}
                   </div>
                 </div>
               </div>
