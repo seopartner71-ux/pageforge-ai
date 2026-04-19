@@ -215,8 +215,8 @@ Deno.serve(async (req) => {
           { role: 'system', content: SYSTEM_PROMPT + sysAddon },
           ...messages,
         ],
-        tools: TOOLS,
-        tool_choice: 'auto',
+        ...(isAuthenticated ? { tools: TOOLS, tool_choice: 'auto' } : {}),
+        ...(isAuthenticated ? {} : { max_tokens: 220 }),
       }),
     });
 
