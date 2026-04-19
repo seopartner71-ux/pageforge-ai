@@ -123,6 +123,34 @@ Deno.serve(async (req) => {
 
     const { messages = [], userCredits } = await req.json();
 
+    // Берём последний user-вопрос для FTS-поиска по базе знаний
+    const lastUser = [...messages].reverse().find((m: any) => m.role === 'user')?.content || '';
+
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    // RAG: ищем в kb_chunks через FTS
+    let kbContext = '';
+    let kbSources: { title: string; heading: string }[] = [];
+    if (lastUser && lastUser.trim().length >= 3) {
+      try {
+        const { data: hits } = await supabaseAdmin.rpc('kb_search', {
+          q: lastUser,
+          max_results: 4,
+        });
+        if (hits && hits.length > 0) {
+          kbContext = hits.map((h: any, i: number) =>
+            `[Источник ${i + 1}] «${h.document_title}»${h.heading ? ' · ' + h.heading : ''}\n${h.content}`,
+          ).join('\n\n---\n\n');
+          kbSources = hits.map((h: any) => ({ title: h.document_title, heading: h.heading || '' }));
+        }
+      } catch (e) {
+        console.warn('kb_search failed', e);
+      }
+    }
+
     // Try to enrich billing context from authed user
     let creditsHint = userCredits;
     try {
@@ -145,9 +173,12 @@ Deno.serve(async (req) => {
       }
     } catch (_) { /* anon ok */ }
 
-    const sysAddon = creditsHint != null
+    const sysAddon = (creditsHint != null
       ? `\n\nКОНТЕКСТ ПОЛЬЗОВАТЕЛЯ: текущий баланс = ${creditsHint} кредитов. Используй это значение в render_billing_card.`
-      : '';
+      : '')
+      + (kbContext
+        ? `\n\n📚 ВЫПИСКИ ИЗ БАЗЫ ЗНАНИЙ (используй ПРИОРИТЕТНО — это профессиональная литература по SEO, загруженная админом):\n\n${kbContext}\n\nПри использовании этих выписок цитируй источник в формате «(источник: «Название книги»)». Если выписки не дают прямого ответа — отвечай по своим знаниям + функционал платформы.`
+        : '');
 
     const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
