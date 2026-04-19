@@ -273,6 +273,7 @@ async function processUserMessage(
     let card: CardPayload | null = null;
     if (rawCard?.name === 'render_tfidf_alert') card = { name: 'render_tfidf_alert', args: rawCard.args };
     else if (rawCard?.name === 'render_sge_blueprint') card = { name: 'render_sge_blueprint', args: rawCard.args };
+    else if (rawCard?.name === 'render_register_cta') card = { name: 'render_register_cta', args: {} };
 
     return {
       text: text || '🤖 Ответ пуст. Уточните вопрос.',
