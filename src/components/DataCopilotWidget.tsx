@@ -4,75 +4,32 @@ import {
   XCircle, Wand2, CreditCard, Activity, Bot, User as UserIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 /* ──────────────────── Types ──────────────────── */
-type IntentAction =
-  | 'ACTION_TFIDF_ANALYZE'
-  | 'ACTION_SGE_BLUEPRINT'
-  | 'ACTION_STEALTH_REWRITE'
-  | 'ACTION_CREDIT_BALANCE'
-  | 'ACTION_DEFAULT';
+type CardName =
+  | 'render_tfidf_alert'
+  | 'render_sge_blueprint'
+  | 'render_stealth_result'
+  | 'render_billing_card';
+
+interface CardPayload { name: CardName; args: any; }
 
 interface Message {
   id: string;
-  role: 'user' | 'ai';
+  role: 'user' | 'assistant';
   text: string;
-  card?: IntentAction;
+  card?: CardPayload | null;
   ts: number;
 }
 
-/* ──────────────────── Intent Router ──────────────────── */
-function classifyIntent(text: string): IntentAction {
-  const t = text.toLowerCase();
-  if (/(спам|переспам|tf-?idf|ципф|zipf|плотност)/.test(t)) return 'ACTION_TFIDF_ANALYZE';
-  if (/(sge|chatgpt|perplexity|claude|структур|ai-поиск|blueprint|ai\s)/.test(t)) return 'ACTION_SGE_BLUEPRINT';
-  if (/(stealth|очеловеч|lsi|редактор|текст|humanness|forge)/.test(t)) return 'ACTION_STEALTH_REWRITE';
-  if (/(кредит|баланс|batch|парсинг|загрузк|тариф|оплат)/.test(t)) return 'ACTION_CREDIT_BALANCE';
-  return 'ACTION_DEFAULT';
-}
-
-async function processUserMessage(text: string): Promise<{ text: string; card?: IntentAction }> {
-  await new Promise((r) => setTimeout(r, 500 + Math.random() * 400));
-  const intent = classifyIntent(text);
-  switch (intent) {
-    case 'ACTION_TFIDF_ANALYZE':
-      return {
-        text:
-          'Обнаружено нарушение **закона Ципфа**: частотное распределение топ-токенов отклоняется от ожидаемой кривой 1/n. Ключ «купить» доминирует над медианой ТОП-10 в **3.4×** — классический сигнал коммерческого переспама. Поисковые алгоритмы (Я: «Палех», G: «Helpful Content») понизят страницу в выдаче.\n\n**Рекомендация**: сократить плотность до 2–4%, добавить LSI из конкурентов.',
-        card: 'ACTION_TFIDF_ANALYZE',
-      };
-    case 'ACTION_SGE_BLUEPRINT':
-      return {
-        text:
-          'Для попадания в **AI-ответы (SGE / ChatGPT / Perplexity)** страница должна соответствовать «Золотому Blueprint». Анализ показал критичные пробелы: отсутствует Definition Box в первых 200 словах и низкий Information Gain.\n\n**Приоритет P1**: добавить TL;DR-блок + JSON-LD `FAQPage`.',
-        card: 'ACTION_SGE_BLUEPRINT',
-      };
-    case 'ACTION_STEALTH_REWRITE':
-      return {
-        text:
-          '⚙️ **Initiating Stealth Engine** (методика DrMax)…\n\nПрименены: вариативность ритма предложений, замена шаблонных коннекторов, локализация фразеологии, инъекция LSI-кластера. AI-детекторы (GPTZero, Originality.ai) больше не классифицируют текст как машинный.',
-        card: 'ACTION_STEALTH_REWRITE',
-      };
-    case 'ACTION_CREDIT_BALANCE':
-      return {
-        text:
-          '💳 Текущий баланс и расход кредитов. **Batch-режим** обрабатывает 2–5 URL параллельно, каждый URL = 1 кредит. Гео-таргетинг и AI-аналитика входят в стоимость без доплаты.',
-        card: 'ACTION_CREDIT_BALANCE',
-      };
-    default:
-      return {
-        text:
-          '👋 Я **Data Copilot** — аналитический ассистент SEO-Аудит. Могу помочь с:\n\n• 📊 **TF-IDF / Закон Ципфа** — диагностика переспама\n• 🤖 **SGE Predictor** — оптимизация под AI-поиск\n• ✍️ **Stealth Engine** — очеловечивание AI-контента\n• 💳 **Кредиты и Batch** — управление балансом\n\nЗадайте вопрос или используйте ключевые слова: *tf-idf, sge, stealth, кредиты*.',
-      };
-  }
-}
-
-/* ──────────────────── Markdown-lite renderer ──────────────────── */
+/* ──────────────────── Markdown-lite ──────────────────── */
 function MdText({ text }: { text: string }) {
-  const lines = text.split('\n');
+  if (!text) return null;
   return (
     <div className="space-y-1.5 text-[13px] leading-relaxed">
-      {lines.map((line, i) => {
+      {text.split('\n').map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1" />;
         const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
         return (
@@ -91,14 +48,8 @@ function MdText({ text }: { text: string }) {
   );
 }
 
-/* ──────────────────── Agentic UI Cards ──────────────────── */
-function TfIdfCard() {
-  const rows = [
-    { word: 'купить', freq: '9.0%', median: '2.6%', status: 'spam' },
-    { word: 'недорого', freq: '5.4%', median: '1.8%', status: 'spam' },
-    { word: 'доставка', freq: '2.1%', median: '2.0%', status: 'ok' },
-    { word: 'гарантия', freq: '0.3%', median: '1.5%', status: 'low' },
-  ];
+/* ──────────────────── Cards ──────────────────── */
+function TfIdfCard({ rows = [] }: { rows?: Array<{ word: string; freq: string; median: string; status: string }> }) {
   return (
     <div className="mt-2 rounded-lg border border-destructive/40 bg-destructive/5 overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-destructive/30 bg-destructive/10">
@@ -109,9 +60,9 @@ function TfIdfCard() {
         <div className="grid grid-cols-[1.4fr_0.8fr_0.8fr_0.7fr] px-3 py-1.5 text-muted-foreground border-b border-border/40 bg-muted/30">
           <span>TOKEN</span><span>FREQ</span><span>MED.</span><span>STATUS</span>
         </div>
-        {rows.map((r) => (
-          <div key={r.word} className="grid grid-cols-[1.4fr_0.8fr_0.8fr_0.7fr] px-3 py-1.5 border-b border-border/20 last:border-0">
-            <span className="text-foreground">{r.word}</span>
+        {rows.map((r, i) => (
+          <div key={i} className="grid grid-cols-[1.4fr_0.8fr_0.8fr_0.7fr] px-3 py-1.5 border-b border-border/20 last:border-0">
+            <span className="text-foreground truncate">{r.word}</span>
             <span className={r.status === 'spam' ? 'text-destructive font-semibold' : 'text-foreground'}>{r.freq}</span>
             <span className="text-muted-foreground">{r.median}</span>
             <span className={
@@ -127,15 +78,8 @@ function TfIdfCard() {
   );
 }
 
-function SgeBlueprintCard() {
-  const items = [
-    { label: 'Definition Box (200w)', status: 'missing' },
-    { label: 'FAQ Schema (JSON-LD)', status: 'valid' },
-    { label: 'Information Gain Score', status: 'low' },
-    { label: 'Author E-E-A-T', status: 'valid' },
-    { label: 'TL;DR Summary Block', status: 'missing' },
-    { label: 'Comparison Table', status: 'low' },
-  ];
+function SgeBlueprintCard({ items = [], readiness = 0 }: { items?: Array<{ label: string; status: string }>; readiness?: number }) {
+  const color = readiness >= 70 ? 'text-emerald-500' : readiness >= 40 ? 'text-amber-500' : 'text-destructive';
   return (
     <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-primary/30 bg-primary/10">
@@ -143,25 +87,27 @@ function SgeBlueprintCard() {
         <span className="text-xs font-semibold text-primary uppercase tracking-wider">Golden Blueprint · SGE Audit</span>
       </div>
       <div className="divide-y divide-border/20">
-        {items.map((i) => (
-          <div key={i.label} className="flex items-center justify-between px-3 py-2 text-[12px]">
-            <span className="text-foreground">{i.label}</span>
+        {items.map((it, i) => (
+          <div key={i} className="flex items-center justify-between px-3 py-2 text-[12px]">
+            <span className="text-foreground">{it.label}</span>
             <span className="flex items-center gap-1.5 font-mono text-[11px]">
-              {i.status === 'valid' && <><CheckCircle2 className="w-3 h-3 text-emerald-500" /><span className="text-emerald-500">VALID</span></>}
-              {i.status === 'missing' && <><XCircle className="w-3 h-3 text-destructive" /><span className="text-destructive">MISSING</span></>}
-              {i.status === 'low' && <><AlertTriangle className="w-3 h-3 text-amber-500" /><span className="text-amber-500">LOW</span></>}
+              {it.status === 'valid' && <><CheckCircle2 className="w-3 h-3 text-emerald-500" /><span className="text-emerald-500">VALID</span></>}
+              {it.status === 'missing' && <><XCircle className="w-3 h-3 text-destructive" /><span className="text-destructive">MISSING</span></>}
+              {it.status === 'low' && <><AlertTriangle className="w-3 h-3 text-amber-500" /><span className="text-amber-500">LOW</span></>}
             </span>
           </div>
         ))}
       </div>
       <div className="px-3 py-2 border-t border-border/40 bg-muted/30 text-[11px] font-mono text-muted-foreground">
-        SGE_READINESS: <span className="text-amber-500 font-semibold">42 / 100</span>
+        SGE_READINESS: <span className={`${color} font-semibold`}>{readiness} / 100</span>
       </div>
     </div>
   );
 }
 
-function StealthRewriteCard() {
+function StealthRewriteCard({ before = '', after = '', humanness = 0, seo_health = 0, lsi_added = 0 }: {
+  before?: string; after?: string; humanness?: number; seo_health?: number; lsi_added?: number;
+}) {
   return (
     <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-500/30 bg-emerald-500/10">
@@ -171,28 +117,24 @@ function StealthRewriteCard() {
       <div className="p-3 space-y-2.5">
         <div className="rounded border border-destructive/30 bg-destructive/5 p-2 font-mono text-[11px]">
           <div className="text-destructive/70 mb-1">— BEFORE</div>
-          <div className="text-foreground/80 line-through decoration-destructive/40">
-            Кроме того, важно отметить, что наш продукт является лучшим решением на рынке.
-          </div>
+          <div className="text-foreground/80 line-through decoration-destructive/40">{before}</div>
         </div>
         <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2 font-mono text-[11px]">
           <div className="text-emerald-500/80 mb-1">+ AFTER</div>
-          <div className="text-foreground">
-            Продукт держит лидерство в нише — это подтверждают независимые тесты NIST 2026.
-          </div>
+          <div className="text-foreground">{after}</div>
         </div>
         <div className="grid grid-cols-3 gap-2 pt-1">
           <div className="rounded bg-muted/40 p-2 text-center">
             <div className="font-mono text-[10px] text-muted-foreground">HUMANNESS</div>
-            <div className="font-mono text-base font-bold text-emerald-500">94%</div>
+            <div className="font-mono text-base font-bold text-emerald-500">{humanness}%</div>
           </div>
           <div className="rounded bg-muted/40 p-2 text-center">
             <div className="font-mono text-[10px] text-muted-foreground">SEO HEALTH</div>
-            <div className="font-mono text-base font-bold text-primary">88%</div>
+            <div className="font-mono text-base font-bold text-primary">{seo_health}%</div>
           </div>
           <div className="rounded bg-muted/40 p-2 text-center">
             <div className="font-mono text-[10px] text-muted-foreground">LSI INJ.</div>
-            <div className="font-mono text-base font-bold text-foreground">+12</div>
+            <div className="font-mono text-base font-bold text-foreground">+{lsi_added}</div>
           </div>
         </div>
       </div>
@@ -200,7 +142,7 @@ function StealthRewriteCard() {
   );
 }
 
-function CreditBalanceCard() {
+function CreditBalanceCard({ credits = 0, plan = '—' }: { credits?: number; plan?: string }) {
   return (
     <div className="mt-2 rounded-lg border border-primary/30 bg-card overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border/40 bg-muted/30">
@@ -211,11 +153,11 @@ function CreditBalanceCard() {
         <div className="flex items-end justify-between">
           <div>
             <div className="font-mono text-[10px] text-muted-foreground uppercase">Remaining Credits</div>
-            <div className="font-mono text-3xl font-bold text-primary leading-none mt-1">12</div>
+            <div className="font-mono text-3xl font-bold text-primary leading-none mt-1">{credits}</div>
           </div>
           <div className="text-right">
             <div className="font-mono text-[10px] text-muted-foreground uppercase">Plan</div>
-            <div className="font-mono text-xs text-foreground mt-1">PRO · monthly</div>
+            <div className="font-mono text-xs text-foreground mt-1">{plan}</div>
           </div>
         </div>
         <div className="font-mono text-[11px] text-muted-foreground border-t border-border/40 pt-2">
@@ -223,7 +165,7 @@ function CreditBalanceCard() {
           <div className="flex justify-between"><span>GEO Audit v2.0</span><span className="text-foreground">1 credit</span></div>
           <div className="flex justify-between"><span>Stealth Engine</span><span className="text-emerald-500">FREE</span></div>
         </div>
-        <Button size="sm" className="w-full h-8 text-xs bg-primary hover:bg-primary/90">
+        <Button size="sm" className="w-full h-8 text-xs bg-primary hover:bg-primary/90" onClick={() => (window.location.href = '/account')}>
           Купить кредиты
         </Button>
       </div>
@@ -231,12 +173,12 @@ function CreditBalanceCard() {
   );
 }
 
-function CardRenderer({ card }: { card: IntentAction }) {
-  switch (card) {
-    case 'ACTION_TFIDF_ANALYZE': return <TfIdfCard />;
-    case 'ACTION_SGE_BLUEPRINT': return <SgeBlueprintCard />;
-    case 'ACTION_STEALTH_REWRITE': return <StealthRewriteCard />;
-    case 'ACTION_CREDIT_BALANCE': return <CreditBalanceCard />;
+function CardRenderer({ card }: { card: CardPayload }) {
+  switch (card.name) {
+    case 'render_tfidf_alert':   return <TfIdfCard rows={card.args?.rows} />;
+    case 'render_sge_blueprint': return <SgeBlueprintCard items={card.args?.items} readiness={card.args?.readiness} />;
+    case 'render_stealth_result':return <StealthRewriteCard {...(card.args || {})} />;
+    case 'render_billing_card':  return <CreditBalanceCard credits={card.args?.credits} plan={card.args?.plan} />;
     default: return null;
   }
 }
@@ -249,9 +191,9 @@ export default function DataCopilotWidget() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'init',
-      role: 'ai',
+      role: 'assistant',
       text:
-        '👋 Я **Data Copilot** — аналитический ассистент SEO-Аудит.\n\nДоступные модули:\n• 📊 TF-IDF / Закон Ципфа\n• 🤖 SGE Predictor\n• ✍️ Stealth Engine\n• 💳 Кредиты и Batch\n\nСпросите что-нибудь или нажмите быстрый чип ниже.',
+        '👋 Я **Data Copilot** — аналитический ассистент SEO-Аудит на базе Gemini 2.5 Flash.\n\nМогу помочь с:\n• 📊 TF-IDF / Закон Ципфа\n• 🤖 SGE Predictor\n• ✍️ Stealth Engine\n• 💳 Кредиты и Batch\n\nЗадайте вопрос или используйте чипы ниже.',
       ts: Date.now(),
     },
   ]);
@@ -266,23 +208,61 @@ export default function DataCopilotWidget() {
     if (!text || busy) return;
     setInput('');
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', text, ts: Date.now() };
-    setMessages((m) => [...m, userMsg]);
+    const history = [...messages, userMsg];
+    setMessages(history);
     setBusy(true);
-    const res = await processUserMessage(text);
-    setMessages((m) => [...m, { id: crypto.randomUUID(), role: 'ai', text: res.text, card: res.card, ts: Date.now() }]);
-    setBusy(false);
+
+    try {
+      const apiMessages = history
+        .filter((m) => m.id !== 'init')
+        .map((m) => ({ role: m.role, content: m.text }));
+
+      const { data, error } = await supabase.functions.invoke('copilot-chat', {
+        body: { messages: apiMessages },
+      });
+
+      if (error) {
+        const status = (error as any).context?.status;
+        if (status === 429) toast.error('Превышен лимит запросов. Попробуйте через минуту.');
+        else if (status === 402) toast.error('Закончились кредиты Lovable AI.');
+        else toast.error('Не удалось получить ответ от AI.');
+        throw error;
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
+        throw new Error(data.error);
+      }
+
+      setMessages((m) => [...m, {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        text: data?.text || '',
+        card: data?.card || null,
+        ts: Date.now(),
+      }]);
+    } catch (e) {
+      console.error('[copilot] send error', e);
+      setMessages((m) => [...m, {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        text: '⚠️ Не удалось получить ответ. Попробуйте ещё раз.',
+        ts: Date.now(),
+      }]);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const chips = [
-    { label: 'TF-IDF переспам', q: 'Почему страница попала под переспам tf-idf?' },
-    { label: 'SGE структура', q: 'Как попасть в SGE и AI-ответы?' },
-    { label: 'Stealth текст', q: 'Очеловечь AI-текст через stealth' },
+    { label: 'TF-IDF переспам', q: 'Проанализируй переспам по TF-IDF на коммерческой странице' },
+    { label: 'SGE структура', q: 'Как попасть в SGE и AI-ответы? Сделай аудит структуры' },
+    { label: 'Stealth текст', q: 'Очеловечь типичный AI-абзац через Stealth Engine' },
     { label: 'Кредиты', q: 'Сколько у меня кредитов и как работает batch?' },
   ];
 
   return (
     <>
-      {/* Floating button */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
@@ -294,7 +274,6 @@ export default function DataCopilotWidget() {
         </button>
       )}
 
-      {/* Chat window */}
       {open && (
         <div
           className="fixed bottom-6 right-6 z-[60] flex flex-col rounded-xl border border-border/60 bg-background shadow-2xl shadow-black/40 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
@@ -308,13 +287,13 @@ export default function DataCopilotWidget() {
               </div>
               <div className="leading-tight">
                 <div className="text-[13px] font-bold text-foreground tracking-tight">Data Copilot</div>
-                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">SEO-Аудит · v2.0</div>
+                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">SEO-Аудит · Gemini 2.5</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-emerald-500/30 bg-emerald-500/10">
                 <Activity className="w-3 h-3 text-emerald-500" />
-                <span className="text-[10px] font-mono font-semibold text-emerald-500 uppercase">Normal</span>
+                <span className="text-[10px] font-mono font-semibold text-emerald-500 uppercase">Live</span>
               </div>
               <button
                 onClick={() => setOpen(false)}
@@ -397,7 +376,7 @@ export default function DataCopilotWidget() {
               </button>
             </div>
             <div className="mt-1.5 text-[10px] font-mono text-muted-foreground/70 text-center uppercase tracking-wider">
-              Mock data · Intent Router v1
+              Powered by Lovable AI · Tool-calling enabled
             </div>
           </div>
         </div>
