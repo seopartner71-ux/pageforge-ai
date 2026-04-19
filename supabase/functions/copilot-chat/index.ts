@@ -231,7 +231,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ text, card }), {
+    return new Response(JSON.stringify({ text, card, kbSources }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
