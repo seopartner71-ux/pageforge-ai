@@ -419,6 +419,7 @@ export default function DataCopilotWidget() {
                   }`}>
                     <MdText text={m.text} />
                     {m.card && <CardRenderer card={m.card} />}
+                    {m.role === 'assistant' && m.kbSources && m.kbSources.length > 0 && <KbSourcesBlock sources={m.kbSources} />}
                   </div>
                 </div>
               </div>
