@@ -19,8 +19,9 @@ import {
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { AdminOverviewTab } from '@/components/admin/AdminOverviewTab';
+import { CopilotChatsTab } from '@/components/admin/CopilotChatsTab';
 import { StatCard } from '@/components/dashboard/StatCard';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, MessageSquare } from 'lucide-react';
 
 interface ApiSetting {
   id: string;
