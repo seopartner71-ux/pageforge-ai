@@ -118,8 +118,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+    const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+    if (!OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY not configured');
 
     const { messages = [], userCredits } = await req.json();
 
@@ -149,11 +149,13 @@ Deno.serve(async (req) => {
       ? `\n\nКОНТЕКСТ ПОЛЬЗОВАТЕЛЯ: текущий баланс = ${creditsHint} кредитов. Используй это значение в render_billing_card.`
       : '';
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://seo-audit.lovable.app',
+        'X-Title': 'SEO-Audit Data Copilot',
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
@@ -169,18 +171,18 @@ Deno.serve(async (req) => {
     if (!aiResponse.ok) {
       const status = aiResponse.status;
       const errText = await aiResponse.text();
-      console.error('AI gateway error', status, errText);
+      console.error('OpenRouter error', status, errText);
       if (status === 429) {
-        return new Response(JSON.stringify({ error: 'Превышен лимит запросов. Попробуйте через минуту.' }), {
+        return new Response(JSON.stringify({ error: 'Превышен лимит OpenRouter. Попробуйте через минуту.' }), {
           status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: 'Закончились кредиты Lovable AI. Пополните баланс в Settings → Workspace → Usage.' }), {
-          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      if (status === 402 || status === 401) {
+        return new Response(JSON.stringify({ error: 'Проблема с балансом/ключом OpenRouter. Проверьте OPENROUTER_API_KEY и баланс на openrouter.ai.' }), {
+          status: status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      throw new Error(`AI gateway ${status}`);
+      throw new Error(`OpenRouter ${status}: ${errText.slice(0, 200)}`);
     }
 
     const data = await aiResponse.json();
