@@ -209,11 +209,37 @@ function SupportTicketCard({ originalQuery }: { originalQuery: string }) {
   );
 }
 
+function RegisterCtaCard() {
+  return (
+    <div className="mt-2 rounded-md border border-primary/40 bg-primary/5 p-3">
+      <div className="flex items-start gap-2">
+        <div className="text-base">🔒</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[12px] font-semibold text-foreground mb-1">
+            Полный экспертный разбор — после регистрации
+          </div>
+          <div className="text-[11px] text-muted-foreground mb-2 leading-relaxed">
+            Зарегистрируйтесь, чтобы получить развёрнутые ответы, доступ к ТФ-ИДФ, Предиктору ИИ-выдачи, Стелс-движку и пакетному анализу.
+          </div>
+          <Button
+            size="sm"
+            className="h-7 text-[11px] gap-1.5"
+            onClick={() => { window.location.href = '/auth'; }}
+          >
+            <Sparkles className="w-3 h-3" /> Зарегистрироваться бесплатно
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CardRenderer({ card }: { card: CardPayload }) {
   switch (card.name) {
     case 'render_tfidf_alert':    return <TfIdfCard />;
     case 'render_sge_blueprint':  return <SgeBlueprintCard />;
     case 'render_support_ticket': return <SupportTicketCard originalQuery={card.args?.query || ''} />;
+    case 'render_register_cta':   return <RegisterCtaCard />;
     default: return null;
   }
 }
