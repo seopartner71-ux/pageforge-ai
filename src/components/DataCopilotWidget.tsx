@@ -222,12 +222,13 @@ function CardRenderer({ card }: { card: CardPayload }) {
 async function processUserMessage(
   userText: string,
   history: { role: 'user' | 'assistant'; content: string }[],
-): Promise<{ text: string; card: CardPayload | null; intent: string }> {
+): Promise<{ text: string; card: CardPayload | null; kbSources: KbSource[]; intent: string }> {
   // Явный вызов саппорта — без обращения к AI.
   if (shouldForceSupport(userText)) {
     return {
       text: '🛡 Понял, передаю обращение **техподдержке**. Опишите детали в форме ниже — оператор ответит в уведомлениях (🔔) и на email.',
       card: { name: 'render_support_ticket', args: { query: userText } },
+      kbSources: [],
       intent: 'ACTION_FORCE_SUPPORT',
     };
   }
@@ -241,25 +242,47 @@ async function processUserMessage(
 
     const text: string = (data as any)?.text || '';
     const rawCard = (data as any)?.card as { name: string; args: any } | null;
+    const kbSources: KbSource[] = Array.isArray((data as any)?.kbSources) ? (data as any).kbSources : [];
 
     let card: CardPayload | null = null;
     if (rawCard?.name === 'render_tfidf_alert') card = { name: 'render_tfidf_alert', args: rawCard.args };
     else if (rawCard?.name === 'render_sge_blueprint') card = { name: 'render_sge_blueprint', args: rawCard.args };
-    // render_stealth_result / render_billing_card пока без локальных рендереров — пропускаем
 
     return {
       text: text || '🤖 Ответ пуст. Уточните вопрос.',
       card,
-      intent: rawCard?.name ? `TOOL:${rawCard.name}` : 'TEXT',
+      kbSources,
+      intent: rawCard?.name ? `TOOL:${rawCard.name}` : (kbSources.length > 0 ? 'RAG' : 'TEXT'),
     };
   } catch (e: any) {
     console.error('[copilot] AI error', e);
     return {
       text: '⚠ Не удалось получить ответ от AI (' + (e?.message || 'ошибка сети') + '). Если вопрос срочный — создайте тикет:',
       card: { name: 'render_support_ticket', args: { query: userText } },
+      kbSources: [],
       intent: 'ERROR',
     };
   }
+}
+
+/* Источники из базы знаний под ответом */
+function KbSourcesBlock({ sources }: { sources: KbSource[] }) {
+  if (!sources || sources.length === 0) return null;
+  return (
+    <div className="mt-2 pt-2 border-t border-border/40">
+      <div className="flex items-center gap-1.5 text-[10px] font-mono text-primary uppercase tracking-wider mb-1">
+        <BookOpen className="w-3 h-3" />
+        Источники из базы знаний
+      </div>
+      <ul className="space-y-0.5">
+        {sources.map((s, i) => (
+          <li key={i} className="text-[11px] text-muted-foreground truncate">
+            • <span className="text-foreground">{s.title}</span>{s.heading ? ` · ${s.heading}` : ''}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 /* ──────────────────── Main Widget ──────────────────── */
