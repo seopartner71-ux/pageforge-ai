@@ -243,7 +243,7 @@ Deno.serve(async (req) => {
     const toolCalls = choice?.tool_calls || [];
 
     let card: { name: string; args: any } | null = null;
-    if (toolCalls.length > 0) {
+    if (isAuthenticated && toolCalls.length > 0) {
       const tc = toolCalls[0];
       try {
         card = { name: tc.function.name, args: JSON.parse(tc.function.arguments || '{}') };
@@ -252,7 +252,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ text, card, kbSources }), {
+    // Для гостей — добавляем карточку с CTA на регистрацию
+    if (!isAuthenticated) {
+      card = { name: 'render_register_cta', args: {} };
+    }
+
+    return new Response(JSON.stringify({ text, card, kbSources, isGuest: !isAuthenticated }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
