@@ -9,6 +9,21 @@ import { toast } from 'sonner';
 import { BookOpen, Trash2, Upload, Loader2, FileText } from 'lucide-react';
 import mammoth from 'mammoth';
 
+const PDFJS_VERSION = '4.7.76';
+const PDFJS_CDN = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.min.mjs`;
+const PDFJS_WORKER = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+
+let pdfjsPromise: Promise<any> | null = null;
+function loadPdfjs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import(/* @vite-ignore */ PDFJS_CDN).then((mod: any) => {
+      mod.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      return mod;
+    });
+  }
+  return pdfjsPromise;
+}
+
 interface KbDoc {
   id: string;
   title: string;
