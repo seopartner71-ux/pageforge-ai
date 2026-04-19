@@ -26,23 +26,14 @@ interface Message {
   ts: number;
 }
 
-/* ──────────────────── Strict Intent Router ──────────────────── */
-// БЕЛЫЙ СПИСОК: только эти темы разрешены. Всё остальное → саппорт.
-const RX_GREETING = /(привет|здравствуй|здорово|hi|hello|помощь|help|что умеешь|возможности)/i;
-const RX_TFIDF    = /(tf-?idf|спам|переспам|ципф|zipf|плотность|density|n-?грам|аудит)/i;
-const RX_SGE      = /(sge|ai-?поиск|ai search|chatgpt|perplexity|gemini|структур|blueprint|definition|faq schema|information gain)/i;
-const RX_SUPPORT  = /(оператор|саппорт|поддержк|человек|ошибк|баг|не работает|сломал|жалоб|вопрос не по теме)/i;
+/* ──────────────────── Intent Router ────────────────────
+ * Локально определяем только явный вызов саппорта. Всё остальное → реальный AI
+ * через edge-функцию copilot-chat (openrouter, gemini-2.5-flash + tool calls).
+ * AI сам решит, нужно ли рендерить карточку (TF-IDF / SGE / Stealth / Billing). */
+const RX_FORCE_SUPPORT = /(оператор|саппорт|поддержк|позов(и|ите) человек|жив(ой|ого) человек|тикет|сломал|не работает|баг)/i;
 
-function classifyIntent(text: string): IntentAction {
-  const t = text.trim();
-  if (!t) return 'ACTION_UNKNOWN_SUPPORT';
-  // Принудительный вызов саппорта — высший приоритет
-  if (RX_SUPPORT.test(t)) return 'ACTION_UNKNOWN_SUPPORT';
-  if (RX_GREETING.test(t)) return 'ACTION_GREETING';
-  if (RX_TFIDF.test(t))    return 'ACTION_TFIDF_ANALYZE';
-  if (RX_SGE.test(t))      return 'ACTION_SGE_BLUEPRINT';
-  // FALLBACK: всё, чего нет в белом списке → саппорт. Никаких галлюцинаций.
-  return 'ACTION_UNKNOWN_SUPPORT';
+function shouldForceSupport(text: string): boolean {
+  return RX_FORCE_SUPPORT.test(text.trim());
 }
 
 /* ──────────────────── Markdown-lite ──────────────────── */
