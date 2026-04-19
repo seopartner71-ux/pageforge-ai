@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Sparkles, X, Send, LineChart, AlertTriangle, CheckCircle2,
-  XCircle, LifeBuoy, Activity, Bot, User as UserIcon, Loader2,
+  XCircle, LifeBuoy, Activity, Bot, User as UserIcon, Loader2, BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
