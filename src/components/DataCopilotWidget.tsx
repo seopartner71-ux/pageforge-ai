@@ -356,7 +356,7 @@ export default function DataCopilotWidget() {
               </div>
               <div className="leading-tight">
                 <div className="text-[13px] font-bold text-foreground tracking-tight">Data Copilot</div>
-                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">SEO-Аудит · Strict Mode</div>
+                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">SEO-Аудит · AI Mode</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
