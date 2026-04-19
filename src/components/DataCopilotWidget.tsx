@@ -368,7 +368,7 @@ export default function DataCopilotWidget() {
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-4 space-y-4 bg-background">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-4 bg-background">
             {messages.map((m) => (
               <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
                 <div className={`w-7 h-7 rounded-md shrink-0 flex items-center justify-center border ${
