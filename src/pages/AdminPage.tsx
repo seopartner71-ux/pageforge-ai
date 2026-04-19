@@ -68,6 +68,7 @@ export default function AdminPage() {
             <TabsTrigger value="stats" className="gap-1.5"><BarChart3 className="w-4 h-4" /> Статистика</TabsTrigger>
             <TabsTrigger value="logs" className="gap-1.5"><ScrollText className="w-4 h-4" /> Логи анализов</TabsTrigger>
             <TabsTrigger value="copilot" className="gap-1.5"><MessageSquare className="w-4 h-4" /> Диалоги Copilot</TabsTrigger>
+            <TabsTrigger value="kb" className="gap-1.5"><BookOpen className="w-4 h-4" /> База знаний</TabsTrigger>
             <TabsTrigger value="system" className="gap-1.5"><ShieldCheck className="w-4 h-4" /> Системная проверка</TabsTrigger>
             <TabsTrigger value="api" className="gap-1.5"><Settings className="w-4 h-4" /> API ключи</TabsTrigger>
           </TabsList>
@@ -78,6 +79,7 @@ export default function AdminPage() {
           <TabsContent value="stats"><StatsTab /></TabsContent>
           <TabsContent value="logs"><AnalysisLogsTab /></TabsContent>
           <TabsContent value="copilot"><CopilotChatsTab /></TabsContent>
+          <TabsContent value="kb"><KnowledgeBaseTab /></TabsContent>
           <TabsContent value="system"><SystemCheckTab /></TabsContent>
         </Tabs>
       </main>
