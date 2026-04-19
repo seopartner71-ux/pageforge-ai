@@ -26,23 +26,14 @@ interface Message {
   ts: number;
 }
 
-/* ──────────────────── Strict Intent Router ──────────────────── */
-// БЕЛЫЙ СПИСОК: только эти темы разрешены. Всё остальное → саппорт.
-const RX_GREETING = /(привет|здравствуй|здорово|hi|hello|помощь|help|что умеешь|возможности)/i;
-const RX_TFIDF    = /(tf-?idf|спам|переспам|ципф|zipf|плотность|density|n-?грам|аудит)/i;
-const RX_SGE      = /(sge|ai-?поиск|ai search|chatgpt|perplexity|gemini|структур|blueprint|definition|faq schema|information gain)/i;
-const RX_SUPPORT  = /(оператор|саппорт|поддержк|человек|ошибк|баг|не работает|сломал|жалоб|вопрос не по теме)/i;
+/* ──────────────────── Intent Router ────────────────────
+ * Локально определяем только явный вызов саппорта. Всё остальное → реальный AI
+ * через edge-функцию copilot-chat (openrouter, gemini-2.5-flash + tool calls).
+ * AI сам решит, нужно ли рендерить карточку (TF-IDF / SGE / Stealth / Billing). */
+const RX_FORCE_SUPPORT = /(оператор|саппорт|поддержк|позов(и|ите) человек|жив(ой|ого) человек|тикет|сломал|не работает|баг)/i;
 
-function classifyIntent(text: string): IntentAction {
-  const t = text.trim();
-  if (!t) return 'ACTION_UNKNOWN_SUPPORT';
-  // Принудительный вызов саппорта — высший приоритет
-  if (RX_SUPPORT.test(t)) return 'ACTION_UNKNOWN_SUPPORT';
-  if (RX_GREETING.test(t)) return 'ACTION_GREETING';
-  if (RX_TFIDF.test(t))    return 'ACTION_TFIDF_ANALYZE';
-  if (RX_SGE.test(t))      return 'ACTION_SGE_BLUEPRINT';
-  // FALLBACK: всё, чего нет в белом списке → саппорт. Никаких галлюцинаций.
-  return 'ACTION_UNKNOWN_SUPPORT';
+function shouldForceSupport(text: string): boolean {
+  return RX_FORCE_SUPPORT.test(text.trim());
 }
 
 /* ──────────────────── Markdown-lite ──────────────────── */
@@ -224,53 +215,47 @@ function CardRenderer({ card }: { card: CardPayload }) {
   }
 }
 
-/* ──────────────────── Intent Processor ──────────────────── */
-function processUserMessage(userText: string): { text: string; card: CardPayload | null } {
-  const intent = classifyIntent(userText);
+/* ──────────────────── AI Processor (real openrouter via edge fn) ──────────────────── */
+async function processUserMessage(
+  userText: string,
+  history: { role: 'user' | 'assistant'; content: string }[],
+): Promise<{ text: string; card: CardPayload | null; intent: string }> {
+  // Явный вызов саппорта — без обращения к AI.
+  if (shouldForceSupport(userText)) {
+    return {
+      text: '🛡 Понял, передаю обращение **техподдержке**. Опишите детали в форме ниже — оператор ответит в уведомлениях (🔔) и на email.',
+      card: { name: 'render_support_ticket', args: { query: userText } },
+      intent: 'ACTION_FORCE_SUPPORT',
+    };
+  }
 
-  switch (intent) {
-    case 'ACTION_GREETING':
-      return {
-        text:
-          '👋 Я **Data Copilot** — строгий аналитический ассистент SEO-Аудит.\n\n' +
-          'Я консультирую **только** по 3 темам:\n' +
-          '• 📊 **TF-IDF / Закон Ципфа** — переспам, плотность, n-граммы\n' +
-          '• 🤖 **SGE Blueprint** — оптимизация под ChatGPT/Perplexity/Gemini\n' +
-          '• 🛡 **Техподдержка** — всё остальное передам оператору\n\n' +
-          'Задайте конкретный вопрос или нажмите чип ниже.',
-        card: null,
-      };
+  try {
+    const { data, error } = await supabase.functions.invoke('copilot-chat', {
+      body: { messages: [...history, { role: 'user', content: userText }] },
+    });
+    if (error) throw error;
+    if ((data as any)?.error) throw new Error((data as any).error);
 
-    case 'ACTION_TFIDF_ANALYZE':
-      return {
-        text:
-          '📊 **TF-IDF / Закон Ципфа.** Распределение частот токенов на странице должно следовать степенному закону: топ-1 слово ≈ 2× топ-2, ≈ 3× топ-3 и т.д.\n\n' +
-          'Когда коммерческий якорь («купить», «недорого») превышает медиану ТОП-10 в **3+ раза** — это переспам, и Яндекс/Google понижают релевантность.\n\n' +
-          'Демо-карточка ниже показывает типичную картину переспама:',
-        card: { name: 'render_tfidf_alert' },
-      };
+    const text: string = (data as any)?.text || '';
+    const rawCard = (data as any)?.card as { name: string; args: any } | null;
 
-    case 'ACTION_SGE_BLUEPRINT':
-      return {
-        text:
-          '🤖 **Golden Blueprint** — структура, которую AI-системы (SGE, ChatGPT, Perplexity) цитируют чаще всего:\n\n' +
-          '1. **Definition Box** — 60–80 слов прямого ответа в начале\n' +
-          '2. **FAQ Schema** (JSON-LD) — для Featured Snippets\n' +
-          '3. **Information Gain** — уникальные факты, которых нет у конкурентов\n' +
-          '4. **E-E-A-T** — авторство и экспертиза\n' +
-          '5. **TL;DR** — короткое резюме сверху\n\n' +
-          'Аудит вашей страницы:',
-        card: { name: 'render_sge_blueprint' },
-      };
+    let card: CardPayload | null = null;
+    if (rawCard?.name === 'render_tfidf_alert') card = { name: 'render_tfidf_alert', args: rawCard.args };
+    else if (rawCard?.name === 'render_sge_blueprint') card = { name: 'render_sge_blueprint', args: rawCard.args };
+    // render_stealth_result / render_billing_card пока без локальных рендереров — пропускаем
 
-    case 'ACTION_UNKNOWN_SUPPORT':
-    default:
-      return {
-        text:
-          '🛡 Я консультирую **только** по функционалу аналитики платформы: TF-IDF, закон Ципфа и SGE Blueprint.\n\n' +
-          'Ваш вопрос выходит за рамки моих компетенций — для решения я **позову техподдержку**. Опишите задачу подробнее в форме ниже:',
-        card: { name: 'render_support_ticket', args: { query: userText } },
-      };
+    return {
+      text: text || '🤖 Ответ пуст. Уточните вопрос.',
+      card,
+      intent: rawCard?.name ? `TOOL:${rawCard.name}` : 'TEXT',
+    };
+  } catch (e: any) {
+    console.error('[copilot] AI error', e);
+    return {
+      text: '⚠ Не удалось получить ответ от AI (' + (e?.message || 'ошибка сети') + '). Если вопрос срочный — создайте тикет:',
+      card: { name: 'render_support_ticket', args: { query: userText } },
+      intent: 'ERROR',
+    };
   }
 }
 
@@ -313,7 +298,7 @@ export default function DataCopilotWidget() {
     } catch { /* noop */ }
   };
 
-  const send = (raw?: string) => {
+  const send = async (raw?: string) => {
     const text = (raw ?? input).trim();
     if (!text || busy) return;
     setInput('');
@@ -322,19 +307,21 @@ export default function DataCopilotWidget() {
     setBusy(true);
     void logMessage('user', text);
 
-    setTimeout(() => {
-      const intent = classifyIntent(text);
-      const { text: replyText, card } = processUserMessage(text);
-      setMessages((m) => [...m, {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        text: replyText,
-        card,
-        ts: Date.now(),
-      }]);
-      void logMessage('assistant', replyText, intent, card?.name ?? null);
-      setBusy(false);
-    }, 400);
+    // Передаём в AI предыдущую историю (только текст) для контекста
+    const history = messages
+      .filter((m) => m.text)
+      .map((m) => ({ role: m.role, content: m.text }));
+
+    const { text: replyText, card, intent } = await processUserMessage(text, history);
+    setMessages((m) => [...m, {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      text: replyText,
+      card,
+      ts: Date.now(),
+    }]);
+    void logMessage('assistant', replyText, intent, card?.name ?? null);
+    setBusy(false);
   };
 
   const chips = [
@@ -369,7 +356,7 @@ export default function DataCopilotWidget() {
               </div>
               <div className="leading-tight">
                 <div className="text-[13px] font-bold text-foreground tracking-tight">Data Copilot</div>
-                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">SEO-Аудит · Strict Mode</div>
+                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">SEO-Аудит · AI Mode</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
