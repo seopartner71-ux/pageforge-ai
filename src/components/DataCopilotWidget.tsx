@@ -467,13 +467,13 @@ export default function DataCopilotWidget() {
           </div>
 
           {/* Quick chips */}
-          <div className="px-3 py-2 border-t border-border/60 bg-card flex gap-1.5 overflow-x-auto scrollbar-none">
+          <div className="px-3 py-2 border-t border-border/60 bg-card flex flex-wrap gap-1.5">
             {chips.map((c) => (
               <button
                 key={c.label}
                 onClick={() => send(c.q)}
                 disabled={busy}
-                className="shrink-0 text-[11px] font-mono px-2.5 py-1 rounded-md border border-border/60 bg-background hover:bg-primary/10 hover:border-primary/40 hover:text-primary text-muted-foreground transition-colors disabled:opacity-50"
+                className="text-[11px] font-mono px-2.5 py-1 rounded-md border border-border/60 bg-background hover:bg-primary/10 hover:border-primary/40 hover:text-primary text-muted-foreground transition-colors disabled:opacity-50"
               >
                 {c.label}
               </button>
