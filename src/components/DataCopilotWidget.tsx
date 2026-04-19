@@ -279,6 +279,7 @@ export default function DataCopilotWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'init',
@@ -296,6 +297,22 @@ export default function DataCopilotWidget() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, busy]);
 
+  // Логирование диалога в Supabase (для админа). Молча игнорируем ошибки.
+  const logMessage = async (role: 'user' | 'assistant', text: string, intent?: string, cardName?: string | null) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('copilot_messages').insert({
+        user_id: user.id,
+        session_id: sessionIdRef.current,
+        role,
+        text,
+        intent: intent ?? null,
+        card_name: cardName ?? null,
+      });
+    } catch { /* noop */ }
+  };
+
   const send = (raw?: string) => {
     const text = (raw ?? input).trim();
     if (!text || busy) return;
@@ -303,9 +320,10 @@ export default function DataCopilotWidget() {
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', text, ts: Date.now() };
     setMessages((m) => [...m, userMsg]);
     setBusy(true);
+    void logMessage('user', text);
 
-    // Имитируем «обдумывание» 400мс — без AI-вызова, чисто локальный роутер.
     setTimeout(() => {
+      const intent = classifyIntent(text);
       const { text: replyText, card } = processUserMessage(text);
       setMessages((m) => [...m, {
         id: crypto.randomUUID(),
@@ -314,6 +332,7 @@ export default function DataCopilotWidget() {
         card,
         ts: Date.now(),
       }]);
+      void logMessage('assistant', replyText, intent, card?.name ?? null);
       setBusy(false);
     }, 400);
   };

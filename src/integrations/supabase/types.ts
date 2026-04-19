@@ -167,6 +167,39 @@ export type Database = {
           },
         ]
       }
+      copilot_messages: {
+        Row: {
+          card_name: string | null
+          created_at: string
+          id: string
+          intent: string | null
+          role: string
+          session_id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          card_name?: string | null
+          created_at?: string
+          id?: string
+          intent?: string | null
+          role: string
+          session_id: string
+          text?: string
+          user_id: string
+        }
+        Update: {
+          card_name?: string | null
+          created_at?: string
+          id?: string
+          intent?: string | null
+          role?: string
+          session_id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       link_audits: {
         Row: {
           ai_markdown: string | null
