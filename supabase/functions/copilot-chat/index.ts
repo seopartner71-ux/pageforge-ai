@@ -159,11 +159,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Try to enrich billing context from authed user
+    // Определяем: авторизован пользователь или нет
+    let isAuthenticated = false;
     let creditsHint = userCredits;
     try {
       const authHeader = req.headers.get('Authorization');
-      if (authHeader && !creditsHint) {
+      if (authHeader) {
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL')!,
           Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -171,21 +172,33 @@ Deno.serve(async (req) => {
         );
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { data: prof } = await supabase
-            .from('profiles')
-            .select('credits')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          if (prof?.credits != null) creditsHint = prof.credits;
+          isAuthenticated = true;
+          if (creditsHint == null) {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('credits')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            if (prof?.credits != null) creditsHint = prof.credits;
+          }
         }
       }
     } catch (_) { /* anon ok */ }
+
+    // Для гостей — отключаем выписки из базы знаний и инструменты, ответ будет коротким с CTA
+    if (!isAuthenticated) {
+      kbContext = '';
+      kbSources = [];
+    }
 
     const sysAddon = (creditsHint != null
       ? `\n\nКОНТЕКСТ ПОЛЬЗОВАТЕЛЯ: текущий баланс = ${creditsHint} кредитов. Используй это значение в render_billing_card.`
       : '')
       + (kbContext
         ? `\n\n📚 ВНУТРЕННЯЯ ЭКСПЕРТНАЯ БАЗА (используй ПРИОРИТЕТНО как свои собственные знания):\n\n${kbContext}\n\nКРИТИЧЕСКИ ВАЖНО:\n- НИКОГДА не упоминай название книги, автора, источник или то, что ты "цитируешь книгу/выписку".\n- НЕ пиши фразы вроде "согласно источнику", "в книге сказано", "по материалам", "(источник: …)".\n- Подавай информацию как СВОЁ собственное экспертное знание, естественным языком.\n- Если выписки не дают прямого ответа — отвечай по своим знаниям + функционал платформы.`
+        : '')
+      + (!isAuthenticated
+        ? `\n\n⚠️ РЕЖИМ ГОСТЯ (пользователь НЕ зарегистрирован):\n- Дай ТОЛЬКО краткий тизер ответа (максимум 2-3 коротких предложения, ~300 символов).\n- Не раскрывай детали методики, формулы, чек-листы, пошаговые инструкции.\n- В конце ОБЯЗАТЕЛЬНО добавь призыв: «🔒 Полный экспертный разбор и доступ ко всем инструментам — после регистрации.»\n- НЕ вызывай tools (никаких карточек ТФ-ИДФ, Предиктора и т.д.).`
         : '');
 
     const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
