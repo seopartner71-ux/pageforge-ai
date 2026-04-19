@@ -276,7 +276,7 @@ async function processUserMessage(
     else if (rawCard?.name === 'render_register_cta') card = { name: 'render_register_cta', args: {} };
 
     return {
-      text: text || '🤖 Ответ пуст. Уточните вопрос.',
+      text: text || (card ? '' : '🤖 Уточните вопрос, пожалуйста.'),
       card,
       kbSources,
       intent: rawCard?.name ? `TOOL:${rawCard.name}` : (kbSources.length > 0 ? 'RAG' : 'TEXT'),
