@@ -338,12 +338,13 @@ export default function DataCopilotWidget() {
       .filter((m) => m.text)
       .map((m) => ({ role: m.role, content: m.text }));
 
-    const { text: replyText, card, intent } = await processUserMessage(text, history);
+    const { text: replyText, card, kbSources, intent } = await processUserMessage(text, history);
     setMessages((m) => [...m, {
       id: crypto.randomUUID(),
       role: 'assistant',
       text: replyText,
       card,
+      kbSources,
       ts: Date.now(),
     }]);
     void logMessage('assistant', replyText, intent, card?.name ?? null);
