@@ -14,7 +14,7 @@ type IntentAction =
   | 'ACTION_SGE_BLUEPRINT'
   | 'ACTION_UNKNOWN_SUPPORT';
 
-type CardName = 'render_tfidf_alert' | 'render_sge_blueprint' | 'render_support_ticket';
+type CardName = 'render_tfidf_alert' | 'render_sge_blueprint' | 'render_support_ticket' | 'render_register_cta';
 
 interface CardPayload { name: CardName; args?: any; }
 
