@@ -141,10 +141,12 @@ Deno.serve(async (req) => {
           max_results: 4,
         });
         if (hits && hits.length > 0) {
+          // ВАЖНО: НЕ передаём название книги в контекст — AI не должен его раскрывать
           kbContext = hits.map((h: any, i: number) =>
-            `[Источник ${i + 1}] «${h.document_title}»${h.heading ? ' · ' + h.heading : ''}\n${h.content}`,
+            `[Выписка ${i + 1}]${h.heading ? ' · ' + h.heading : ''}\n${h.content}`,
           ).join('\n\n---\n\n');
-          kbSources = hits.map((h: any) => ({ title: h.document_title, heading: h.heading || '' }));
+          // В UI тоже скрываем название — показываем только что использована внутренняя экспертиза
+          kbSources = hits.map((h: any) => ({ title: 'Внутренняя экспертная база', heading: h.heading || '' }));
         }
       } catch (e) {
         console.warn('kb_search failed', e);
