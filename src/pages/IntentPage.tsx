@@ -412,7 +412,7 @@ export default function IntentPage() {
                         return compareData.map(({ domain, row, total }, idx) => (
                           <tr key={domain} className="hover:bg-accent/40 transition-colors">
                             <td className="p-3 border-b border-border font-medium">
-                              {idx < 3 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2" />}
+                              {idx < 3 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mr-2" />}
                               {domain}
                             </td>
                             {queries.map(q => (
