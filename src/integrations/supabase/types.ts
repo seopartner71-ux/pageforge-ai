@@ -200,6 +200,104 @@ export type Database = {
         }
         Relationships: []
       }
+      intent_checks: {
+        Row: {
+          ai_markdown: string | null
+          city: string
+          created_at: string
+          depth: number
+          id: string
+          name: string
+          project_id: string | null
+          queries: string[]
+          results: Json
+          search_engine: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_markdown?: string | null
+          city?: string
+          created_at?: string
+          depth?: number
+          id?: string
+          name?: string
+          project_id?: string | null
+          queries?: string[]
+          results?: Json
+          search_engine?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_markdown?: string | null
+          city?: string
+          created_at?: string
+          depth?: number
+          id?: string
+          name?: string
+          project_id?: string | null
+          queries?: string[]
+          results?: Json
+          search_engine?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      intent_results: {
+        Row: {
+          check_id: string
+          created_at: string
+          domain: string
+          engine: string
+          id: string
+          page_type: string | null
+          position: number
+          query: string
+          site_type: string
+          snippet: string | null
+          title: string | null
+          url: string
+        }
+        Insert: {
+          check_id: string
+          created_at?: string
+          domain?: string
+          engine?: string
+          id?: string
+          page_type?: string | null
+          position: number
+          query: string
+          site_type?: string
+          snippet?: string | null
+          title?: string | null
+          url: string
+        }
+        Update: {
+          check_id?: string
+          created_at?: string
+          domain?: string
+          engine?: string
+          id?: string
+          page_type?: string | null
+          position?: number
+          query?: string
+          site_type?: string
+          snippet?: string | null
+          title?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intent_results_check_id_fkey"
+            columns: ["check_id"]
+            isOneToOne: false
+            referencedRelation: "intent_checks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kb_chunks: {
         Row: {
           chunk_index: number

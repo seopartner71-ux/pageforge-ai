@@ -26,6 +26,7 @@ const TermsPage = lazy(() => import('./pages/TermsPage.tsx'));
 const LinkAuditPage = lazy(() => import('./pages/LinkAuditPage.tsx'));
 const CompetitorsPage = lazy(() => import('./pages/CompetitorsPage.tsx'));
 const TopAnalysisPage = lazy(() => import('./pages/TopAnalysisPage.tsx'));
+const IntentPage = lazy(() => import('./pages/IntentPage.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
 
 const queryClient = new QueryClient();
@@ -116,6 +117,7 @@ const App = () => (
                 <Route path="/link-audit" element={<AuthGate><LinkAuditPage /></AuthGate>} />
                 <Route path="/competitors" element={<AuthGate><CompetitorsPage /></AuthGate>} />
                 <Route path="/top-analysis" element={<AuthGate><TopAnalysisPage /></AuthGate>} />
+                <Route path="/intent" element={<AuthGate><IntentPage /></AuthGate>} />
                 <Route path="/shared/:token" element={<SharedReportPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
