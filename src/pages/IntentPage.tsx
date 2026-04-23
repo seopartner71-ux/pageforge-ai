@@ -126,133 +126,210 @@ export default function IntentPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <main className="container py-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Проверка интента</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Анализ поисковой выдачи Google по списку запросов с автоматической классификацией типов сайтов.
-          </p>
-        </div>
-
+      <main className="container py-6 space-y-6 max-w-7xl">
         {/* Форма */}
-        <Card className="p-5 space-y-4">
+        <Card className="p-6 space-y-5 border-white/[0.08] bg-[#1A1A18] animate-fade-in">
+          <div className="flex items-start gap-3 pb-4 border-b border-white/[0.06]">
+            <div className="w-10 h-10 rounded-lg bg-[#EA580C]/15 flex items-center justify-center shrink-0">
+              <Target className="w-5 h-5 text-[#EA580C]" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Проверка интента запросов</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Определите, какой тип контента ранжирует поисковая система по вашим запросам
+              </p>
+            </div>
+          </div>
+
           <div>
-            <Label className="text-xs text-muted-foreground">Поисковая система</Label>
-            <div className="flex gap-2 mt-1.5">
+            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Поисковая система</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
               {([
-                { v: 'google', l: 'Google' },
-                { v: 'yandex', l: 'Яндекс (скоро)' },
-                { v: 'both', l: 'Оба (скоро)' },
-              ] as const).map(o => (
-                <Button
-                  key={o.v}
-                  type="button"
-                  size="sm"
-                  variant={engine === o.v ? 'default' : 'outline'}
-                  disabled={o.v !== 'google'}
-                  onClick={() => setEngine(o.v as Engine)}
-                >{o.l}</Button>
-              ))}
+                { v: 'google', l: 'Google', icon: <Globe className="w-3.5 h-3.5" /> },
+                { v: 'yandex', l: 'Яндекс (скоро)', icon: <span className="text-[10px] font-bold">Я</span> },
+                { v: 'both', l: 'Яндекс + Google (скоро)', icon: <Zap className="w-3.5 h-3.5" /> },
+              ] as const).map(o => {
+                const active = engine === o.v;
+                return (
+                  <button
+                    key={o.v}
+                    type="button"
+                    disabled={o.v !== 'google'}
+                    onClick={() => setEngine(o.v as Engine)}
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all border ${
+                      active
+                        ? 'border-[#EA580C] bg-[#EA580C]/10 text-foreground shadow-[0_0_0_1px_rgba(234,88,12,0.3)]'
+                        : 'border-white/[0.08] bg-[#0F0F0E] text-muted-foreground hover:text-foreground hover:border-white/15'
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                  >
+                    {o.icon}{o.l}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <Label className="text-xs text-muted-foreground">Город</Label>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} className="mt-1.5" />
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Город</Label>
+              <Input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="mt-2 bg-[#0F0F0E] border-white/[0.08] focus-visible:border-[#EA580C] focus-visible:ring-[#EA580C]/20"
+              />
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Запросов (максимум)</Label>
-              <div className="flex gap-2 mt-1.5">
-                {[10, 20, 30].map(n => (
-                  <Button key={n} size="sm" variant={maxQueries === n ? 'default' : 'outline'} onClick={() => setMaxQueries(n as any)}>{n}</Button>
-                ))}
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Запросов</Label>
+              <div className="flex gap-1.5 mt-2">
+                {[10, 20, 30].map(n => {
+                  const active = maxQueries === n;
+                  return (
+                    <button
+                      key={n}
+                      onClick={() => setMaxQueries(n as any)}
+                      className={`flex-1 py-2 rounded-md text-sm font-medium transition-all border ${
+                        active
+                          ? 'bg-[#EA580C] border-[#EA580C] text-white'
+                          : 'bg-[#0F0F0E] border-white/[0.08] text-muted-foreground hover:text-foreground hover:border-white/15'
+                      }`}
+                    >{n}</button>
+                  );
+                })}
               </div>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Глубина топа</Label>
-              <div className="flex gap-2 mt-1.5">
-                {[10, 20, 30].map(n => (
-                  <Button key={n} size="sm" variant={depth === n ? 'default' : 'outline'} onClick={() => setDepth(n as any)}>{n}</Button>
-                ))}
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Глубина топа</Label>
+              <div className="flex gap-1.5 mt-2">
+                {[10, 20, 30].map(n => {
+                  const active = depth === n;
+                  return (
+                    <button
+                      key={n}
+                      onClick={() => setDepth(n as any)}
+                      className={`flex-1 py-2 rounded-md text-sm font-medium transition-all border ${
+                        active
+                          ? 'bg-[#EA580C] border-[#EA580C] text-white'
+                          : 'bg-[#0F0F0E] border-white/[0.08] text-muted-foreground hover:text-foreground hover:border-white/15'
+                      }`}
+                    >{n}</button>
+                  );
+                })}
               </div>
             </div>
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Запросы (каждый с новой строки)</Label>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Запросы (по одному на строку)</Label>
+              <span className={`text-xs font-mono ${parsedQueries.length > 0 ? 'text-[#EA580C]' : 'text-muted-foreground'}`}>
+                {parsedQueries.length} / {maxQueries}
+              </span>
+            </div>
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={'купить диван москва\nинтернет магазин мебели'}
-              className="mt-1.5 min-h-[140px] font-mono text-sm"
+              className="min-h-[140px] font-mono text-sm bg-[#0F0F0E] border-white/[0.08] focus-visible:border-[#EA580C] focus-visible:ring-[#EA580C]/20"
             />
-            <div className="text-xs text-muted-foreground mt-1">{parsedQueries.length} / {maxQueries}</div>
           </div>
 
-          <Button onClick={runAnalysis} disabled={loading || !parsedQueries.length}>
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {loading ? 'Анализирую…' : 'Запустить анализ'}
+          <Button
+            onClick={runAnalysis}
+            disabled={loading || !parsedQueries.length}
+            className="w-full h-11 bg-[#EA580C] hover:bg-[#C2410C] text-white font-medium gap-2 shadow-[0_0_24px_-6px_rgba(234,88,12,0.5)]"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+            {loading ? 'Анализирую запросы…' : 'Запустить анализ'}
           </Button>
         </Card>
+
+        {/* Прогресс анализа */}
+        {loading && (
+          <Card className="p-5 border-white/[0.08] bg-[#1A1A18] animate-fade-in">
+            <div className="text-sm font-medium mb-3 flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-[#EA580C]" />
+              Анализируем запросы…
+            </div>
+            <div className="h-2 rounded-full bg-[#0F0F0E] overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-[#EA580C] to-[#F97316] animate-pulse" style={{ width: '60%' }} />
+            </div>
+            <div className="mt-3 space-y-1.5">
+              {parsedQueries.map((q, i) => (
+                <div key={q} className="flex items-center gap-2 text-xs">
+                  <div className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-[#EA580C] animate-pulse' : 'bg-muted'}`} />
+                  <span className="text-muted-foreground truncate">{q}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Результаты */}
         {matrix && (
           <>
             {/* Теги запросов */}
-            <Card className="p-4">
-              <div className="flex items-center gap-2 text-sm font-medium mb-2"><Tag className="w-4 h-4" /> Запросы</div>
-              <div className="flex flex-wrap gap-2">
+            <Card className="p-4 border-white/[0.08] bg-[#1A1A18] animate-fade-in">
+              <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Tag className="w-4 h-4 text-[#EA580C]" /> Запросы ({queries.length})
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={onExport}
+                    className="bg-[#16A34A] hover:bg-[#15803D] text-white gap-1.5 h-8">
+                    <Download className="w-3.5 h-3.5" /> Экспорт XLSX
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowCompare(s => !s)}
+                    className="border-white/[0.1] bg-[#0F0F0E] hover:bg-[#1F1F1D] h-8">
+                    {showCompare ? 'Скрыть пересечения' : 'Пересечение доменов'}
+                  </Button>
+                  <Button size="sm" onClick={runAi} disabled={aiLoading}
+                    className="bg-[#EA580C] hover:bg-[#C2410C] text-white gap-1.5 h-8">
+                    {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    AI-анализ
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
                 {queries.map(q => (
                   <button key={q} onClick={() => scrollToQuery(q)}
-                    className="px-2.5 py-1 text-xs rounded-md bg-secondary hover:bg-secondary/70 text-foreground transition-colors">
+                    className="px-2.5 py-1 text-xs rounded-md bg-[#0F0F0E] border border-white/[0.08] text-muted-foreground hover:text-white hover:border-[#EA580C]/50 hover:bg-[#EA580C]/5 transition-all">
                     {q}
                   </button>
                 ))}
               </div>
             </Card>
 
-            {/* Действия */}
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={onExport}><Download className="w-4 h-4" /> Экспорт XLSX</Button>
-              <Button size="sm" variant="outline" onClick={() => setShowCompare(s => !s)}>
-                {showCompare ? 'Скрыть' : 'Сравнительная матрица'}
-              </Button>
-              <Button size="sm" onClick={runAi} disabled={aiLoading}>
-                {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                AI-анализ
-              </Button>
-            </div>
-
             {/* Матрица результатов */}
-            <Card className="p-0 overflow-hidden">
+            <Card className="p-0 overflow-hidden border-white/[0.08] bg-[#1A1A18] animate-fade-in">
               <div className="overflow-x-auto">
                 <table className="w-full text-xs border-collapse">
-                  <thead className="bg-secondary/40 sticky top-0">
+                  <thead className="bg-[#242422] sticky top-0 z-10">
                     <tr>
-                      <th className="w-10 p-2 border-b border-border text-left text-muted-foreground">#</th>
+                      <th className="w-10 p-3 border-b border-white/[0.06] text-left text-muted-foreground font-medium">#</th>
                       {queries.map(q => (
                         <th key={q} id={`q-col-${encodeURIComponent(q)}`}
-                          className="p-2 border-b border-l border-border text-left font-medium min-w-[260px] max-w-[320px]">
-                          {q}
+                          title={q}
+                          className="p-3 border-b border-l border-white/[0.06] text-left font-semibold text-white min-w-[260px] max-w-[320px]">
+                          {q.length > 22 ? q.slice(0, 21) + '…' : q}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {Array.from({ length: depth }).map((_, i) => (
-                      <tr key={i} className="hover:bg-secondary/20">
-                        <td className="p-2 border-b border-border text-muted-foreground align-top">{i + 1}</td>
+                      <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="p-3 border-b border-white/[0.04] text-muted-foreground align-top font-mono">{i + 1}</td>
                         {queries.map(q => {
                           const r = (matrix[q] || [])[i];
-                          if (!r) return <td key={q} className="p-2 border-b border-l border-border align-top text-muted-foreground">—</td>;
+                          if (!r) return <td key={q} className="p-3 border-b border-l border-white/[0.04] align-top text-muted-foreground">—</td>;
                           return (
-                            <td key={q} className="p-2 border-b border-l border-border align-top">
+                            <td key={q} className="p-3 border-b border-l border-white/[0.04] align-top group">
                               <a href={r.url} target="_blank" rel="noopener noreferrer"
-                                className="text-foreground hover:text-primary inline-flex items-center gap-1 break-all">
-                                {shortUrl(r.url)} <ExternalLink className="w-3 h-3 opacity-60 shrink-0" />
+                                className="text-foreground hover:text-[#EA580C] inline-flex items-center gap-1 break-all transition-colors">
+                                <span className="truncate">{shortUrl(r.url)}</span>
+                                <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" />
                               </a>
-                              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                                 <TypeBadge type={r.siteType} />
                                 <span className="text-[10px] text-muted-foreground">· {r.pageType}</span>
                               </div>
@@ -267,8 +344,11 @@ export default function IntentPage() {
             </Card>
 
             {/* Разбивка по запросам */}
-            <Card className="p-4 space-y-4">
-              <div className="text-sm font-medium">Разбивка по типам сайтов</div>
+            <Card className="p-5 space-y-5 border-white/[0.08] bg-[#1A1A18] animate-fade-in">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <div className="w-1 h-4 bg-[#EA580C] rounded" />
+                Разбивка по типам сайтов
+              </div>
               {queries.map(q => {
                 const list = matrix[q] || [];
                 const n = list.length || 1;
@@ -276,24 +356,41 @@ export default function IntentPage() {
                   acc[r.siteType] = (acc[r.siteType] || 0) + 1; return acc;
                 }, {});
                 const intent = classifyIntent(list);
+                const badgeClass = INTENT_BADGE[intent.label] || INTENT_BADGE['Нет данных'];
                 return (
-                  <div key={q} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm truncate"><span className="text-muted-foreground mr-2">›</span>{q}</div>
-                      <Badge variant="secondary" className="text-[10px]">{intent.label}</Badge>
+                  <div key={q} className="space-y-2 pb-4 border-b border-white/[0.04] last:border-0 last:pb-0">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="text-sm font-medium truncate">{q}</div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${badgeClass}`}>
+                        {intent.label}
+                      </span>
                     </div>
-                    <div className="h-2.5 rounded overflow-hidden flex bg-secondary/40">
-                      {Object.entries(counts).map(([t, c]) => {
-                        const color = TYPE_COLORS[t as SiteType]?.bg || '#888';
-                        return <div key={t} title={`${t}: ${c}`} style={{ width: `${(c / n) * 100}%`, backgroundColor: color }} />;
+                    <div className="h-2.5 rounded-full overflow-hidden flex bg-[#0F0F0E]">
+                      {Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([t, c]) => {
+                        const color = TYPE_COLORS[t as SiteType]?.bg || '#6B7280';
+                        return (
+                          <div
+                            key={t}
+                            title={`${t}: ${c} (${Math.round((c / n) * 100)}%)`}
+                            className="transition-all"
+                            style={{ width: `${(c / n) * 100}%`, backgroundColor: color }}
+                          />
+                        );
                       })}
                     </div>
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                      {Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([t, c]) => (
-                        <span key={t}>{t}: <span className="text-foreground font-medium">{c}</span> ({Math.round((c / n) * 100)}%)</span>
-                      ))}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                      {Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([t, c]) => {
+                        const color = TYPE_COLORS[t as SiteType]?.bg || '#6B7280';
+                        return (
+                          <span key={t} className="inline-flex items-center gap-1.5 text-muted-foreground">
+                            <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: color }} />
+                            {t}: <span className="text-foreground font-semibold">{c}</span>
+                            <span className="opacity-60">({Math.round((c / n) * 100)}%)</span>
+                          </span>
+                        );
+                      })}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">→ {intent.hint}</div>
+                    <div className="text-[11px] text-muted-foreground italic pl-1">→ {intent.hint}</div>
                   </div>
                 );
               })}
@@ -301,33 +398,51 @@ export default function IntentPage() {
 
             {/* Сравнительная матрица */}
             {showCompare && compareData && (
-              <Card className="p-0 overflow-hidden">
-                <div className="px-4 py-3 border-b border-border text-sm font-medium">Пересечение доменов</div>
+              <Card className="p-0 overflow-hidden border-white/[0.08] bg-[#1A1A18] animate-fade-in">
+                <div className="px-5 py-3 border-b border-white/[0.06] text-sm font-semibold flex items-center gap-2">
+                  <div className="w-1 h-4 bg-[#EA580C] rounded" />
+                  Пересечение доменов
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
-                    <thead className="bg-secondary/40">
+                    <thead className="bg-[#242422]">
                       <tr>
-                        <th className="p-2 border-b border-border text-left">Домен</th>
+                        <th className="p-3 border-b border-white/[0.06] text-left font-semibold">Домен</th>
                         {queries.map(q => (
-                          <th key={q} className="p-2 border-b border-l border-border text-center min-w-[80px]" title={q}>
+                          <th key={q} className="p-3 border-b border-l border-white/[0.06] text-center min-w-[80px] font-medium text-muted-foreground" title={q}>
                             {q.length > 14 ? q.slice(0, 13) + '…' : q}
                           </th>
                         ))}
-                        <th className="p-2 border-b border-l border-border text-center">Итого</th>
+                        <th className="p-3 border-b border-l border-white/[0.06] text-center font-semibold">Итого</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {compareData.map(({ domain, row, total }) => (
-                        <tr key={domain} className="hover:bg-secondary/20">
-                          <td className="p-2 border-b border-border font-medium">{domain}</td>
-                          {queries.map(q => (
-                            <td key={q} className="p-2 border-b border-l border-border text-center">
-                              {row[q] ? <span className="text-foreground font-medium">{row[q]}</span> : <span className="text-muted-foreground">—</span>}
+                      {(() => {
+                        const maxTotal = Math.max(...compareData.map(d => d.total), 1);
+                        return compareData.map(({ domain, row, total }, idx) => (
+                          <tr key={domain} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="p-3 border-b border-white/[0.04] font-medium">
+                              {idx < 3 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#16A34A] mr-2" />}
+                              {domain}
                             </td>
-                          ))}
-                          <td className="p-2 border-b border-l border-border text-center font-semibold">{total}</td>
-                        </tr>
-                      ))}
+                            {queries.map(q => (
+                              <td key={q} className="p-3 border-b border-l border-white/[0.04] text-center">
+                                {row[q]
+                                  ? <span className="text-foreground font-semibold">{row[q]}</span>
+                                  : <span className="text-muted-foreground/50">—</span>}
+                              </td>
+                            ))}
+                            <td className="p-3 border-b border-l border-white/[0.04] text-center">
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="w-12 h-1.5 rounded-full bg-[#0F0F0E] overflow-hidden">
+                                  <div className="h-full bg-[#EA580C]" style={{ width: `${(total / maxTotal) * 100}%` }} />
+                                </div>
+                                <span className="font-bold text-foreground tabular-nums w-5 text-right">{total}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -336,9 +451,12 @@ export default function IntentPage() {
 
             {/* AI результат */}
             {aiMd && (
-              <Card className="p-5">
-                <div className="text-sm font-medium mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> AI-анализ интента</div>
-                <div className="prose prose-sm dark:prose-invert max-w-none">
+              <Card className="p-6 border-[#EA580C]/20 bg-gradient-to-br from-[#1A1A18] to-[#1E1A14] animate-fade-in">
+                <div className="text-sm font-semibold mb-4 flex items-center gap-2">
+                  <Sparkles className={`w-4 h-4 text-[#EA580C] ${aiLoading ? 'animate-pulse' : ''}`} />
+                  AI-интерпретация результатов
+                </div>
+                <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-strong:text-foreground prose-a:text-[#EA580C]">
                   <ReactMarkdown>{aiMd}</ReactMarkdown>
                 </div>
               </Card>
