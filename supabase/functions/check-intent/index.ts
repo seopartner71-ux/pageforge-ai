@@ -36,37 +36,53 @@ function detectSiteType(url: string, _title: string, _snippet: string): SiteType
 
   if (domain.includes("youtube") || domain.includes("youtu.be") || domain.includes("rutube") || (domain.includes("vk.com") && path.includes("/video")) || domain.includes("dzen.ru/video")) return "Видео";
 
-  const aggregators = ["wildberries","ozon","avito","yandex.market","market.yandex","goods.ru","megamarket","lamoda","sbermegamarket"];
-  if (aggregators.some((a) => domain.includes(a))) return "Маркетплейс";
+  const marketplaces = ["wildberries","ozon","avito","yandex.market","market.yandex","goods.ru","goods","megamarket","lamoda","sbermegamarket","vseinstrumenti","leroymerlin","leroy-merlin","dns-shop","citilink","eldorado","mvideo","m.video","aliexpress","joom","kazanexpress","yamaguchi"];
+  if (marketplaces.some((a) => domain.includes(a))) return "Маркетплейс";
 
-  const social = ["vk.com","t.me","telegram.me","ok.ru","pikabu","reddit","facebook","instagram","twitter","x.com"];
+  const aggregators = ["promportal","2gis","yell","zoon","flamp","blizko","pulscen","tiu.ru","flagma","bizorg","allbiz","yandex.ru/maps","yandex.ru/uslugi","profi.ru","yclients"];
+  if (aggregators.some((a) => domain.includes(a))) return "UGC";
+
+  const social = ["vk.com","t.me","telegram.me","ok.ru","pikabu","reddit","facebook","instagram","twitter","x.com","tiktok","threads"];
   if (social.some((s) => domain.includes(s))) return "Соцсеть";
 
-  const forums = ["forum","otvet.mail.ru","woman.ru","babyblog","9months","drom.ru/forum"];
-  if (forums.some((f) => domain.includes(f) || path.includes(`/${f}`))) return "Форум";
+  const forums = ["forum","otvet.mail.ru","woman.ru","babyblog","9months","drom.ru/forum","forumhouse","mastergrad","stackoverflow","toster"];
+  if (forums.some((f) => domain.includes(f) || path.includes(`/${f}`) || path.includes(`/${f}/`))) return "Форум";
 
-  const portals = ["wikipedia","yandex.ru/health","yandex.ru/q","dzen.ru","mail.ru","mos.ru","gosuslugi"];
+  const portals = ["wikipedia","yandex.ru/health","yandex.ru/q","dzen.ru","mail.ru","mos.ru","gosuslugi","kp.ru","cyberleninka"];
   if (portals.some((p) => domain.includes(p) || url.toLowerCase().includes(p))) return "Портал";
 
-  const ugc = ["otzovik","irecommend","zoon","tripadvisor","flamp","yell.ru"];
+  const ugc = ["otzovik","irecommend","tripadvisor","yell.ru","tutu.ru/otzyvy"];
   if (ugc.some((u) => domain.includes(u))) return "UGC";
 
-  const blogPaths = ["/blog/","/articles/","/article/","/stati/","/news/","/post/","/posts/","/poleznoe/","/info/","/journal/"];
-  if (blogPaths.some((p) => path.includes(p))) return "Блог / Инфосайт";
+  // Корп. сайт — по URL паттернам (проверяем ДО блога, т.к. /catalog/ важнее)
+  const corpPatterns = ["/product-category/","/catalog/","/category/","/categories/","/tovar/","/tovary/","/product/","/products/","/uslugi/","/services/","/service/","/shop/","/store/","/magazin/","/market/","/price/","/prices/","/contacts/","/contact/","/about/","/o-nas/","/o-kompanii/","/cart/","/checkout/","/brands/","/proizvoditeli/","/collection/","/kollektsii/"];
+  if (corpPatterns.some((p) => path.includes(p))) return "Корп. сайт";
 
-  const corpPaths = ["/uslugi/","/services/","/catalog/","/product/","/tovar/","/price/","/contacts/","/about/","/shop/","/store/"];
-  if (corpPaths.some((p) => path.includes(p))) return "Корп. сайт";
+  // Блог / Инфосайт
+  const blogPatterns = ["/blog/","/blogs/","/articles/","/article/","/stati/","/statya/","/news/","/novosti/","/post/","/posts/","/poleznoe/","/info/","/journal/","/sovety/","/sovet/","/faq/","/guide/","/guides/","/wiki/","/encyclopedia/","/spravochnik/","/help/","/learn/"];
+  if (blogPatterns.some((p) => path.includes(p))) return "Блог / Инфосайт";
 
-  return "Неизвестно";
+  // Корневой URL или короткий путь без явных маркеров → скорее всего корп. сайт
+  const cleanPath = path.replace(/\/+$/, "");
+  if (cleanPath === "" || cleanPath === "/" || cleanPath.split("/").filter(Boolean).length <= 2) {
+    // Доменные TLD коммерческого характера
+    if (/\.(ru|com|net|store|shop|online|pro|biz)$/.test(domain)) return "Корп. сайт";
+  }
+
+  return "Корп. сайт";
 }
 
 function detectPageType(url: string, title: string): string {
   const { path } = safeUrl(url);
+  const cleanPath = path.replace(/\/+$/, "");
+  if (cleanPath === "" || cleanPath === "/") return "главная";
+  if (/\/search\//.test(path) || /\?(s|q|query)=/.test(url)) return "поиск";
   if (path.includes("/video") || /youtube|rutube/.test(url)) return "видео";
   if (/(\/product\/|\/tovar\/|\/item\/|\/p\/)/.test(path)) return "товар";
-  if (/(\/uslugi\/|\/services\/)/.test(path)) return "услуга";
-  if (/(\/catalog\/|\/category\/|\/c\/)/.test(path)) return "категория";
-  if (/(\/blog\/|\/articles?\/|\/stati\/|\/news\/|\/post\/)/.test(path)) return "статья";
+  if (/(\/uslugi\/|\/services\/|\/service\/)/.test(path)) return "услуга";
+  if (/(\/product-category\/|\/catalog\/|\/category\/|\/categories\/|\/c\/|\/collection\/)/.test(path)) return "категория";
+  if (/(\/blog\/|\/articles?\/|\/stati\/|\/news\/|\/novosti\/|\/post\/|\/journal\/|\/poleznoe\/|\/sovety\/)/.test(path)) return "статья";
+  if (/(\/about\/|\/o-nas\/|\/o-kompanii\/|\/contacts?\/)/.test(path)) return "инфо";
   if (/как |что такое|почему |зачем /i.test(title)) return "статья";
   return "страница";
 }
