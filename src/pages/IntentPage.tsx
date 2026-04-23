@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Download, Sparkles, ExternalLink, Tag } from 'lucide-react';
+import { Loader2, Download, Sparkles, ExternalLink, Tag, Rocket, Target, Globe, Zap } from 'lucide-react';
 import { TYPE_COLORS, classifyIntent, shortUrl, type IntentMatrix, type SiteType } from '@/lib/intent/types';
 import { exportIntentXlsx } from '@/lib/intent/exportIntentXlsx';
 import ReactMarkdown from 'react-markdown';
@@ -19,11 +19,18 @@ function TypeBadge({ type }: { type: SiteType }) {
   const c = TYPE_COLORS[type] || TYPE_COLORS['Неизвестно'];
   return (
     <span
-      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none"
+      className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold leading-none tracking-wide animate-fade-in"
       style={{ backgroundColor: c.bg, color: c.text }}
     >{type}</span>
   );
 }
+
+const INTENT_BADGE: Record<string, string> = {
+  'Коммерческий интент': 'bg-[#16A34A] text-white',
+  'Информационный интент': 'bg-[#3B82F6] text-white',
+  'Смешанный интент': 'bg-[#EA580C] text-white',
+  'Нет данных': 'bg-muted text-muted-foreground',
+};
 
 export default function IntentPage() {
   const [engine, setEngine] = useState<Engine>('google');
