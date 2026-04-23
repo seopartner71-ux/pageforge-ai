@@ -24,16 +24,16 @@ export interface IntentRow {
 export type IntentMatrix = Record<string, IntentRow[]>;
 
 export const TYPE_COLORS: Record<SiteType, { bg: string; text: string }> = {
-  'СМИ':              { bg: '#FEF3C7', text: '#92400E' },
-  'Блог / Инфосайт':  { bg: '#DBEAFE', text: '#1E40AF' },
-  'Корп. сайт':       { bg: '#D1FAE5', text: '#065F46' },
-  'Видео':            { bg: '#FCE7F3', text: '#9D174D' },
-  'Неизвестно':       { bg: '#F3F4F6', text: '#374151' },
-  'UGC':              { bg: '#EDE9FE', text: '#5B21B6' },
-  'Портал':           { bg: '#CFFAFE', text: '#164E63' },
-  'Соцсеть':          { bg: '#FFE4E6', text: '#9F1239' },
-  'Форум':            { bg: '#FEE2E2', text: '#991B1B' },
-  'Маркетплейс':      { bg: '#FFF7ED', text: '#9A3412' },
+  'Корп. сайт':       { bg: '#16A34A', text: '#FFFFFF' },
+  'Блог / Инфосайт':  { bg: '#3B82F6', text: '#FFFFFF' },
+  'СМИ':              { bg: '#EAB308', text: '#1A1A18' },
+  'Маркетплейс':      { bg: '#EA580C', text: '#FFFFFF' },
+  'Портал':           { bg: '#06B6D4', text: '#FFFFFF' },
+  'Видео':            { bg: '#EC4899', text: '#FFFFFF' },
+  'Форум':            { bg: '#EF4444', text: '#FFFFFF' },
+  'Соцсеть':          { bg: '#8B5CF6', text: '#FFFFFF' },
+  'UGC':              { bg: '#6366F1', text: '#FFFFFF' },
+  'Неизвестно':       { bg: '#6B7280', text: '#FFFFFF' },
 };
 
 export function classifyIntent(rows: IntentRow[]): { label: string; hint: string } {
