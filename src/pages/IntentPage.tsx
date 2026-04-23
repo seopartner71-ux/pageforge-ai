@@ -450,16 +450,100 @@ export default function IntentPage() {
             )}
 
             {/* AI результат */}
-            {aiMd && (
-              <Card className="p-6 border-[#EA580C]/20 bg-gradient-to-br from-[#1A1A18] to-[#1E1A14] animate-fade-in">
-                <div className="text-sm font-semibold mb-4 flex items-center gap-2">
-                  <Sparkles className={`w-4 h-4 text-[#EA580C] ${aiLoading ? 'animate-pulse' : ''}`} />
-                  AI-интерпретация результатов
+            {(aiMd || aiLoading) && (
+              <div
+                className="animate-fade-in"
+                style={{
+                  background: '#1A1A18',
+                  border: '1px solid rgba(234,88,12,0.3)',
+                  borderRadius: '12px',
+                  padding: '20px 24px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '16px',
+                    paddingBottom: '12px',
+                    borderBottom: '1px solid rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <span style={{ color: '#EA580C', fontSize: '16px' }} className={aiLoading ? 'animate-pulse' : ''}>✦</span>
+                  <span style={{ color: '#FFFFFF', fontWeight: 500, fontSize: '15px' }}>
+                    AI-интерпретация результатов
+                  </span>
                 </div>
-                <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-strong:text-foreground prose-a:text-[#EA580C]">
-                  <ReactMarkdown>{aiMd}</ReactMarkdown>
-                </div>
-              </Card>
+
+                {aiLoading && !aiMd ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {[100, 85, 92, 70, 88, 78, 95].map((w, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          height: '12px',
+                          width: `${w}%`,
+                          background: 'rgba(255,255,255,0.08)',
+                          borderRadius: '4px',
+                          animation: 'pulse 1.5s ease-in-out infinite',
+                          animationDelay: `${i * 0.1}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ children }) => (
+                        <h2 style={{ color: '#EA580C', fontSize: '16px', fontWeight: 700, marginTop: '16px', marginBottom: '8px' }}>{children}</h2>
+                      ),
+                      h2: ({ children }) => (
+                        <h2 style={{ color: '#EA580C', fontSize: '15px', fontWeight: 600, marginTop: '16px', marginBottom: '6px' }}>{children}</h2>
+                      ),
+                      h3: ({ children }) => (
+                        <h3 style={{ color: '#F97316', fontSize: '13px', fontWeight: 600, marginTop: '12px', marginBottom: '4px' }}>{children}</h3>
+                      ),
+                      h4: ({ children }) => (
+                        <h4 style={{ color: '#F97316', fontSize: '13px', fontWeight: 600, marginTop: '10px', marginBottom: '4px' }}>{children}</h4>
+                      ),
+                      p: ({ children }) => (
+                        <p style={{ color: '#D1D5DB', fontSize: '13px', lineHeight: '1.6', margin: '4px 0' }}>{children}</p>
+                      ),
+                      strong: ({ children }) => (
+                        <strong style={{ color: '#FFFFFF', fontWeight: 600 }}>{children}</strong>
+                      ),
+                      em: ({ children }) => (
+                        <em style={{ color: '#FBBF24', fontStyle: 'italic' }}>{children}</em>
+                      ),
+                      ul: ({ children }) => (
+                        <ul style={{ margin: '6px 0', paddingLeft: '4px', listStyle: 'none' }}>{children}</ul>
+                      ),
+                      ol: ({ children }) => (
+                        <ol style={{ margin: '6px 0', paddingLeft: '20px', color: '#D1D5DB' }}>{children}</ol>
+                      ),
+                      li: ({ children }) => (
+                        <li style={{ color: '#D1D5DB', fontSize: '13px', lineHeight: '1.6', marginBottom: '3px', paddingLeft: '16px', position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: 0, top: 0, color: '#EA580C', fontWeight: 700 }}>•</span>
+                          {children}
+                        </li>
+                      ),
+                      a: ({ children, href }) => (
+                        <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#EA580C', textDecoration: 'underline' }}>{children}</a>
+                      ),
+                      code: ({ children }) => (
+                        <code style={{ background: 'rgba(255,255,255,0.06)', color: '#FBBF24', padding: '1px 6px', borderRadius: '4px', fontSize: '12px', fontFamily: 'ui-monospace, monospace' }}>{children}</code>
+                      ),
+                      blockquote: ({ children }) => (
+                        <blockquote style={{ borderLeft: '3px solid #EA580C', paddingLeft: '12px', margin: '8px 0', color: '#9CA3AF', fontStyle: 'italic' }}>{children}</blockquote>
+                      ),
+                      hr: () => <hr style={{ border: 0, borderTop: '1px solid rgba(255,255,255,0.08)', margin: '12px 0' }} />,
+                    }}
+                  >
+                    {aiMd}
+                  </ReactMarkdown>
+                )}
+              </div>
             )}
           </>
         )}
