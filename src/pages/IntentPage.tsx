@@ -26,10 +26,10 @@ function TypeBadge({ type }: { type: SiteType }) {
 }
 
 const INTENT_BADGE: Record<string, string> = {
-  'Коммерческий интент': 'bg-[#16A34A] text-white',
-  'Информационный интент': 'bg-[#3B82F6] text-white',
-  'Смешанный интент': 'bg-[#EA580C] text-white',
-  'Нет данных': 'bg-muted text-muted-foreground',
+  'Коммерческий интент': 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  'Информационный интент': 'bg-sky-500/15 text-sky-400 border border-sky-500/30',
+  'Смешанный интент': 'bg-primary/15 text-primary border border-primary/30',
+  'Нет данных': 'bg-muted text-muted-foreground border border-border',
 };
 
 export default function IntentPage() {
