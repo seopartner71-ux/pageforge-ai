@@ -380,13 +380,24 @@ export default function SemanticCorePage() {
     }
     if (intentFilter.size) arr = arr.filter(k => intentFilter.has(k.intent));
     if (clusterFilter.size) arr = arr.filter(k => clusterFilter.has(k.cluster));
+    if (kdFilter.size) arr = arr.filter(k => kdFilter.has(kdBucket(k.keywordDifficulty)));
+    if (idealOnly) {
+      arr = arr.filter(k =>
+        k.score > 70 && k.keywordDifficulty != null && k.keywordDifficulty < 40,
+      );
+    }
     arr = [...arr].sort((a, b) => {
       const av = a[sortKey] as any, bv = b[sortKey] as any;
       const cmp = typeof av === 'string' ? av.localeCompare(bv) : (av - bv);
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return arr;
-  }, [keywords, search, intentFilter, clusterFilter, sortKey, sortDir]);
+  }, [keywords, search, intentFilter, clusterFilter, kdFilter, idealOnly, sortKey, sortDir]);
+
+  const idealCount = useMemo(
+    () => keywords.filter(k => k.score > 70 && k.keywordDifficulty != null && k.keywordDifficulty < 40).length,
+    [keywords],
+  );
 
   const clusterMap = useMemo(() => new Map(clusters.map(c => [c.id, c])), [clusters]);
 
