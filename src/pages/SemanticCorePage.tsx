@@ -352,6 +352,52 @@ export default function SemanticCorePage() {
             </div>
           </div>
 
+          {/* How it works */}
+          <div className="rounded-md border border-border/60 bg-muted/20">
+            <button
+              type="button"
+              onClick={() => setHowItWorksOpen(v => !v)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-muted/40 transition-colors rounded-md"
+            >
+              <span className="flex items-center gap-2 text-muted-foreground">
+                <Info className="w-4 h-4 text-primary" />
+                <span className="font-medium text-foreground">Как это работает?</span>
+              </span>
+              {howItWorksOpen ? (
+                <X className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+            {howItWorksOpen && (
+              <div className="px-3 pb-3 pt-1">
+                <div className="flex flex-col md:flex-row md:items-stretch gap-3 md:gap-1">
+                  {[
+                    { n: 1, t: 'AI-расширение', d: 'ИИ генерирует 150–200 запросов по теме: синонимы, хвосты, вопросы, коммерческие.' },
+                    { n: 2, t: 'Частоты', d: 'Яндекс.Вордстат возвращает частоту каждого запроса в месяц.' },
+                    { n: 3, t: 'Кластеры', d: 'Запросы с похожей выдачей в топе группируются в один кластер.' },
+                    { n: 4, t: 'Результат', d: 'Таблица с частотами, скорингом и кластерами. Экспорт в XLSX.' },
+                  ].map((s, i, arr) => (
+                    <div key={s.n} className="flex md:flex-1 items-stretch gap-1">
+                      <div className="flex-1 rounded-md border border-border/60 bg-background p-3">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/15 text-primary text-[11px] font-bold">
+                            {s.n}
+                          </span>
+                          <span className="text-sm font-semibold">{s.t}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{s.d}</p>
+                      </div>
+                      {i < arr.length - 1 && (
+                        <div className="hidden md:flex items-center text-muted-foreground/50 px-0.5">→</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <Button
             onClick={runGenerate}
             disabled={running}
