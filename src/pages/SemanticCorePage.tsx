@@ -456,6 +456,57 @@ export default function SemanticCorePage() {
             </div>
           </div>
 
+          {/* SOURCES */}
+          <div className="rounded-md border border-border/60 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Источники сбора ключей</label>
+              <span className="text-[11px] text-muted-foreground">
+                Выбрано: {(Object.values(enabledSources) as boolean[]).filter(Boolean).length}/4
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+              {(Object.keys(SOURCE_LABELS) as SourceKey[]).map((k) => {
+                const meta = SOURCE_LABELS[k];
+                const checked = enabledSources[k];
+                const requiresDfs = k !== 'ai';
+                const disabled = requiresDfs && dfsConfigured === false;
+                return (
+                  <label
+                    key={k}
+                    className={`flex items-start gap-2 px-2.5 py-2 rounded border text-xs cursor-pointer transition-colors ${
+                      disabled
+                        ? 'border-border/40 bg-muted/10 opacity-50 cursor-not-allowed'
+                        : checked
+                        ? 'border-primary/40 bg-primary/5'
+                        : 'border-border/60 hover:bg-muted/20'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked && !disabled}
+                      disabled={disabled}
+                      onChange={(e) => setEnabledSources((p) => ({ ...p, [k]: e.target.checked }))}
+                      className="mt-0.5 accent-primary"
+                    />
+                    <span className="flex-1">
+                      <span className="font-medium text-foreground block">{meta.title}</span>
+                      <span className="text-muted-foreground">{meta.desc}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            {dfsConfigured === false && (
+              <div className="flex items-start gap-2 px-2 py-1.5 rounded bg-yellow-500/10 border border-yellow-500/30 text-[11px] text-yellow-200">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-yellow-500" />
+                <span>
+                  <strong className="text-yellow-400">DataForSEO не подключён</strong> — используется AI-генерация (меньше запросов).
+                  Добавьте credentials в Supabase Secrets (DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD).
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* How it works */}
           <div className="rounded-md border border-border/60 bg-muted/20">
             <button
@@ -477,10 +528,10 @@ export default function SemanticCorePage() {
               <div className="px-3 pb-3 pt-1">
                 <div className="flex flex-col md:flex-row md:items-stretch gap-3 md:gap-1">
                   {[
-                    { n: 1, t: 'AI-расширение', d: 'ИИ генерирует 150–200 запросов по теме: синонимы, хвосты, вопросы, коммерческие.' },
-                    { n: 2, t: 'Частоты', d: 'Яндекс.Вордстат возвращает частоту каждого запроса в месяц.' },
-                    { n: 3, t: 'Кластеры', d: 'Запросы с похожей выдачей в топе группируются в один кластер.' },
-                    { n: 4, t: 'Результат', d: 'Таблица с частотами, скорингом и кластерами. Экспорт в XLSX.' },
+                    { n: 1, t: 'Источники', d: 'DataForSEO собирает реальные подсказки, базу ключей и ключи конкурентов. AI добавляет редкие хвосты и вопросы.' },
+                    { n: 2, t: 'Частоты', d: 'Реальные месячные объёмы поиска — DataForSEO. Для ключей AI используется оценка.' },
+                    { n: 3, t: 'Кластеры', d: 'Запросы с похожей выдачей в топе группируются — отдельно коммерческие и информационные.' },
+                    { n: 4, t: 'Результат', d: 'Таблица с частотами, скорингом и кластерами. Зелёный индикатор = реальные данные. Экспорт в XLSX.' },
                   ].map((s, i, arr) => (
                     <div key={s.n} className="flex md:flex-1 items-stretch gap-1">
                       <div className="flex-1 rounded-md border border-border/60 bg-background p-3">
@@ -511,7 +562,7 @@ export default function SemanticCorePage() {
             {running ? 'Собираем ядро...' : 'Генерировать семантику'}
           </Button>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>AI расширит ядро → получит частоты → кластеризует по топам</span>
+            <span>Источники → частоты → SERP → кластеризация по интенту</span>
             {dailyUsage && (
               <span>
                 Использовано сегодня: <strong className="text-foreground">{dailyUsage.used}</strong> / {dailyUsage.limit}
@@ -557,9 +608,19 @@ export default function SemanticCorePage() {
                 <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
                   <span>{jobProgress}%</span>
                   {jobLiveCounts.keywords > 0 && (
-                    <span>
-                      Найдено <strong className="text-foreground">{jobLiveCounts.keywords}</strong> запросов
+                    <span
+                      title={
+                        Object.keys(sourceBreakdown).length
+                          ? `Подсказки: ${sourceBreakdown.autocomplete ?? 0}\nБаза DataForSEO: ${sourceBreakdown.suggestions ?? 0}\nКонкуренты: ${sourceBreakdown.competitors ?? 0}\nAI: ${sourceBreakdown.ai ?? 0}`
+                          : ''
+                      }
+                    >
+                      Собрано <strong className="text-foreground">{jobLiveCounts.keywords}</strong> запросов
+                      {Object.keys(sourceBreakdown).length > 0 && <> из 4 источников</>}
                       {jobLiveCounts.clusters > 0 && <> / <strong className="text-foreground">{jobLiveCounts.clusters}</strong> кластеров</>}
+                      {dataforseoCost > 0 && (
+                        <> · <span className="inline-flex items-center"><DollarSign className="w-3 h-3" />{dataforseoCost.toFixed(3)}</span></>
+                      )}
                     </span>
                   )}
                 </div>
@@ -663,10 +724,10 @@ export default function SemanticCorePage() {
                       <tr>
                         <th className="text-left px-3 py-2 cursor-pointer hover:text-primary" onClick={() => toggleSort('keyword')}>Запрос</th>
                         <th className="text-right px-3 py-2 cursor-pointer hover:text-primary whitespace-nowrap" onClick={() => toggleSort('wsFrequency')}>
-                          Частота WS{!wordstatReal && <MockBadge />}
+                          Частота WS
                         </th>
                         <th className="text-right px-3 py-2 cursor-pointer hover:text-primary whitespace-nowrap" onClick={() => toggleSort('exactFrequency')}>
-                          Точная{!wordstatReal && <MockBadge />}
+                          Точная
                         </th>
                         <th className="text-left px-3 py-2">Интент</th>
                         <th className="text-left px-3 py-2 cursor-pointer hover:text-primary" onClick={() => toggleSort('score')}>Score</th>
@@ -678,7 +739,10 @@ export default function SemanticCorePage() {
                       {filtered.map((k, i) => (
                         <tr key={k.keyword + i} className="border-t border-border/50 hover:bg-muted/20">
                           <td className="px-3 py-2">{k.keyword}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{k.wsFrequency.toLocaleString('ru')}</td>
+                          <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
+                            <FreqDot source={k.dataSource} />
+                            {k.wsFrequency.toLocaleString('ru')}
+                          </td>
                           <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{k.exactFrequency.toLocaleString('ru')}</td>
                           <td className="px-3 py-2">
                             <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${INTENT_BADGE[k.intent]}`}>
