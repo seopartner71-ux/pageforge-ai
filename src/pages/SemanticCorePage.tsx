@@ -181,13 +181,22 @@ export default function SemanticCorePage() {
     (async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u?.user) return;
+      // Admins → no limits
+      const { data: isAdminData } = await supabase.rpc('has_role', {
+        _user_id: u.user.id,
+        _role: 'admin' as any,
+      });
+      if (isAdminData) {
+        setDailyUsage({ used: 0, limit: -1 });
+        return;
+      }
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { count } = await supabase
         .from('semantic_jobs')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', u.user.id)
         .gte('created_at', since);
-      setDailyUsage({ used: count || 0, limit: 10 });
+      setDailyUsage({ used: count || 0, limit: 50 });
     })();
   }, [running]);
 
@@ -553,7 +562,7 @@ export default function SemanticCorePage() {
 
           <Button
             onClick={runGenerate}
-            disabled={running || (dailyUsage ? dailyUsage.used >= dailyUsage.limit : false)}
+            disabled={running || (dailyUsage && dailyUsage.limit !== -1 ? dailyUsage.used >= dailyUsage.limit : false)}
             className="w-full h-11 gap-2"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
