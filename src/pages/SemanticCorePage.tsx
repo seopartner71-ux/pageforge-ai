@@ -311,8 +311,11 @@ export default function SemanticCorePage() {
       const id = (data as any)?.job_id as string;
       if (!id) throw new Error('Не получен job_id');
       setJobId(id);
-      if (typeof (data as any)?.daily_used === 'number') {
-        setDailyUsage({ used: (data as any).daily_used, limit: (data as any).daily_limit || 10 });
+      const isAdmin = !!(data as any)?.is_admin;
+      if (isAdmin) {
+        setDailyUsage({ used: 0, limit: -1 }); // -1 → "без лимита"
+      } else if (typeof (data as any)?.daily_used === 'number') {
+        setDailyUsage({ used: (data as any).daily_used, limit: (data as any).daily_limit || 50 });
       }
       startPolling(id);
     } catch (e: any) {
