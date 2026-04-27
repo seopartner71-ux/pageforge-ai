@@ -10,8 +10,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
-const MAX_ACTIVE_JOBS = 3;
-const MAX_DAILY_JOBS = 10;
+const MAX_ACTIVE_JOBS = 5;
+const MAX_DAILY_JOBS = 50;
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
