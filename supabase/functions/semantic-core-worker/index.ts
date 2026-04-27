@@ -664,6 +664,38 @@ async function nameClustersBatch(
   }
 }
 
+// Retry naming for a single cluster with a simpler prompt — used as fallback
+// when the batch call returned the default "Кластер N" placeholder.
+async function nameClusterSingle(keywords: string[]): Promise<string | null> {
+  if (!keywords.length || !LOVABLE_API_KEY) return null;
+  const top5 = keywords.slice(0, 5).join(", ");
+  try {
+    const resp = await fetch(AI_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          {
+            role: "user",
+            content: `Дай короткое название (2-3 слова) этой группе запросов: ${top5}. Только название, без пояснений.`,
+          },
+        ],
+      }),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const raw = String(data?.choices?.[0]?.message?.content || "").trim();
+    // Strip quotes / leading "название:" etc., take first line
+    const cleaned = raw.split("\n")[0].replace(/^["«»'`]+|["«»'`]+$/g, "").replace(/^[Нн]азвание[:\s]*/, "").trim();
+    if (!cleaned || cleaned.length > 60) return cleaned ? cleaned.slice(0, 60) : null;
+    return cleaned;
+  } catch (e) {
+    console.warn("[worker] single cluster naming failed", e);
+    return null;
+  }
+}
+
 function clusterType(intents: Intent[]): "informational" | "commercial" | "mixed" {
   if (!intents.length) return "mixed";
   const com = intents.filter((i) => i === "commercial" || i === "transac").length;
@@ -1126,6 +1158,30 @@ async function runPipeline(jobId: string) {
     pool[bestIdx].keywords.push(...smallest.keywords);
   }
 
+  // Retry naming for clusters that ended up with the default "Кластер N" placeholder.
+  // This catches both AI failures and merges that pulled in unnamed orphan clusters.
+  const placeholderRe = /^Кластер \d+$/;
+  const unnamedIdx: number[] = [];
+  for (let i = 0; i < finalStates.length; i++) {
+    const nm = (finalStates[i].name || "").trim();
+    if (!nm || placeholderRe.test(nm)) unnamedIdx.push(i);
+  }
+  if (unnamedIdx.length) {
+    console.log(`[naming] retrying ${unnamedIdx.length} unnamed clusters via single-prompt fallback`);
+    const retried = await Promise.all(
+      unnamedIdx.map((i) => nameClusterSingle(finalStates[i].keywords)),
+    );
+    let fixed = 0;
+    for (let j = 0; j < unnamedIdx.length; j++) {
+      const newName = retried[j];
+      if (newName) {
+        finalStates[unnamedIdx[j]].name = newName;
+        fixed++;
+      }
+    }
+    console.log(`[naming] retry fixed ${fixed}/${unnamedIdx.length} clusters`);
+  }
+
   // Reset & re-apply cluster assignments based on finalStates
   for (const k of kws) { k.cluster_id = null; k.cluster_name = null; }
   for (let i = 0; i < finalStates.length; i++) {
@@ -1153,6 +1209,18 @@ async function runPipeline(jobId: string) {
   });
 
   await updateJob(jobId, { progress: 95 });
+
+  // Final diagnostics: real (DataForSEO) vs mock frequencies
+  {
+    const realKws = kws.filter((k) => k.ws_frequency > 0 && k.data_source === "dataforseo");
+    const mockKws = kws.filter((k) => k.data_source === "mock");
+    console.log(`[Final] keywords with real DFS volume: ${realKws.length}`);
+    console.log(`[Final] keywords with mock volume: ${mockKws.length}`);
+    console.log(
+      `[Final] sample real volumes:`,
+      realKws.slice(0, 5).map((k) => `${k.keyword}: ${k.ws_frequency}`).join(" | "),
+    );
+  }
 
   // STEP G: persist
   // Bulk insert keywords (in chunks of 200 for safety)
