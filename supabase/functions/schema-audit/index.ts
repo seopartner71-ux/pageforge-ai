@@ -299,13 +299,28 @@ function buildGeneratedCode(url: string, schemas: FoundSchema[], features: Retur
 /* ─── Score calculation ─── */
 function calculateScore(schemas: FoundSchema[], richEligibleCount: number): number {
   const total = schemas.length;
+  // Hard floor: no schemas at all = essentially nothing implemented
+  if (total === 0) return 10;
   const critical = schemas.filter(s => s.severity === "critical").length;
   const valid = schemas.filter(s => s.severity === "ok").length;
-  const part1 = Math.min(total * 10, 30);
-  const part2 = total > 0 ? (valid / total) * 30 : 0;
-  const part3 = critical === 0 ? 20 : 0;
-  const part4 = Math.min(richEligibleCount * 5, 20);
-  return Math.round(part1 + part2 + part3 + part4);
+  const validRatio = total > 0 ? valid / total : 0;
+  const quantity = Math.min(total * 8, 25);              // max 25
+  const quality = validRatio * 25;                        // max 25
+  const noCritical = critical === 0 ? 25 : 0;             // 25 if clean
+  const richBonus = Math.min(richEligibleCount * 5, 25);  // max 25
+  return Math.round(quantity + quality + noCritical + richBonus);
+}
+
+/* ─── Domain → readable company name fallback ─── */
+function domainToCompanyName(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    const root = host.split(".")[0] || host;
+    // Capitalize first letter
+    return root.charAt(0).toUpperCase() + root.slice(1);
+  } catch {
+    return url;
+  }
 }
 
 /* ─── AI: contextual recommendations & schema generation ─── */
