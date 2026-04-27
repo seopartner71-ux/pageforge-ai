@@ -146,6 +146,25 @@ function filterValidKeywords(arr: string[]): string[] {
     .filter((s) => s.length >= 3 && !/[a-zA-Z]/.test(s));
 }
 
+// Russian-only filter: strips Ukrainian/foreign keywords that DataForSEO
+// occasionally returns when language field is omitted.
+const UKRAINIAN_WORDS = [
+  "квітів", "квіти", "квіток", "з мила", "з метеликів",
+  "з мильних", "київ", "харків", "львів",
+  "одеса", "дніпро", "з атласних", "украина", "україна",
+];
+const UA_CITIES = [
+  "киев", "харьков", "львов", "одесса",
+  "днепр", "запорожье", "николаев", "херсон",
+];
+function isRussianKeyword(keyword: string): boolean {
+  if (!/[а-яёА-ЯЁ]/.test(keyword)) return false;
+  const lower = keyword.toLowerCase();
+  if (UKRAINIAN_WORDS.some((w) => lower.includes(w))) return false;
+  if (UA_CITIES.some((c) => lower.includes(c))) return false;
+  return true;
+}
+
 // Targeted AI follow-up: ask for keywords NOT already in the corpus.
 async function aiFollowupExpand(
   topic: string,
