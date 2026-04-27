@@ -868,6 +868,12 @@ async function runPipeline(jobId: string) {
   let rawKeywords = Array.from(allFromSources);
   console.log(`[Total after dedup]: ${rawKeywords.length} keywords | breakdown=${JSON.stringify(breakdown)} | dfsVolumes=${dfsVolumes.size}`);
 
+  // Global post-processing: drop non-Russian / Ukrainian-leaking keywords
+  const beforeRu = rawKeywords.length;
+  rawKeywords = rawKeywords.filter(isRussianKeyword);
+  const droppedRu = beforeRu - rawKeywords.length;
+  if (droppedRu > 0) console.log(`[Russian filter] dropped ${droppedRu} non-Russian keywords (${beforeRu} -> ${rawKeywords.length})`);
+
   // Followup AI enrichment if DFS is available and AI source is enabled,
   // OR fallback if total too small.
   if (dfsAvailable && useAi && rawKeywords.length > 0) {
