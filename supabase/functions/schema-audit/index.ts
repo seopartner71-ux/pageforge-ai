@@ -10,6 +10,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
+const JINA_API_KEY = Deno.env.get("JINA_API_KEY") || "";
 
 /* ─── Schema validation rules ─── */
 const SCHEMA_RULES: Record<string, { required: string[]; recommended: string[]; nestedRequired?: Record<string, string[]> }> = {
