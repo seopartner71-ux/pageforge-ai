@@ -60,6 +60,13 @@ function intentTypeForCluster(items: SemanticKeyword[]): SemanticCluster['type']
   return 'MIXED';
 }
 
+const INTENT_LABELS: Record<string, string> = {
+  info: 'Информационный',
+  commercial: 'Коммерческий',
+  nav: 'Навигационный',
+  transac: 'Транзакционный',
+};
+
 function ScoreBar({ score }: { score: number }) {
   const color = score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
   return (
@@ -570,7 +577,7 @@ export default function SemanticCorePage() {
                             ? INTENT_BADGE[i]
                             : 'bg-secondary text-muted-foreground border border-transparent hover:text-foreground'
                         }`}
-                      >{i}</button>
+                       >{INTENT_LABELS[i] ?? i}</button>
                     ))}
                   </div>
                   {clusters.length > 1 && (
@@ -618,7 +625,7 @@ export default function SemanticCorePage() {
                           <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{k.exactFrequency.toLocaleString('ru')}</td>
                           <td className="px-3 py-2">
                             <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${INTENT_BADGE[k.intent]}`}>
-                              {k.intent}
+                              {INTENT_LABELS[k.intent] ?? k.intent}
                             </span>
                           </td>
                           <td className="px-3 py-2"><ScoreBar score={k.score} /></td>
