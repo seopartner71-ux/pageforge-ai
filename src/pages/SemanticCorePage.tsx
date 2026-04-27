@@ -723,6 +723,28 @@ export default function SemanticCorePage() {
 
             {view === 'table' ? (
               <>
+                {/* Ideal opportunities banner */}
+                {idealCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIdealOnly(v => !v)}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-md border text-left transition-all ${
+                      idealOnly
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                        : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/15'
+                    }`}
+                    title="Score > 70 и KD < 40 — высокий приоритет, низкая конкуренция"
+                  >
+                    <span className="text-sm font-medium">
+                      🎯 Найдено <strong>{idealCount}</strong> идеальных запросов{' '}
+                      <span className="text-xs opacity-80 font-normal">(Score &gt; 70, KD &lt; 40)</span>
+                    </span>
+                    <span className="text-xs opacity-80">
+                      {idealOnly ? 'Сбросить фильтр' : 'Показать только их'}
+                    </span>
+                  </button>
+                )}
+
                 {/* Filters */}
                 <div className="space-y-2">
                   <div className="relative">
@@ -747,6 +769,26 @@ export default function SemanticCorePage() {
                         }`}
                        >{INTENT_LABELS[i] ?? i}</button>
                     ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs text-muted-foreground self-center mr-1">Сложность:</span>
+                    {(['easy','medium','hard','veryhard'] as KdBucket[]).map(b => {
+                      const ranges: Record<KdBucket, string> = {
+                        easy: '0–30', medium: '31–60', hard: '61–80', veryhard: '81+', none: '',
+                      };
+                      const active = kdFilter.has(b);
+                      return (
+                        <button
+                          key={b}
+                          onClick={() => setKdFilter(toggleSet(kdFilter, b))}
+                          className={`px-2 py-0.5 rounded text-[11px] transition-all ${
+                            active
+                              ? KD_BADGE[b]
+                              : 'bg-secondary text-muted-foreground border border-transparent hover:text-foreground'
+                          }`}
+                        >{KD_LABELS[b]} <span className="opacity-70">({ranges[b]})</span></button>
+                      );
+                    })}
                   </div>
                   {clusters.length > 1 && (
                     <div className="flex flex-wrap gap-1.5">
@@ -780,7 +822,15 @@ export default function SemanticCorePage() {
                           Точная
                         </th>
                         <th className="text-left px-3 py-2">Интент</th>
-                        <th className="text-left px-3 py-2 cursor-pointer hover:text-primary" onClick={() => toggleSort('score')}>Score</th>
+                        <th
+                          className="text-left px-3 py-2 cursor-pointer hover:text-primary"
+                          onClick={() => toggleSort('score')}
+                          title="Score — приоритет запроса (частота × интент × специфичность). Не путать со сложностью (KD) — высокий Score + низкий KD = идеальный запрос для продвижения"
+                        >Score</th>
+                        <th
+                          className="text-left px-3 py-2 whitespace-nowrap"
+                          title="Keyword Difficulty — сложность попадания в топ-10 (0=легко, 100=невозможно)"
+                        >KD</th>
                         <th className="text-left px-3 py-2">Кластер</th>
                         <th className="text-center px-3 py-2 w-12">✓</th>
                       </tr>
@@ -800,6 +850,7 @@ export default function SemanticCorePage() {
                             </span>
                           </td>
                           <td className="px-3 py-2"><ScoreBar score={k.score} /></td>
+                          <td className="px-3 py-2"><KdBadge kd={k.keywordDifficulty} /></td>
                           <td className="px-3 py-2 text-xs text-muted-foreground max-w-[200px] truncate" title={clusterMap.get(k.cluster)?.name}>
                             {clusterMap.get(k.cluster)?.name || '—'}
                           </td>
