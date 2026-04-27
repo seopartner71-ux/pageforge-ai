@@ -146,6 +146,25 @@ function filterValidKeywords(arr: string[]): string[] {
     .filter((s) => s.length >= 3 && !/[a-zA-Z]/.test(s));
 }
 
+// Russian-only filter: strips Ukrainian/foreign keywords that DataForSEO
+// occasionally returns when language field is omitted.
+const UKRAINIAN_WORDS = [
+  "квітів", "квіти", "квіток", "з мила", "з метеликів",
+  "з мильних", "київ", "харків", "львів",
+  "одеса", "дніпро", "з атласних", "украина", "україна",
+];
+const UA_CITIES = [
+  "киев", "харьков", "львов", "одесса",
+  "днепр", "запорожье", "николаев", "херсон",
+];
+function isRussianKeyword(keyword: string): boolean {
+  if (!/[а-яёА-ЯЁ]/.test(keyword)) return false;
+  const lower = keyword.toLowerCase();
+  if (UKRAINIAN_WORDS.some((w) => lower.includes(w))) return false;
+  if (UA_CITIES.some((c) => lower.includes(c))) return false;
+  return true;
+}
+
 // Targeted AI follow-up: ask for keywords NOT already in the corpus.
 async function aiFollowupExpand(
   topic: string,
@@ -305,14 +324,27 @@ async function dfsKeywordSuggestions(
       if (Array.isArray(items)) {
         if (items.length && merged.size === 0) {
           console.log(`[DFS volume sample suggestions]`, JSON.stringify(items[0]).slice(0, 400));
+            const dbg = items[0];
+            console.log('[KD debug suggestions]', JSON.stringify({
+              kd1: dbg?.keyword_difficulty,
+              kd2: dbg?.keyword_info?.keyword_difficulty,
+              kd3: dbg?.keyword_info?.keyword_properties?.keyword_difficulty,
+              kd4: dbg?.keyword_properties?.keyword_difficulty,
+              info_keys: Object.keys(dbg?.keyword_info || {}),
+              props_keys: Object.keys(dbg?.keyword_properties || {}),
+              top_keys: Object.keys(dbg || {}),
+            }));
         }
         for (const it of items) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
-          // Post-filter: keyword must contain Cyrillic chars (no language field allowed in request)
-          if (!/[\u0400-\u04FF]/.test(kw)) continue;
-          const kdRaw = it?.keyword_difficulty ?? it?.keyword_properties?.keyword_difficulty ?? it?.keyword_info?.keyword_difficulty;
+            // Post-filter: Russian-only (no language field allowed in request)
+            if (!isRussianKeyword(kw)) continue;
+            const kdRaw = it?.keyword_difficulty
+              ?? it?.keyword_properties?.keyword_difficulty
+              ?? it?.keyword_info?.keyword_difficulty
+              ?? it?.keyword_info?.keyword_properties?.keyword_difficulty;
           const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
           if (!prev || sv > prev.search_volume) {
@@ -399,14 +431,27 @@ async function dfsKeywordsForSite(
       if (Array.isArray(items)) {
         if (items.length && merged.size === 0) {
           console.log(`[DFS volume sample competitors]`, JSON.stringify(items[0]).slice(0, 400));
+          const dbg = items[0];
+          console.log('[KD debug competitors]', JSON.stringify({
+            kd1: dbg?.keyword_difficulty,
+            kd2: dbg?.keyword_info?.keyword_difficulty,
+            kd3: dbg?.keyword_info?.keyword_properties?.keyword_difficulty,
+            kd4: dbg?.keyword_properties?.keyword_difficulty,
+            info_keys: Object.keys(dbg?.keyword_info || {}),
+            props_keys: Object.keys(dbg?.keyword_properties || {}),
+            top_keys: Object.keys(dbg || {}),
+          }));
         }
         for (const it of items) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
-          // Post-filter: keyword must contain Cyrillic chars
-          if (!/[\u0400-\u04FF]/.test(kw)) continue;
-          const kdRaw = it?.keyword_difficulty ?? it?.keyword_properties?.keyword_difficulty ?? it?.keyword_info?.keyword_difficulty;
+          // Post-filter: Russian-only
+          if (!isRussianKeyword(kw)) continue;
+          const kdRaw = it?.keyword_difficulty
+            ?? it?.keyword_properties?.keyword_difficulty
+            ?? it?.keyword_info?.keyword_difficulty
+            ?? it?.keyword_info?.keyword_properties?.keyword_difficulty;
           const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
           if (!prev || sv > prev.search_volume) {
@@ -822,6 +867,12 @@ async function runPipeline(jobId: string) {
 
   let rawKeywords = Array.from(allFromSources);
   console.log(`[Total after dedup]: ${rawKeywords.length} keywords | breakdown=${JSON.stringify(breakdown)} | dfsVolumes=${dfsVolumes.size}`);
+
+  // Global post-processing: drop non-Russian / Ukrainian-leaking keywords
+  const beforeRu = rawKeywords.length;
+  rawKeywords = rawKeywords.filter(isRussianKeyword);
+  const droppedRu = beforeRu - rawKeywords.length;
+  if (droppedRu > 0) console.log(`[Russian filter] dropped ${droppedRu} non-Russian keywords (${beforeRu} -> ${rawKeywords.length})`);
 
   // Followup AI enrichment if DFS is available and AI source is enabled,
   // OR fallback if total too small.

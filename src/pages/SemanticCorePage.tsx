@@ -99,13 +99,23 @@ const KD_BADGE: Record<KdBucket, string> = {
 };
 function KdBadge({ kd }: { kd: number | null | undefined }) {
   const b = kdBucket(kd);
+  if (kd == null || Number.isNaN(kd as number)) {
+    return (
+      <span
+        className="inline-flex items-center px-1.5 text-xs text-muted-foreground/60 tabular-nums"
+        title="KD неизвестен"
+      >
+        —
+      </span>
+    );
+  }
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium ${KD_BADGE[b]}`}
-      title={kd == null ? 'Нет данных' : `KD = ${kd}`}
+      title={`KD = ${kd}`}
     >
       <span>{KD_LABELS[b]}</span>
-      {kd != null && <span className="tabular-nums opacity-80">{kd}</span>}
+      <span className="tabular-nums opacity-80">{kd}</span>
     </span>
   );
 }
@@ -140,13 +150,24 @@ function FreqDot({ source }: { source?: 'mock' | 'dataforseo' }) {
   );
 }
 
-// "Золотой" запрос: info-интент, частота >= 1000,
-// и KD <= 40 (или score >= 60, если KD неизвестно)
+// "Золотой" запрос: info-интент, частота >= 1000, KD известен и KD <= 40.
+// Если KD неизвестен — запрос НЕ считается золотым (конкурентность не подтверждена).
 function isGoldenKeyword(k: SemanticKeyword): boolean {
   if (k.intent !== 'info') return false;
   if ((k.wsFrequency ?? 0) < 1000) return false;
-  if (k.keywordDifficulty != null) return k.keywordDifficulty <= 40;
-  return k.score >= 60;
+  if (k.keywordDifficulty == null) return false;
+  return k.keywordDifficulty <= 40;
+}
+
+// Грамматически правильное склонение для «идеальный запрос»
+function idealLabel(n: number): string {
+  if (n === 1) return 'Найден 1 идеальный запрос';
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
+    return `Найдено ${n} идеальных запроса`;
+  }
+  return `Найдено ${n} идеальных запросов`;
 }
 const GOLDEN_TOOLTIP =
   'Золотой запрос: информационный, частота 1000+, KD ≤ 40. Идеально для статей и быстрого SEO-роста.';
@@ -754,7 +775,7 @@ export default function SemanticCorePage() {
                     title="Score > 70 и KD < 40 — высокий приоритет, низкая конкуренция"
                   >
                     <span className="text-sm font-medium">
-                      🎯 Найдено <strong>{idealCount}</strong> идеальных запросов{' '}
+                      🎯 <strong>{idealLabel(idealCount)}</strong>{' '}
                       <span className="text-xs opacity-80 font-normal">(Score &gt; 70, KD &lt; 40)</span>
                     </span>
                     <span className="text-xs opacity-80">
