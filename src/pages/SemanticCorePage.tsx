@@ -562,7 +562,7 @@ export default function SemanticCorePage() {
 
           <Button
             onClick={runGenerate}
-            disabled={running || (dailyUsage ? dailyUsage.used >= dailyUsage.limit : false)}
+            disabled={running || (dailyUsage && dailyUsage.limit !== -1 ? dailyUsage.used >= dailyUsage.limit : false)}
             className="w-full h-11 gap-2"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
