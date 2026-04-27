@@ -751,34 +751,38 @@ export default function SchemaAuditPage() {
                 <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
                   📊 Обнаружено на странице
                 </h2>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  ✅ — из meta/schema (надёжно) · ⚠️ — из текста (проверьте) · ❌ — не найдено
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                   {([
-                    ['Компания', audit.ai_recommendations.pageData.companyName],
-                    ['Телефон', audit.ai_recommendations.pageData.phone],
-                    ['Адрес', audit.ai_recommendations.pageData.address],
-                    ['Email', audit.ai_recommendations.pageData.email],
-                    ['Цены', audit.ai_recommendations.pageData.priceRange],
-                    ['Рейтинг', audit.ai_recommendations.pageData.rating],
-                    ['Часы работы', audit.ai_recommendations.pageData.workingHours],
-                    ['Описание', audit.ai_recommendations.pageData.description],
-                  ] as [string, string | null][]).map(([label, val]) => (
+                    ['Компания', audit.ai_recommendations.pageData.companyName, 'companyName'],
+                    ['Телефон', audit.ai_recommendations.pageData.phone, 'phone'],
+                    ['Адрес', audit.ai_recommendations.pageData.address, 'address'],
+                    ['Email', audit.ai_recommendations.pageData.email, 'email'],
+                    ['Цены', audit.ai_recommendations.pageData.priceRange, null],
+                    ['Рейтинг', audit.ai_recommendations.pageData.rating, null],
+                    ['Часы работы', audit.ai_recommendations.pageData.workingHours, null],
+                    ['Описание', audit.ai_recommendations.pageData.description, 'description'],
+                  ] as [string, string | null, string | null][]).map(([label, val, key]) => {
+                    const conf = (key && audit.ai_recommendations?.pageData?.confidence?.[key]) || (val ? 'low' : 'none');
+                    const icon = !val ? '❌' : conf === 'high' ? '✅' : '⚠️';
+                    const tone = !val ? 'text-muted-foreground/50'
+                      : conf === 'high' ? 'text-foreground'
+                      : 'text-amber-300';
+                    const title = !val ? 'Не найдено'
+                      : conf === 'high' ? 'Высокая надёжность — из структурированных данных'
+                      : 'Низкая надёжность — извлечено из текста, проверьте';
+                    return (
                     <div key={label} className="flex items-center justify-between gap-3 py-1 border-b border-border/30 last:border-0">
                       <span className="text-muted-foreground text-xs">{label}</span>
-                      <span className={`text-xs truncate max-w-[60%] flex items-center gap-1.5 ${val ? 'text-foreground' : 'text-muted-foreground/50'}`}>
-                        {val ? (
-                          <>
-                            <span className="truncate">{val}</span>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                          </>
-                        ) : (
-                          <>
-                            <span>не найдено</span>
-                            <XCircle className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-                          </>
-                        )}
+                      <span className={`text-xs truncate max-w-[60%] flex items-center gap-1.5 ${tone}`} title={title}>
+                        <span className="truncate">{val || 'не найдено'}</span>
+                        <span className="shrink-0 text-[11px]" aria-hidden>{icon}</span>
                       </span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
