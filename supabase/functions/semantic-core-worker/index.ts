@@ -270,6 +270,7 @@ async function dfsKeywordSuggestions(
   const locationCode = dfsLocation(region);
   const queries = [topic, ...seeds.slice(0, 5)];
   const merged = new Map<string, DfsKwData>();
+  console.log(`[DFS suggestions] region: ${region} location_code: ${locationCode}`);
 
   for (const q of queries) {
     try {
@@ -359,6 +360,7 @@ async function dfsKeywordsForSite(
 
   const locationCode = dfsLocation(region);
   const merged = new Map<string, DfsKwData>();
+  console.log(`[DFS competitors] region: ${region} location_code: ${locationCode}`);
   await Promise.allSettled(domains.map(async (target) => {
     try {
       const resp = await fetch(
