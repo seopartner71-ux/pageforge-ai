@@ -440,15 +440,20 @@ export default function SemanticCorePage() {
 
           <Button
             onClick={runGenerate}
-            disabled={running}
+            disabled={running || (dailyUsage ? dailyUsage.used >= dailyUsage.limit : false)}
             className="w-full h-11 gap-2"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {running ? 'Собираем ядро...' : 'Generate Semantics'}
           </Button>
-          <p className="text-xs text-muted-foreground text-center">
-            AI расширит ядро → получит частоты → кластеризует по топам
-          </p>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>AI расширит ядро → получит частоты → кластеризует по топам</span>
+            {dailyUsage && (
+              <span>
+                Использовано сегодня: <strong className="text-foreground">{dailyUsage.used}</strong> / {dailyUsage.limit}
+              </span>
+            )}
+          </div>
 
           {!wordstatReal && (
             <div className="flex items-start gap-2 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-200">
@@ -478,6 +483,23 @@ export default function SemanticCorePage() {
                   </div>
                 );
               })}
+              <div className="pt-1">
+                <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{ width: `${Math.max(2, jobProgress)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
+                  <span>{jobProgress}%</span>
+                  {jobLiveCounts.keywords > 0 && (
+                    <span>
+                      Найдено <strong className="text-foreground">{jobLiveCounts.keywords}</strong> запросов
+                      {jobLiveCounts.clusters > 0 && <> / <strong className="text-foreground">{jobLiveCounts.clusters}</strong> кластеров</>}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </Card>
