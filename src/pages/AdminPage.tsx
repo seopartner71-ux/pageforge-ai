@@ -137,12 +137,16 @@ function ApiSettingsTab() {
     serper_api_key: 'Serper.dev API Key',
     jina_api_key: 'Jina API Key',
     prodamus_api_key: 'Prodamus API Key',
+    wordstat_api_key: 'Яндекс.Вордстат API Key',
+  };
+  const keyHelp: Record<string, string> = {
+    wordstat_api_key: 'Получите ключ на developer.tech.yandex.ru. Без ключа используется Mock-режим.',
   };
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
 
   // Ensure prodamus_api_key is in the list
-  const allKeys = ['openai_api_key', 'serper_api_key', 'jina_api_key', 'prodamus_api_key'];
+  const allKeys = ['openai_api_key', 'serper_api_key', 'jina_api_key', 'prodamus_api_key', 'wordstat_api_key'];
   const displaySettings = allKeys.map(key => {
     const existing = settings.find(s => s.key_name === key);
     return existing || { id: '', key_name: key, key_value: '' };
@@ -183,6 +187,9 @@ function ApiSettingsTab() {
                 {showKeys[s.key_name] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </Button>
             </div>
+            {keyHelp[s.key_name] && (
+              <p className="text-[11px] text-muted-foreground pt-0.5">{keyHelp[s.key_name]}</p>
+            )}
           </div>
         );
       })}

@@ -37,6 +37,7 @@ export function AppHeader() {
     { label: 'Конкуренты', path: '/competitors' },
     { label: 'Анализ топа', path: '/top-analysis' },
     { label: 'Интент', path: '/intent' },
+    { label: 'Семантическое ядро', path: '/semantic-core' },
     { label: tr.nav.history, path: '/history' },
     { label: tr.nav.account, path: '/account' },
     ...(isAdmin ? [{ label: '⚙ Админ', path: '/admin' }] : []),
