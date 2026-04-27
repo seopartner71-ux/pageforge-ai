@@ -547,11 +547,34 @@ export default function SchemaAuditPage() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (data?.error) {
-        setErrorCode(data.code || null);
+        const code = data.code || null;
+        setErrorCode(code);
         setErrorDomain(data.domain || null);
+        setError(data.error);
+        if (code === 'BOT_PROTECTED') {
+          setManualMode(true);
+          toast({ title: 'Сайт защищён от парсинга', description: 'Вставьте HTML страницы вручную и запустите анализ повторно.' });
+          return;
+        }
         throw new Error(data.error);
       }
-      if (fnErr) throw new Error(fnErr.message);
+      if (fnErr) {
+        const response = (fnErr as any)?.context;
+        const payload = response?.clone ? await response.clone().json().catch(() => null) : null;
+        if (payload?.error) {
+          const code = payload.code || null;
+          setErrorCode(code);
+          setErrorDomain(payload.domain || null);
+          setError(payload.error);
+          if (code === 'BOT_PROTECTED') {
+            setManualMode(true);
+            toast({ title: 'Сайт защищён от парсинга', description: 'Вставьте HTML страницы вручную и запустите анализ повторно.' });
+            return;
+          }
+          throw new Error(payload.error);
+        }
+        throw new Error(fnErr.message);
+      }
       const auditId = data?.audit_id;
       if (!auditId) throw new Error('Не получен ID анализа');
 
