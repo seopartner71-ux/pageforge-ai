@@ -710,6 +710,7 @@ async function runPipeline(jobId: string) {
 
   // Per-source storage with frequency map (only DFS sources have real volumes)
   const dfsVolumes = new Map<string, number>(); // keyword -> max DFS search_volume
+  const dfsKd = new Map<string, number>();      // keyword -> keyword_difficulty (Labs sources)
   const breakdown: Record<string, number> = {
     autocomplete: 0, suggestions: 0, competitors: 0, ai: 0,
   };
@@ -769,6 +770,13 @@ async function runPipeline(jobId: string) {
         if (!filterValidKeywords([kw]).length) continue;
         const prev = dfsVolumes.get(kw) || 0;
         if (v.search_volume > prev) dfsVolumes.set(kw, v.search_volume);
+        if (v.keyword_difficulty != null) {
+          const prevKd = dfsKd.get(kw);
+          // Prefer the highest reported KD across sources (more conservative)
+          if (prevKd === undefined || v.keyword_difficulty > prevKd) {
+            dfsKd.set(kw, v.keyword_difficulty);
+          }
+        }
       }
     }
     for (const kw of filtered) allFromSources.add(kw);
