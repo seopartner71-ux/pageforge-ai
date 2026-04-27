@@ -344,29 +344,93 @@ async function getAiRecommendations(url: string, schemas: FoundSchema[], pageCon
   }
 }
 
-/* ─── Fetch HTML via Jina Reader (with fallback to direct fetch) ─── */
+/* ─── Dual fetch: raw HTML + Jina clean text in parallel ─── */
 async function fetchHtml(url: string): Promise<{ html: string; content: string; title: string }> {
-  // Try Jina for clean content
-  let content = "";
-  try {
-    const jr = await fetch(`https://r.jina.ai/${url}`, {
-      headers: { "X-Return-Format": "text" },
-    });
-    if (jr.ok) content = await jr.text();
-  } catch { /* ignore */ }
+  const jinaHeaders: Record<string, string> = { "X-Return-Format": "text", "X-No-Cache": "true" };
+  if (JINA_API_KEY) jinaHeaders["Authorization"] = `Bearer ${JINA_API_KEY}`;
 
-  let html = "";
-  try {
-    const r = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; SchemaAuditBot/1.0)" },
+  const [jinaRes, rawRes] = await Promise.allSettled([
+    fetch(`https://r.jina.ai/${url}`, { headers: jinaHeaders }),
+    fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+      },
       redirect: "follow",
-    });
-    if (r.ok) html = await r.text();
-  } catch { /* ignore */ }
+    }),
+  ]);
+
+  let content = "";
+  if (jinaRes.status === "fulfilled" && jinaRes.value.ok) {
+    try { content = await jinaRes.value.text(); } catch { /* ignore */ }
+  }
+  let html = "";
+  if (rawRes.status === "fulfilled" && rawRes.value.ok) {
+    try { html = await rawRes.value.text(); } catch { /* ignore */ }
+  }
+
+  // Fallback: if direct fetch failed (bot blocked), use Jina HTML mode
+  if (!html) {
+    try {
+      const fb = await fetch(`https://r.jina.ai/${url}`, {
+        headers: { ...jinaHeaders, "X-Return-Format": "html" },
+      });
+      if (fb.ok) html = await fb.text();
+    } catch { /* ignore */ }
+  }
 
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   const title = titleMatch ? titleMatch[1].trim() : "";
+  console.log("[schema-audit fetch]", { url, htmlLen: html.length, contentLen: content.length, hasJsonLd: /application\/ld\+json/i.test(html) });
   return { html, content: content || html, title };
+}
+
+/* ─── Detect page type from URL & content ─── */
+function detectPageType(url: string, content: string): string {
+  const u = url.toLowerCase();
+  const c = (content || "").toLowerCase();
+  let pathname = "/";
+  try { pathname = new URL(url).pathname; } catch { /* ignore */ }
+
+  if (pathname === "/" || pathname === "") return "homepage";
+  if (/\/(product|tovar|item|good)/i.test(u) ||
+      /(в корзину|купить|add to cart|артикул|sku)/i.test(c)) return "product";
+  if (/\/(blog|article|news|post)/i.test(u) ||
+      /(опубликован|published|posted on)/i.test(c)) return "article";
+  if (/(адрес|режим работы|время работы|opening hours)/i.test(c) &&
+      /(тел\.|телефон|phone|\+\d)/i.test(c)) return "local_business";
+  return "general";
+}
+
+/* ─── Extract real page data via regex heuristics ─── */
+function extractPageData(html: string, content: string) {
+  const text = (content || html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
+
+  const phoneMatch = text.match(/(\+?[78][\s\-(]?\d{3}[\s\-)]?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2})/);
+  const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  const addressMatch = text.match(/(?:г\.\s?[А-ЯЁ][а-яё\-]+|город\s+[А-ЯЁ][а-яё\-]+)[^.]{0,150}(?:ул\.|улица|пр\.|проспект|пер\.|шоссе|наб\.)[^.]{0,80}\d{1,4}/i);
+  const priceMatch = text.match(/(?:от\s+)?(\d[\d\s]{0,9})\s?(₽|руб\.?|rub)/i);
+  const ogSite = html.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i);
+  const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const company = ogSite?.[1] || titleTag?.[1]?.split(/[|—\-]/)[0]?.trim() || null;
+  const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
+                    html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+  const logoMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+  const hoursMatch = text.match(/(?:режим работы|время работы|часы работы)[:\s]*([^.]{5,80})/i);
+  const ratingMatch = text.match(/(?:рейтинг|оценка)[:\s]*(\d[.,]?\d?)/i);
+
+  return {
+    companyName: company,
+    phone: phoneMatch?.[0] || null,
+    email: emailMatch?.[0] || null,
+    address: addressMatch?.[0]?.trim() || null,
+    priceRange: priceMatch ? `${priceMatch[1].replace(/\s/g, "")} ${priceMatch[2]}` : null,
+    description: descMatch?.[1] || null,
+    logo: logoMatch?.[1] || null,
+    workingHours: hoursMatch?.[1]?.trim() || null,
+    rating: ratingMatch?.[1] || null,
+  };
 }
 
 Deno.serve(async (req: Request) => {
