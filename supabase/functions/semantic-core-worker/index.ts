@@ -310,8 +310,14 @@ async function dfsKeywordSuggestions(
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
+          const kdRaw = it?.keyword_difficulty ?? it?.keyword_properties?.keyword_difficulty ?? it?.keyword_info?.keyword_difficulty;
+          const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
-          if (!prev || sv > prev.search_volume) merged.set(kw, { keyword: kw, search_volume: sv });
+          if (!prev || sv > prev.search_volume) {
+            merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: kd });
+          } else if (prev && kd != null && prev.keyword_difficulty == null) {
+            prev.keyword_difficulty = kd;
+          }
         }
       }
     } catch (e) {
@@ -397,8 +403,14 @@ async function dfsKeywordsForSite(
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
+          const kdRaw = it?.keyword_difficulty ?? it?.keyword_properties?.keyword_difficulty ?? it?.keyword_info?.keyword_difficulty;
+          const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
-          if (!prev || sv > prev.search_volume) merged.set(kw, { keyword: kw, search_volume: sv });
+          if (!prev || sv > prev.search_volume) {
+            merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: kd });
+          } else if (prev && kd != null && prev.keyword_difficulty == null) {
+            prev.keyword_difficulty = kd;
+          }
         }
       }
     } catch (e) {
