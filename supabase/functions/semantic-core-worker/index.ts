@@ -707,7 +707,7 @@ async function runPipeline(jobId: string) {
   if (useAutocomplete && dfsAvailable) {
     sourcePromises.push(
       dfsAutocompleteSource(topic, seeds, region, cost)
-        .then((kws) => ({ source: "autocomplete", keywords: kws })),
+        .then((arr) => ({ source: "autocomplete", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
   if (useSuggestions && dfsAvailable) {
