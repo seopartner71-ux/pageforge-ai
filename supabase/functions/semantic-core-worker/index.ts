@@ -847,6 +847,7 @@ async function runPipeline(jobId: string) {
       needFreq.push({ idx: i, keyword: kw });
       dataSources[i] = "mock";
       mockCount++;
+      console.log('[Mock fallback]', 'keyword:', kw, 'reason: DFS returned 0 results');
     }
   }
   console.log(`[Volumes] real: ${realCount}, mock: ${mockCount}, dfsVolumesMapSize: ${dfsVolumes.size}`);
