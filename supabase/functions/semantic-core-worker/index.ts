@@ -1210,6 +1210,18 @@ async function runPipeline(jobId: string) {
 
   await updateJob(jobId, { progress: 95 });
 
+  // Final diagnostics: real (DataForSEO) vs mock frequencies
+  {
+    const realKws = kws.filter((k) => k.ws_frequency > 0 && k.data_source === "dataforseo");
+    const mockKws = kws.filter((k) => k.data_source === "mock");
+    console.log(`[Final] keywords with real DFS volume: ${realKws.length}`);
+    console.log(`[Final] keywords with mock volume: ${mockKws.length}`);
+    console.log(
+      `[Final] sample real volumes:`,
+      realKws.slice(0, 5).map((k) => `${k.keyword}: ${k.ws_frequency}`).join(" | "),
+    );
+  }
+
   // STEP G: persist
   // Bulk insert keywords (in chunks of 200 for safety)
   const keywordRows = kws.map((k) => ({ job_id: jobId, ...k }));
