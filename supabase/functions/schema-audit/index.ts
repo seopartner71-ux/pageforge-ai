@@ -490,6 +490,32 @@ async function fetchRaw(url: string): Promise<string> {
   } catch { return ""; }
 }
 
+/* ─── Public CORS proxies (no auth) used as fallback when site blocks edge IPs ─── */
+async function fetchViaProxy(url: string): Promise<string> {
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
+  ];
+  for (const p of proxies) {
+    try {
+      const r = await fetch(p, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+        },
+      });
+      if (!r.ok) continue;
+      const txt = await r.text();
+      if (txt && txt.length > 500 && !isBotCheckPage(txt, "")) {
+        console.log("[schema-audit fetch] used proxy", p.split("?")[0], "len:", txt.length);
+        return txt;
+      }
+    } catch { /* try next */ }
+  }
+  return "";
+}
+
 function urlVariants(url: string): string[] {
   const out = new Set<string>([url]);
   try {
@@ -519,6 +545,10 @@ async function fetchHtml(url: string): Promise<{ html: string; content: string; 
     let candidateHtml = raw;
     let candidateText = jinaText;
     if (!candidateHtml) candidateHtml = await fetchJina(v, "html");
+    if (!candidateHtml || candidateHtml.length < 500) {
+      const proxied = await fetchViaProxy(v);
+      if (proxied) candidateHtml = proxied;
+    }
     const blocked = isBotCheckPage(candidateHtml, candidateText);
     console.log("[schema-audit fetch]", { variant: v, htmlLen: candidateHtml.length, textLen: candidateText.length, blocked });
     if (!blocked && (candidateHtml || candidateText)) {
