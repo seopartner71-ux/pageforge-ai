@@ -702,10 +702,16 @@ Deno.serve(async (req: Request) => {
 
       const issues = buildIssues(validated);
       const features = detectPageFeatures(html, content);
-      const generated = buildGeneratedCode(url, validated, features, title);
-      const pageType = detectPageType(url, content);
       const pageData = extractPageData(html, content);
-      const richEligible = validated.filter(s => s.severity === "ok" && ["Product", "Article", "BlogPosting", "FAQPage", "BreadcrumbList", "LocalBusiness"].includes(s.type)).length;
+      const pageType = detectPageType(url, content);
+      // Fallback: ensure companyName exists even if not extracted
+      if (!pageData.companyName) pageData.companyName = domainToCompanyName(url);
+      const generated = buildGeneratedCode(url, validated, features, title, pageData);
+      // Rich Results — count BOTH validated schemas + recommended ones we can add
+      const RICH_TYPES = ["Product", "Article", "BlogPosting", "FAQPage", "BreadcrumbList", "LocalBusiness"];
+      const richFromValidated = validated.filter(s => s.severity === "ok" && RICH_TYPES.includes(s.type)).length;
+      const richFromGenerated = generated.filter(g => RICH_TYPES.includes(g.type)).length;
+      const richEligible = richFromValidated + richFromGenerated;
       const score = calculateScore(validated, richEligible);
 
       const aiData = await getAiRecommendations(url, pageType, pageData, validated, content);
