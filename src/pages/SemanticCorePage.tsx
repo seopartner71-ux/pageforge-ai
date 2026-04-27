@@ -270,6 +270,7 @@ export default function SemanticCorePage() {
       included: r.included,
       topUrls: r.serp_urls || [],
       dataSource: r.data_source === 'dataforseo' ? 'dataforseo' : 'mock',
+      keywordDifficulty: r.keyword_difficulty == null ? null : Number(r.keyword_difficulty),
     }));
     const cls: SemanticCluster[] = (clRows || []).map((r: any) => {
       const items = kws.filter(k => k.cluster === `c${r.cluster_index}`);
