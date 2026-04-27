@@ -194,6 +194,17 @@ interface DfsKwData {
   keyword_difficulty?: number | null; // 0-100, only present for Labs sources
 }
 
+function logDfsResult(endpoint: "suggestions" | "competitors" | "autocomplete", response: Response, data: any) {
+  console.log('[DFS result]', {
+    endpoint,
+    httpStatus: response.status,
+    taskStatus: data?.tasks?.[0]?.status_code,
+    taskMsg: data?.tasks?.[0]?.status_message,
+    resultCount: data?.tasks?.[0]?.result?.length ?? 0,
+    firstItemKeys: Object.keys(data?.tasks?.[0]?.result?.[0] ?? {}),
+  });
+}
+
 // Cost tracker (cumulative across the job)
 class CostTracker {
   total = 0;
