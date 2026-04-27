@@ -188,6 +188,7 @@ async function dfsAutocompleteSource(
 
   const out = new Set<string>();
   const concurrency = 10;
+  let logged = 0;
   for (let i = 0; i < queries.length; i += concurrency) {
     const batch = queries.slice(i, i + concurrency);
     await Promise.allSettled(batch.map(async (q) => {
@@ -205,8 +206,14 @@ async function dfsAutocompleteSource(
             }]),
           },
         );
+        const text = await resp.text();
+        let data: any = {};
+        try { data = JSON.parse(text); } catch { /* keep empty */ }
+        if (logged < 2) {
+          logged++;
+          console.log(`[DFS autocomplete] q="${q}" status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" body=${text.slice(0, 400)}`);
+        }
         if (!resp.ok) return;
-        const data = await resp.json().catch(() => ({}));
         cost.add(0.0005);
         const items = data?.tasks?.[0]?.result?.[0]?.items;
         if (Array.isArray(items)) {
@@ -216,10 +223,11 @@ async function dfsAutocompleteSource(
           }
         }
       } catch (e) {
-        console.warn("[dfs-autocomplete] failed for", q, e);
+        console.error(`[DFS autocomplete] error q="${q}":`, (e as Error).message);
       }
     }));
   }
+  console.log(`[DFS autocomplete] queries=${queries.length}, unique=${out.size}, locationCode=${locationCode}`);
   return Array.from(out);
 }
 
@@ -252,11 +260,11 @@ async function dfsKeywordSuggestions(
           }]),
         },
       );
-      if (!resp.ok) {
-        console.warn("[dfs-suggestions]", q, resp.status);
-        continue;
-      }
-      const data = await resp.json().catch(() => ({}));
+      const text = await resp.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch {}
+      console.log(`[DFS suggestions] q="${q}" status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0} body=${text.slice(0, 500)}`);
+      if (!resp.ok) continue;
       cost.add(0.015 * (limit / 1000));
       const items = data?.tasks?.[0]?.result?.[0]?.items;
       if (Array.isArray(items)) {
@@ -269,9 +277,10 @@ async function dfsKeywordSuggestions(
         }
       }
     } catch (e) {
-      console.warn("[dfs-suggestions] failed for", q, e);
+      console.error(`[DFS suggestions] error q="${q}":`, (e as Error).message);
     }
   }
+  console.log(`[DFS suggestions] merged=${merged.size}, locationCode=${locationCode}`);
   return Array.from(merged.values());
 }
 
@@ -337,11 +346,11 @@ async function dfsKeywordsForSite(
           }]),
         },
       );
-      if (!resp.ok) {
-        console.warn("[dfs-kfs]", target, resp.status);
-        return;
-      }
-      const data = await resp.json().catch(() => ({}));
+      const text = await resp.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch {}
+      console.log(`[DFS competitors] target=${target} status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0} body=${text.slice(0, 500)}`);
+      if (!resp.ok) return;
       cost.add(0.015 * 0.5);
       const items = data?.tasks?.[0]?.result?.[0]?.items;
       if (Array.isArray(items)) {
@@ -354,9 +363,10 @@ async function dfsKeywordsForSite(
         }
       }
     } catch (e) {
-      console.warn("[dfs-kfs] failed for", target, e);
+      console.error(`[DFS competitors] error target=${target}:`, (e as Error).message);
     }
   }));
+  console.log(`[DFS competitors] domains=${domains.join(',')} merged=${merged.size}, locationCode=${locationCode}`);
   return Array.from(merged.values());
 }
 
