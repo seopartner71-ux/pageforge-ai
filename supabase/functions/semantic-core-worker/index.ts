@@ -286,11 +286,20 @@ function mergeSmallClusters(clusters: Cluster[]): Cluster[] {
   return big;
 }
 
-async function nameClustersBatch(clusters: { keywords: string[] }[]): Promise<string[]> {
+async function nameClustersBatch(
+  clusters: { keywords: string[] }[],
+  intentGroup: "commercial" | "informational" | "mixed" = "mixed",
+): Promise<string[]> {
   if (!clusters.length) return [];
   const prompt = clusters
     .map((c, i) => `${i}: ${c.keywords.slice(0, 5).join(", ")}`)
     .join("\n");
+  const intentHint =
+    intentGroup === "commercial"
+      ? "Это КОММЕРЧЕСКИЕ запросы — название должно отражать коммерческое намерение (например: \"Купить цветы с доставкой\", \"Заказать торт онлайн\", \"Цена на ремонт квартиры\")."
+      : intentGroup === "informational"
+      ? "Это ИНФОРМАЦИОННЫЕ запросы — название должно отражать тему статьи или гайда (например: \"Уход за орхидеями\", \"Как выбрать ноутбук\", \"Что такое SEO\")."
+      : "Дай нейтральное тематическое название.";
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
@@ -301,7 +310,9 @@ async function nameClustersBatch(clusters: { keywords: string[] }[]): Promise<st
           {
             role: "system",
             content:
-              "Ты эксперт по SEO. Для каждого кластера поисковых запросов придумай короткое название на русском (2-4 слова). Возвращай ТОЛЬКО валидный JSON: { \"0\": \"Название\", \"1\": \"Название\", ... }",
+              "Ты эксперт по SEO для русскоязычного рынка. Для каждого кластера поисковых запросов придумай короткое название на русском (3-6 слов). " +
+              intentHint +
+              " Возвращай ТОЛЬКО валидный JSON: { \"0\": \"Название\", \"1\": \"Название\", ... }",
           },
           { role: "user", content: `Назови кластеры:\n${prompt}` },
         ],
