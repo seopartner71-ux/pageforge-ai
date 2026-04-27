@@ -86,6 +86,7 @@ interface Kw {
   cluster_name: string | null;
   serp_urls: string[];
   data_source: DataSource;
+  keyword_difficulty: number | null;
 }
 
 function sb() {
@@ -190,6 +191,7 @@ async function aiFollowupExpand(
 interface DfsKwData {
   keyword: string;
   search_volume: number; // monthly
+  keyword_difficulty?: number | null; // 0-100, only present for Labs sources
 }
 
 // Cost tracker (cumulative across the job)
@@ -308,8 +310,14 @@ async function dfsKeywordSuggestions(
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
+          const kdRaw = it?.keyword_difficulty ?? it?.keyword_properties?.keyword_difficulty ?? it?.keyword_info?.keyword_difficulty;
+          const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
-          if (!prev || sv > prev.search_volume) merged.set(kw, { keyword: kw, search_volume: sv });
+          if (!prev || sv > prev.search_volume) {
+            merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: kd });
+          } else if (prev && kd != null && prev.keyword_difficulty == null) {
+            prev.keyword_difficulty = kd;
+          }
         }
       }
     } catch (e) {
@@ -395,8 +403,14 @@ async function dfsKeywordsForSite(
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
+          const kdRaw = it?.keyword_difficulty ?? it?.keyword_properties?.keyword_difficulty ?? it?.keyword_info?.keyword_difficulty;
+          const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
-          if (!prev || sv > prev.search_volume) merged.set(kw, { keyword: kw, search_volume: sv });
+          if (!prev || sv > prev.search_volume) {
+            merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: kd });
+          } else if (prev && kd != null && prev.keyword_difficulty == null) {
+            prev.keyword_difficulty = kd;
+          }
         }
       }
     } catch (e) {
@@ -696,6 +710,7 @@ async function runPipeline(jobId: string) {
 
   // Per-source storage with frequency map (only DFS sources have real volumes)
   const dfsVolumes = new Map<string, number>(); // keyword -> max DFS search_volume
+  const dfsKd = new Map<string, number>();      // keyword -> keyword_difficulty (Labs sources)
   const breakdown: Record<string, number> = {
     autocomplete: 0, suggestions: 0, competitors: 0, ai: 0,
   };
@@ -755,6 +770,13 @@ async function runPipeline(jobId: string) {
         if (!filterValidKeywords([kw]).length) continue;
         const prev = dfsVolumes.get(kw) || 0;
         if (v.search_volume > prev) dfsVolumes.set(kw, v.search_volume);
+        if (v.keyword_difficulty != null) {
+          const prevKd = dfsKd.get(kw);
+          // Prefer the highest reported KD across sources (more conservative)
+          if (prevKd === undefined || v.keyword_difficulty > prevKd) {
+            dfsKd.set(kw, v.keyword_difficulty);
+          }
+        }
       }
     }
     for (const kw of filtered) allFromSources.add(kw);
@@ -836,6 +858,7 @@ async function runPipeline(jobId: string) {
       cluster_name: null,
       serp_urls: [],
       data_source: dataSources[i],
+      keyword_difficulty: dfsKd.has(kw) ? (dfsKd.get(kw) as number) : null,
     };
   });
   await updateJob(jobId, { progress: 55 });

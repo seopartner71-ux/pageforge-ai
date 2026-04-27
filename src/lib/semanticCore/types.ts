@@ -10,6 +10,7 @@ export interface SemanticKeyword {
   included: boolean;
   topUrls?: string[];
   dataSource?: 'mock' | 'dataforseo';
+  keywordDifficulty?: number | null; // 0-100
 }
 
 export interface SemanticCluster {

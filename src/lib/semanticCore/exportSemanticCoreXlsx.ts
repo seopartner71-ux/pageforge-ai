@@ -7,7 +7,7 @@ export function exportSemanticCoreXlsx(payload: SemanticCorePayload): void {
 
   // Лист «Запросы»
   const rows: any[][] = [[
-    'Запрос', 'Частота WS', 'Точная частота', 'Интент', 'Score', 'Кластер', 'Включён',
+    'Запрос', 'Частота WS', 'Точная частота', 'Интент', 'Score', 'KD', 'Кластер', 'Включён',
   ]];
   for (const k of payload.keywords) {
     rows.push([
@@ -16,12 +16,13 @@ export function exportSemanticCoreXlsx(payload: SemanticCorePayload): void {
       k.exactFrequency,
       k.intent,
       k.score,
+      k.keywordDifficulty ?? '',
       clusterMap.get(k.cluster) || k.cluster,
       k.included ? 'Да' : 'Нет',
     ]);
   }
   const ws1 = XLSX.utils.aoa_to_sheet(rows);
-  ws1['!cols'] = [{ wch: 42 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 28 }, { wch: 10 }];
+  ws1['!cols'] = [{ wch: 42 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 6 }, { wch: 28 }, { wch: 10 }];
   XLSX.utils.book_append_sheet(wb, ws1, 'Запросы');
 
   // Лист «Кластеры»

@@ -75,6 +75,41 @@ const INTENT_LABELS: Record<string, string> = {
   transac: 'Транзакционный',
 };
 
+type KdBucket = 'easy' | 'medium' | 'hard' | 'veryhard' | 'none';
+function kdBucket(kd: number | null | undefined): KdBucket {
+  if (kd == null || Number.isNaN(kd)) return 'none';
+  if (kd <= 30) return 'easy';
+  if (kd <= 60) return 'medium';
+  if (kd <= 80) return 'hard';
+  return 'veryhard';
+}
+const KD_LABELS: Record<KdBucket, string> = {
+  easy: 'Легко',
+  medium: 'Средне',
+  hard: 'Сложно',
+  veryhard: 'Очень сложно',
+  none: '—',
+};
+const KD_BADGE: Record<KdBucket, string> = {
+  easy: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  medium: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+  hard: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
+  veryhard: 'bg-red-500/15 text-red-400 border border-red-500/30',
+  none: 'bg-secondary text-muted-foreground border border-border',
+};
+function KdBadge({ kd }: { kd: number | null | undefined }) {
+  const b = kdBucket(kd);
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium ${KD_BADGE[b]}`}
+      title={kd == null ? 'Нет данных' : `KD = ${kd}`}
+    >
+      <span>{KD_LABELS[b]}</span>
+      {kd != null && <span className="tabular-nums opacity-80">{kd}</span>}
+    </span>
+  );
+}
+
 function ScoreBar({ score }: { score: number }) {
   const color = score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
   return (
@@ -130,6 +165,8 @@ export default function SemanticCorePage() {
   const [search, setSearch] = useState('');
   const [intentFilter, setIntentFilter] = useState<Set<IntentKind>>(new Set());
   const [clusterFilter, setClusterFilter] = useState<Set<string>>(new Set());
+  const [kdFilter, setKdFilter] = useState<Set<KdBucket>>(new Set());
+  const [idealOnly, setIdealOnly] = useState(false);
   const [sortKey, setSortKey] = useState<'score' | 'wsFrequency' | 'exactFrequency' | 'keyword'>('score');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -233,6 +270,7 @@ export default function SemanticCorePage() {
       included: r.included,
       topUrls: r.serp_urls || [],
       dataSource: r.data_source === 'dataforseo' ? 'dataforseo' : 'mock',
+      keywordDifficulty: r.keyword_difficulty == null ? null : Number(r.keyword_difficulty),
     }));
     const cls: SemanticCluster[] = (clRows || []).map((r: any) => {
       const items = kws.filter(k => k.cluster === `c${r.cluster_index}`);
@@ -342,13 +380,24 @@ export default function SemanticCorePage() {
     }
     if (intentFilter.size) arr = arr.filter(k => intentFilter.has(k.intent));
     if (clusterFilter.size) arr = arr.filter(k => clusterFilter.has(k.cluster));
+    if (kdFilter.size) arr = arr.filter(k => kdFilter.has(kdBucket(k.keywordDifficulty)));
+    if (idealOnly) {
+      arr = arr.filter(k =>
+        k.score > 70 && k.keywordDifficulty != null && k.keywordDifficulty < 40,
+      );
+    }
     arr = [...arr].sort((a, b) => {
       const av = a[sortKey] as any, bv = b[sortKey] as any;
       const cmp = typeof av === 'string' ? av.localeCompare(bv) : (av - bv);
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return arr;
-  }, [keywords, search, intentFilter, clusterFilter, sortKey, sortDir]);
+  }, [keywords, search, intentFilter, clusterFilter, kdFilter, idealOnly, sortKey, sortDir]);
+
+  const idealCount = useMemo(
+    () => keywords.filter(k => k.score > 70 && k.keywordDifficulty != null && k.keywordDifficulty < 40).length,
+    [keywords],
+  );
 
   const clusterMap = useMemo(() => new Map(clusters.map(c => [c.id, c])), [clusters]);
 
@@ -674,6 +723,28 @@ export default function SemanticCorePage() {
 
             {view === 'table' ? (
               <>
+                {/* Ideal opportunities banner */}
+                {idealCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIdealOnly(v => !v)}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-md border text-left transition-all ${
+                      idealOnly
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                        : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/15'
+                    }`}
+                    title="Score > 70 и KD < 40 — высокий приоритет, низкая конкуренция"
+                  >
+                    <span className="text-sm font-medium">
+                      🎯 Найдено <strong>{idealCount}</strong> идеальных запросов{' '}
+                      <span className="text-xs opacity-80 font-normal">(Score &gt; 70, KD &lt; 40)</span>
+                    </span>
+                    <span className="text-xs opacity-80">
+                      {idealOnly ? 'Сбросить фильтр' : 'Показать только их'}
+                    </span>
+                  </button>
+                )}
+
                 {/* Filters */}
                 <div className="space-y-2">
                   <div className="relative">
@@ -698,6 +769,26 @@ export default function SemanticCorePage() {
                         }`}
                        >{INTENT_LABELS[i] ?? i}</button>
                     ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs text-muted-foreground self-center mr-1">Сложность:</span>
+                    {(['easy','medium','hard','veryhard'] as KdBucket[]).map(b => {
+                      const ranges: Record<KdBucket, string> = {
+                        easy: '0–30', medium: '31–60', hard: '61–80', veryhard: '81+', none: '',
+                      };
+                      const active = kdFilter.has(b);
+                      return (
+                        <button
+                          key={b}
+                          onClick={() => setKdFilter(toggleSet(kdFilter, b))}
+                          className={`px-2 py-0.5 rounded text-[11px] transition-all ${
+                            active
+                              ? KD_BADGE[b]
+                              : 'bg-secondary text-muted-foreground border border-transparent hover:text-foreground'
+                          }`}
+                        >{KD_LABELS[b]} <span className="opacity-70">({ranges[b]})</span></button>
+                      );
+                    })}
                   </div>
                   {clusters.length > 1 && (
                     <div className="flex flex-wrap gap-1.5">
@@ -731,7 +822,15 @@ export default function SemanticCorePage() {
                           Точная
                         </th>
                         <th className="text-left px-3 py-2">Интент</th>
-                        <th className="text-left px-3 py-2 cursor-pointer hover:text-primary" onClick={() => toggleSort('score')}>Score</th>
+                        <th
+                          className="text-left px-3 py-2 cursor-pointer hover:text-primary"
+                          onClick={() => toggleSort('score')}
+                          title="Score — приоритет запроса (частота × интент × специфичность). Не путать со сложностью (KD) — высокий Score + низкий KD = идеальный запрос для продвижения"
+                        >Score</th>
+                        <th
+                          className="text-left px-3 py-2 whitespace-nowrap"
+                          title="Keyword Difficulty — сложность попадания в топ-10 (0=легко, 100=невозможно)"
+                        >KD</th>
                         <th className="text-left px-3 py-2">Кластер</th>
                         <th className="text-center px-3 py-2 w-12">✓</th>
                       </tr>
@@ -751,6 +850,7 @@ export default function SemanticCorePage() {
                             </span>
                           </td>
                           <td className="px-3 py-2"><ScoreBar score={k.score} /></td>
+                          <td className="px-3 py-2"><KdBadge kd={k.keywordDifficulty} /></td>
                           <td className="px-3 py-2 text-xs text-muted-foreground max-w-[200px] truncate" title={clusterMap.get(k.cluster)?.name}>
                             {clusterMap.get(k.cluster)?.name || '—'}
                           </td>
@@ -814,11 +914,21 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
         const top = items.slice(0, 5);
         const isOpen = expanded.has(c.id);
         const display = isOpen ? items : top;
+        const kdValues = items
+          .map(k => k.keywordDifficulty)
+          .filter((v): v is number => typeof v === 'number');
+        const avgKd = kdValues.length
+          ? Math.round(kdValues.reduce((s, v) => s + v, 0) / kdValues.length)
+          : null;
         return (
           <Card key={c.id} className="p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-semibold text-sm leading-tight">{c.name}</h3>
               {typeBadge(c.type)}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Средний KD:</span>
+              <KdBadge kd={avgKd} />
             </div>
             <div className="space-y-1">
               {display.map(k => (

@@ -733,6 +733,7 @@ export type Database = {
           intent: string
           job_id: string
           keyword: string
+          keyword_difficulty: number | null
           score: number
           serp_urls: string[]
           ws_frequency: number
@@ -748,6 +749,7 @@ export type Database = {
           intent?: string
           job_id: string
           keyword: string
+          keyword_difficulty?: number | null
           score?: number
           serp_urls?: string[]
           ws_frequency?: number
@@ -763,6 +765,7 @@ export type Database = {
           intent?: string
           job_id?: string
           keyword?: string
+          keyword_difficulty?: number | null
           score?: number
           serp_urls?: string[]
           ws_frequency?: number
