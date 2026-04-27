@@ -213,6 +213,21 @@ interface DfsKwData {
   keyword_difficulty?: number | null; // 0-100, only present for Labs sources
 }
 
+let dfsDebugReplay: string[] = [];
+
+function logDfsResult(endpoint: "suggestions" | "competitors" | "autocomplete", response: Response, data: any) {
+  const line = '[DFS result] ' + JSON.stringify({
+    endpoint,
+    httpStatus: response.status,
+    taskStatus: data?.tasks?.[0]?.status_code,
+    taskMsg: data?.tasks?.[0]?.status_message,
+    resultCount: data?.tasks?.[0]?.result?.length ?? 0,
+    firstItemKeys: Object.keys(data?.tasks?.[0]?.result?.[0] ?? {}),
+  });
+  dfsDebugReplay.push(line);
+  console.log(line);
+}
+
 // Cost tracker (cumulative across the job)
 class CostTracker {
   total = 0;
@@ -257,6 +272,7 @@ async function dfsAutocompleteSource(
       const text = await resp.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
+      logDfsResult("autocomplete", resp, data);
       if (logged < 1) {
         logged++;
         const sample = data?.tasks?.[0]?.result?.[0];
@@ -319,6 +335,7 @@ async function dfsKeywordSuggestions(
       const text = await resp.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
+      logDfsResult("suggestions", resp, data);
       console.log(`[DFS suggestions] q="${q}" status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0}`);
       if (!resp.ok) continue;
       cost.add(0.015 * (limit / 1000));
@@ -442,6 +459,7 @@ async function dfsKeywordsForSite(
       const text = await resp.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
+      logDfsResult("competitors", resp, data);
       console.log(`[DFS competitors] target=${target} status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0}`);
       if (!resp.ok) return;
       cost.add(0.015 * 0.5);
@@ -779,6 +797,7 @@ function normalizeName(s: string): string {
 
 // ============== MAIN PIPELINE ==============
 async function runPipeline(jobId: string) {
+  dfsDebugReplay = [];
   const sbc = sb();
   const { data: job } = await sbc.from("semantic_jobs").select("*").eq("id", jobId).maybeSingle();
   if (!job) throw new Error("Job not found");
@@ -854,6 +873,7 @@ async function runPipeline(jobId: string) {
       return r;
     }),
   ));
+  for (const line of dfsDebugReplay) console.log(line);
 
   const allFromSources = new Set<string>();
   for (const s of settled) {
@@ -924,6 +944,7 @@ async function runPipeline(jobId: string) {
   const dataSources: DataSource[] = new Array(rawKeywords.length);
   let realCount = 0;
   let mockCount = 0;
+  const mockFallbackKeywords: string[] = [];
   const needFreq: { idx: number; keyword: string }[] = [];
   const freqs: { ws: number; exact: number }[] = new Array(rawKeywords.length);
   for (let i = 0; i < rawKeywords.length; i++) {
@@ -937,7 +958,15 @@ async function runPipeline(jobId: string) {
       needFreq.push({ idx: i, keyword: kw });
       dataSources[i] = "mock";
       mockCount++;
+      mockFallbackKeywords.push(kw);
     }
+  }
+  if (mockFallbackKeywords.length) {
+    console.log('[Mock fallback]', JSON.stringify({
+      reason: 'DFS returned 0 results',
+      count: mockFallbackKeywords.length,
+      keywords: mockFallbackKeywords,
+    }));
   }
   console.log(`[Volumes] real: ${realCount}, mock: ${mockCount}, dfsVolumesMapSize: ${dfsVolumes.size}`);
   if (needFreq.length) {
