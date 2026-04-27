@@ -508,8 +508,12 @@ export default function SchemaAuditPage() {
   const { toast } = useToast();
 
   const handleRun = async () => {
-    const target = url.trim();
+    let target = url.trim();
     if (!target) return;
+    if (!/^https?:\/\//i.test(target)) {
+      target = 'https://' + target;
+      setUrl(target);
+    }
     if (manualMode && !manualHtml.trim()) {
       toast({ title: 'Вставьте HTML', description: 'В режиме ручного ввода нужно вставить HTML страницы', variant: 'destructive' });
       return;
@@ -552,8 +556,6 @@ export default function SchemaAuditPage() {
         setErrorDomain(data.domain || null);
         setError(data.error);
         if (code === 'BOT_PROTECTED') {
-          setManualMode(true);
-          toast({ title: 'Сайт защищён от парсинга', description: 'Вставьте HTML страницы вручную и запустите анализ повторно.' });
           return;
         }
         throw new Error(data.error);
@@ -567,8 +569,6 @@ export default function SchemaAuditPage() {
           setErrorDomain(payload.domain || null);
           setError(payload.error);
           if (code === 'BOT_PROTECTED') {
-            setManualMode(true);
-            toast({ title: 'Сайт защищён от парсинга', description: 'Вставьте HTML страницы вручную и запустите анализ повторно.' });
             return;
           }
           throw new Error(payload.error);
@@ -695,20 +695,27 @@ export default function SchemaAuditPage() {
           <div className="rounded-xl border border-yellow-500/30 bg-card p-6 max-w-2xl mx-auto space-y-3">
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-yellow-500" />
-              <p className="text-sm font-semibold text-foreground">Сайт защищён от парсинга</p>
+              <p className="text-sm font-semibold text-foreground">Не удалось загрузить страницу</p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {errorDomain || 'Сайт'} использует защиту от ботов (DDoS-Guard / Cloudflare / KillBot).
-            </p>
             <div className="text-xs text-muted-foreground space-y-1">
-              <p className="font-medium text-foreground">Варианты:</p>
-              <ul className="list-disc list-inside space-y-0.5">
-                <li>Включите «Вставить HTML вручную» и вставьте код страницы</li>
-                <li>Проверьте другую страницу того же сайта</li>
-                <li>Используйте Google Cache версию страницы</li>
-              </ul>
+              <p className="font-medium text-foreground">Попробуйте:</p>
+              <ol className="list-decimal list-inside space-y-0.5">
+                <li>Добавить https:// перед URL</li>
+                <li>Проверить другую страницу сайта</li>
+                <li>Включить ручной ввод HTML ниже</li>
+              </ol>
             </div>
-            <Button size="sm" variant="outline" onClick={() => setManualMode(true)} className="gap-2 mt-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setManualMode(true);
+                setTimeout(() => {
+                  document.getElementById('manual-mode')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 50);
+              }}
+              className="gap-2 mt-2"
+            >
               <Code2 className="w-3.5 h-3.5" /> Включить ручной ввод HTML
             </Button>
           </div>
