@@ -563,7 +563,11 @@ export default function SemanticCorePage() {
             <span>Источники → частоты → SERP → кластеризация по интенту</span>
             {dailyUsage && (
               <span>
-                Использовано сегодня: <strong className="text-foreground">{dailyUsage.used}</strong> / {dailyUsage.limit}
+                {dailyUsage.limit === -1 ? (
+                  <>Режим администратора: <strong className="text-foreground">без лимитов</strong></>
+                ) : (
+                  <>Использовано сегодня: <strong className="text-foreground">{dailyUsage.used}</strong> / {dailyUsage.limit}</>
+                )}
               </span>
             )}
           </div>
