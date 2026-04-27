@@ -165,6 +165,8 @@ export default function SemanticCorePage() {
   const [search, setSearch] = useState('');
   const [intentFilter, setIntentFilter] = useState<Set<IntentKind>>(new Set());
   const [clusterFilter, setClusterFilter] = useState<Set<string>>(new Set());
+  const [kdFilter, setKdFilter] = useState<Set<KdBucket>>(new Set());
+  const [idealOnly, setIdealOnly] = useState(false);
   const [sortKey, setSortKey] = useState<'score' | 'wsFrequency' | 'exactFrequency' | 'keyword'>('score');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
