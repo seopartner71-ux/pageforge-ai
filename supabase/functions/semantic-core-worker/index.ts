@@ -546,7 +546,10 @@ interface Cluster {
   seedSerp: string[];
 }
 
-function serpCluster(top: { keyword: string; serp: string[]; score: number }[], threshold = 0.3): Cluster[] {
+const MIN_CLUSTER_SIZE = 8;
+const MAX_CLUSTERS = 25;
+
+function serpCluster(top: { keyword: string; serp: string[]; score: number }[], threshold = 0.5): Cluster[] {
   const sorted = [...top].sort((a, b) => b.score - a.score);
   const used = new Set<string>();
   const clusters: Cluster[] = [];
@@ -571,8 +574,8 @@ function serpCluster(top: { keyword: string; serp: string[]; score: number }[], 
 }
 
 function mergeSmallClusters(clusters: Cluster[]): Cluster[] {
-  const big = clusters.filter((c) => c.keywords.length >= 3);
-  const small = clusters.filter((c) => c.keywords.length < 3);
+  const big = clusters.filter((c) => c.keywords.length >= MIN_CLUSTER_SIZE);
+  const small = clusters.filter((c) => c.keywords.length < MIN_CLUSTER_SIZE);
   if (!big.length) return clusters;
   for (const s of small) {
     let bestIdx = 0;
