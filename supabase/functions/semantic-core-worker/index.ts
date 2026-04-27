@@ -203,61 +203,64 @@ async function dfsAutocompleteSource(
   seeds: string[],
   region: string,
   cost: CostTracker,
-): Promise<string[]> {
+): Promise<DfsKwData[]> {
   if (!dfsConfigured()) return [];
-  const locationCode = dfsLocation(region);
+  console.log(`[DFS autocomplete] region: ${region} (using Keywords Data search_volume, location_name=Russia)`);
+  // Build candidate keyword list: seed + topic + topic + each cyrillic letter
   const alphabet = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя".split("");
-  console.log(`[DFS autocomplete] region: ${region} location_code: ${locationCode}`);
-  // Build query list — bare topic + topic + each letter + seeds
-  const queries = Array.from(new Set([
+  const candidates = Array.from(new Set([
     topic,
-    ...alphabet.map((l) => `${topic} ${l}`),
     ...seeds,
-  ])).filter((q) => q && q.length >= 2).slice(0, 40);
+    ...alphabet.map((l) => `${topic} ${l}`),
+  ].map((s) => s.trim().toLowerCase()).filter((s) => s && s.length >= 2))).slice(0, 200);
 
-  const out = new Set<string>();
-  const concurrency = 10;
+  const merged = new Map<string, DfsKwData>();
+  // search_volume/live accepts up to 1000 keywords per task — split safely
+  const chunkSize = 100;
   let logged = 0;
-  for (let i = 0; i < queries.length; i += concurrency) {
-    const batch = queries.slice(i, i + concurrency);
-    await Promise.allSettled(batch.map(async (q) => {
-      try {
-        const resp = await fetch(
-          "https://api.dataforseo.com/v3/keywords_data/google/keyword_suggestions/live",
-          {
-            method: "POST",
-            headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
-            body: JSON.stringify([{
-              keyword: q,
-              language_name: "Russian", language_code: "ru",
-              location_code: locationCode,
-              limit: 50,
-            }]),
-          },
-        );
-        const text = await resp.text();
-        let data: any = {};
-        try { data = JSON.parse(text); } catch { /* keep empty */ }
-        if (logged < 2) {
-          logged++;
-          console.log(`[DFS autocomplete] q="${q}" status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" body=${text.slice(0, 400)}`);
-        }
-        if (!resp.ok) return;
-        cost.add(0.0005);
-        const items = data?.tasks?.[0]?.result?.[0]?.items;
-        if (Array.isArray(items)) {
-          for (const it of items) {
-            const kw = String(it?.keyword || "").trim().toLowerCase();
-            if (kw) out.add(kw);
-          }
-        }
-      } catch (e) {
-        console.error(`[DFS autocomplete] error q="${q}":`, (e as Error).message);
+  for (let i = 0; i < candidates.length; i += chunkSize) {
+    const chunk = candidates.slice(i, i + chunkSize);
+    try {
+      const resp = await fetch(
+        "https://api.dataforseo.com/v3/keywords_data/google/search_volume/live",
+        {
+          method: "POST",
+          headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
+          body: JSON.stringify([{
+            keywords: chunk,
+            location_name: "Russia",
+            language_code: "ru",
+            language_name: "Russian",
+          }]),
+        },
+      );
+      const text = await resp.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch {}
+      if (logged < 1) {
+        logged++;
+        const sample = data?.tasks?.[0]?.result?.[0];
+        console.log(`[DFS autocomplete] status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" results=${data?.tasks?.[0]?.result?.length ?? 0}`);
+        console.log(`[DFS volume sample autocomplete]`, JSON.stringify(sample).slice(0, 400));
       }
-    }));
+      if (!resp.ok) continue;
+      cost.add(0.05 * (chunk.length / 1000));
+      const results = data?.tasks?.[0]?.result;
+      if (Array.isArray(results)) {
+        for (const it of results) {
+          const kw = String(it?.keyword || "").trim().toLowerCase();
+          const sv = Number(it?.search_volume ?? 0);
+          if (!kw || !sv) continue;
+          const prev = merged.get(kw);
+          if (!prev || sv > prev.search_volume) merged.set(kw, { keyword: kw, search_volume: sv });
+        }
+      }
+    } catch (e) {
+      console.error(`[DFS autocomplete] chunk error:`, (e as Error).message);
+    }
   }
-  console.log(`[DFS autocomplete] queries=${queries.length}, unique=${out.size}, locationCode=${locationCode}`);
-  return Array.from(out);
+  console.log(`[DFS autocomplete] candidates=${candidates.length}, withVolumes=${merged.size}`);
+  return Array.from(merged.values());
 }
 
 async function dfsKeywordSuggestions(
@@ -267,10 +270,9 @@ async function dfsKeywordSuggestions(
   cost: CostTracker,
 ): Promise<DfsKwData[]> {
   if (!dfsConfigured()) return [];
-  const locationCode = dfsLocation(region);
   const queries = [topic, ...seeds.slice(0, 5)];
   const merged = new Map<string, DfsKwData>();
-  console.log(`[DFS suggestions] region: ${region} location_code: ${locationCode}`);
+  console.log(`[DFS suggestions] region: ${region} (Labs API → location_name=Russia)`);
 
   for (const q of queries) {
     try {
@@ -283,7 +285,7 @@ async function dfsKeywordSuggestions(
           body: JSON.stringify([{
             keyword: q,
             language_name: "Russian", language_code: "ru",
-            location_code: locationCode,
+            location_name: "Russia",
             limit,
             order_by: ["keyword_info.search_volume,desc"],
             filters: [["keyword_info.search_volume", ">", 10]],
@@ -293,20 +295,13 @@ async function dfsKeywordSuggestions(
       const text = await resp.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
-      console.log(`[DFS suggestions] q="${q}" status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0} body=${text.slice(0, 500)}`);
+      console.log(`[DFS suggestions] q="${q}" status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0}`);
       if (!resp.ok) continue;
       cost.add(0.015 * (limit / 1000));
       const items = data?.tasks?.[0]?.result?.[0]?.items;
       if (Array.isArray(items)) {
         if (items.length && merged.size === 0) {
-          console.log(`[DFS suggestions sample] item0=${JSON.stringify(items[0]).slice(0, 500)}`);
-          console.log(`[DFS suggestions sample] result0=${JSON.stringify(data?.tasks?.[0]?.result?.[0]).slice(0, 300)}`);
-          const probe = items[0];
-          console.log(`[DFS volume paths test]`, JSON.stringify({
-            search_volume: probe?.search_volume,
-            keyword_info_volume: probe?.keyword_info?.search_volume,
-            keyword_info: probe?.keyword_info,
-          }).slice(0, 500));
+          console.log(`[DFS volume sample suggestions]`, JSON.stringify(items[0]).slice(0, 400));
         }
         for (const it of items) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
@@ -320,7 +315,7 @@ async function dfsKeywordSuggestions(
       console.error(`[DFS suggestions] error q="${q}":`, (e as Error).message);
     }
   }
-  console.log(`[DFS suggestions] merged=${merged.size}, locationCode=${locationCode}`);
+  console.log(`[DFS suggestions] merged=${merged.size}`);
   return Array.from(merged.values());
 }
 
@@ -368,9 +363,8 @@ async function dfsKeywordsForSite(
   }
   if (!domains.length) return [];
 
-  const locationCode = dfsLocation(region);
   const merged = new Map<string, DfsKwData>();
-  console.log(`[DFS competitors] region: ${region} location_code: ${locationCode}`);
+  console.log(`[DFS competitors] region: ${region} (Labs API → location_name=Russia)`);
   await Promise.allSettled(domains.map(async (target) => {
     try {
       const resp = await fetch(
@@ -381,7 +375,7 @@ async function dfsKeywordsForSite(
           body: JSON.stringify([{
             target,
             language_name: "Russian", language_code: "ru",
-            location_code: locationCode,
+            location_name: "Russia",
             limit: 500,
             filters: [["keyword_info.search_volume", ">", 10]],
           }]),
@@ -390,13 +384,13 @@ async function dfsKeywordsForSite(
       const text = await resp.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
-      console.log(`[DFS competitors] target=${target} status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0} body=${text.slice(0, 500)}`);
+      console.log(`[DFS competitors] target=${target} status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0}`);
       if (!resp.ok) return;
       cost.add(0.015 * 0.5);
       const items = data?.tasks?.[0]?.result?.[0]?.items;
       if (Array.isArray(items)) {
         if (items.length && merged.size === 0) {
-          console.log(`[DFS competitors sample] item0=${JSON.stringify(items[0]).slice(0, 500)}`);
+          console.log(`[DFS volume sample competitors]`, JSON.stringify(items[0]).slice(0, 400));
         }
         for (const it of items) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
@@ -410,7 +404,7 @@ async function dfsKeywordsForSite(
       console.error(`[DFS competitors] error target=${target}:`, (e as Error).message);
     }
   }));
-  console.log(`[DFS competitors] domains=${domains.join(',')} merged=${merged.size}, locationCode=${locationCode}`);
+  console.log(`[DFS competitors] domains=${domains.join(',')} merged=${merged.size}`);
   return Array.from(merged.values());
 }
 
@@ -713,7 +707,7 @@ async function runPipeline(jobId: string) {
   if (useAutocomplete && dfsAvailable) {
     sourcePromises.push(
       dfsAutocompleteSource(topic, seeds, region, cost)
-        .then((kws) => ({ source: "autocomplete", keywords: kws })),
+        .then((arr) => ({ source: "autocomplete", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
   if (useSuggestions && dfsAvailable) {
