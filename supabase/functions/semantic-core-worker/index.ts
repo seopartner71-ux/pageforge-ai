@@ -205,7 +205,7 @@ async function dfsAutocompleteSource(
   cost: CostTracker,
 ): Promise<DfsKwData[]> {
   if (!dfsConfigured()) return [];
-  console.log(`[DFS autocomplete] region: ${region} (using Keywords Data search_volume, location_name=Russia)`);
+  console.log(`[DFS autocomplete] region: ${region} (Keywords Data search_volume, no location)`);
   // Build candidate keyword list: seed + topic + topic + each cyrillic letter
   const alphabet = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя".split("");
   const candidates = Array.from(new Set([
@@ -228,7 +228,6 @@ async function dfsAutocompleteSource(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             keywords: chunk,
-            location_name: "Russia",
             language_code: "ru",
             language_name: "Russian",
           }]),
@@ -241,12 +240,16 @@ async function dfsAutocompleteSource(
         logged++;
         const sample = data?.tasks?.[0]?.result?.[0];
         console.log(`[DFS autocomplete] status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" results=${data?.tasks?.[0]?.result?.length ?? 0}`);
-        console.log(`[DFS volume sample autocomplete]`, JSON.stringify(sample).slice(0, 400));
+        console.log(`[DFS volume sample autocomplete]`, sample ? JSON.stringify(sample).slice(0, 400) : 'null');
       }
       if (!resp.ok) continue;
       cost.add(0.05 * (chunk.length / 1000));
       const results = data?.tasks?.[0]?.result;
-      if (Array.isArray(results)) {
+      if (!results || !Array.isArray(results)) {
+        console.log('[DFS autocomplete] no results in response');
+        continue;
+      }
+      {
         for (const it of results) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.search_volume ?? 0);
@@ -272,7 +275,7 @@ async function dfsKeywordSuggestions(
   if (!dfsConfigured()) return [];
   const queries = [topic, ...seeds.slice(0, 5)];
   const merged = new Map<string, DfsKwData>();
-  console.log(`[DFS suggestions] region: ${region} (Labs API → location_name=Russia)`);
+  console.log(`[DFS suggestions] region: ${region} (Labs API, no location)`);
 
   for (const q of queries) {
     try {
@@ -284,8 +287,8 @@ async function dfsKeywordSuggestions(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             keyword: q,
-            language_name: "Russian", language_code: "ru",
-            location_name: "Russia",
+            language_code: "ru",
+            language_name: "Russian",
             limit,
             order_by: ["keyword_info.search_volume,desc"],
             filters: [["keyword_info.search_volume", ">", 10]],
@@ -364,7 +367,7 @@ async function dfsKeywordsForSite(
   if (!domains.length) return [];
 
   const merged = new Map<string, DfsKwData>();
-  console.log(`[DFS competitors] region: ${region} (Labs API → location_name=Russia)`);
+  console.log(`[DFS competitors] region: ${region} (Labs API, no location)`);
   await Promise.allSettled(domains.map(async (target) => {
     try {
       const resp = await fetch(
@@ -374,8 +377,8 @@ async function dfsKeywordsForSite(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             target,
-            language_name: "Russian", language_code: "ru",
-            location_name: "Russia",
+            language_code: "ru",
+            language_name: "Russian",
             limit: 500,
             filters: [["keyword_info.search_volume", ">", 10]],
           }]),
