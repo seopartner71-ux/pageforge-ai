@@ -298,6 +298,9 @@ async function dfsKeywordSuggestions(
       cost.add(0.015 * (limit / 1000));
       const items = data?.tasks?.[0]?.result?.[0]?.items;
       if (Array.isArray(items)) {
+        if (items.length && merged.size === 0) {
+          console.log(`[DFS suggestions sample] item0=${JSON.stringify(items[0]).slice(0, 500)}`);
+        }
         for (const it of items) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
@@ -385,6 +388,9 @@ async function dfsKeywordsForSite(
       cost.add(0.015 * 0.5);
       const items = data?.tasks?.[0]?.result?.[0]?.items;
       if (Array.isArray(items)) {
+        if (items.length && merged.size === 0) {
+          console.log(`[DFS competitors sample] item0=${JSON.stringify(items[0]).slice(0, 500)}`);
+        }
         for (const it of items) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
