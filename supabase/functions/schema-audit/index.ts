@@ -535,14 +535,17 @@ Deno.serve(async (req: Request) => {
       const issues = buildIssues(validated);
       const features = detectPageFeatures(html, content);
       const generated = buildGeneratedCode(url, validated, features, title);
+      const pageType = detectPageType(url, content);
+      const pageData = extractPageData(html, content);
       const richEligible = validated.filter(s => s.severity === "ok" && ["Product", "Article", "BlogPosting", "FAQPage", "BreadcrumbList", "LocalBusiness"].includes(s.type)).length;
       const score = calculateScore(validated, richEligible);
 
-      const aiData = await getAiRecommendations(url, validated, content);
+      const aiData = await getAiRecommendations(url, pageType, pageData, validated, content);
 
       // Merge AI recommendations into issues if present
-      if (Array.isArray(aiData?.recommendations)) {
-        for (const r of aiData.recommendations) {
+      const aiIssues = Array.isArray(aiData?.issues) ? aiData.issues : (Array.isArray(aiData?.recommendations) ? aiData.recommendations : []);
+      if (aiIssues.length) {
+        for (const r of aiIssues) {
           if (r?.problem && !issues.find(i => i.problem === r.problem)) {
             issues.push({
               severity: r.severity || "info",
@@ -555,18 +558,36 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Merge AI-generated schemas into generated code blocks (with real page data)
+      if (Array.isArray(aiData?.missingSchemas)) {
+        for (const ms of aiData.missingSchemas) {
+          if (!ms?.generatedCode || !ms?.type) continue;
+          if (generated.find(g => g.type === ms.type)) continue;
+          const sourceLabel = ms.dataSource === "page"
+            ? "✓ Данные взяты со страницы"
+            : "⚠ Заполните вручную";
+          generated.push({
+            type: ms.type,
+            label: `${ms.type} — ${ms.priority === "critical" ? "критично" : "рекомендуется"}`,
+            reason: `${ms.reason || ""} • ${sourceLabel}`,
+            code: JSON.stringify(ms.generatedCode, null, 2),
+          });
+        }
+      }
+
       const errorsCount = issues.filter(i => i.severity === "critical").length;
+      const finalScore = typeof aiData?.overallScore === "number" ? Math.round(aiData.overallScore) : score;
 
       await adminClient.from("schema_audits").update({
         status: "done",
-        overall_score: score,
+        overall_score: finalScore,
         found_schemas_count: validated.length,
         errors_count: errorsCount,
         schemas_data: validated,
         issues,
         generated_code: generated,
-        ai_recommendations: aiData,
-        page_type: aiData?.pageType || "other",
+        ai_recommendations: { ...aiData, pageData },
+        page_type: pageType,
       }).eq("id", auditId);
 
       return new Response(JSON.stringify({ audit_id: auditId }), {
