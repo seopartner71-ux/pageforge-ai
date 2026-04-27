@@ -2,12 +2,15 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   Play, CheckCircle2, AlertTriangle, XCircle, Loader2, Code2, Copy, Download,
-  FileCode, Sparkles, ChevronDown, ChevronUp,
+  FileCode, Sparkles, ChevronDown, ChevronUp, ShieldAlert,
 } from 'lucide-react';
 
 /* ─── Types ─── */
@@ -250,10 +253,14 @@ function buildTzMarkdown(audit: AuditRow): string {
 /* ─── Main page ─── */
 export default function SchemaAuditPage() {
   const [url, setUrl] = useState('');
+  const [manualMode, setManualMode] = useState(false);
+  const [manualHtml, setManualHtml] = useState('');
   const [running, setRunning] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
   const [audit, setAudit] = useState<AuditRow | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [errorDomain, setErrorDomain] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const inputRef = useRef<HTMLInputElement>(null);
   const codeSectionRef = useRef<HTMLDivElement>(null);
@@ -262,8 +269,14 @@ export default function SchemaAuditPage() {
   const handleRun = async () => {
     const target = url.trim();
     if (!target) return;
+    if (manualMode && !manualHtml.trim()) {
+      toast({ title: 'Вставьте HTML', description: 'В режиме ручного ввода нужно вставить HTML страницы', variant: 'destructive' });
+      return;
+    }
     setRunning(true);
     setError(null);
+    setErrorCode(null);
+    setErrorDomain(null);
     setAudit(null);
     setProgressStep(0);
 
@@ -289,11 +302,15 @@ export default function SchemaAuditPage() {
       const projectId = projects?.[0]?.id || null;
 
       const { data, error: fnErr } = await supabase.functions.invoke('schema-audit', {
-        body: { url: target, project_id: projectId },
+        body: { url: target, project_id: projectId, manual_html: manualMode ? manualHtml : undefined },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
+      if (data?.error) {
+        setErrorCode(data.code || null);
+        setErrorDomain(data.domain || null);
+        throw new Error(data.error);
+      }
       if (fnErr) throw new Error(fnErr.message);
-      if (data?.error) throw new Error(data.error);
       const auditId = data?.audit_id;
       if (!auditId) throw new Error('Не получен ID анализа');
 
@@ -364,9 +381,24 @@ export default function SchemaAuditPage() {
             onKeyDown={e => e.key === 'Enter' && handleRun()}
             disabled={running}
           />
+          <div className="flex items-center justify-between rounded-md border border-border/40 px-3 py-2">
+            <Label htmlFor="manual-mode" className="text-xs text-muted-foreground cursor-pointer">
+              Вставить HTML вручную (для сайтов с защитой от ботов)
+            </Label>
+            <Switch id="manual-mode" checked={manualMode} onCheckedChange={setManualMode} disabled={running} />
+          </div>
+          {manualMode && (
+            <Textarea
+              value={manualHtml}
+              onChange={e => setManualHtml(e.target.value)}
+              placeholder="Вставьте HTML код страницы сюда..."
+              className="min-h-[160px] text-xs font-mono"
+              disabled={running}
+            />
+          )}
           <Button onClick={handleRun} disabled={running || !url.trim()} className="w-full h-11 gap-2">
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            {running ? 'Анализ...' : 'Проверить микроразметку'}
+            {running ? 'Анализ...' : (manualMode ? 'Анализировать HTML' : 'Проверить микроразметку')}
           </Button>
           <p className="text-xs text-muted-foreground text-center">
             Анализируем JSON-LD, Microdata и RDFa • Стоимость: 2 кредита
@@ -390,7 +422,30 @@ export default function SchemaAuditPage() {
           </div>
         )}
 
-        {error && !running && (
+        {error && !running && errorCode === 'BOT_PROTECTED' && (
+          <div className="rounded-xl border border-yellow-500/30 bg-card p-6 max-w-2xl mx-auto space-y-3">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-yellow-500" />
+              <p className="text-sm font-semibold text-foreground">Сайт защищён от парсинга</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {errorDomain || 'Сайт'} использует защиту от ботов (DDoS-Guard / Cloudflare / KillBot).
+            </p>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">Варианты:</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                <li>Включите «Вставить HTML вручную» и вставьте код страницы</li>
+                <li>Проверьте другую страницу того же сайта</li>
+                <li>Используйте Google Cache версию страницы</li>
+              </ul>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setManualMode(true)} className="gap-2 mt-2">
+              <Code2 className="w-3.5 h-3.5" /> Включить ручной ввод HTML
+            </Button>
+          </div>
+        )}
+
+        {error && !running && errorCode !== 'BOT_PROTECTED' && (
           <div className="rounded-xl border border-red-500/30 bg-card p-6 text-center max-w-2xl mx-auto">
             <XCircle className="w-7 h-7 text-red-500 mx-auto mb-3" />
             <p className="text-sm font-medium text-foreground mb-1">Не удалось выполнить анализ</p>

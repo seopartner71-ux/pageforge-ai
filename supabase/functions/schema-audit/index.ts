@@ -376,46 +376,111 @@ async function getAiRecommendations(
   }
 }
 
-/* ─── Dual fetch: raw HTML + Jina clean text in parallel ─── */
-async function fetchHtml(url: string): Promise<{ html: string; content: string; title: string }> {
-  const jinaHeaders: Record<string, string> = { "X-Return-Format": "text", "X-No-Cache": "true" };
-  if (JINA_API_KEY) jinaHeaders["Authorization"] = `Bearer ${JINA_API_KEY}`;
+/* ─── Bot-check page detection ─── */
+function isBotCheckPage(html: string, text: string): boolean {
+  const sample = ((html || "") + " " + (text || "")).toLowerCase().slice(0, 8000);
+  // Short content + suspicious markers = almost certainly bot wall
+  const tinyResponse = sample.length < 2000;
+  const signals = [
+    "killbot", "ddos-guard", "ddos guard", "cloudflare", "captcha",
+    "verify you are human", "checking your browser", "just a moment",
+    "please wait", "enable javascript and cookies", "security check",
+    "bot verification", "user verification", "attention required",
+    "ray id:", "cf-chl",
+  ];
+  const hits = signals.filter(s => sample.includes(s)).length;
+  return hits >= 1 && (tinyResponse || hits >= 2);
+}
 
-  const [jinaRes, rawRes] = await Promise.allSettled([
-    fetch(`https://r.jina.ai/${url}`, { headers: jinaHeaders }),
-    fetch(url, {
+async function fetchJina(url: string, format: "text" | "html"): Promise<string> {
+  const headers: Record<string, string> = {
+    "X-Return-Format": format,
+    "X-No-Cache": "true",
+    "X-With-Generated-Alt": "true",
+  };
+  if (JINA_API_KEY) headers["Authorization"] = `Bearer ${JINA_API_KEY}`;
+  try {
+    const r = await fetch(`https://r.jina.ai/${url}`, { headers });
+    if (!r.ok) return "";
+    return await r.text();
+  } catch { return ""; }
+}
+
+async function fetchRaw(url: string): Promise<string> {
+  try {
+    const r = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
       },
       redirect: "follow",
-    }),
-  ]);
+    });
+    if (!r.ok) return "";
+    return await r.text();
+  } catch { return ""; }
+}
 
-  let content = "";
-  if (jinaRes.status === "fulfilled" && jinaRes.value.ok) {
-    try { content = await jinaRes.value.text(); } catch { /* ignore */ }
-  }
+function urlVariants(url: string): string[] {
+  const out = new Set<string>([url]);
+  try {
+    const u = new URL(url);
+    if (u.hostname.startsWith("www.")) {
+      u.hostname = u.hostname.slice(4);
+      out.add(u.toString());
+    } else {
+      const w = new URL(url);
+      w.hostname = "www." + w.hostname;
+      out.add(w.toString());
+    }
+  } catch { /* ignore */ }
+  return [...out];
+}
+
+/* ─── Dual fetch with bot detection & fallbacks ─── */
+async function fetchHtml(url: string): Promise<{ html: string; content: string; title: string; botBlocked: boolean }> {
+  const variants = urlVariants(url);
+
   let html = "";
-  if (rawRes.status === "fulfilled" && rawRes.value.ok) {
-    try { html = await rawRes.value.text(); } catch { /* ignore */ }
+  let content = "";
+  let usedVariant = url;
+
+  for (const v of variants) {
+    const [jinaText, raw] = await Promise.all([fetchJina(v, "text"), fetchRaw(v)]);
+    let candidateHtml = raw;
+    let candidateText = jinaText;
+    if (!candidateHtml) candidateHtml = await fetchJina(v, "html");
+    const blocked = isBotCheckPage(candidateHtml, candidateText);
+    console.log("[schema-audit fetch]", { variant: v, htmlLen: candidateHtml.length, textLen: candidateText.length, blocked });
+    if (!blocked && (candidateHtml || candidateText)) {
+      html = candidateHtml; content = candidateText || candidateHtml; usedVariant = v;
+      break;
+    }
   }
 
-  // Fallback: if direct fetch failed (bot blocked), use Jina HTML mode
-  if (!html) {
+  // Final fallback: Google Cache
+  if (!html && !content) {
     try {
-      const fb = await fetch(`https://r.jina.ai/${url}`, {
-        headers: { ...jinaHeaders, "X-Return-Format": "html" },
-      });
-      if (fb.ok) html = await fb.text();
+      const cacheUrl = `https://webcache.googleusercontent.com/search?q=cache:${encodeURIComponent(url)}`;
+      const r = await fetch(cacheUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+      if (r.ok) {
+        const cached = await r.text();
+        if (!isBotCheckPage(cached, "")) {
+          html = cached; content = cached;
+          console.log("[schema-audit fetch] used Google Cache");
+        }
+      }
     } catch { /* ignore */ }
+  }
+
+  // If still nothing usable AND we did detect a bot wall — flag it
+  if (!html && !content) {
+    return { html: "", content: "", title: "", botBlocked: true };
   }
 
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   const title = titleMatch ? titleMatch[1].trim() : "";
-  console.log("[schema-audit fetch]", { url, htmlLen: html.length, contentLen: content.length, hasJsonLd: /application\/ld\+json/i.test(html) });
-  return { html, content: content || html, title };
+  return { html, content: content || html, title, botBlocked: false };
 }
 
 /* ─── Detect page type from URL & content ─── */
@@ -489,6 +554,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const url: string = (body?.url || "").trim();
     const projectId: string | null = body?.project_id || null;
+    const manualHtml: string = typeof body?.manual_html === "string" ? body.manual_html : "";
     if (!url) {
       return new Response(JSON.stringify({ error: "URL is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -517,8 +583,41 @@ Deno.serve(async (req: Request) => {
 
     // Run analysis
     try {
-      const { html, content, title } = await fetchHtml(url);
-      if (!html && !content) throw new Error("Не удалось загрузить страницу");
+      let html = "";
+      let content = "";
+      let title = "";
+      let botBlocked = false;
+
+      if (manualHtml.trim().length > 0) {
+        html = manualHtml;
+        content = manualHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        const t = manualHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
+        title = t ? t[1].trim() : "";
+      } else {
+        const fetched = await fetchHtml(url);
+        html = fetched.html; content = fetched.content; title = fetched.title; botBlocked = fetched.botBlocked;
+      }
+
+      if (botBlocked || (!html && !content)) {
+        const msg = botBlocked
+          ? `Сайт ${getDomain(url)} защищён от парсинга (DDoS-Guard / Cloudflare / KillBot). Вставьте HTML страницы вручную или попробуйте другую страницу.`
+          : "Не удалось загрузить страницу";
+        await adminClient.from("schema_audits").update({
+          status: "error",
+          error_message: msg,
+          ai_recommendations: { botBlocked: !!botBlocked },
+        }).eq("id", auditId);
+        // refund credits
+        await adminClient.from("profiles").update({ credits }).eq("user_id", user.id);
+        return new Response(JSON.stringify({
+          error: msg,
+          code: botBlocked ? "BOT_PROTECTED" : "FETCH_FAILED",
+          domain: getDomain(url),
+        }), {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       const jsonLdItems = extractJsonLd(html);
       const microdata = extractMicrodata(html);
