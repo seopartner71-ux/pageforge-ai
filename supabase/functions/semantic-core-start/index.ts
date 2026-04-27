@@ -59,27 +59,41 @@ Deno.serve(async (req) => {
 
     const sbAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-    // Active jobs limit
-    const { count: activeCount } = await sbAdmin
-      .from("semantic_jobs")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .not("status", "in", "(done,error)");
+    // Admin role bypasses all limits
+    const { data: isAdminData } = await sbAdmin.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+    const isAdmin = !!isAdminData;
 
-    if ((activeCount ?? 0) >= MAX_ACTIVE_JOBS) {
-      return json(429, { error: "Слишком много активных задач. Дождитесь завершения." });
-    }
+    let activeCount = 0;
+    let dailyCount = 0;
 
-    // Daily limit
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count: dailyCount } = await sbAdmin
-      .from("semantic_jobs")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .gte("created_at", since);
+    if (!isAdmin) {
+      // Active jobs limit
+      const { count: ac } = await sbAdmin
+        .from("semantic_jobs")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .not("status", "in", "(done,error)");
+      activeCount = ac ?? 0;
 
-    if ((dailyCount ?? 0) >= MAX_DAILY_JOBS) {
-      return json(429, { error: `Достигнут дневной лимит (${MAX_DAILY_JOBS} анализов). Попробуйте завтра.` });
+      if (activeCount >= MAX_ACTIVE_JOBS) {
+        return json(429, { error: "Слишком много активных задач. Дождитесь завершения." });
+      }
+
+      // Daily limit
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count: dc } = await sbAdmin
+        .from("semantic_jobs")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("created_at", since);
+      dailyCount = dc ?? 0;
+
+      if (dailyCount >= MAX_DAILY_JOBS) {
+        return json(429, { error: `Достигнут дневной лимит (${MAX_DAILY_JOBS} анализов). Попробуйте завтра.` });
+      }
     }
 
     // Create job
@@ -118,8 +132,9 @@ Deno.serve(async (req) => {
     return json(200, {
       job_id: jobRow.id,
       status: "pending",
-      daily_used: (dailyCount ?? 0) + 1,
-      daily_limit: MAX_DAILY_JOBS,
+      daily_used: isAdmin ? 0 : dailyCount + 1,
+      daily_limit: isAdmin ? null : MAX_DAILY_JOBS,
+      is_admin: isAdmin,
     });
   } catch (e) {
     console.error("[semantic-core-start] error", e);
