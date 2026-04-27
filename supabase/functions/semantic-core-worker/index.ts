@@ -858,6 +858,7 @@ async function runPipeline(jobId: string) {
       cluster_name: null,
       serp_urls: [],
       data_source: dataSources[i],
+      keyword_difficulty: dfsKd.has(kw) ? (dfsKd.get(kw) as number) : null,
     };
   });
   await updateJob(jobId, { progress: 55 });
