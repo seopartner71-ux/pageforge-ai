@@ -869,7 +869,7 @@ async function runPipeline(jobId: string) {
 
     // Phase 1: SERP clustering on top items within this intent group
     const topItems = grpTop.map((k) => ({ keyword: k.keyword, serp: k.serp_urls, score: k.score }));
-    let grpClusters = serpCluster(topItems, 0.3);
+    let grpClusters = serpCluster(topItems, 0.5);
     grpClusters = mergeSmallClusters(grpClusters);
 
     // Phase 2: assign tail keywords by text similarity (within same intent group)
