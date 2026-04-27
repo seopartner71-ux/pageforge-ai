@@ -207,6 +207,7 @@ async function dfsAutocompleteSource(
   if (!dfsConfigured()) return [];
   const locationCode = dfsLocation(region);
   const alphabet = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя".split("");
+  console.log(`[DFS autocomplete] region: ${region} location_code: ${locationCode}`);
   // Build query list — bare topic + topic + each letter + seeds
   const queries = Array.from(new Set([
     topic,
@@ -269,6 +270,7 @@ async function dfsKeywordSuggestions(
   const locationCode = dfsLocation(region);
   const queries = [topic, ...seeds.slice(0, 5)];
   const merged = new Map<string, DfsKwData>();
+  console.log(`[DFS suggestions] region: ${region} location_code: ${locationCode}`);
 
   for (const q of queries) {
     try {
@@ -358,6 +360,7 @@ async function dfsKeywordsForSite(
 
   const locationCode = dfsLocation(region);
   const merged = new Map<string, DfsKwData>();
+  console.log(`[DFS competitors] region: ${region} location_code: ${locationCode}`);
   await Promise.allSettled(domains.map(async (target) => {
     try {
       const resp = await fetch(
