@@ -86,6 +86,7 @@ interface Kw {
   cluster_name: string | null;
   serp_urls: string[];
   data_source: DataSource;
+  keyword_difficulty: number | null;
 }
 
 function sb() {
@@ -190,6 +191,7 @@ async function aiFollowupExpand(
 interface DfsKwData {
   keyword: string;
   search_volume: number; // monthly
+  keyword_difficulty?: number | null; // 0-100, only present for Labs sources
 }
 
 // Cost tracker (cumulative across the job)
