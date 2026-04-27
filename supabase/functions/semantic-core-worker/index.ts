@@ -546,7 +546,10 @@ interface Cluster {
   seedSerp: string[];
 }
 
-function serpCluster(top: { keyword: string; serp: string[]; score: number }[], threshold = 0.3): Cluster[] {
+const MIN_CLUSTER_SIZE = 8;
+const MAX_CLUSTERS = 25;
+
+function serpCluster(top: { keyword: string; serp: string[]; score: number }[], threshold = 0.5): Cluster[] {
   const sorted = [...top].sort((a, b) => b.score - a.score);
   const used = new Set<string>();
   const clusters: Cluster[] = [];
@@ -571,8 +574,8 @@ function serpCluster(top: { keyword: string; serp: string[]; score: number }[], 
 }
 
 function mergeSmallClusters(clusters: Cluster[]): Cluster[] {
-  const big = clusters.filter((c) => c.keywords.length >= 3);
-  const small = clusters.filter((c) => c.keywords.length < 3);
+  const big = clusters.filter((c) => c.keywords.length >= MIN_CLUSTER_SIZE);
+  const small = clusters.filter((c) => c.keywords.length < MIN_CLUSTER_SIZE);
   if (!big.length) return clusters;
   for (const s of small) {
     let bestIdx = 0;
@@ -615,7 +618,9 @@ async function nameClustersBatch(
           {
             role: "system",
             content:
-              "Ты эксперт по SEO для русскоязычного рынка. Для каждого кластера поисковых запросов придумай короткое название на русском (3-6 слов). " +
+              "Ты эксперт по SEO для русскоязычного рынка. Сгруппируй запросы в 10-20 кластеров максимум. " +
+              "Каждый кластер должен содержать минимум 8 запросов. Объединяй близкие темы в один кластер. " +
+              "Для каждого кластера поисковых запросов придумай короткое название на русском (3-6 слов). " +
               intentHint +
               " Возвращай ТОЛЬКО валидный JSON: { \"0\": \"Название\", \"1\": \"Название\", ... }",
           },
@@ -866,7 +871,7 @@ async function runPipeline(jobId: string) {
 
     // Phase 1: SERP clustering on top items within this intent group
     const topItems = grpTop.map((k) => ({ keyword: k.keyword, serp: k.serp_urls, score: k.score }));
-    let grpClusters = serpCluster(topItems, 0.3);
+    let grpClusters = serpCluster(topItems, 0.5);
     grpClusters = mergeSmallClusters(grpClusters);
 
     // Phase 2: assign tail keywords by text similarity (within same intent group)
@@ -1044,7 +1049,45 @@ async function runPipeline(jobId: string) {
   }
 
   // Drop empty / deleted, then re-index
-  const finalStates = cstates.filter((s) => !s.deleted && s.keywords.length > 0);
+  let finalStates = cstates.filter((s) => !s.deleted && s.keywords.length > 0);
+
+  // Enforce minimum cluster size: merge clusters with < MIN_CLUSTER_SIZE keywords
+  // into the nearest larger cluster (same intent group) by text similarity.
+  {
+    const tooSmall = finalStates.filter((s) => s.keywords.length < MIN_CLUSTER_SIZE);
+    const bigEnough = finalStates.filter((s) => s.keywords.length >= MIN_CLUSTER_SIZE);
+    if (bigEnough.length > 0) {
+      for (const s of tooSmall) {
+        const sameIntent = bigEnough.filter((b) => b.intentGroup === s.intentGroup);
+        const pool = sameIntent.length ? sameIntent : bigEnough;
+        let bestIdx = 0;
+        let bestSim = -1;
+        const sample = s.keywords[0] || "";
+        for (let i = 0; i < pool.length; i++) {
+          const sim = textSim(sample, pool[i].keywords[0] || "");
+          if (sim > bestSim) { bestSim = sim; bestIdx = i; }
+        }
+        pool[bestIdx].keywords.push(...s.keywords);
+      }
+      finalStates = bigEnough;
+    }
+  }
+
+  // Cap at MAX_CLUSTERS — merge smallest clusters into nearest larger one
+  while (finalStates.length > MAX_CLUSTERS) {
+    finalStates.sort((a, b) => a.keywords.length - b.keywords.length);
+    const smallest = finalStates.shift()!;
+    const sameIntent = finalStates.filter((b) => b.intentGroup === smallest.intentGroup);
+    const pool = sameIntent.length ? sameIntent : finalStates;
+    let bestIdx = 0;
+    let bestSim = -1;
+    const sample = smallest.keywords[0] || "";
+    for (let i = 0; i < pool.length; i++) {
+      const sim = textSim(sample, pool[i].keywords[0] || "");
+      if (sim > bestSim) { bestSim = sim; bestIdx = i; }
+    }
+    pool[bestIdx].keywords.push(...smallest.keywords);
+  }
 
   // Reset & re-apply cluster assignments based on finalStates
   for (const k of kws) { k.cluster_id = null; k.cluster_name = null; }
