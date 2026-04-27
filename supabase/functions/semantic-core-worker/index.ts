@@ -194,15 +194,19 @@ interface DfsKwData {
   keyword_difficulty?: number | null; // 0-100, only present for Labs sources
 }
 
+let dfsDebugReplay: string[] = [];
+
 function logDfsResult(endpoint: "suggestions" | "competitors" | "autocomplete", response: Response, data: any) {
-  console.log('[DFS result]', JSON.stringify({
+  const line = '[DFS result] ' + JSON.stringify({
     endpoint,
     httpStatus: response.status,
     taskStatus: data?.tasks?.[0]?.status_code,
     taskMsg: data?.tasks?.[0]?.status_message,
     resultCount: data?.tasks?.[0]?.result?.length ?? 0,
     firstItemKeys: Object.keys(data?.tasks?.[0]?.result?.[0] ?? {}),
-  }));
+  });
+  dfsDebugReplay.push(line);
+  console.log(line);
 }
 
 // Cost tracker (cumulative across the job)
