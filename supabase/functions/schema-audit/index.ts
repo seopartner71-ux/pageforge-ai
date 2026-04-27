@@ -554,6 +554,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const url: string = (body?.url || "").trim();
     const projectId: string | null = body?.project_id || null;
+    const manualHtml: string = typeof body?.manual_html === "string" ? body.manual_html : "";
     if (!url) {
       return new Response(JSON.stringify({ error: "URL is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -582,8 +583,41 @@ Deno.serve(async (req: Request) => {
 
     // Run analysis
     try {
-      const { html, content, title } = await fetchHtml(url);
-      if (!html && !content) throw new Error("Не удалось загрузить страницу");
+      let html = "";
+      let content = "";
+      let title = "";
+      let botBlocked = false;
+
+      if (manualHtml.trim().length > 0) {
+        html = manualHtml;
+        content = manualHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        const t = manualHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
+        title = t ? t[1].trim() : "";
+      } else {
+        const fetched = await fetchHtml(url);
+        html = fetched.html; content = fetched.content; title = fetched.title; botBlocked = fetched.botBlocked;
+      }
+
+      if (botBlocked || (!html && !content)) {
+        const msg = botBlocked
+          ? `Сайт ${getDomain(url)} защищён от парсинга (DDoS-Guard / Cloudflare / KillBot). Вставьте HTML страницы вручную или попробуйте другую страницу.`
+          : "Не удалось загрузить страницу";
+        await adminClient.from("schema_audits").update({
+          status: "error",
+          error_message: msg,
+          ai_recommendations: { botBlocked: !!botBlocked },
+        }).eq("id", auditId);
+        // refund credits
+        await adminClient.from("profiles").update({ credits }).eq("user_id", user.id);
+        return new Response(JSON.stringify({
+          error: msg,
+          code: botBlocked ? "BOT_PROTECTED" : "FETCH_FAILED",
+          domain: getDomain(url),
+        }), {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       const jsonLdItems = extractJsonLd(html);
       const microdata = extractMicrodata(html);
