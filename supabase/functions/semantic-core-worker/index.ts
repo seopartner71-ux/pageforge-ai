@@ -796,6 +796,8 @@ async function runPipeline(jobId: string) {
   // STEP B: frequencies — prefer DataForSEO real volumes, fall back to wordstat/mock
   await updateJob(jobId, { status: "frequencies", progress: 40 });
   const dataSources: DataSource[] = new Array(rawKeywords.length);
+  let realCount = 0;
+  let mockCount = 0;
   const needFreq: { idx: number; keyword: string }[] = [];
   const freqs: { ws: number; exact: number }[] = new Array(rawKeywords.length);
   for (let i = 0; i < rawKeywords.length; i++) {
@@ -804,11 +806,14 @@ async function runPipeline(jobId: string) {
     if (dfsVol && dfsVol > 0) {
       freqs[i] = { ws: dfsVol, exact: Math.floor(dfsVol * 0.3) };
       dataSources[i] = "dataforseo";
+      realCount++;
     } else {
       needFreq.push({ idx: i, keyword: kw });
       dataSources[i] = "mock";
+      mockCount++;
     }
   }
+  console.log(`[Volumes] real: ${realCount}, mock: ${mockCount}, dfsVolumesMapSize: ${dfsVolumes.size}`);
   if (needFreq.length) {
     const freqInput = needFreq.map((n) => n.keyword);
     const fetched = await fetchFrequencies(freqInput, region, jobId);
