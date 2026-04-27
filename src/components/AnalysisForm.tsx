@@ -274,6 +274,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
               onChange={(e) => setUrl(e.target.value)}
               placeholder={tr.pageSection.urlPlaceholder}
               className="h-11 bg-secondary border-border/50 focus:border-primary"
+              data-tour="seo-url"
             />
           </div>
         )}

@@ -227,6 +227,7 @@ export default function IntentPage() {
               onChange={(e) => setText(e.target.value)}
               placeholder={'купить диван москва\nинтернет магазин мебели'}
               className="min-h-[140px] font-mono text-sm"
+              data-tour="intent-queries"
             />
           </div>
 

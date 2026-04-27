@@ -157,6 +157,7 @@ export default function GeoAuditPage() {
             placeholder="https://example.com/page"
             className="h-11 text-sm bg-card border-border/60"
             onKeyDown={e => e.key === 'Enter' && handleRun()}
+            data-tour="geo-url"
           />
           <Button
             onClick={handleRun}
