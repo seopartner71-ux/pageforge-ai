@@ -914,11 +914,21 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
         const top = items.slice(0, 5);
         const isOpen = expanded.has(c.id);
         const display = isOpen ? items : top;
+        const kdValues = items
+          .map(k => k.keywordDifficulty)
+          .filter((v): v is number => typeof v === 'number');
+        const avgKd = kdValues.length
+          ? Math.round(kdValues.reduce((s, v) => s + v, 0) / kdValues.length)
+          : null;
         return (
           <Card key={c.id} className="p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-semibold text-sm leading-tight">{c.name}</h3>
               {typeBadge(c.type)}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Средний KD:</span>
+              <KdBadge kd={avgKd} />
             </div>
             <div className="space-y-1">
               {display.map(k => (
