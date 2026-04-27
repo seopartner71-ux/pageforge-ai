@@ -990,6 +990,7 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
         const avgKd = kdValues.length
           ? Math.round(kdValues.reduce((s, v) => s + v, 0) / kdValues.length)
           : null;
+        const goldenItems = items.filter(isGoldenKeyword);
         return (
           <Card key={c.id} className="p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
@@ -1003,13 +1004,29 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
             <div className="space-y-1">
               {display.map(k => (
                 <div key={k.keyword} className="flex items-center justify-between text-xs gap-2">
-                  <span className="truncate" title={k.keyword}>{k.keyword}</span>
+                  <span className="truncate flex items-center gap-1" title={k.keyword}>
+                    {isGoldenKeyword(k) && (
+                      <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                    )}
+                    <span className="truncate">{k.keyword}</span>
+                  </span>
                   <span className="tabular-nums text-muted-foreground shrink-0">{k.score}</span>
                 </div>
               ))}
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-border/50">
-              <span className="text-xs text-muted-foreground">{c.totalQueries} запр.</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-2">
+                <span>{c.totalQueries} запр.</span>
+                {goldenItems.length >= 3 && (
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                    title={GOLDEN_TOOLTIP}
+                  >
+                    <Star className="w-3 h-3 fill-current" />
+                    {goldenItems.length} золотых
+                  </span>
+                )}
+              </span>
               {items.length > 5 && (
                 <button onClick={() => toggle(c.id)} className="text-xs text-primary hover:underline">
                   {isOpen ? 'Свернуть' : 'Открыть кластер'}
