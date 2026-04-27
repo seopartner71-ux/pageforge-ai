@@ -575,7 +575,7 @@ export default function SemanticCorePage() {
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-yellow-500" />
               <span>
                 <strong className="text-yellow-400">Wordstat: Mock-режим</strong> — частоты случайные.
-                Добавьте API ключ в Настройках (админ-панель → API Keys).
+                Частоты будут реальными после подключения Вордстат администратором.
               </span>
             </div>
           )}
