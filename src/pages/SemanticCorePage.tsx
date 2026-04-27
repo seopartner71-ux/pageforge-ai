@@ -451,7 +451,7 @@ export default function SemanticCorePage() {
             className="w-full h-11 gap-2"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {running ? 'Собираем ядро...' : 'Generate Semantics'}
+            {running ? 'Собираем ядро...' : 'Генерировать семантику'}
           </Button>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>AI расширит ядро → получит частоты → кластеризует по топам</span>
@@ -549,7 +549,7 @@ export default function SemanticCorePage() {
                 </span>
               </div>
               <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5">
-                <Download className="w-3.5 h-3.5" /> Export XLSX
+                <Download className="w-3.5 h-3.5" /> Экспорт XLSX
               </Button>
             </div>
 
@@ -673,7 +673,12 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
       COMMERCIAL: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
       MIXED: 'bg-primary/15 text-primary border border-primary/30',
     };
-    return <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${map[t]}`}>{t}</span>;
+    const labelMap: Record<SemanticCluster['type'], string> = {
+      INFORMATIONAL: 'Информационный',
+      COMMERCIAL: 'Коммерческий',
+      MIXED: 'Смешанный',
+    };
+    return <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${map[t]}`}>{labelMap[t]}</span>;
   };
 
   const sortedClusters = [...clusters].sort((a, b) => b.totalQueries - a.totalQueries);
