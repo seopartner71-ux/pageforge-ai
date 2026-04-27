@@ -1,30 +1,18 @@
 import { useLang } from '@/contexts/LangContext';
-import { useEffect, useState } from 'react';
 import { LangToggle } from '@/components/LangToggle';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
-import { Zap, LogOut, Shield, Sparkles } from 'lucide-react';
+import { Zap, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { NavLink } from '@/components/NavLink';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { NotificationBell } from '@/components/NotificationBell';
-import { DemoTour, hasDemoTourBeenSeen } from '@/components/DemoTour';
 
 export function AppHeader() {
   const { tr } = useLang();
   const navigate = useNavigate();
   const location = useLocation();
   const { isAdmin } = useAdminRole();
-  const [tourOpen, setTourOpen] = useState(false);
-
-  // Auto-launch for new users
-  useEffect(() => {
-    if (!hasDemoTourBeenSeen()) {
-      const t = setTimeout(() => setTourOpen(true), 800);
-      return () => clearTimeout(t);
-    }
-  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -75,16 +63,6 @@ export function AppHeader() {
 
         {/* Right: Lang + Logout */}
         <div className="flex items-center justify-end gap-3 shrink-0 ml-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setTourOpen(true)}
-            className="text-muted-foreground hover:text-primary gap-1.5"
-            title="Запустить интерактивный демо-тур"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span className="hidden lg:inline text-[12px]">Демо-тур</span>
-          </Button>
           <NotificationBell />
           <ThemeToggle />
           <LangToggle />
@@ -93,7 +71,6 @@ export function AppHeader() {
           </Button>
         </div>
       </div>
-      <DemoTour open={tourOpen} onClose={() => setTourOpen(false)} />
     </header>
   );
 }
