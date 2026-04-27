@@ -432,6 +432,44 @@ export default function SchemaAuditPage() {
               <CoverageChips schemas={audit.schemas_data} />
             </div>
 
+            {/* Page data extracted */}
+            {audit.ai_recommendations?.pageData && (
+              <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
+                <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  📊 Обнаружено на странице
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                  {([
+                    ['Компания', audit.ai_recommendations.pageData.companyName],
+                    ['Телефон', audit.ai_recommendations.pageData.phone],
+                    ['Адрес', audit.ai_recommendations.pageData.address],
+                    ['Email', audit.ai_recommendations.pageData.email],
+                    ['Цены', audit.ai_recommendations.pageData.priceRange],
+                    ['Рейтинг', audit.ai_recommendations.pageData.rating],
+                    ['Часы работы', audit.ai_recommendations.pageData.workingHours],
+                    ['Описание', audit.ai_recommendations.pageData.description],
+                  ] as [string, string | null][]).map(([label, val]) => (
+                    <div key={label} className="flex items-center justify-between gap-3 py-1 border-b border-border/30 last:border-0">
+                      <span className="text-muted-foreground text-xs">{label}</span>
+                      <span className={`text-xs truncate max-w-[60%] flex items-center gap-1.5 ${val ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                        {val ? (
+                          <>
+                            <span className="truncate">{val}</span>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                          </>
+                        ) : (
+                          <>
+                            <span>не найдено</span>
+                            <XCircle className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Schemas */}
             {audit.schemas_data.length > 0 && (
               <div className="space-y-4">
