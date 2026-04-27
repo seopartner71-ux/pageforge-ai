@@ -590,11 +590,16 @@ export default function SchemaAuditPage() {
   const downloadTz = () => {
     if (!audit) return;
     const md = buildTzMarkdown(audit);
-    const blob = new Blob([md], { type: 'text/markdown' });
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const safeDomain = (audit.domain || 'site').replace(/[^\w.-]/g, '_');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `schema-tz-${audit.domain}-${Date.now()}.md`;
+    a.download = `TZ_schema_${safeDomain}_${dateStr}.md`;
     a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast({ title: 'ТЗ скачано', description: 'Передайте разработчику для внедрения.' });
   };
 
   const scrollToCode = () => codeSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
