@@ -140,13 +140,24 @@ function FreqDot({ source }: { source?: 'mock' | 'dataforseo' }) {
   );
 }
 
-// "Золотой" запрос: info-интент, частота >= 1000,
-// и KD <= 40 (или score >= 60, если KD неизвестно)
+// "Золотой" запрос: info-интент, частота >= 1000, KD известен и KD <= 40.
+// Если KD неизвестен — запрос НЕ считается золотым (конкурентность не подтверждена).
 function isGoldenKeyword(k: SemanticKeyword): boolean {
   if (k.intent !== 'info') return false;
   if ((k.wsFrequency ?? 0) < 1000) return false;
-  if (k.keywordDifficulty != null) return k.keywordDifficulty <= 40;
-  return k.score >= 60;
+  if (k.keywordDifficulty == null) return false;
+  return k.keywordDifficulty <= 40;
+}
+
+// Грамматически правильное склонение для «идеальный запрос»
+function idealLabel(n: number): string {
+  if (n === 1) return 'Найден 1 идеальный запрос';
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
+    return `Найдено ${n} идеальных запроса`;
+  }
+  return `Найдено ${n} идеальных запросов`;
 }
 const GOLDEN_TOOLTIP =
   'Золотой запрос: информационный, частота 1000+, KD ≤ 40. Идеально для статей и быстрого SEO-роста.';
