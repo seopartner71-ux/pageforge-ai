@@ -853,7 +853,7 @@ Deno.serve(async (req: Request) => {
       const pageType = detectPageType(url, content);
       // Fallback: ensure companyName exists even if not extracted
       if (!pageData.companyName) pageData.companyName = domainToCompanyName(url);
-      const generated = buildGeneratedCode(url, validated, features, title, pageData);
+      const generated = buildGeneratedCode(url, validated, features, title, pageData, pageType);
       // Rich Results — count BOTH validated schemas + recommended ones we can add
       const RICH_TYPES = ["Product", "Article", "BlogPosting", "FAQPage", "BreadcrumbList", "LocalBusiness"];
       const richFromValidated = validated.filter(s => s.severity === "ok" && RICH_TYPES.includes(s.type)).length;
