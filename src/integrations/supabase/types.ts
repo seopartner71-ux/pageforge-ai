@@ -572,6 +572,54 @@ export type Database = {
         }
         Relationships: []
       }
+      semantic_cores: {
+        Row: {
+          clusters: Json
+          created_at: string
+          id: string
+          keywords: Json
+          name: string
+          project_id: string | null
+          region: string
+          search_engine: string
+          seed_keywords: string[]
+          topic: string
+          updated_at: string
+          user_id: string
+          wordstat_mode: string
+        }
+        Insert: {
+          clusters?: Json
+          created_at?: string
+          id?: string
+          keywords?: Json
+          name?: string
+          project_id?: string | null
+          region?: string
+          search_engine?: string
+          seed_keywords?: string[]
+          topic?: string
+          updated_at?: string
+          user_id: string
+          wordstat_mode?: string
+        }
+        Update: {
+          clusters?: Json
+          created_at?: string
+          id?: string
+          keywords?: Json
+          name?: string
+          project_id?: string | null
+          region?: string
+          search_engine?: string
+          seed_keywords?: string[]
+          topic?: string
+          updated_at?: string
+          user_id?: string
+          wordstat_mode?: string
+        }
+        Relationships: []
+      }
       system_settings: {
         Row: {
           id: string
