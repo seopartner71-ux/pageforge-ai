@@ -191,63 +191,304 @@ function EmptyState({ onStart }: { onStart: () => void }) {
   );
 }
 
-/* ─── TZ generator ─── */
+/* ─── Helpers for TZ ─── */
+function fmtDate(d: Date): string {
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d); x.setDate(x.getDate() + n); return x;
+}
+function pageTypeLabel(t: string): string {
+  const map: Record<string, string> = {
+    homepage: 'Главная страница', product: 'Карточка товара', article: 'Статья / блог',
+    local_business: 'Локальный бизнес', general: 'Общая страница', other: 'Общая страница',
+  };
+  return map[t] || t || '—';
+}
+function priorityLabel(score: number): string {
+  if (score < 40) return 'КРИТИЧЕСКИЙ';
+  if (score < 70) return 'ВЫСОКИЙ';
+  return 'СРЕДНИЙ';
+}
+function placementHint(type: string): string {
+  const t = (type || '').toLowerCase();
+  if (t === 'website' || t === 'organization') return 'Только на главной странице (один раз)';
+  if (t === 'breadcrumblist') return 'На всех страницах внутри сайта (кроме главной)';
+  if (t === 'product') return 'На всех карточках товаров';
+  if (t === 'article' || t === 'blogposting') return 'На страницах статей и блога';
+  if (t === 'localbusiness') return 'На главной и контактной странице';
+  if (t === 'faqpage') return 'На страницах с FAQ-блоком';
+  return 'На соответствующих страницах сайта';
+}
+function priorityFromBlock(label: string): string {
+  const l = (label || '').toLowerCase();
+  if (l.includes('критич')) return 'КРИТИЧНО';
+  if (l.includes('исправ')) return 'КРИТИЧНО';
+  if (l.includes('реком')) return 'РЕКОМЕНДУЕТСЯ';
+  return 'ВАЖНО';
+}
+function dataSourceFromReason(reason: string, code: string): { label: string; manualFields: string[] } {
+  const isFromPage = /Данные взяты со страницы/i.test(reason || '');
+  const manualFields: string[] = [];
+  if (!isFromPage) {
+    // Naive: scan for empty strings/placeholders that need filling
+    const placeholders = code.match(/"([^"]+)"\s*:\s*""/g) || [];
+    placeholders.forEach(p => {
+      const m = p.match(/"([^"]+)"/);
+      if (m) manualFields.push(m[1]);
+    });
+  }
+  return {
+    label: isFromPage ? '✓ Взяты со страницы' : '⚠ Требуют уточнения',
+    manualFields,
+  };
+}
+
+/* ─── TZ generator (professional document) ─── */
 function buildTzMarkdown(audit: AuditRow): string {
-  const lines: string[] = [];
-  lines.push(`# ТЗ: Внедрение микроразметки`);
-  lines.push(`Сайт: ${audit.url} | Дата: ${new Date().toLocaleDateString('ru-RU')} | Балл: ${audit.overall_score}/100`);
-  lines.push('');
+  const L: string[] = [];
+  const today = new Date();
+  const date = fmtDate(today);
   const crit = audit.issues.filter(i => i.severity === 'critical');
   const warn = audit.issues.filter(i => i.severity === 'warning');
   const info = audit.issues.filter(i => i.severity === 'info');
+  const pageData = audit.ai_recommendations?.pageData || {};
+  const pageType = pageTypeLabel(audit.page_type || 'general');
+  const ai = audit.ai_recommendations || {};
 
-  if (crit.length > 0) {
-    lines.push(`## 🔴 Критично (сделать первым)`);
-    crit.forEach(i => {
-      lines.push(`- **${i.schema}**: ${i.problem}`);
-      lines.push(`  - Решение: ${i.solution}`);
-      if (i.seoImpact) lines.push(`  - SEO-эффект: ${i.seoImpact}`);
+  // ── Header ──
+  L.push('# Техническое задание на внедрение микроразметки Schema.org');
+  L.push('');
+  L.push(`**Сайт:** ${audit.url}  `);
+  L.push(`**Дата аудита:** ${date}  `);
+  L.push(`**Общий балл до внедрения:** ${audit.overall_score}/100  `);
+  L.push(`**Приоритет:** ${priorityLabel(audit.overall_score)}  `);
+  L.push(`**Исполнитель:** _______________  `);
+  L.push(`**Срок выполнения:** _______________  `);
+  L.push('');
+  L.push('---');
+  L.push('');
+
+  // ── Summary ──
+  L.push('## 📋 Краткое резюме');
+  L.push('');
+  const summary = `На сайте ${audit.domain} обнаружено ${audit.found_schemas_count} схем микроразметки, из них ${crit.length} критических ошибок. Текущий балл — ${audit.overall_score}/100. Для повышения видимости в поиске и получения расширенных сниппетов необходимо внедрить ${audit.generated_code.length} блоков структурированных данных Schema.org с реальными данными компании.`;
+  L.push(summary);
+  L.push('');
+  L.push('**Обнаружено на странице:**');
+  L.push('');
+  L.push('| Параметр | Значение |');
+  L.push('|----------|----------|');
+  L.push(`| Компания | ${pageData.companyName || 'Не определено'} |`);
+  L.push(`| Телефон | ${pageData.phone || 'Не найден'} |`);
+  L.push(`| Email | ${pageData.email || 'Не найден'} |`);
+  L.push(`| Адрес | ${pageData.address || 'Не найден'} |`);
+  L.push(`| Цены | ${pageData.priceRange || 'Не найдены'} |`);
+  L.push(`| Тип страницы | ${pageType} |`);
+  L.push(`| Найдено схем | ${audit.found_schemas_count} |`);
+  L.push(`| Критических ошибок | ${crit.length} |`);
+  L.push('');
+  L.push('---');
+  L.push('');
+
+  // ── Goals ──
+  L.push('## 🎯 Цель работы');
+  L.push('');
+  L.push('Внедрение структурированных данных Schema.org для:');
+  L.push('');
+  L.push('- Получения расширенных сниппетов в Google и Яндекс');
+  L.push('- Повышения CTR в поисковой выдаче на 15–30%');
+  L.push('- Улучшения понимания контента страницы поисковыми системами');
+  L.push('- Подготовки сайта к требованиям AI-поиска (SGE, Яндекс Нейро)');
+  L.push('');
+  L.push('---');
+  L.push('');
+
+  // ── Issues ──
+  L.push('## ⚠️ Текущие проблемы');
+  L.push('');
+
+  L.push('### 🔴 Критические (влияют на попадание в Rich Results)');
+  L.push('');
+  if (crit.length === 0) {
+    L.push('_Критических проблем не обнаружено._');
+  } else {
+    crit.forEach((i, idx) => {
+      L.push(`**${idx + 1}. ${i.schema}: ${i.problem}**`);
+      if (i.seoImpact) L.push(`- **Последствие:** ${i.seoImpact}`);
+      L.push(`- **Решение:** ${i.solution || 'См. готовый код ниже.'}`);
+      L.push('');
     });
-    lines.push('');
   }
-  if (warn.length > 0) {
-    lines.push(`## 🟡 Важно`);
-    warn.forEach(i => {
-      lines.push(`- **${i.schema}**: ${i.problem}`);
-      lines.push(`  - Решение: ${i.solution}`);
+  L.push('');
+
+  L.push('### 🟡 Важные (снижают качество разметки)');
+  L.push('');
+  if (warn.length === 0) {
+    L.push('_Важных предупреждений нет._');
+  } else {
+    warn.forEach((i, idx) => {
+      L.push(`**${idx + 1}. ${i.schema}: ${i.problem}**`);
+      L.push(`- **Решение:** ${i.solution || 'См. готовый код ниже.'}`);
+      L.push('');
     });
-    lines.push('');
   }
-  if (info.length > 0) {
-    lines.push(`## 🔵 Рекомендации`);
+  L.push('');
+
+  L.push('### 🔵 Рекомендации (для максимального эффекта)');
+  L.push('');
+  if (info.length === 0) {
+    L.push('_Дополнительных рекомендаций нет._');
+  } else {
     info.forEach(i => {
-      lines.push(`- **${i.schema}**: ${i.problem}`);
-      lines.push(`  - Решение: ${i.solution}`);
-    });
-    lines.push('');
-  }
-
-  if (audit.generated_code.length > 0) {
-    lines.push(`## Готовый код`);
-    audit.generated_code.forEach(b => {
-      lines.push(`### ${b.label}`);
-      lines.push('```html');
-      lines.push(`<script type="application/ld+json">`);
-      lines.push(b.code);
-      lines.push(`</script>`);
-      lines.push('```');
-      lines.push('');
+      L.push(`- ${i.problem} → ${i.solution || '—'}`);
     });
   }
+  L.push('');
+  L.push('---');
+  L.push('');
 
-  lines.push(`## Проверка после внедрения`);
-  lines.push(`- Google Rich Results Test: https://search.google.com/test/rich-results`);
-  lines.push(`- Schema.org Validator: https://validator.schema.org`);
-  lines.push('');
-  lines.push(`## Ожидаемый результат`);
-  lines.push(`Звёзды рейтинга, цена в сниппете, хлебные крошки`);
-  lines.push(`Ожидаемый рост CTR: +15-30%`);
-  return lines.join('\n');
+  // ── Ready code blocks ──
+  L.push('## 💻 Готовый код для внедрения');
+  L.push('');
+  L.push('> Весь код проверен и готов к копированию.  ');
+  L.push('> Вставьте каждый блок внутрь тега `<head>` на нужных страницах.');
+  L.push('');
+
+  audit.generated_code.forEach((block, idx) => {
+    const action = /исправ/i.test(block.label) ? 'исправить' : 'добавить';
+    const placement = placementHint(block.type);
+    const priority = priorityFromBlock(block.label);
+    const ds = dataSourceFromReason(block.reason || '', block.code || '');
+
+    L.push(`### ${idx + 1}. ${block.type} — ${action}`);
+    L.push('');
+    L.push(`**Где разместить:** ${placement}  `);
+    L.push(`**Приоритет:** ${priority}  `);
+    L.push(`**Данные:** ${ds.label}`);
+    L.push('');
+    L.push('```html');
+    L.push('<script type="application/ld+json">');
+    L.push(block.code);
+    L.push('</script>');
+    L.push('```');
+    L.push('');
+    if (ds.manualFields.length > 0) {
+      L.push('⚠️ **Поля для заполнения вручную:**');
+      ds.manualFields.forEach(f => {
+        L.push(`- \`"${f}"\` — укажите реальное значение для вашей компании`);
+      });
+      L.push('');
+    } else if (ds.label.includes('Требуют')) {
+      L.push('⚠️ **Внимание:** часть данных не была найдена автоматически — проверьте код перед публикацией и замените примерные значения на реальные данные компании.');
+      L.push('');
+    }
+    L.push('---');
+    L.push('');
+  });
+
+  // ── Checklist ──
+  L.push('## ✅ Чек-лист внедрения');
+  L.push('');
+  L.push('Разработчику отметить после выполнения:');
+  L.push('');
+
+  const critTypes = audit.generated_code.filter(b => priorityFromBlock(b.label) === 'КРИТИЧНО');
+  const warnTypes = audit.generated_code.filter(b => priorityFromBlock(b.label) === 'ВАЖНО');
+  const recTypes = audit.generated_code.filter(b => priorityFromBlock(b.label) === 'РЕКОМЕНДУЕТСЯ');
+
+  L.push(`### Этап 1 — Критические исправления (до ${fmtDate(addDays(today, 3))})`);
+  L.push('');
+  if (critTypes.length === 0) {
+    L.push('- [x] Критических исправлений не требуется');
+  } else {
+    critTypes.forEach(b => {
+      L.push(`- [ ] Добавить/исправить ${b.type} — ${placementHint(b.type)}`);
+    });
+    L.push('- [ ] Проверить каждую схему в Google Rich Results Test');
+    L.push('- [ ] Проверить в Яндекс Вебмастер → Разметка');
+  }
+  L.push('');
+
+  L.push(`### Этап 2 — Важные улучшения (до ${fmtDate(addDays(today, 14))})`);
+  L.push('');
+  if (warnTypes.length === 0) {
+    L.push('- [x] Важных улучшений не требуется');
+  } else {
+    warnTypes.forEach(b => {
+      L.push(`- [ ] Добавить ${b.type}`);
+    });
+    L.push('- [ ] Проверить валидатором Schema.org');
+  }
+  L.push('');
+
+  L.push(`### Этап 3 — Рекомендуемые дополнения (до ${fmtDate(addDays(today, 30))})`);
+  L.push('');
+  if (recTypes.length === 0) {
+    L.push('- [x] Дополнительных схем не требуется');
+  } else {
+    recTypes.forEach(b => {
+      L.push(`- [ ] Рассмотреть добавление ${b.type}`);
+    });
+  }
+  L.push('');
+  L.push('---');
+  L.push('');
+
+  // ── Verification ──
+  L.push('## 🔍 Проверка после внедрения');
+  L.push('');
+  L.push('### Обязательные инструменты');
+  L.push('');
+  L.push('| Инструмент | Ссылка | Что проверять |');
+  L.push('|-----------|--------|---------------|');
+  L.push('| Google Rich Results Test | https://search.google.com/test/rich-results | Наличие rich results |');
+  L.push('| Schema.org Validator | https://validator.schema.org | Валидность разметки |');
+  L.push('| Яндекс Вебмастер | https://webmaster.yandex.ru → Разметка | Обнаружение Яндексом |');
+  L.push('| Google Search Console | https://search.google.com/search-console | Ошибки разметки |');
+  L.push('');
+  L.push('### Критерии успешного внедрения');
+  L.push('');
+  L.push('- [ ] Google Rich Results Test показывает зелёный статус для всех схем');
+  L.push('- [ ] Нет ошибок в Schema.org Validator');
+  L.push('- [ ] Яндекс Вебмастер обнаружил разметку (через 3–7 дней)');
+  L.push('- [ ] В GSC нет предупреждений по структурированным данным');
+  L.push('');
+  L.push('---');
+  L.push('');
+
+  // ── Expected outcome ──
+  L.push('## 📈 Ожидаемый результат');
+  L.push('');
+  const expectedTypes = (Array.isArray(ai.richResultsEligible)
+    ? ai.richResultsEligible.filter((r: any) => r?.eligible).map((r: any) => r.type)
+    : audit.generated_code.map(b => b.type)
+  ).filter(Boolean);
+  const expectedList = expectedTypes.length > 0 ? expectedTypes.join(', ') : 'Breadcrumbs, Sitelinks';
+
+  L.push('| Метрика | До внедрения | После внедрения |');
+  L.push('|---------|--------------|-----------------|');
+  L.push(`| Балл микроразметки | ${audit.overall_score}/100 | 85–95/100 |`);
+  L.push(`| Rich Results в Google | Нет | ${expectedList} |`);
+  L.push('| CTR в выдаче | Базовый | +15–30% |');
+  L.push('| Видимость в AI-поиске | Низкая | Высокая |');
+  L.push('');
+  L.push('---');
+  L.push('');
+
+  // ── Footer ──
+  L.push('## 📞 Контакты и вопросы');
+  L.push('');
+  L.push('По вопросам технического задания обращайтесь:  ');
+  L.push('**Аудит выполнен:** PageForge SEO Platform  ');
+  L.push(`**Дата документа:** ${date}  `);
+  L.push('');
+  L.push('---');
+  L.push('');
+  L.push('*Документ сгенерирован автоматически на основе анализа страницы.  ');
+  L.push('Рекомендуется проверить актуальность данных перед внедрением.*');
+
+  return L.join('\n');
 }
 
 /* ─── Main page ─── */
@@ -349,11 +590,16 @@ export default function SchemaAuditPage() {
   const downloadTz = () => {
     if (!audit) return;
     const md = buildTzMarkdown(audit);
-    const blob = new Blob([md], { type: 'text/markdown' });
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const safeDomain = (audit.domain || 'site').replace(/[^\w.-]/g, '_');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `schema-tz-${audit.domain}-${Date.now()}.md`;
+    a.download = `TZ_schema_${safeDomain}_${dateStr}.md`;
     a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast({ title: 'ТЗ скачано', description: 'Передайте разработчику для внедрения.' });
   };
 
   const scrollToCode = () => codeSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
