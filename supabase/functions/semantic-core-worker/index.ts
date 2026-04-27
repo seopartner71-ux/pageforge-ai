@@ -188,6 +188,7 @@ async function dfsAutocompleteSource(
 
   const out = new Set<string>();
   const concurrency = 10;
+  let logged = 0;
   for (let i = 0; i < queries.length; i += concurrency) {
     const batch = queries.slice(i, i + concurrency);
     await Promise.allSettled(batch.map(async (q) => {
@@ -205,8 +206,14 @@ async function dfsAutocompleteSource(
             }]),
           },
         );
+        const text = await resp.text();
+        let data: any = {};
+        try { data = JSON.parse(text); } catch { /* keep empty */ }
+        if (logged < 2) {
+          logged++;
+          console.log(`[DFS autocomplete] q="${q}" status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" body=${text.slice(0, 400)}`);
+        }
         if (!resp.ok) return;
-        const data = await resp.json().catch(() => ({}));
         cost.add(0.0005);
         const items = data?.tasks?.[0]?.result?.[0]?.items;
         if (Array.isArray(items)) {
@@ -216,10 +223,11 @@ async function dfsAutocompleteSource(
           }
         }
       } catch (e) {
-        console.warn("[dfs-autocomplete] failed for", q, e);
+        console.error(`[DFS autocomplete] error q="${q}":`, (e as Error).message);
       }
     }));
   }
+  console.log(`[DFS autocomplete] queries=${queries.length}, unique=${out.size}, locationCode=${locationCode}`);
   return Array.from(out);
 }
 
