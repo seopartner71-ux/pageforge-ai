@@ -287,11 +287,9 @@ async function dfsKeywordSuggestions(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             keyword: q,
-            language_code: "ru",
-            language_name: "Russian",
             limit,
             order_by: ["keyword_info.search_volume,desc"],
-            filters: [["keyword_info.search_volume", ">", 10]],
+            filters: [["keyword_info.search_volume", ">", 0]],
           }]),
         },
       );
@@ -377,8 +375,6 @@ async function dfsKeywordsForSite(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             target,
-            language_code: "ru",
-            language_name: "Russian",
             limit: 500,
             filters: [["keyword_info.search_volume", ">", 10]],
           }]),
