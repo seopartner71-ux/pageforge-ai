@@ -107,6 +107,13 @@ export default function SemanticCorePage() {
   const [wordstatReal, setWordstatReal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState(0);
+  const [jobLiveCounts, setJobLiveCounts] = useState<{ keywords: number; clusters: number }>({ keywords: 0, clusters: 0 });
+  const [dailyUsage, setDailyUsage] = useState<{ used: number; limit: number } | null>(null);
+  const pollRef = useRef<number | null>(null);
+  const pollTimeoutRef = useRef<number | null>(null);
+
   const [howItWorksOpen, setHowItWorksOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem('semanticCore_howItWorks_expanded') === '1';
