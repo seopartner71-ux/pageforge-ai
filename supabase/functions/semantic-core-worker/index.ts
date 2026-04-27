@@ -286,11 +286,20 @@ function mergeSmallClusters(clusters: Cluster[]): Cluster[] {
   return big;
 }
 
-async function nameClustersBatch(clusters: { keywords: string[] }[]): Promise<string[]> {
+async function nameClustersBatch(
+  clusters: { keywords: string[] }[],
+  intentGroup: "commercial" | "informational" | "mixed" = "mixed",
+): Promise<string[]> {
   if (!clusters.length) return [];
   const prompt = clusters
     .map((c, i) => `${i}: ${c.keywords.slice(0, 5).join(", ")}`)
     .join("\n");
+  const intentHint =
+    intentGroup === "commercial"
+      ? "Это КОММЕРЧЕСКИЕ запросы — название должно отражать коммерческое намерение (например: \"Купить цветы с доставкой\", \"Заказать торт онлайн\", \"Цена на ремонт квартиры\")."
+      : intentGroup === "informational"
+      ? "Это ИНФОРМАЦИОННЫЕ запросы — название должно отражать тему статьи или гайда (например: \"Уход за орхидеями\", \"Как выбрать ноутбук\", \"Что такое SEO\")."
+      : "Дай нейтральное тематическое название.";
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
@@ -301,7 +310,9 @@ async function nameClustersBatch(clusters: { keywords: string[] }[]): Promise<st
           {
             role: "system",
             content:
-              "Ты эксперт по SEO. Для каждого кластера поисковых запросов придумай короткое название на русском (2-4 слова). Возвращай ТОЛЬКО валидный JSON: { \"0\": \"Название\", \"1\": \"Название\", ... }",
+              "Ты эксперт по SEO для русскоязычного рынка. Для каждого кластера поисковых запросов придумай короткое название на русском (3-6 слов). " +
+              intentHint +
+              " Возвращай ТОЛЬКО валидный JSON: { \"0\": \"Название\", \"1\": \"Название\", ... }",
           },
           { role: "user", content: `Назови кластеры:\n${prompt}` },
         ],
@@ -388,46 +399,65 @@ async function runPipeline(jobId: string) {
   // STEP F: clustering
   await updateJob(jobId, { status: "clustering", progress: 82 });
 
-  // Phase 1
-  const topItems = topKws.map((k) => ({ keyword: k.keyword, serp: k.serp_urls, score: k.score }));
-  let clusters = serpCluster(topItems, 0.3);
-  clusters = mergeSmallClusters(clusters);
+  // Split keywords into intent groups — clustering runs SEPARATELY within each group
+  // so commercial/transactional keywords are never mixed with informational ones.
+  const isCommercial = (it: Intent) => it === "commercial" || it === "transac";
+  const isInformational = (it: Intent) => it === "info" || it === "nav";
 
-  const assigned = new Map<string, number>(); // keyword -> cluster index
-  clusters.forEach((c, idx) => c.keywords.forEach((kw) => assigned.set(kw, idx)));
+  const intentGroups: { name: "commercial" | "informational"; predicate: (i: Intent) => boolean }[] = [
+    { name: "commercial", predicate: isCommercial },
+    { name: "informational", predicate: isInformational },
+  ];
 
-  // Phase 2: assign tail keywords by text similarity
-  const tail = sortedByScore.slice(MAX_SERP_KEYWORDS);
-  const ungrouped: string[] = [];
-  for (const k of tail) {
-    let bestIdx = -1;
-    let bestSim = 0;
-    for (let i = 0; i < clusters.length; i++) {
-      const seed = clusters[i].keywords[0];
-      const sim = textSim(k.keyword, seed);
-      if (sim > bestSim) {
-        bestSim = sim;
-        bestIdx = i;
+  const clusters: Cluster[] = [];
+  const clusterIntent: ("commercial" | "informational")[] = [];
+  const names: string[] = [];
+
+  for (const grp of intentGroups) {
+    const grpTop = topKws.filter((k) => grp.predicate(k.intent));
+    const grpTail = sortedByScore.slice(MAX_SERP_KEYWORDS).filter((k) => grp.predicate(k.intent));
+    if (!grpTop.length && !grpTail.length) continue;
+
+    // Phase 1: SERP clustering on top items within this intent group
+    const topItems = grpTop.map((k) => ({ keyword: k.keyword, serp: k.serp_urls, score: k.score }));
+    let grpClusters = serpCluster(topItems, 0.3);
+    grpClusters = mergeSmallClusters(grpClusters);
+
+    // Phase 2: assign tail keywords by text similarity (within same intent group)
+    const ungrouped: string[] = [];
+    for (const k of grpTail) {
+      let bestIdx = -1;
+      let bestSim = 0;
+      for (let i = 0; i < grpClusters.length; i++) {
+        const seed = grpClusters[i].keywords[0];
+        const sim = textSim(k.keyword, seed);
+        if (sim > bestSim) {
+          bestSim = sim;
+          bestIdx = i;
+        }
+      }
+      if (bestIdx >= 0 && bestSim >= 0.3) {
+        grpClusters[bestIdx].keywords.push(k.keyword);
+      } else {
+        ungrouped.push(k.keyword);
       }
     }
-    if (bestIdx >= 0 && bestSim >= 0.3) {
-      clusters[bestIdx].keywords.push(k.keyword);
-      assigned.set(k.keyword, bestIdx);
-    } else {
-      ungrouped.push(k.keyword);
+
+    // Split ungrouped into chunks of <=15 (still within this intent group)
+    for (let i = 0; i < ungrouped.length; i += 15) {
+      const chunk = ungrouped.slice(i, i + 15);
+      grpClusters.push({ keywords: chunk, seedSerp: [] });
+    }
+
+    // Phase 3: name clusters with intent-aware prompt
+    const grpNames = await nameClustersBatch(grpClusters, grp.name);
+
+    for (let i = 0; i < grpClusters.length; i++) {
+      clusters.push(grpClusters[i]);
+      clusterIntent.push(grp.name);
+      names.push(grpNames[i]);
     }
   }
-
-  // Split ungrouped into chunks of <=15
-  for (let i = 0; i < ungrouped.length; i += 15) {
-    const chunk = ungrouped.slice(i, i + 15);
-    const idx = clusters.length;
-    clusters.push({ keywords: chunk, seedSerp: [] });
-    chunk.forEach((kw) => assigned.set(kw, idx));
-  }
-
-  // Phase 3: name clusters
-  const names = await nameClustersBatch(clusters);
 
   // Apply assignments back to kws
   const kwByText = new Map(kws.map((k) => [k.keyword, k]));
