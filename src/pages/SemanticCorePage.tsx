@@ -99,13 +99,23 @@ const KD_BADGE: Record<KdBucket, string> = {
 };
 function KdBadge({ kd }: { kd: number | null | undefined }) {
   const b = kdBucket(kd);
+  if (kd == null || Number.isNaN(kd as number)) {
+    return (
+      <span
+        className="inline-flex items-center px-1.5 text-xs text-muted-foreground/60 tabular-nums"
+        title="KD неизвестен"
+      >
+        —
+      </span>
+    );
+  }
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium ${KD_BADGE[b]}`}
-      title={kd == null ? 'Нет данных' : `KD = ${kd}`}
+      title={`KD = ${kd}`}
     >
       <span>{KD_LABELS[b]}</span>
-      {kd != null && <span className="tabular-nums opacity-80">{kd}</span>}
+      <span className="tabular-nums opacity-80">{kd}</span>
     </span>
   );
 }
