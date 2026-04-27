@@ -26,6 +26,31 @@ const STEP_LABELS: Record<Step, string> = {
   cluster: 'Кластеризуем запросы...',
 };
 
+type JobStatus = 'pending' | 'expanding' | 'frequencies' | 'serp' | 'clustering' | 'done' | 'error';
+
+function statusToStepStatus(status: JobStatus): Record<Step, 'idle' | 'active' | 'done'> {
+  const order: Record<Step, number> = { expand: 0, wordstat: 1, serp: 2, cluster: 3 };
+  let activeIdx = 0;
+  switch (status) {
+    case 'pending':
+    case 'expanding': activeIdx = 0; break;
+    case 'frequencies': activeIdx = 1; break;
+    case 'serp': activeIdx = 2; break;
+    case 'clustering': activeIdx = 3; break;
+    case 'done': activeIdx = 4; break;
+    default: activeIdx = 0;
+  }
+  const out: Record<Step, 'idle' | 'active' | 'done'> = {
+    expand: 'idle', wordstat: 'idle', serp: 'idle', cluster: 'idle',
+  };
+  for (const s of Object.keys(order) as Step[]) {
+    const i = order[s];
+    if (i < activeIdx) out[s] = 'done';
+    else if (i === activeIdx) out[s] = 'active';
+  }
+  return out;
+}
+
 function intentTypeForCluster(items: SemanticKeyword[]): SemanticCluster['type'] {
   const c = items.filter(i => i.intent === 'commercial' || i.intent === 'transac').length;
   const inf = items.filter(i => i.intent === 'info').length;
