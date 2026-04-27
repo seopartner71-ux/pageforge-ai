@@ -496,15 +496,6 @@ export default function SemanticCorePage() {
                 );
               })}
             </div>
-            {dfsConfigured === false && (
-              <div className="flex items-start gap-2 px-2 py-1.5 rounded bg-yellow-500/10 border border-yellow-500/30 text-[11px] text-yellow-200">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-yellow-500" />
-                <span>
-                  <strong className="text-yellow-400">DataForSEO не подключён</strong> — используется AI-генерация (меньше запросов).
-                  Добавьте credentials в Supabase Secrets (DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD).
-                </span>
-              </div>
-            )}
           </div>
 
           {/* How it works */}
@@ -569,16 +560,6 @@ export default function SemanticCorePage() {
               </span>
             )}
           </div>
-
-          {!wordstatReal && (
-            <div className="flex items-start gap-2 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-200">
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-yellow-500" />
-              <span>
-                <strong className="text-yellow-400">Wordstat: Mock-режим</strong> — частоты случайные.
-                Частоты будут реальными после подключения Вордстат администратором.
-              </span>
-            </div>
-          )}
 
           {/* Progress steps */}
           {running && (
