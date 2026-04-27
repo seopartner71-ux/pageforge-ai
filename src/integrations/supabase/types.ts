@@ -572,6 +572,66 @@ export type Database = {
         }
         Relationships: []
       }
+      schema_audits: {
+        Row: {
+          ai_recommendations: Json
+          created_at: string
+          domain: string
+          error_message: string | null
+          errors_count: number
+          found_schemas_count: number
+          generated_code: Json
+          id: string
+          issues: Json
+          overall_score: number
+          page_type: string
+          project_id: string | null
+          schemas_data: Json
+          status: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          ai_recommendations?: Json
+          created_at?: string
+          domain?: string
+          error_message?: string | null
+          errors_count?: number
+          found_schemas_count?: number
+          generated_code?: Json
+          id?: string
+          issues?: Json
+          overall_score?: number
+          page_type?: string
+          project_id?: string | null
+          schemas_data?: Json
+          status?: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          ai_recommendations?: Json
+          created_at?: string
+          domain?: string
+          error_message?: string | null
+          errors_count?: number
+          found_schemas_count?: number
+          generated_code?: Json
+          id?: string
+          issues?: Json
+          overall_score?: number
+          page_type?: string
+          project_id?: string | null
+          schemas_data?: Json
+          status?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       semantic_clusters: {
         Row: {
           avg_score: number
