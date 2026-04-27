@@ -1049,7 +1049,45 @@ async function runPipeline(jobId: string) {
   }
 
   // Drop empty / deleted, then re-index
-  const finalStates = cstates.filter((s) => !s.deleted && s.keywords.length > 0);
+  let finalStates = cstates.filter((s) => !s.deleted && s.keywords.length > 0);
+
+  // Enforce minimum cluster size: merge clusters with < MIN_CLUSTER_SIZE keywords
+  // into the nearest larger cluster (same intent group) by text similarity.
+  {
+    const tooSmall = finalStates.filter((s) => s.keywords.length < MIN_CLUSTER_SIZE);
+    const bigEnough = finalStates.filter((s) => s.keywords.length >= MIN_CLUSTER_SIZE);
+    if (bigEnough.length > 0) {
+      for (const s of tooSmall) {
+        const sameIntent = bigEnough.filter((b) => b.intentGroup === s.intentGroup);
+        const pool = sameIntent.length ? sameIntent : bigEnough;
+        let bestIdx = 0;
+        let bestSim = -1;
+        const sample = s.keywords[0] || "";
+        for (let i = 0; i < pool.length; i++) {
+          const sim = textSim(sample, pool[i].keywords[0] || "");
+          if (sim > bestSim) { bestSim = sim; bestIdx = i; }
+        }
+        pool[bestIdx].keywords.push(...s.keywords);
+      }
+      finalStates = bigEnough;
+    }
+  }
+
+  // Cap at MAX_CLUSTERS — merge smallest clusters into nearest larger one
+  while (finalStates.length > MAX_CLUSTERS) {
+    finalStates.sort((a, b) => a.keywords.length - b.keywords.length);
+    const smallest = finalStates.shift()!;
+    const sameIntent = finalStates.filter((b) => b.intentGroup === smallest.intentGroup);
+    const pool = sameIntent.length ? sameIntent : finalStates;
+    let bestIdx = 0;
+    let bestSim = -1;
+    const sample = smallest.keywords[0] || "";
+    for (let i = 0; i < pool.length; i++) {
+      const sim = textSim(sample, pool[i].keywords[0] || "");
+      if (sim > bestSim) { bestSim = sim; bestIdx = i; }
+    }
+    pool[bestIdx].keywords.push(...smallest.keywords);
+  }
 
   // Reset & re-apply cluster assignments based on finalStates
   for (const k of kws) { k.cluster_id = null; k.cluster_name = null; }
