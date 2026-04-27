@@ -205,6 +205,7 @@ function buildGeneratedCode(
   features: ReturnType<typeof detectPageFeatures>,
   pageTitle: string,
   pageData?: { companyName?: string | null; phone?: string | null; email?: string | null; address?: string | null; logo?: string | null; description?: string | null; workingHours?: string | null; priceRange?: string | null },
+  pageType: string = "general",
 ) {
   const blocks: { type: string; label: string; code: string; reason: string }[] = [];
   const origin = (() => { try { return new URL(url).origin; } catch { return url; } })();
@@ -235,8 +236,32 @@ function buildGeneratedCode(
     });
   }
 
-  // Organization always (uses extracted contacts)
-  if (!schemas.find(s => s.type === "Organization")) {
+  // Person schema for personal brand / event host (instead of Organization)
+  if (pageType === "event_host" && !schemas.find(s => s.type === "Person")) {
+    const person: any = {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "name": companyName,
+      "jobTitle": "Ведущий мероприятий",
+      "url": origin,
+    };
+    if (description) person.description = description;
+    if (email) person.email = email;
+    if (phone) person.telephone = phone;
+    if (logo) person.image = logo;
+    person.knowsAbout = ["Ведение мероприятий", "Свадьбы", "Корпоративы", "Частные события"];
+    person.areaServed = "Россия";
+    const dataSource = (email || phone || description) ? "✓ Данные взяты со страницы" : "⚠ Заполните контакты вручную";
+    blocks.push({
+      type: "Person",
+      label: "Person — добавить (личный бренд)",
+      reason: `Подходит для ведущих, экспертов, фрилансеров • ${dataSource}`,
+      code: JSON.stringify(person, null, 2),
+    });
+  }
+
+  // Organization (skip for personal brands — Person is more accurate)
+  if (pageType !== "event_host" && !schemas.find(s => s.type === "Organization")) {
     const org: any = {
       "@context": "https://schema.org",
       "@type": "Organization",
@@ -322,7 +347,30 @@ function buildGeneratedCode(
     });
   }
 
-  if (features.hasAddress && !schemas.find(s => s.type === "LocalBusiness")) {
+  // Service schema for service-type pages
+  if ((pageType === "service" || pageType === "event_host") && !schemas.find(s => s.type === "Service")) {
+    const svc: any = {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "name": pageType === "event_host" ? "Ведение мероприятий" : (pageTitle || "Услуги"),
+      "provider": {
+        "@type": pageType === "event_host" ? "Person" : "Organization",
+        "name": companyName,
+      },
+      "areaServed": "Россия",
+    };
+    if (description) svc.description = description;
+    if (pageData?.priceRange) svc.offers = { "@type": "Offer", priceCurrency: "RUB", price: pageData.priceRange.replace(/[^\d]/g, "") || "0" };
+    blocks.push({
+      type: "Service",
+      label: "Service — добавить",
+      reason: `Описание предоставляемой услуги • ${description ? "✓ Данные взяты со страницы" : "⚠ Уточните описание"}`,
+      code: JSON.stringify(svc, null, 2),
+    });
+  }
+
+  // LocalBusiness — for any site with contacts OR personal brand sites
+  if ((features.hasAddress || pageType === "event_host" || pageType === "local_business" || pageType === "service") && !schemas.find(s => s.type === "LocalBusiness")) {
     const lb: any = {
       "@context": "https://schema.org",
       "@type": "LocalBusiness",
@@ -338,11 +386,11 @@ function buildGeneratedCode(
     if (email) lb.email = email;
     if (logo) lb.image = logo;
     if (pageData?.priceRange) lb.priceRange = pageData.priceRange;
-    const dataSource = (address && phone) ? "✓ Данные взяты со страницы" : "⚠ Часть данных нужно уточнить";
+    const dataSource = (address && (phone || email)) ? "✓ Данные взяты со страницы" : "⚠ Часть данных нужно уточнить";
     blocks.push({
       type: "LocalBusiness",
       label: "LocalBusiness — добавить",
-      reason: `На странице найдены контакты • ${dataSource}`,
+      reason: `Локальный бизнес — повышает видимость в Картах • ${dataSource}`,
       code: JSON.stringify(lb, null, 2),
     });
   }
