@@ -776,7 +776,7 @@ Deno.serve(async (req: Request) => {
           code: botBlocked ? "BOT_PROTECTED" : "FETCH_FAILED",
           domain: getDomain(url),
         }), {
-          status: 422,
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
