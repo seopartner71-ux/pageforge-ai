@@ -572,6 +572,44 @@ export type Database = {
         }
         Relationships: []
       }
+      semantic_clusters: {
+        Row: {
+          avg_score: number
+          cluster_index: number
+          id: string
+          job_id: string
+          keyword_count: number
+          name: string
+          type: string
+        }
+        Insert: {
+          avg_score?: number
+          cluster_index: number
+          id?: string
+          job_id: string
+          keyword_count?: number
+          name?: string
+          type?: string
+        }
+        Update: {
+          avg_score?: number
+          cluster_index?: number
+          id?: string
+          job_id?: string
+          keyword_count?: number
+          name?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semantic_clusters_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "semantic_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       semantic_cores: {
         Row: {
           clusters: Json
@@ -619,6 +657,113 @@ export type Database = {
           wordstat_mode?: string
         }
         Relationships: []
+      }
+      semantic_jobs: {
+        Row: {
+          cluster_count: number
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          input_engine: string
+          input_region: string
+          input_seeds: string[]
+          input_topic: string
+          keyword_count: number
+          progress: number
+          project_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cluster_count?: number
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_engine?: string
+          input_region?: string
+          input_seeds?: string[]
+          input_topic?: string
+          keyword_count?: number
+          progress?: number
+          project_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cluster_count?: number
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_engine?: string
+          input_region?: string
+          input_seeds?: string[]
+          input_topic?: string
+          keyword_count?: number
+          progress?: number
+          project_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      semantic_keywords: {
+        Row: {
+          cluster_id: number | null
+          cluster_name: string | null
+          created_at: string
+          exact_frequency: number
+          id: string
+          included: boolean
+          intent: string
+          job_id: string
+          keyword: string
+          score: number
+          serp_urls: string[]
+          ws_frequency: number
+        }
+        Insert: {
+          cluster_id?: number | null
+          cluster_name?: string | null
+          created_at?: string
+          exact_frequency?: number
+          id?: string
+          included?: boolean
+          intent?: string
+          job_id: string
+          keyword: string
+          score?: number
+          serp_urls?: string[]
+          ws_frequency?: number
+        }
+        Update: {
+          cluster_id?: number | null
+          cluster_name?: string | null
+          created_at?: string
+          exact_frequency?: number
+          id?: string
+          included?: boolean
+          intent?: string
+          job_id?: string
+          keyword?: string
+          score?: number
+          serp_urls?: string[]
+          ws_frequency?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semantic_keywords_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "semantic_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_settings: {
         Row: {

@@ -26,6 +26,31 @@ const STEP_LABELS: Record<Step, string> = {
   cluster: 'Кластеризуем запросы...',
 };
 
+type JobStatus = 'pending' | 'expanding' | 'frequencies' | 'serp' | 'clustering' | 'done' | 'error';
+
+function statusToStepStatus(status: JobStatus): Record<Step, 'idle' | 'active' | 'done'> {
+  const order: Record<Step, number> = { expand: 0, wordstat: 1, serp: 2, cluster: 3 };
+  let activeIdx = 0;
+  switch (status) {
+    case 'pending':
+    case 'expanding': activeIdx = 0; break;
+    case 'frequencies': activeIdx = 1; break;
+    case 'serp': activeIdx = 2; break;
+    case 'clustering': activeIdx = 3; break;
+    case 'done': activeIdx = 4; break;
+    default: activeIdx = 0;
+  }
+  const out: Record<Step, 'idle' | 'active' | 'done'> = {
+    expand: 'idle', wordstat: 'idle', serp: 'idle', cluster: 'idle',
+  };
+  for (const s of Object.keys(order) as Step[]) {
+    const i = order[s];
+    if (i < activeIdx) out[s] = 'done';
+    else if (i === activeIdx) out[s] = 'active';
+  }
+  return out;
+}
+
 function intentTypeForCluster(items: SemanticKeyword[]): SemanticCluster['type'] {
   const c = items.filter(i => i.intent === 'commercial' || i.intent === 'transac').length;
   const inf = items.filter(i => i.intent === 'info').length;
@@ -82,6 +107,13 @@ export default function SemanticCorePage() {
   const [wordstatReal, setWordstatReal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState(0);
+  const [jobLiveCounts, setJobLiveCounts] = useState<{ keywords: number; clusters: number }>({ keywords: 0, clusters: 0 });
+  const [dailyUsage, setDailyUsage] = useState<{ used: number; limit: number } | null>(null);
+  const pollRef = useRef<number | null>(null);
+  const pollTimeoutRef = useRef<number | null>(null);
+
   const [howItWorksOpen, setHowItWorksOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem('semanticCore_howItWorks_expanded') === '1';
@@ -96,6 +128,27 @@ export default function SemanticCorePage() {
     isWordstatRealMode().then(setWordstatReal);
   }, [running]);
 
+  // Load daily quota
+  useEffect(() => {
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u?.user) return;
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from('semantic_jobs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', u.user.id)
+        .gte('created_at', since);
+      setDailyUsage({ used: count || 0, limit: 10 });
+    })();
+  }, [running]);
+
+  // Cleanup polling on unmount
+  useEffect(() => () => {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+    if (pollTimeoutRef.current) window.clearTimeout(pollTimeoutRef.current);
+  }, []);
+
   const addSeed = () => {
     const v = seedInput.trim();
     if (!v || seeds.length >= 20) return;
@@ -108,112 +161,99 @@ export default function SemanticCorePage() {
   const setStep = (step: Step, status: 'active' | 'done') =>
     setStepStatus(prev => ({ ...prev, [step]: status }));
 
+  const fetchJobResults = async (id: string) => {
+    const [{ data: kwRows }, { data: clRows }] = await Promise.all([
+      supabase.from('semantic_keywords').select('*').eq('job_id', id).order('score', { ascending: false }),
+      supabase.from('semantic_clusters').select('*').eq('job_id', id).order('avg_score', { ascending: false }),
+    ]);
+    const kws: SemanticKeyword[] = (kwRows || []).map((r: any) => ({
+      keyword: r.keyword,
+      wsFrequency: r.ws_frequency,
+      exactFrequency: r.exact_frequency,
+      intent: r.intent as IntentKind,
+      score: r.score,
+      cluster: r.cluster_id != null ? `c${r.cluster_id}` : 'unclustered',
+      included: r.included,
+      topUrls: r.serp_urls || [],
+    }));
+    const cls: SemanticCluster[] = (clRows || []).map((r: any) => {
+      const items = kws.filter(k => k.cluster === `c${r.cluster_index}`);
+      return {
+        id: `c${r.cluster_index}`,
+        name: r.name,
+        type: r.type === 'commercial' ? 'COMMERCIAL' : r.type === 'informational' ? 'INFORMATIONAL' : 'MIXED',
+        keywords: items.map(i => i.keyword),
+        totalQueries: items.length,
+      };
+    });
+    setKeywords(kws);
+    setClusters(cls);
+  };
+
+  const stopPolling = () => {
+    if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
+    if (pollTimeoutRef.current) { window.clearTimeout(pollTimeoutRef.current); pollTimeoutRef.current = null; }
+  };
+
+  const startPolling = (id: string) => {
+    stopPolling();
+    pollRef.current = window.setInterval(async () => {
+      const { data: job, error } = await supabase
+        .from('semantic_jobs')
+        .select('status, progress, keyword_count, cluster_count, error_message')
+        .eq('id', id)
+        .maybeSingle();
+      if (error || !job) return;
+      const status = job.status as JobStatus;
+      setStepStatus(statusToStepStatus(status));
+      setJobProgress(job.progress || 0);
+      setJobLiveCounts({ keywords: job.keyword_count || 0, clusters: job.cluster_count || 0 });
+
+      if (status === 'done') {
+        stopPolling();
+        await fetchJobResults(id);
+        setRunning(false);
+        toast.success(`Готово: ${job.keyword_count} запросов в ${job.cluster_count} кластерах`);
+      } else if (status === 'error') {
+        stopPolling();
+        setRunning(false);
+        toast.error(`Ошибка: ${job.error_message || 'неизвестная'}`);
+      }
+    }, 3000);
+    pollTimeoutRef.current = window.setTimeout(() => {
+      stopPolling();
+      setRunning(false);
+      toast.error('Таймаут анализа (10 минут). Проверьте задачу позже.');
+    }, 600000);
+  };
+
   const runGenerate = async () => {
-    if (!topic.trim() && !seeds.length) {
-      toast.error('Введите тему или хотя бы один seed-ключ');
+    if (!topic.trim()) {
+      toast.error('Введите тему');
       return;
     }
     setRunning(true);
-    setKeywords([]); setClusters([]); setCoreId(null);
-    setStepStatus({ expand: 'idle', wordstat: 'idle', serp: 'idle', cluster: 'idle' });
+    setKeywords([]); setClusters([]); setCoreId(null); setJobId(null);
+    setJobProgress(0);
+    setJobLiveCounts({ keywords: 0, clusters: 0 });
+    setStepStatus({ expand: 'active', wordstat: 'idle', serp: 'idle', cluster: 'idle' });
 
     try {
-      // 1) AI expand
-      setStep('expand', 'active');
-      const { data: expData, error: expErr } = await supabase.functions.invoke('semantic-core', {
-        body: { action: 'expand', topic, seeds },
+      const { data, error } = await supabase.functions.invoke('semantic-core-start', {
+        body: { topic, seeds, region, engine },
       });
-      if (expErr) throw expErr;
-      const expandedRaw: string[] = (expData as any)?.keywords || [];
-      // Включаем и сидов, чтобы пользовательские точно остались
-      const expanded = Array.from(new Set([...seeds, ...expandedRaw].map(s => s.toLowerCase().trim()).filter(Boolean)));
-      if (!expanded.length) throw new Error('AI не вернул ключевых слов');
-      setStep('expand', 'done');
-
-      // 2) Wordstat
-      setStep('wordstat', 'active');
-      const freqs = await getFrequencies(expanded);
-      setStep('wordstat', 'done');
-
-      const maxFreq = Math.max(1, ...freqs.map(f => f.wsFrequency));
-      let initial: SemanticKeyword[] = freqs.map(f => {
-        const intent = classifyIntentByKeyword(f.keyword);
-        const w = INTENT_WEIGHT[intent];
-        const ratio = f.wsFrequency > 0 ? f.exactFrequency / f.wsFrequency : 0;
-        const score = Math.max(0, Math.min(100, Math.round(
-          (Math.log(f.wsFrequency + 1) / Math.log(maxFreq + 1)) * 60 +
-          w * 25 +
-          ratio * 15
-        )));
-        return {
-          keyword: f.keyword, wsFrequency: f.wsFrequency, exactFrequency: f.exactFrequency,
-          intent, score, cluster: '', included: true,
-        };
-      });
-
-      // 3) SERP
-      setStep('serp', 'active');
-      // 4) Cluster (через ту же edge-функцию, она тянет SERP внутри)
-      setStep('cluster', 'active');
-      const { data: clData, error: clErr } = await supabase.functions.invoke('semantic-core', {
-        body: {
-          action: 'cluster',
-          region,
-          items: initial.map(k => ({ keyword: k.keyword, score: k.score })),
-        },
-      });
-      if (clErr) throw clErr;
-      setStep('serp', 'done');
-
-      const rawClusters: { id: string; name: string; keywords: string[] }[] = (clData as any)?.clusters || [];
-      const assignments: Record<string, string> = (clData as any)?.assignments || {};
-      const method: string | undefined = (clData as any)?.method;
-      if (method) setClusterMethod(method);
-
-      initial = initial.map(k => ({ ...k, cluster: assignments[k.keyword] || 'unclustered' }));
-
-      const builtClusters: SemanticCluster[] = rawClusters.map(c => {
-        const items = initial.filter(k => k.cluster === c.id);
-        return {
-          id: c.id,
-          name: c.name,
-          type: intentTypeForCluster(items),
-          keywords: items.map(i => i.keyword),
-          totalQueries: items.length,
-        };
-      });
-      setStep('cluster', 'done');
-
-      setKeywords(initial);
-      setClusters(builtClusters);
-
-      // 5) Save
-      const payload: SemanticCorePayload = {
-        topic, seedKeywords: seeds, region, searchEngine: engine,
-        keywords: initial, clusters: builtClusters,
-        wordstatMode: wordstatReal ? 'real' : 'mock',
-        generatedAt: new Date().toISOString(),
-      };
-      const { data: u } = await supabase.auth.getUser();
-      if (u?.user) {
-        const { data: saved } = await supabase.from('semantic_cores').insert({
-          user_id: u.user.id,
-          name: topic ? `СЯ: ${topic.slice(0, 60)}` : 'Семантическое ядро',
-          topic, seed_keywords: seeds, region, search_engine: engine,
-          keywords: initial as any, clusters: builtClusters as any,
-          wordstat_mode: payload.wordstatMode,
-        }).select('id').single();
-        if (saved?.id) setCoreId(saved.id);
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const id = (data as any)?.job_id as string;
+      if (!id) throw new Error('Не получен job_id');
+      setJobId(id);
+      if (typeof (data as any)?.daily_used === 'number') {
+        setDailyUsage({ used: (data as any).daily_used, limit: (data as any).daily_limit || 10 });
       }
-      toast.success(`Готово: ${initial.length} запросов в ${builtClusters.length} кластерах`);
-
-      if (initial.length > 0 && builtClusters.length / initial.length > 0.5) {
-        toast.warning('Кластеризация не дала результатов — попробуйте другую тему или проверьте API ключи');
-      }
+      startPolling(id);
     } catch (e: any) {
       const msg = e?.message || String(e);
-      toast.error(`Ошибка: ${msg}`);
-    } finally {
+      toast.error(`Ошибка запуска: ${msg}`);
       setRunning(false);
     }
   };
@@ -400,15 +440,20 @@ export default function SemanticCorePage() {
 
           <Button
             onClick={runGenerate}
-            disabled={running}
+            disabled={running || (dailyUsage ? dailyUsage.used >= dailyUsage.limit : false)}
             className="w-full h-11 gap-2"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {running ? 'Собираем ядро...' : 'Generate Semantics'}
           </Button>
-          <p className="text-xs text-muted-foreground text-center">
-            AI расширит ядро → получит частоты → кластеризует по топам
-          </p>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>AI расширит ядро → получит частоты → кластеризует по топам</span>
+            {dailyUsage && (
+              <span>
+                Использовано сегодня: <strong className="text-foreground">{dailyUsage.used}</strong> / {dailyUsage.limit}
+              </span>
+            )}
+          </div>
 
           {!wordstatReal && (
             <div className="flex items-start gap-2 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-200">
@@ -438,6 +483,23 @@ export default function SemanticCorePage() {
                   </div>
                 );
               })}
+              <div className="pt-1">
+                <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{ width: `${Math.max(2, jobProgress)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
+                  <span>{jobProgress}%</span>
+                  {jobLiveCounts.keywords > 0 && (
+                    <span>
+                      Найдено <strong className="text-foreground">{jobLiveCounts.keywords}</strong> запросов
+                      {jobLiveCounts.clusters > 0 && <> / <strong className="text-foreground">{jobLiveCounts.clusters}</strong> кластеров</>}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </Card>
