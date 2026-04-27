@@ -324,14 +324,27 @@ async function dfsKeywordSuggestions(
       if (Array.isArray(items)) {
         if (items.length && merged.size === 0) {
           console.log(`[DFS volume sample suggestions]`, JSON.stringify(items[0]).slice(0, 400));
+            const dbg = items[0];
+            console.log('[KD debug suggestions]', JSON.stringify({
+              kd1: dbg?.keyword_difficulty,
+              kd2: dbg?.keyword_info?.keyword_difficulty,
+              kd3: dbg?.keyword_info?.keyword_properties?.keyword_difficulty,
+              kd4: dbg?.keyword_properties?.keyword_difficulty,
+              info_keys: Object.keys(dbg?.keyword_info || {}),
+              props_keys: Object.keys(dbg?.keyword_properties || {}),
+              top_keys: Object.keys(dbg || {}),
+            }));
         }
         for (const it of items) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
-          // Post-filter: keyword must contain Cyrillic chars (no language field allowed in request)
-          if (!/[\u0400-\u04FF]/.test(kw)) continue;
-          const kdRaw = it?.keyword_difficulty ?? it?.keyword_properties?.keyword_difficulty ?? it?.keyword_info?.keyword_difficulty;
+            // Post-filter: Russian-only (no language field allowed in request)
+            if (!isRussianKeyword(kw)) continue;
+            const kdRaw = it?.keyword_difficulty
+              ?? it?.keyword_properties?.keyword_difficulty
+              ?? it?.keyword_info?.keyword_difficulty
+              ?? it?.keyword_info?.keyword_properties?.keyword_difficulty;
           const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
           if (!prev || sv > prev.search_volume) {
@@ -418,14 +431,27 @@ async function dfsKeywordsForSite(
       if (Array.isArray(items)) {
         if (items.length && merged.size === 0) {
           console.log(`[DFS volume sample competitors]`, JSON.stringify(items[0]).slice(0, 400));
+          const dbg = items[0];
+          console.log('[KD debug competitors]', JSON.stringify({
+            kd1: dbg?.keyword_difficulty,
+            kd2: dbg?.keyword_info?.keyword_difficulty,
+            kd3: dbg?.keyword_info?.keyword_properties?.keyword_difficulty,
+            kd4: dbg?.keyword_properties?.keyword_difficulty,
+            info_keys: Object.keys(dbg?.keyword_info || {}),
+            props_keys: Object.keys(dbg?.keyword_properties || {}),
+            top_keys: Object.keys(dbg || {}),
+          }));
         }
         for (const it of items) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
-          // Post-filter: keyword must contain Cyrillic chars
-          if (!/[\u0400-\u04FF]/.test(kw)) continue;
-          const kdRaw = it?.keyword_difficulty ?? it?.keyword_properties?.keyword_difficulty ?? it?.keyword_info?.keyword_difficulty;
+          // Post-filter: Russian-only
+          if (!isRussianKeyword(kw)) continue;
+          const kdRaw = it?.keyword_difficulty
+            ?? it?.keyword_properties?.keyword_difficulty
+            ?? it?.keyword_info?.keyword_difficulty
+            ?? it?.keyword_info?.keyword_properties?.keyword_difficulty;
           const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
           if (!prev || sv > prev.search_volume) {
