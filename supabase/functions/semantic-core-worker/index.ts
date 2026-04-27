@@ -324,6 +324,19 @@ async function dfsKeywordSuggestions(
       if (Array.isArray(items)) {
         if (items.length && merged.size === 0) {
           console.log(`[DFS volume sample suggestions]`, JSON.stringify(items[0]).slice(0, 400));
+            console.log('[FULL ITEM suggestions]',
+              JSON.stringify(data?.tasks?.[0]?.result?.[0], null, 2).slice(0, 2000));
+            const it0 = items[0];
+            console.log('[Volume check suggestions]', JSON.stringify({
+              keyword: it0?.keyword,
+              search_volume: it0?.search_volume,
+              keyword_info_sv: it0?.keyword_info?.search_volume,
+              monthly_searches_first: it0?.keyword_info?.monthly_searches?.[0]?.search_volume,
+              kd: it0?.keyword_difficulty,
+              kd2: it0?.keyword_info?.keyword_difficulty,
+              kd3: it0?.keyword_info?.keyword_properties?.keyword_difficulty,
+              kd4: it0?.keyword_properties?.keyword_difficulty,
+            }));
             const dbg = items[0];
             console.log('[KD debug suggestions]', JSON.stringify({
               kd1: dbg?.keyword_difficulty,
