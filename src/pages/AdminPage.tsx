@@ -139,6 +139,9 @@ function ApiSettingsTab() {
     prodamus_api_key: 'Prodamus API Key',
     wordstat_api_key: 'Яндекс.Вордстат API Key',
   };
+  const keyHelp: Record<string, string> = {
+    wordstat_api_key: 'Получите ключ на developer.tech.yandex.ru. Без ключа используется Mock-режим.',
+  };
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
 
@@ -184,6 +187,9 @@ function ApiSettingsTab() {
                 {showKeys[s.key_name] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </Button>
             </div>
+            {keyHelp[s.key_name] && (
+              <p className="text-[11px] text-muted-foreground pt-0.5">{keyHelp[s.key_name]}</p>
+            )}
           </div>
         );
       })}
