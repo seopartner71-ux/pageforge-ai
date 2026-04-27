@@ -900,12 +900,12 @@ export default function SemanticCorePage() {
                         <tr key={k.keyword + i} className="border-t border-border/50 hover:bg-muted/20">
                           <td className="px-3 py-2">
                             {isGoldenKeyword(k) && (
-                              <Star
-                                className="inline-block w-3.5 h-3.5 mr-1.5 -mt-0.5 fill-amber-400 text-amber-400 align-middle"
-                                aria-label="Золотой запрос"
-                              >
-                                <title>{GOLDEN_TOOLTIP}</title>
-                              </Star>
+                              <span title={GOLDEN_TOOLTIP} className="inline-flex align-middle mr-1.5">
+                                <Star
+                                  className="w-3.5 h-3.5 fill-amber-400 text-amber-400"
+                                  aria-label="Золотой запрос"
+                                />
+                              </span>
                             )}
                             <span title={isGoldenKeyword(k) ? GOLDEN_TOOLTIP : undefined}>{k.keyword}</span>
                           </td>
