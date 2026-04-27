@@ -310,6 +310,8 @@ async function dfsKeywordSuggestions(
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
+          // Post-filter: keyword must contain Cyrillic chars (no language field allowed in request)
+          if (!/[\u0400-\u04FF]/.test(kw)) continue;
           const kdRaw = it?.keyword_difficulty ?? it?.keyword_properties?.keyword_difficulty ?? it?.keyword_info?.keyword_difficulty;
           const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
@@ -384,7 +386,6 @@ async function dfsKeywordsForSite(
           body: JSON.stringify([{
             target,
             limit: 500,
-            filters: [["keyword_info.search_volume", ">", 10]],
           }]),
         },
       );
@@ -403,6 +404,8 @@ async function dfsKeywordsForSite(
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
+          // Post-filter: keyword must contain Cyrillic chars
+          if (!/[\u0400-\u04FF]/.test(kw)) continue;
           const kdRaw = it?.keyword_difficulty ?? it?.keyword_properties?.keyword_difficulty ?? it?.keyword_info?.keyword_difficulty;
           const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
