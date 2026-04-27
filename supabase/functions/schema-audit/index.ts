@@ -199,22 +199,66 @@ function detectPageFeatures(html: string, content: string) {
 }
 
 /* ─── Generate JSON-LD code blocks ─── */
-function buildGeneratedCode(url: string, schemas: FoundSchema[], features: ReturnType<typeof detectPageFeatures>, pageTitle: string) {
+function buildGeneratedCode(
+  url: string,
+  schemas: FoundSchema[],
+  features: ReturnType<typeof detectPageFeatures>,
+  pageTitle: string,
+  pageData?: { companyName?: string | null; phone?: string | null; email?: string | null; address?: string | null; logo?: string | null; description?: string | null; workingHours?: string | null; priceRange?: string | null },
+) {
   const blocks: { type: string; label: string; code: string; reason: string }[] = [];
   const origin = (() => { try { return new URL(url).origin; } catch { return url; } })();
+  const companyName = (pageData?.companyName || pageTitle || domainToCompanyName(url)).trim();
+  const phone = pageData?.phone || null;
+  const email = pageData?.email || null;
+  const address = pageData?.address || null;
+  const logo = pageData?.logo || null;
+  const description = pageData?.description || null;
 
-  // WebSite always
+  // WebSite always (with real name)
   if (!schemas.find(s => s.type === "WebSite")) {
     blocks.push({
       type: "WebSite",
       label: "WebSite — добавить",
-      reason: "Базовая схема, рекомендуется на всех страницах",
+      reason: "Базовая схема, рекомендуется на всех страницах • ✓ Данные взяты со страницы",
       code: JSON.stringify({
         "@context": "https://schema.org",
         "@type": "WebSite",
-        "name": pageTitle || getDomain(url),
+        "name": companyName,
         "url": origin,
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": `${origin}/?s={search_term_string}`,
+          "query-input": "required name=search_term_string",
+        },
       }, null, 2),
+    });
+  }
+
+  // Organization always (uses extracted contacts)
+  if (!schemas.find(s => s.type === "Organization")) {
+    const org: any = {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": companyName,
+      "url": origin,
+    };
+    if (logo) org.logo = logo;
+    if (description) org.description = description;
+    if (phone || email) {
+      org.contactPoint = {
+        "@type": "ContactPoint",
+        "contactType": "customer service",
+        ...(phone ? { telephone: phone } : {}),
+        ...(email ? { email: email } : {}),
+      };
+    }
+    const dataSource = (phone || email || logo || description) ? "✓ Данные взяты со страницы" : "⚠ Заполните вручную";
+    blocks.push({
+      type: "Organization",
+      label: "Organization — добавить",
+      reason: `Базовая схема компании • ${dataSource}`,
+      code: JSON.stringify(org, null, 2),
     });
   }
 
@@ -279,17 +323,27 @@ function buildGeneratedCode(url: string, schemas: FoundSchema[], features: Retur
   }
 
   if (features.hasAddress && !schemas.find(s => s.type === "LocalBusiness")) {
+    const lb: any = {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": companyName,
+      "url": origin,
+    };
+    if (address) {
+      lb.address = { "@type": "PostalAddress", streetAddress: address, addressCountry: "RU" };
+    } else {
+      lb.address = { "@type": "PostalAddress", streetAddress: "Укажите реальный адрес", addressCountry: "RU" };
+    }
+    if (phone) lb.telephone = phone;
+    if (email) lb.email = email;
+    if (logo) lb.image = logo;
+    if (pageData?.priceRange) lb.priceRange = pageData.priceRange;
+    const dataSource = (address && phone) ? "✓ Данные взяты со страницы" : "⚠ Часть данных нужно уточнить";
     blocks.push({
       type: "LocalBusiness",
       label: "LocalBusiness — добавить",
-      reason: "На странице найден адрес и телефон",
-      code: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "LocalBusiness",
-        name: pageTitle || getDomain(url),
-        address: { "@type": "PostalAddress", streetAddress: "ул. Примерная, 1", addressLocality: "Москва", addressCountry: "RU" },
-        telephone: "+7 (000) 000-00-00",
-      }, null, 2),
+      reason: `На странице найдены контакты • ${dataSource}`,
+      code: JSON.stringify(lb, null, 2),
     });
   }
 
@@ -299,13 +353,28 @@ function buildGeneratedCode(url: string, schemas: FoundSchema[], features: Retur
 /* ─── Score calculation ─── */
 function calculateScore(schemas: FoundSchema[], richEligibleCount: number): number {
   const total = schemas.length;
+  // Hard floor: no schemas at all = essentially nothing implemented
+  if (total === 0) return 10;
   const critical = schemas.filter(s => s.severity === "critical").length;
   const valid = schemas.filter(s => s.severity === "ok").length;
-  const part1 = Math.min(total * 10, 30);
-  const part2 = total > 0 ? (valid / total) * 30 : 0;
-  const part3 = critical === 0 ? 20 : 0;
-  const part4 = Math.min(richEligibleCount * 5, 20);
-  return Math.round(part1 + part2 + part3 + part4);
+  const validRatio = total > 0 ? valid / total : 0;
+  const quantity = Math.min(total * 8, 25);              // max 25
+  const quality = validRatio * 25;                        // max 25
+  const noCritical = critical === 0 ? 25 : 0;             // 25 if clean
+  const richBonus = Math.min(richEligibleCount * 5, 25);  // max 25
+  return Math.round(quantity + quality + noCritical + richBonus);
+}
+
+/* ─── Domain → readable company name fallback ─── */
+function domainToCompanyName(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    const root = host.split(".")[0] || host;
+    // Capitalize first letter
+    return root.charAt(0).toUpperCase() + root.slice(1);
+  } catch {
+    return url;
+  }
 }
 
 /* ─── AI: contextual recommendations & schema generation ─── */
@@ -633,10 +702,16 @@ Deno.serve(async (req: Request) => {
 
       const issues = buildIssues(validated);
       const features = detectPageFeatures(html, content);
-      const generated = buildGeneratedCode(url, validated, features, title);
-      const pageType = detectPageType(url, content);
       const pageData = extractPageData(html, content);
-      const richEligible = validated.filter(s => s.severity === "ok" && ["Product", "Article", "BlogPosting", "FAQPage", "BreadcrumbList", "LocalBusiness"].includes(s.type)).length;
+      const pageType = detectPageType(url, content);
+      // Fallback: ensure companyName exists even if not extracted
+      if (!pageData.companyName) pageData.companyName = domainToCompanyName(url);
+      const generated = buildGeneratedCode(url, validated, features, title, pageData);
+      // Rich Results — count BOTH validated schemas + recommended ones we can add
+      const RICH_TYPES = ["Product", "Article", "BlogPosting", "FAQPage", "BreadcrumbList", "LocalBusiness"];
+      const richFromValidated = validated.filter(s => s.severity === "ok" && RICH_TYPES.includes(s.type)).length;
+      const richFromGenerated = generated.filter(g => RICH_TYPES.includes(g.type)).length;
+      const richEligible = richFromValidated + richFromGenerated;
       const score = calculateScore(validated, richEligible);
 
       const aiData = await getAiRecommendations(url, pageType, pageData, validated, content);

@@ -721,12 +721,24 @@ export default function SchemaAuditPage() {
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Ошибок</p>
                 <p className={`text-3xl font-bold ${audit.errors_count > 0 ? 'text-red-400' : 'text-green-400'}`}>{audit.errors_count}</p>
               </div>
-              <div className="rounded-xl border border-border/60 bg-card p-5 text-center">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Rich Results</p>
-                <p className="text-3xl font-bold text-foreground">
-                  Возможно {audit.schemas_data.filter(s => s.severity === 'ok' && ['Product','Article','BlogPosting','FAQPage','BreadcrumbList','LocalBusiness'].includes(s.type)).length}
-                </p>
-              </div>
+              {(() => {
+                const RICH_TYPES = ['Product','Article','BlogPosting','FAQPage','BreadcrumbList','LocalBusiness'];
+                const implemented = audit.schemas_data.filter(s => s.severity === 'ok' && RICH_TYPES.includes(s.type)).length;
+                const potential = (audit.generated_code || []).filter(b => RICH_TYPES.includes(b.type)).length;
+                const total = implemented + potential;
+                const color = implemented > 0 ? 'text-green-400' : potential > 0 ? 'text-yellow-400' : 'text-muted-foreground';
+                return (
+                  <div className="rounded-xl border border-border/60 bg-card p-5 text-center">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Rich Results</p>
+                    <p className={`text-3xl font-bold ${color}`}>
+                      {implemented > 0 ? implemented : `Возможно ${total}`}
+                    </p>
+                    {implemented === 0 && potential > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-1">после внедрения схем</p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="rounded-xl border border-border/60 bg-card p-4">
