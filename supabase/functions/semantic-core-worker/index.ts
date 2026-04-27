@@ -386,7 +386,6 @@ async function dfsKeywordsForSite(
           body: JSON.stringify([{
             target,
             limit: 500,
-            filters: [["keyword_info.search_volume", ">", 10]],
           }]),
         },
       );
