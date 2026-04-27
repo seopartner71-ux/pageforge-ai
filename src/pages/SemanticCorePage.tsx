@@ -75,6 +75,41 @@ const INTENT_LABELS: Record<string, string> = {
   transac: 'Транзакционный',
 };
 
+type KdBucket = 'easy' | 'medium' | 'hard' | 'veryhard' | 'none';
+function kdBucket(kd: number | null | undefined): KdBucket {
+  if (kd == null || Number.isNaN(kd)) return 'none';
+  if (kd <= 30) return 'easy';
+  if (kd <= 60) return 'medium';
+  if (kd <= 80) return 'hard';
+  return 'veryhard';
+}
+const KD_LABELS: Record<KdBucket, string> = {
+  easy: 'Легко',
+  medium: 'Средне',
+  hard: 'Сложно',
+  veryhard: 'Очень сложно',
+  none: '—',
+};
+const KD_BADGE: Record<KdBucket, string> = {
+  easy: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  medium: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+  hard: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
+  veryhard: 'bg-red-500/15 text-red-400 border border-red-500/30',
+  none: 'bg-secondary text-muted-foreground border border-border',
+};
+function KdBadge({ kd }: { kd: number | null | undefined }) {
+  const b = kdBucket(kd);
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium ${KD_BADGE[b]}`}
+      title={kd == null ? 'Нет данных' : `KD = ${kd}`}
+    >
+      <span>{KD_LABELS[b]}</span>
+      {kd != null && <span className="tabular-nums opacity-80">{kd}</span>}
+    </span>
+  );
+}
+
 function ScoreBar({ score }: { score: number }) {
   const color = score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500';
   return (
