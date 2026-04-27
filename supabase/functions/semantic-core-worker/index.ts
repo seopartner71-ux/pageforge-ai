@@ -338,6 +338,17 @@ function clusterType(intents: Intent[]): "informational" | "commercial" | "mixed
   return ratio > 0.6 ? "commercial" : ratio < 0.4 ? "informational" : "mixed";
 }
 
+function normalizeName(s: string): string {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[^а-яёa-z0-9\s]/gi, " ")
+    .split(/\s+/)
+    .filter((w) => w && !STOP.has(w))
+    .sort()
+    .join(" ")
+    .trim();
+}
+
 // ============== MAIN PIPELINE ==============
 async function runPipeline(jobId: string) {
   const sbc = sb();
