@@ -1158,6 +1158,30 @@ async function runPipeline(jobId: string) {
     pool[bestIdx].keywords.push(...smallest.keywords);
   }
 
+  // Retry naming for clusters that ended up with the default "Кластер N" placeholder.
+  // This catches both AI failures and merges that pulled in unnamed orphan clusters.
+  const placeholderRe = /^Кластер \d+$/;
+  const unnamedIdx: number[] = [];
+  for (let i = 0; i < finalStates.length; i++) {
+    const nm = (finalStates[i].name || "").trim();
+    if (!nm || placeholderRe.test(nm)) unnamedIdx.push(i);
+  }
+  if (unnamedIdx.length) {
+    console.log(`[naming] retrying ${unnamedIdx.length} unnamed clusters via single-prompt fallback`);
+    const retried = await Promise.all(
+      unnamedIdx.map((i) => nameClusterSingle(finalStates[i].keywords)),
+    );
+    let fixed = 0;
+    for (let j = 0; j < unnamedIdx.length; j++) {
+      const newName = retried[j];
+      if (newName) {
+        finalStates[unnamedIdx[j]].name = newName;
+        fixed++;
+      }
+    }
+    console.log(`[naming] retry fixed ${fixed}/${unnamedIdx.length} clusters`);
+  }
+
   // Reset & re-apply cluster assignments based on finalStates
   for (const k of kws) { k.cluster_id = null; k.cluster_name = null; }
   for (let i = 0; i < finalStates.length; i++) {
