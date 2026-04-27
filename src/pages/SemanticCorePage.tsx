@@ -383,8 +383,17 @@ export default function SemanticCorePage() {
     setStepStatus({ expand: 'active', wordstat: 'idle', serp: 'idle', cluster: 'idle' });
 
     try {
+      // Ensure fresh session token before invoking edge function
+      await supabase.auth.refreshSession();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Сессия истекла, войдите снова');
+        setRunning(false);
+        return;
+      }
       const { data, error } = await supabase.functions.invoke('semantic-core-start', {
         body: { topic, seeds, region, engine, enabled_sources: selectedSources },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
