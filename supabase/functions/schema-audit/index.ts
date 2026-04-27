@@ -562,13 +562,19 @@ function detectPageType(url: string, content: string): string {
   let pathname = "/";
   try { pathname = new URL(url).pathname; } catch { /* ignore */ }
 
-  if (pathname === "/" || pathname === "") return "homepage";
-  if (/\/(product|tovar|item|good)/i.test(u) ||
-      /(в корзину|купить|add to cart|артикул|sku)/i.test(c)) return "product";
+  // Personal brand / event host (check first — strong signal)
+  if (/(ведущий|ведущая|тамада|свадьб|корпоратив|мероприят|праздник|event host|wedding host)/i.test(c)) {
+    return "event_host";
+  }
+  if (/\/(product|tovar|item|good|catalog|shop)/i.test(u) ||
+      /(в корзину|купить|add to cart|артикул|sku|каталог|доставка|оформить заказ)/i.test(c)) return "ecommerce";
   if (/\/(blog|article|news|post)/i.test(u) ||
       /(опубликован|published|posted on)/i.test(c)) return "article";
+  if (/(услуг[аи]|стоимость|заказать|прайс|консультац)/i.test(c) &&
+      !/(в корзину|купить)/i.test(c)) return "service";
   if (/(адрес|режим работы|время работы|opening hours)/i.test(c) &&
       /(тел\.|телефон|phone|\+\d)/i.test(c)) return "local_business";
+  if (pathname === "/" || pathname === "") return "homepage";
   return "general";
 }
 
