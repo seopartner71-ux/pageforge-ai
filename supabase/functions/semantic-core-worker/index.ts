@@ -207,6 +207,7 @@ async function dfsAutocompleteSource(
   if (!dfsConfigured()) return [];
   const locationCode = dfsLocation(region);
   const alphabet = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя".split("");
+  console.log(`[DFS autocomplete] region: ${region} location_code: ${locationCode}`);
   // Build query list — bare topic + topic + each letter + seeds
   const queries = Array.from(new Set([
     topic,
