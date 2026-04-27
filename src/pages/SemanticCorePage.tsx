@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Network, Loader2, Check, Search, Download, Tag, X, Plus,
-  AlertTriangle, LayoutGrid, Table as TableIcon, Sparkles,
+  AlertTriangle, LayoutGrid, Table as TableIcon, Sparkles, Info, ChevronDown,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -422,11 +422,6 @@ export default function SemanticCorePage() {
                   Найдено <strong className="text-foreground">{keywords.length}</strong> запросов /{' '}
                   <strong className="text-foreground">{clusters.length}</strong> кластеров
                 </span>
-                {clusterMethod && (import.meta.env.DEV || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1')) && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border uppercase tracking-wide">
-                    Кластеризация: {clusterMethod}
-                  </span>
-                )}
               </div>
               <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5">
                 <Download className="w-3.5 h-3.5" /> Export XLSX
