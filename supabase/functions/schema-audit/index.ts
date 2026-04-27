@@ -455,7 +455,7 @@ async function getAiRecommendations(
   },
   "missingSchemas": [
     {
-      "type": "Organization|WebSite|BreadcrumbList|Product|Article|LocalBusiness|FAQPage",
+      "type": "Person|Organization|WebSite|BreadcrumbList|Product|Service|Article|LocalBusiness|FAQPage|Event|Review",
       "priority": "critical"|"recommended",
       "reason": "почему нужна",
       "dataSource": "page"|"estimated",
@@ -469,7 +469,17 @@ async function getAiRecommendations(
   "overallScore": number
 }
 
-Обязательно сгенерируй: WebSite, Organization, BreadcrumbList. Для product добавь Product+Offer; для article — Article; для local_business — LocalBusiness; если есть FAQ — FAQPage.`;
+ВАЖНО: Определи тип бизнеса на основе контента страницы и предложи 3-5 наиболее подходящих схем Schema.org. Используй РЕАЛЬНЫЕ данные найденные на странице. Для каждой схемы сгенерируй полный рабочий JSON-LD код.
+
+Правила выбора схем:
+- Личный бренд / ведущий / фрилансер (есть слова: ведущий, мероприятие, свадьба, корпоратив, эксперт, консультант) → Person + Service + LocalBusiness + WebSite
+- E-commerce (есть: купить, цена, каталог, доставка, артикул) → Product + Offer + Organization + BreadcrumbList
+- Услуги (есть: услуги, стоимость, заказать, прайс) → Service + LocalBusiness + Organization
+- Статья/блог → Article + Organization (publisher) + BreadcrumbList
+- Локальный бизнес (есть адрес + телефон) → LocalBusiness + Organization
+- Если есть FAQ-блок (вопрос/ответ) → ВСЕГДА добавь FAQPage
+
+НЕ предлагай: ImageObject, ListItem standalone, BreadcrumbList с одним элементом — они не дают SEO-ценности.`;
 
   try {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
