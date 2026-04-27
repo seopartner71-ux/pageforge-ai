@@ -765,7 +765,7 @@ export default function SemanticCorePage() {
                     title="Score > 70 и KD < 40 — высокий приоритет, низкая конкуренция"
                   >
                     <span className="text-sm font-medium">
-                      🎯 Найдено <strong>{idealCount}</strong> идеальных запросов{' '}
+                      🎯 <strong>{idealLabel(idealCount)}</strong>{' '}
                       <span className="text-xs opacity-80 font-normal">(Score &gt; 70, KD &lt; 40)</span>
                     </span>
                     <span className="text-xs opacity-80">
