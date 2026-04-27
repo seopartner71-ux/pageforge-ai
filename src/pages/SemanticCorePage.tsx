@@ -17,6 +17,7 @@ import {
   type IntentKind, type SemanticCluster, type SemanticCorePayload, type SemanticKeyword,
 } from '@/lib/semanticCore/types';
 import { exportSemanticCoreXlsx } from '@/lib/semanticCore/exportSemanticCoreXlsx';
+import { exportGoldenKeywordsXlsx, downloadGoldenJuniorBriefMd } from '@/lib/semanticCore/exportGoldenKeywords';
 
 type Step = 'expand' | 'wordstat' | 'serp' | 'cluster';
 const STEP_LABELS: Record<Step, string> = {
@@ -471,6 +472,24 @@ export default function SemanticCorePage() {
     });
   };
 
+  const buildPayload = () => ({
+    topic, seedKeywords: seeds, region, searchEngine: engine,
+    keywords, clusters, wordstatMode: (wordstatReal ? 'real' : 'mock') as 'real' | 'mock',
+    generatedAt: new Date().toISOString(),
+  });
+
+  const handleExportGolden = () => {
+    const n = exportGoldenKeywordsXlsx(buildPayload());
+    if (n === 0) toast.error('Золотых запросов не найдено');
+    else toast.success(`Экспортировано ${n} золотых запросов`);
+  };
+
+  const handleDownloadJuniorBrief = () => {
+    const n = downloadGoldenJuniorBriefMd(buildPayload());
+    if (n === 0) toast.error('Золотых запросов не найдено — задание создавать не для чего');
+    else toast.success('Задание для SEO-джуна скачано');
+  };
+
   const allIntents: IntentKind[] = ['info', 'commercial', 'nav', 'transac'];
   const hasResults = keywords.length > 0;
 
@@ -767,6 +786,27 @@ export default function SemanticCorePage() {
               <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5">
                 <Download className="w-3.5 h-3.5" /> Экспорт XLSX
               </Button>
+              {goldenCount > 0 && (
+                <>
+                  <Button
+                    size="sm"
+                    onClick={handleExportGolden}
+                    className="gap-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:from-amber-400 hover:to-yellow-400 border-0"
+                    title="Только золотые запросы с расчётом потенциала трафика"
+                  >
+                    <Star className="w-3.5 h-3.5 fill-black" /> Экспорт золотых запросов
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadJuniorBrief}
+                    className="gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+                    title="Готовое ТЗ для SEO-специалиста по работе с золотыми запросами"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Задание для SEO-джуна
+                  </Button>
+                </>
+              )}
             </div>
 
             {view === 'table' ? (
