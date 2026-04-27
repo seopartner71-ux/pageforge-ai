@@ -300,6 +300,13 @@ async function dfsKeywordSuggestions(
       if (Array.isArray(items)) {
         if (items.length && merged.size === 0) {
           console.log(`[DFS suggestions sample] item0=${JSON.stringify(items[0]).slice(0, 500)}`);
+          console.log(`[DFS suggestions sample] result0=${JSON.stringify(data?.tasks?.[0]?.result?.[0]).slice(0, 300)}`);
+          const probe = items[0];
+          console.log(`[DFS volume paths test]`, JSON.stringify({
+            search_volume: probe?.search_volume,
+            keyword_info_volume: probe?.keyword_info?.search_volume,
+            keyword_info: probe?.keyword_info,
+          }).slice(0, 500));
         }
         for (const it of items) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
