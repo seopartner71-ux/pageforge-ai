@@ -128,6 +128,27 @@ export default function SemanticCorePage() {
     isWordstatRealMode().then(setWordstatReal);
   }, [running]);
 
+  // Load daily quota
+  useEffect(() => {
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u?.user) return;
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from('semantic_jobs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', u.user.id)
+        .gte('created_at', since);
+      setDailyUsage({ used: count || 0, limit: 10 });
+    })();
+  }, [running]);
+
+  // Cleanup polling on unmount
+  useEffect(() => () => {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+    if (pollTimeoutRef.current) window.clearTimeout(pollTimeoutRef.current);
+  }, []);
+
   const addSeed = () => {
     const v = seedInput.trim();
     if (!v || seeds.length >= 20) return;
