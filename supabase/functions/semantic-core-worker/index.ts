@@ -249,6 +249,7 @@ async function dfsAutocompleteSource(
       const text = await resp.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
+      logDfsResult("autocomplete", resp, data);
       if (logged < 1) {
         logged++;
         const sample = data?.tasks?.[0]?.result?.[0];
@@ -309,6 +310,7 @@ async function dfsKeywordSuggestions(
       const text = await resp.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
+      logDfsResult("suggestions", resp, data);
       console.log(`[DFS suggestions] q="${q}" status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0}`);
       if (!resp.ok) continue;
       cost.add(0.015 * (limit / 1000));
@@ -402,6 +404,7 @@ async function dfsKeywordsForSite(
       const text = await resp.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
+      logDfsResult("competitors", resp, data);
       console.log(`[DFS competitors] target=${target} status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0}`);
       if (!resp.ok) return;
       cost.add(0.015 * 0.5);
