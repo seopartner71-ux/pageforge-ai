@@ -308,20 +308,52 @@ function calculateScore(schemas: FoundSchema[], richEligibleCount: number): numb
   return Math.round(part1 + part2 + part3 + part4);
 }
 
-/* ─── AI recommendations ─── */
-async function getAiRecommendations(url: string, schemas: FoundSchema[], pageContent: string): Promise<any> {
+/* ─── AI: contextual recommendations & schema generation ─── */
+async function getAiRecommendations(
+  url: string,
+  pageType: string,
+  pageData: ReturnType<typeof extractPageData>,
+  schemas: FoundSchema[],
+  pageContent: string,
+): Promise<any> {
   if (!OPENROUTER_API_KEY) return {};
-  const sys = "Ты эксперт по Schema.org и структурированным данным. Анализируй найденные схемы и содержимое страницы. Отвечай ТОЛЬКО на русском языке. Возвращай ТОЛЬКО валидный JSON без markdown.";
-  const user = `Страница: ${url}
-Найденные схемы: ${JSON.stringify(schemas.map(s => ({ type: s.type, format: s.format, severity: s.severity })))}
-Контент страницы (первые 3000 символов): ${(pageContent || "").slice(0, 3000)}
+  const sys = `Ты эксперт по Schema.org микроразметке. Анализируй HTML страницы и генерируй ПОЛНЫЙ набор микроразметки Schema.org для этой страницы.
+Используй РЕАЛЬНЫЕ данные из контента страницы — названия, цены, адреса, телефоны, описания.
+НЕ используй placeholder данные типа "Название компании" или "ул. Примерная".
+Если данных нет — поставь null или пропусти поле, но не выдумывай.
+Отвечай ТОЛЬКО на русском языке. Возвращай ТОЛЬКО валидный JSON без markdown.`;
+
+  const user = `URL: ${url}
+Тип страницы: ${pageType}
+Извлечённые данные страницы: ${JSON.stringify(pageData)}
+Найденные схемы (${schemas.length}): ${JSON.stringify(schemas.map(s => ({ type: s.type, severity: s.severity, raw: s.raw })))}
+Контент страницы (первые 5000 символов): ${(pageContent || "").slice(0, 5000)}
 
 Верни JSON:
 {
-  "recommendations": [{ "severity": "critical"|"warning"|"info", "schema": string, "problem": string, "solution": string, "seoImpact": string }],
-  "richResultsEligibility": [{ "type": string, "eligible": boolean, "blockers": string[] }],
-  "pageType": "product"|"article"|"local"|"homepage"|"other"
-}`;
+  "pageAnalysis": {
+    "companyName": string|null, "phone": string|null, "email": string|null,
+    "address": string|null, "priceRange": string|null, "description": string|null,
+    "rating": string|null, "mainKeywords": string[]
+  },
+  "missingSchemas": [
+    {
+      "type": "Organization|WebSite|BreadcrumbList|Product|Article|LocalBusiness|FAQPage",
+      "priority": "critical"|"recommended",
+      "reason": "почему нужна",
+      "dataSource": "page"|"estimated",
+      "generatedCode": { /* полный валидный JSON-LD объект с @context и @type */ }
+    }
+  ],
+  "issues": [
+    { "severity": "critical"|"warning"|"info", "schema": string, "field": string, "problem": string, "solution": string, "seoImpact": string }
+  ],
+  "richResultsEligible": [{ "type": string, "eligible": boolean, "reason": string }],
+  "overallScore": number
+}
+
+Обязательно сгенерируй: WebSite, Organization, BreadcrumbList. Для product добавь Product+Offer; для article — Article; для local_business — LocalBusiness; если есть FAQ — FAQPage.`;
+
   try {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
