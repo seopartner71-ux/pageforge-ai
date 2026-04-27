@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Network, Loader2, Check, Search, Download, Tag, X, Plus,
-  AlertTriangle, LayoutGrid, Table as TableIcon, Sparkles, Info, ChevronDown,
+  AlertTriangle, LayoutGrid, Table as TableIcon, Sparkles, Info, ChevronDown, DollarSign,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -20,10 +20,18 @@ import { exportSemanticCoreXlsx } from '@/lib/semanticCore/exportSemanticCoreXls
 
 type Step = 'expand' | 'wordstat' | 'serp' | 'cluster';
 const STEP_LABELS: Record<Step, string> = {
-  expand: 'AI расширяет ядро...',
-  wordstat: 'Получаем частоты Яндекс.Вордстат...',
-  serp: 'Анализируем топ-10 выдачи...',
-  cluster: 'Кластеризуем запросы...',
+  expand: 'Собираем ключи из источников (DataForSEO + AI)...',
+  wordstat: 'Получаем частоты...',
+  serp: 'Анализируем выдачу...',
+  cluster: 'Кластеризуем...',
+};
+
+type SourceKey = 'autocomplete' | 'suggestions' | 'competitors' | 'ai';
+const SOURCE_LABELS: Record<SourceKey, { title: string; desc: string }> = {
+  autocomplete: { title: 'Подсказки поисковиков', desc: 'Автоподсказки Google/Yandex (DataForSEO)' },
+  suggestions:  { title: 'База ключевых слов',     desc: 'Семантически близкие запросы (DataForSEO)' },
+  competitors:  { title: 'Ключи конкурентов',      desc: 'Топ-3 домена из выдачи (DataForSEO)' },
+  ai:           { title: 'AI-генерация',           desc: 'Длинные хвосты, вопросные, сезонные (Gemini)' },
 };
 
 type JobStatus = 'pending' | 'expanding' | 'frequencies' | 'serp' | 'clustering' | 'done' | 'error';
@@ -87,12 +95,26 @@ function MockBadge() {
   );
 }
 
+function FreqDot({ source }: { source?: 'mock' | 'dataforseo' }) {
+  const real = source === 'dataforseo';
+  return (
+    <span
+      className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${real ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`}
+      title={real ? 'Реальные данные DataForSEO' : 'Оценочные данные'}
+    />
+  );
+}
+
 export default function SemanticCorePage() {
   const [topic, setTopic] = useState('');
   const [seeds, setSeeds] = useState<string[]>([]);
   const [seedInput, setSeedInput] = useState('');
   const [region, setRegion] = useState('Москва');
   const [engine, setEngine] = useState<'yandex' | 'google'>('yandex');
+  const [enabledSources, setEnabledSources] = useState<Record<SourceKey, boolean>>({
+    autocomplete: true, suggestions: true, competitors: true, ai: true,
+  });
+  const [dfsConfigured, setDfsConfigured] = useState<boolean | null>(null);
 
   const [running, setRunning] = useState(false);
   const [stepStatus, setStepStatus] = useState<Record<Step, 'idle' | 'active' | 'done'>>({
@@ -118,6 +140,8 @@ export default function SemanticCorePage() {
   const [jobProgress, setJobProgress] = useState(0);
   const [jobLiveCounts, setJobLiveCounts] = useState<{ keywords: number; clusters: number }>({ keywords: 0, clusters: 0 });
   const [dailyUsage, setDailyUsage] = useState<{ used: number; limit: number } | null>(null);
+  const [sourceBreakdown, setSourceBreakdown] = useState<Record<string, number>>({});
+  const [dataforseoCost, setDataforseoCost] = useState<number>(0);
   const pollRef = useRef<number | null>(null);
   const pollTimeoutRef = useRef<number | null>(null);
 
@@ -134,6 +158,23 @@ export default function SemanticCorePage() {
   useEffect(() => {
     isWordstatRealMode().then(setWordstatReal);
   }, [running]);
+
+  // Detect whether DataForSEO secrets are configured (best-effort via test endpoint).
+  // Falls back silently if user is not admin — we just show the warning badge.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke('dataforseo-test', { body: {} });
+        if (cancelled) return;
+        const conf = (data as any)?.configured;
+        if (typeof conf === 'boolean') setDfsConfigured(conf);
+      } catch {
+        // 403 for non-admins — silently leave as null
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Load daily quota
   useEffect(() => {
@@ -182,6 +223,7 @@ export default function SemanticCorePage() {
       cluster: r.cluster_id != null ? `c${r.cluster_id}` : 'unclustered',
       included: r.included,
       topUrls: r.serp_urls || [],
+      dataSource: r.data_source === 'dataforseo' ? 'dataforseo' : 'mock',
     }));
     const cls: SemanticCluster[] = (clRows || []).map((r: any) => {
       const items = kws.filter(k => k.cluster === `c${r.cluster_index}`);
@@ -207,7 +249,7 @@ export default function SemanticCorePage() {
     pollRef.current = window.setInterval(async () => {
       const { data: job, error } = await supabase
         .from('semantic_jobs')
-        .select('status, progress, keyword_count, cluster_count, error_message')
+        .select('status, progress, keyword_count, cluster_count, error_message, source_breakdown, dataforseo_cost')
         .eq('id', id)
         .maybeSingle();
       if (error || !job) return;
@@ -215,6 +257,14 @@ export default function SemanticCorePage() {
       setStepStatus(statusToStepStatus(status));
       setJobProgress(job.progress || 0);
       setJobLiveCounts({ keywords: job.keyword_count || 0, clusters: job.cluster_count || 0 });
+      if (job.source_breakdown && typeof job.source_breakdown === 'object') {
+        setSourceBreakdown(job.source_breakdown as Record<string, number>);
+      }
+      if (typeof job.dataforseo_cost === 'number') {
+        setDataforseoCost(job.dataforseo_cost);
+      } else if (job.dataforseo_cost) {
+        setDataforseoCost(Number(job.dataforseo_cost) || 0);
+      }
 
       if (status === 'done') {
         stopPolling();
@@ -239,15 +289,22 @@ export default function SemanticCorePage() {
       toast.error('Введите тему');
       return;
     }
+    const selectedSources = (Object.keys(enabledSources) as SourceKey[]).filter((k) => enabledSources[k]);
+    if (!selectedSources.length) {
+      toast.error('Выберите хотя бы один источник');
+      return;
+    }
     setRunning(true);
     setKeywords([]); setClusters([]); setCoreId(null); setJobId(null);
     setJobProgress(0);
     setJobLiveCounts({ keywords: 0, clusters: 0 });
+    setSourceBreakdown({});
+    setDataforseoCost(0);
     setStepStatus({ expand: 'active', wordstat: 'idle', serp: 'idle', cluster: 'idle' });
 
     try {
       const { data, error } = await supabase.functions.invoke('semantic-core-start', {
-        body: { topic, seeds, region, engine },
+        body: { topic, seeds, region, engine, enabled_sources: selectedSources },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
