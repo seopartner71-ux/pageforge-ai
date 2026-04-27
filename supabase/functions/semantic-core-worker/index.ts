@@ -635,6 +635,9 @@ async function runPipeline(jobId: string) {
   const cost = new CostTracker();
   const serperKey = (await getSetting("serper_api_key")) || SERPER_KEY_ENV;
   const dfsAvailable = dfsConfigured();
+  console.log('[DataForSEO] Login configured:', !!Deno.env.get('DATAFORSEO_LOGIN'));
+  console.log('[DataForSEO] Password configured:', !!Deno.env.get('DATAFORSEO_PASSWORD'));
+  console.log('[DataForSEO] dfsAvailable:', dfsAvailable, '| enabledSources:', enabledSources);
   if (!dfsAvailable) {
     console.warn("[DataForSEO] Credentials missing or invalid — falling back to AI-only expansion");
   }
@@ -693,6 +696,7 @@ async function runPipeline(jobId: string) {
     const r = s.value;
     const filtered = filterValidKeywords(r.keywords);
     breakdown[r.source] = filtered.length;
+    console.log(`[Source ${r.source}] raw=${r.keywords.length}, filtered=${filtered.length}, withVolumes=${r.withVolumes?.length ?? 0}`);
     if (r.withVolumes) {
       for (const v of r.withVolumes) {
         const kw = v.keyword.toLowerCase();
@@ -703,8 +707,12 @@ async function runPipeline(jobId: string) {
     }
     for (const kw of filtered) allFromSources.add(kw);
   }
+  for (const s of settled) {
+    if (s.status === 'rejected') console.error('[Source REJECTED]', s.reason);
+  }
 
   let rawKeywords = Array.from(allFromSources);
+  console.log(`[Total after dedup]: ${rawKeywords.length} keywords | breakdown=${JSON.stringify(breakdown)} | dfsVolumes=${dfsVolumes.size}`);
 
   // Followup AI enrichment if DFS is available and AI source is enabled,
   // OR fallback if total too small.
