@@ -346,11 +346,11 @@ async function dfsKeywordsForSite(
           }]),
         },
       );
-      if (!resp.ok) {
-        console.warn("[dfs-kfs]", target, resp.status);
-        return;
-      }
-      const data = await resp.json().catch(() => ({}));
+      const text = await resp.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch {}
+      console.log(`[DFS competitors] target=${target} status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0} body=${text.slice(0, 500)}`);
+      if (!resp.ok) return;
       cost.add(0.015 * 0.5);
       const items = data?.tasks?.[0]?.result?.[0]?.items;
       if (Array.isArray(items)) {
@@ -363,9 +363,10 @@ async function dfsKeywordsForSite(
         }
       }
     } catch (e) {
-      console.warn("[dfs-kfs] failed for", target, e);
+      console.error(`[DFS competitors] error target=${target}:`, (e as Error).message);
     }
   }));
+  console.log(`[DFS competitors] domains=${domains.join(',')} merged=${merged.size}, locationCode=${locationCode}`);
   return Array.from(merged.values());
 }
 
