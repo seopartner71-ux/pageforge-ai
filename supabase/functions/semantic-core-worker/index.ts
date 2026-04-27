@@ -482,14 +482,155 @@ async function runPipeline(jobId: string) {
     }
   }
 
+  // Phase 3.5: CLEANUP — merge duplicate-named clusters & redistribute mismatched-intent keywords
+  const isCommercialIntent = (it: Intent) => it === "commercial" || it === "transac";
+  const isInfoIntent = (it: Intent) => it === "info" || it === "nav";
+
+  // Build mutable cluster state
+  type CState = {
+    keywords: string[];
+    name: string;
+    intentGroup: "commercial" | "informational";
+    deleted: boolean;
+  };
+  const cstates: CState[] = clusters.map((c, i) => ({
+    keywords: [...c.keywords],
+    name: names[i] || `Кластер ${i + 1}`,
+    intentGroup: clusterIntent[i],
+    deleted: false,
+  }));
+
+  // (1) Merge duplicates by normalized name (only within same intent group)
+  const byKey = new Map<string, number>();
+  for (let i = 0; i < cstates.length; i++) {
+    const s = cstates[i];
+    if (s.deleted) continue;
+    const key = `${s.intentGroup}::${normalizeName(s.name)}`;
+    if (!key.endsWith("::")) {
+      const existing = byKey.get(key);
+      if (existing !== undefined) {
+        // pick base = higher avg score
+        const avg = (idx: number) =>
+          cstates[idx].keywords.length
+            ? cstates[idx].keywords.reduce((sum, kw) => sum + (kwByText.get(kw)?.score || 0), 0) /
+              cstates[idx].keywords.length
+            : 0;
+        const baseIdx = avg(existing) >= avg(i) ? existing : i;
+        const dropIdx = baseIdx === existing ? i : existing;
+        cstates[baseIdx].keywords.push(...cstates[dropIdx].keywords);
+        cstates[dropIdx].keywords = [];
+        cstates[dropIdx].deleted = true;
+        byKey.set(key, baseIdx);
+      } else {
+        byKey.set(key, i);
+      }
+    }
+  }
+
+  // (2) Intent-based validation: extract mismatched keywords to nearest correct cluster
+  const findNearestCluster = (
+    kwText: string,
+    targetGroup: "commercial" | "informational",
+    excludeIdx: number,
+  ): number => {
+    let bestIdx = -1;
+    let bestSim = 0;
+    for (let i = 0; i < cstates.length; i++) {
+      if (i === excludeIdx) continue;
+      if (cstates[i].deleted) continue;
+      if (cstates[i].intentGroup !== targetGroup) continue;
+      const seed = cstates[i].keywords[0];
+      if (!seed) continue;
+      const sim = textSim(kwText, seed);
+      if (sim > bestSim) {
+        bestSim = sim;
+        bestIdx = i;
+      }
+    }
+    return bestSim >= 0.2 ? bestIdx : -1;
+  };
+
+  for (let i = 0; i < cstates.length; i++) {
+    const s = cstates[i];
+    if (s.deleted || s.keywords.length === 0) continue;
+    const items = s.keywords.map((kw) => kwByText.get(kw)).filter(Boolean) as Kw[];
+    const total = items.length;
+    if (total === 0) continue;
+    const com = items.filter((it) => isCommercialIntent(it.intent)).length;
+    const inf = items.filter((it) => isInfoIntent(it.intent)).length;
+
+    if (s.intentGroup === "commercial" && inf / total > 0.3) {
+      // extract info keywords
+      const stay: string[] = [];
+      const move: string[] = [];
+      for (const it of items) {
+        if (isInfoIntent(it.intent)) move.push(it.keyword);
+        else stay.push(it.keyword);
+      }
+      s.keywords = stay;
+      // try assign each to nearest informational cluster, else create new
+      const orphans: string[] = [];
+      for (const kw of move) {
+        const target = findNearestCluster(kw, "informational", i);
+        if (target >= 0) cstates[target].keywords.push(kw);
+        else orphans.push(kw);
+      }
+      if (orphans.length) {
+        cstates.push({
+          keywords: orphans,
+          name: `Информационные: ${s.name}`.slice(0, 60),
+          intentGroup: "informational",
+          deleted: false,
+        });
+      }
+    } else if (s.intentGroup === "informational" && com / total > 0.3) {
+      const stay: string[] = [];
+      const move: string[] = [];
+      for (const it of items) {
+        if (isCommercialIntent(it.intent)) move.push(it.keyword);
+        else stay.push(it.keyword);
+      }
+      s.keywords = stay;
+      const orphans: string[] = [];
+      for (const kw of move) {
+        const target = findNearestCluster(kw, "commercial", i);
+        if (target >= 0) cstates[target].keywords.push(kw);
+        else orphans.push(kw);
+      }
+      if (orphans.length) {
+        cstates.push({
+          keywords: orphans,
+          name: `Коммерческие: ${s.name}`.slice(0, 60),
+          intentGroup: "commercial",
+          deleted: false,
+        });
+      }
+    }
+  }
+
+  // Drop empty / deleted, then re-index
+  const finalStates = cstates.filter((s) => !s.deleted && s.keywords.length > 0);
+
+  // Reset & re-apply cluster assignments based on finalStates
+  for (const k of kws) { k.cluster_id = null; k.cluster_name = null; }
+  for (let i = 0; i < finalStates.length; i++) {
+    for (const kwText of finalStates[i].keywords) {
+      const k = kwByText.get(kwText);
+      if (k) {
+        k.cluster_id = i;
+        k.cluster_name = finalStates[i].name;
+      }
+    }
+  }
+
   // Phase 4: cluster metadata
-  const clusterRows = clusters.map((c, i) => {
+  const clusterRows = finalStates.map((c, i) => {
     const items = c.keywords.map((kw) => kwByText.get(kw)).filter(Boolean) as Kw[];
     const avg = items.length ? Math.round(items.reduce((s, x) => s + x.score, 0) / items.length) : 0;
     return {
       job_id: jobId,
       cluster_index: i,
-      name: names[i] || `Кластер ${i + 1}`,
+      name: c.name || `Кластер ${i + 1}`,
       type: clusterType(items.map((it) => it.intent)),
       keyword_count: items.length,
       avg_score: avg,
