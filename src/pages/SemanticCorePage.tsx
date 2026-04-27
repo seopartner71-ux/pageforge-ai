@@ -70,6 +70,7 @@ export default function SemanticCorePage() {
   const [keywords, setKeywords] = useState<SemanticKeyword[]>([]);
   const [clusters, setClusters] = useState<SemanticCluster[]>([]);
   const [coreId, setCoreId] = useState<string | null>(null);
+  const [clusterMethod, setClusterMethod] = useState<string | null>(null);
 
   const [view, setView] = useState<'table' | 'clusters'>('table');
   const [search, setSearch] = useState('');
@@ -156,6 +157,8 @@ export default function SemanticCorePage() {
 
       const rawClusters: { id: string; name: string; keywords: string[] }[] = (clData as any)?.clusters || [];
       const assignments: Record<string, string> = (clData as any)?.assignments || {};
+      const method: string | undefined = (clData as any)?.method;
+      if (method) setClusterMethod(method);
 
       initial = initial.map(k => ({ ...k, cluster: assignments[k.keyword] || 'unclustered' }));
 
@@ -193,6 +196,10 @@ export default function SemanticCorePage() {
         if (saved?.id) setCoreId(saved.id);
       }
       toast.success(`Готово: ${initial.length} запросов в ${builtClusters.length} кластерах`);
+
+      if (initial.length > 0 && builtClusters.length / initial.length > 0.5) {
+        toast.warning('Кластеризация не дала результатов — попробуйте другую тему или проверьте API ключи');
+      }
     } catch (e: any) {
       const msg = e?.message || String(e);
       toast.error(`Ошибка: ${msg}`);
@@ -415,6 +422,11 @@ export default function SemanticCorePage() {
                   Найдено <strong className="text-foreground">{keywords.length}</strong> запросов /{' '}
                   <strong className="text-foreground">{clusters.length}</strong> кластеров
                 </span>
+                {clusterMethod && (import.meta.env.DEV || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1')) && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border uppercase tracking-wide">
+                    Кластеризация: {clusterMethod}
+                  </span>
+                )}
               </div>
               <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5">
                 <Download className="w-3.5 h-3.5" /> Export XLSX
