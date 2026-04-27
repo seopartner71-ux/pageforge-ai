@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   Settings, Users, BarChart3, Save, Loader2, Eye, EyeOff, ScrollText,
   ShieldCheck, CheckCircle2, XCircle, Activity, Zap, Clock, Mail, Send,
-  Filter, TrendingUp, Globe, Layers, Calendar,
+  Filter, TrendingUp, Globe, Layers, Calendar, ExternalLink, Database,
 } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
@@ -155,6 +155,7 @@ function ApiSettingsTab() {
   return (
     <div className="space-y-6 max-w-2xl">
       <p className="text-sm text-muted-foreground">Управление ключами API. Изменения применяются мгновенно для всех Edge Functions.</p>
+      <DataForSeoCard />
       {displaySettings.map(s => {
         const status = apiStatuses[s.key_name] || 'unknown';
         return (
