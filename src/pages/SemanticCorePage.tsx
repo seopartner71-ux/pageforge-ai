@@ -82,6 +82,16 @@ export default function SemanticCorePage() {
   const [wordstatReal, setWordstatReal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const [howItWorksOpen, setHowItWorksOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('semanticCore_howItWorks_expanded') === '1';
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('semanticCore_howItWorks_expanded', howItWorksOpen ? '1' : '0');
+    }
+  }, [howItWorksOpen]);
+
   useEffect(() => {
     isWordstatRealMode().then(setWordstatReal);
   }, [running]);
