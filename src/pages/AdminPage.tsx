@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   Settings, Users, BarChart3, Save, Loader2, Eye, EyeOff, ScrollText,
   ShieldCheck, CheckCircle2, XCircle, Activity, Zap, Clock, Mail, Send,
-  Filter, TrendingUp, Globe, Layers, Calendar,
+  Filter, TrendingUp, Globe, Layers, Calendar, ExternalLink, Database,
 } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
@@ -87,6 +87,87 @@ export default function AdminPage() {
   );
 }
 
+/* ─── DataForSEO Status Card ─── */
+function DataForSeoCard() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [state, setState] = useState<{
+    configured: boolean | null;
+    ok: boolean | null;
+    balance?: number;
+    login?: string;
+    error?: string;
+  }>({ configured: null, ok: null });
+
+  const runTest = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('dataforseo-test', { body: {} });
+      if (error) throw error;
+      const d = data as any;
+      setState({
+        configured: !!d?.configured,
+        ok: !!d?.ok,
+        balance: typeof d?.balance === 'number' ? d.balance : undefined,
+        login: d?.login,
+        error: d?.error,
+      });
+      if (d?.ok) {
+        toast({ title: 'DataForSEO подключён ✓', description: `Баланс: $${(d.balance ?? 0).toFixed(2)}` });
+      } else if (!d?.configured) {
+        toast({ title: 'DataForSEO не настроен', description: 'Добавьте секреты DATAFORSEO_LOGIN и DATAFORSEO_PASSWORD', variant: 'destructive' });
+      } else {
+        toast({ title: 'Ошибка подключения DataForSEO', description: d?.error || 'неизвестная ошибка', variant: 'destructive' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Не удалось проверить', description: e?.message || String(e), variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto-test once on mount
+  useEffect(() => { runTest(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  const statusColor = state.ok ? 'bg-green-500' : state.configured ? 'bg-red-500' : 'bg-muted-foreground/50';
+  const statusText = state.ok ? 'Подключен' : state.configured ? 'Ошибка' : 'Не настроен';
+
+  return (
+    <div className="glass-card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Database className="w-4 h-4 text-primary" />
+          <label className="text-sm font-medium text-foreground">DataForSEO</label>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className={`w-2.5 h-2.5 rounded-full ${statusColor} ${state.ok ? 'animate-pulse' : ''}`} />
+          <span className="text-[10px] text-muted-foreground">{statusText}</span>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Реальные частоты и тысячи запросов для модуля «Семантическое ядро».
+        Регистрация на <a className="text-primary hover:underline inline-flex items-center gap-0.5" href="https://dataforseo.com" target="_blank" rel="noreferrer">dataforseo.com <ExternalLink className="w-3 h-3" /></a>.
+        Login и Password — это API credentials (не от сайта). Хранятся в Supabase Secrets.
+      </p>
+      <div className="flex items-center gap-3 flex-wrap">
+        <Button onClick={runTest} disabled={loading} variant="outline" size="sm" className="gap-1.5">
+          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+          Проверить подключение
+        </Button>
+        {state.ok && typeof state.balance === 'number' && (
+          <span className="text-xs">
+            Баланс: <strong className="text-emerald-400">${state.balance.toFixed(2)}</strong>
+            {state.login && <span className="text-muted-foreground"> · {state.login}</span>}
+          </span>
+        )}
+        {!state.ok && state.error && (
+          <span className="text-xs text-red-400 truncate max-w-[300px]" title={state.error}>{state.error}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── API Settings Tab ─── */
 function ApiSettingsTab() {
   const { toast } = useToast();
@@ -155,6 +236,7 @@ function ApiSettingsTab() {
   return (
     <div className="space-y-6 max-w-2xl">
       <p className="text-sm text-muted-foreground">Управление ключами API. Изменения применяются мгновенно для всех Edge Functions.</p>
+      <DataForSeoCard />
       {displaySettings.map(s => {
         const status = apiStatuses[s.key_name] || 'unknown';
         return (

@@ -45,6 +45,14 @@ Deno.serve(async (req) => {
     const engineRaw = String((body as any).engine || "yandex");
     const engine: "yandex" | "google" = engineRaw === "google" ? "google" : "yandex";
     const projectId = (body as any).project_id ? String((body as any).project_id) : null;
+    const enabledSourcesRaw = (body as any).enabled_sources;
+    const VALID_SOURCES = new Set(["autocomplete", "suggestions", "competitors", "ai"]);
+    let enabledSources: string[] = Array.isArray(enabledSourcesRaw)
+      ? enabledSourcesRaw.map((s) => String(s)).filter((s) => VALID_SOURCES.has(s))
+      : [];
+    if (!enabledSources.length) {
+      enabledSources = ["autocomplete", "suggestions", "competitors", "ai"];
+    }
 
     if (!topic) return json(400, { error: "Тема не указана" });
     if (topic.length > 500) return json(400, { error: "Тема слишком длинная (макс. 500 символов)" });
@@ -86,6 +94,7 @@ Deno.serve(async (req) => {
         input_seeds: seeds,
         input_region: region,
         input_engine: engine,
+        enabled_sources: enabledSources,
       })
       .select("id")
       .single();

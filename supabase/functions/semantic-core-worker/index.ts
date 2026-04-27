@@ -11,14 +11,42 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const SERPER_KEY_ENV = Deno.env.get("SERPER_API_KEY") ?? "";
 const WORDSTAT_KEY_ENV = Deno.env.get("WORDSTAT_API_KEY") ?? "";
+const DFS_LOGIN = Deno.env.get("DATAFORSEO_LOGIN") ?? "";
+const DFS_PASSWORD = Deno.env.get("DATAFORSEO_PASSWORD") ?? "";
 
 const AI_MODEL = "google/gemini-2.5-flash";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-const MAX_KEYWORDS = 500;
+const MAX_KEYWORDS = 5000;
 const MAX_SERP_KEYWORDS = 80;
 
+// DataForSEO region mapping (location_code)
+const DFS_REGION_CODES: Record<string, number> = {
+  "Россия": 21136,
+  "Москва": 1012680,
+  "Санкт-Петербург": 1012183,
+  "Екатеринбург": 1012713,
+  "Новосибирск": 1012961,
+  "Казань": 1012742,
+  "Нижний Новгород": 1012951,
+  "Челябинск": 1012644,
+  "Самара": 1012981,
+  "Уфа": 1013069,
+  "Ростов-на-Дону": 1012963,
+  "Краснодар": 1012760,
+};
+function dfsLocation(region: string): number {
+  return DFS_REGION_CODES[region] ?? 21136;
+}
+function dfsAuth(): string {
+  return "Basic " + btoa(`${DFS_LOGIN}:${DFS_PASSWORD}`);
+}
+function dfsConfigured(): boolean {
+  return !!(DFS_LOGIN && DFS_PASSWORD);
+}
+
 type Intent = "info" | "commercial" | "nav" | "transac";
+type DataSource = "mock" | "dataforseo";
 
 interface Kw {
   keyword: string;
@@ -29,6 +57,7 @@ interface Kw {
   cluster_id: number | null;
   cluster_name: string | null;
   serp_urls: string[];
+  data_source: DataSource;
 }
 
 function sb() {
@@ -82,18 +111,253 @@ async function aiExpandOnce(topic: string, seeds: string[], region: string): Pro
   }
 }
 
-async function expandKeywords(topic: string, seeds: string[], region: string): Promise<string[]> {
-  const filterValid = (arr: string[]) => arr.filter((s) => s.length >= 3 && !/[a-zA-Z]/.test(s));
-  let merged = Array.from(new Set(filterValid(await aiExpandOnce(topic, seeds, region))));
-  if (merged.length < 50) {
+function filterValidKeywords(arr: string[]): string[] {
+  return arr
+    .map((s) => String(s || "").trim().toLowerCase())
+    .filter((s) => s.length >= 3 && !/[a-zA-Z]/.test(s));
+}
+
+// Targeted AI follow-up: ask for keywords NOT already in the corpus.
+async function aiFollowupExpand(
+  topic: string,
+  existingKeywords: string[],
+  desiredCount = 100,
+): Promise<string[]> {
+  const sample = existingKeywords.slice(0, 50).join(", ");
+  const userPrompt =
+    `Тема: ${topic}.\n` +
+    `Уже собраны эти запросы (первые 50): ${sample}\n\n` +
+    `Добавь ${desiredCount} запросов которых НЕТ в этом списке:\n` +
+    `- Вопросные запросы (как, что, почему, где купить, сколько стоит)\n` +
+    `- Редкие длинные хвосты (4-6 слов)\n` +
+    `- Сезонные запросы если применимо\n\n` +
+    `Только русский язык. Только JSON массив строк.`;
+  try {
+    const resp = await fetch(AI_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: "system", content: EXPAND_SYSTEM },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
+    if (!resp.ok) throw new Error(`AI followup ${resp.status}`);
+    const data = await resp.json();
+    const raw = String(data?.choices?.[0]?.message?.content || "");
+    const m = raw.match(/\[[\s\S]*\]/);
+    if (!m) return [];
+    const arr = JSON.parse(m[0]);
+    return Array.isArray(arr) ? arr.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
+  } catch (e) {
+    console.warn("[worker] AI followup failed", e);
+    return [];
+  }
+}
+
+// ============== DataForSEO sources ==============
+
+interface DfsKwData {
+  keyword: string;
+  search_volume: number; // monthly
+}
+
+// Cost tracker (cumulative across the job)
+class CostTracker {
+  total = 0;
+  add(n: number) { this.total += n; }
+}
+
+async function dfsAutocompleteSource(
+  topic: string,
+  seeds: string[],
+  region: string,
+  cost: CostTracker,
+): Promise<string[]> {
+  if (!dfsConfigured()) return [];
+  const locationCode = dfsLocation(region);
+  const alphabet = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя".split("");
+  // Build query list — bare topic + topic + each letter + seeds
+  const queries = Array.from(new Set([
+    topic,
+    ...alphabet.map((l) => `${topic} ${l}`),
+    ...seeds,
+  ])).filter((q) => q && q.length >= 2).slice(0, 40);
+
+  const out = new Set<string>();
+  const concurrency = 10;
+  for (let i = 0; i < queries.length; i += concurrency) {
+    const batch = queries.slice(i, i + concurrency);
+    await Promise.allSettled(batch.map(async (q) => {
+      try {
+        const resp = await fetch(
+          "https://api.dataforseo.com/v3/keywords_data/google/keyword_suggestions/live",
+          {
+            method: "POST",
+            headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
+            body: JSON.stringify([{
+              keyword: q,
+              language_code: "ru",
+              location_code: locationCode,
+              limit: 50,
+            }]),
+          },
+        );
+        if (!resp.ok) return;
+        const data = await resp.json().catch(() => ({}));
+        cost.add(0.0005);
+        const items = data?.tasks?.[0]?.result?.[0]?.items;
+        if (Array.isArray(items)) {
+          for (const it of items) {
+            const kw = String(it?.keyword || "").trim().toLowerCase();
+            if (kw) out.add(kw);
+          }
+        }
+      } catch (e) {
+        console.warn("[dfs-autocomplete] failed for", q, e);
+      }
+    }));
+  }
+  return Array.from(out);
+}
+
+async function dfsKeywordSuggestions(
+  topic: string,
+  seeds: string[],
+  region: string,
+  cost: CostTracker,
+): Promise<DfsKwData[]> {
+  if (!dfsConfigured()) return [];
+  const locationCode = dfsLocation(region);
+  const queries = [topic, ...seeds.slice(0, 5)];
+  const merged = new Map<string, DfsKwData>();
+
+  for (const q of queries) {
     try {
-      const second = await aiExpandOnce(topic, seeds, region);
-      merged = Array.from(new Set([...merged, ...filterValid(second)]));
+      const limit = q === topic ? 1000 : 200;
+      const resp = await fetch(
+        "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_suggestions/live",
+        {
+          method: "POST",
+          headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
+          body: JSON.stringify([{
+            keyword: q,
+            language_code: "ru",
+            location_code: locationCode,
+            limit,
+            order_by: ["keyword_info.search_volume,desc"],
+            filters: [["keyword_info.search_volume", ">", 10]],
+          }]),
+        },
+      );
+      if (!resp.ok) {
+        console.warn("[dfs-suggestions]", q, resp.status);
+        continue;
+      }
+      const data = await resp.json().catch(() => ({}));
+      cost.add(0.015 * (limit / 1000));
+      const items = data?.tasks?.[0]?.result?.[0]?.items;
+      if (Array.isArray(items)) {
+        for (const it of items) {
+          const kw = String(it?.keyword || "").trim().toLowerCase();
+          const sv = Number(it?.keyword_info?.search_volume ?? 0);
+          if (!kw) continue;
+          const prev = merged.get(kw);
+          if (!prev || sv > prev.search_volume) merged.set(kw, { keyword: kw, search_volume: sv });
+        }
+      }
     } catch (e) {
-      console.warn("[worker] second expand failed", e);
+      console.warn("[dfs-suggestions] failed for", q, e);
     }
   }
-  return merged.slice(0, MAX_KEYWORDS);
+  return Array.from(merged.values());
+}
+
+function rootDomain(host: string): string {
+  const h = host.replace(/^www\./, "").toLowerCase();
+  const parts = h.split(".");
+  if (parts.length <= 2) return h;
+  return parts.slice(-2).join(".");
+}
+
+async function dfsKeywordsForSite(
+  topic: string,
+  region: string,
+  serperKey: string,
+  cost: CostTracker,
+): Promise<DfsKwData[]> {
+  if (!dfsConfigured()) return [];
+  if (!serperKey) return [];
+  // Step 1: get top-3 organic domains for the topic
+  let domains: string[] = [];
+  try {
+    const resp = await fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        q: topic, gl: "ru", hl: "ru", num: 10,
+        location: region === "Москва" ? "Moscow,Russia" : "Russia",
+      }),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const organic = Array.isArray(data.organic) ? data.organic.slice(0, 10) : [];
+      const seen = new Set<string>();
+      for (const o of organic) {
+        try {
+          const u = new URL(String(o.link || ""));
+          const d = rootDomain(u.hostname);
+          if (d && !seen.has(d)) { seen.add(d); domains.push(d); }
+          if (domains.length >= 3) break;
+        } catch { /* skip */ }
+      }
+    }
+  } catch (e) {
+    console.warn("[dfs-kfs] serper lookup failed", e);
+  }
+  if (!domains.length) return [];
+
+  const locationCode = dfsLocation(region);
+  const merged = new Map<string, DfsKwData>();
+  await Promise.allSettled(domains.map(async (target) => {
+    try {
+      const resp = await fetch(
+        "https://api.dataforseo.com/v3/dataforseo_labs/google/keywords_for_site/live",
+        {
+          method: "POST",
+          headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
+          body: JSON.stringify([{
+            target,
+            language_code: "ru",
+            location_code: locationCode,
+            limit: 500,
+            filters: [["keyword_info.search_volume", ">", 10]],
+          }]),
+        },
+      );
+      if (!resp.ok) {
+        console.warn("[dfs-kfs]", target, resp.status);
+        return;
+      }
+      const data = await resp.json().catch(() => ({}));
+      cost.add(0.015 * 0.5);
+      const items = data?.tasks?.[0]?.result?.[0]?.items;
+      if (Array.isArray(items)) {
+        for (const it of items) {
+          const kw = String(it?.keyword || "").trim().toLowerCase();
+          const sv = Number(it?.keyword_info?.search_volume ?? 0);
+          if (!kw) continue;
+          const prev = merged.get(kw);
+          if (!prev || sv > prev.search_volume) merged.set(kw, { keyword: kw, search_volume: sv });
+        }
+      }
+    } catch (e) {
+      console.warn("[dfs-kfs] failed for", target, e);
+    }
+  }));
+  return Array.from(merged.values());
 }
 
 // ============== STEP B: WORDSTAT (mock) ==============
@@ -358,16 +622,138 @@ async function runPipeline(jobId: string) {
   const topic: string = job.input_topic;
   const seeds: string[] = job.input_seeds || [];
   const region: string = job.input_region;
+  const enabledSources: string[] = Array.isArray(job.enabled_sources) && job.enabled_sources.length
+    ? job.enabled_sources
+    : ["autocomplete", "suggestions", "competitors", "ai"];
+  const useAutocomplete = enabledSources.includes("autocomplete");
+  const useSuggestions = enabledSources.includes("suggestions");
+  const useCompetitors = enabledSources.includes("competitors");
+  const useAi = enabledSources.includes("ai");
 
-  // STEP A: expansion
+  // STEP A: multi-source expansion
   await updateJob(jobId, { status: "expanding", progress: 5 });
-  const rawKeywords = await expandKeywords(topic, seeds, region);
-  if (!rawKeywords.length) throw new Error("AI не вернул ключевых слов");
-  await updateJob(jobId, { progress: 20, keyword_count: rawKeywords.length });
+  const cost = new CostTracker();
+  const serperKey = (await getSetting("serper_api_key")) || SERPER_KEY_ENV;
+  const dfsAvailable = dfsConfigured();
+  if (!dfsAvailable) {
+    console.warn("[DataForSEO] Credentials missing or invalid — falling back to AI-only expansion");
+  }
 
-  // STEP B: frequencies
-  await updateJob(jobId, { status: "frequencies", progress: 25 });
-  const freqs = await fetchFrequencies(rawKeywords, region, jobId);
+  // Per-source storage with frequency map (only DFS sources have real volumes)
+  const dfsVolumes = new Map<string, number>(); // keyword -> max DFS search_volume
+  const breakdown: Record<string, number> = {
+    autocomplete: 0, suggestions: 0, competitors: 0, ai: 0,
+  };
+
+  type SourcePromiseResult = { source: string; keywords: string[]; withVolumes?: DfsKwData[] };
+  const sourcePromises: Promise<SourcePromiseResult>[] = [];
+
+  if (useAutocomplete && dfsAvailable) {
+    sourcePromises.push(
+      dfsAutocompleteSource(topic, seeds, region, cost)
+        .then((kws) => ({ source: "autocomplete", keywords: kws })),
+    );
+  }
+  if (useSuggestions && dfsAvailable) {
+    sourcePromises.push(
+      dfsKeywordSuggestions(topic, seeds, region, cost)
+        .then((arr) => ({ source: "suggestions", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
+    );
+  }
+  if (useCompetitors && dfsAvailable) {
+    sourcePromises.push(
+      dfsKeywordsForSite(topic, region, serperKey, cost)
+        .then((arr) => ({ source: "competitors", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
+    );
+  }
+  if (useAi || !dfsAvailable) {
+    // AI source — when DFS unavailable we still rely on AI for the bulk
+    sourcePromises.push(
+      aiExpandOnce(topic, seeds, region)
+        .then((kws) => ({ source: "ai", keywords: kws }))
+        .catch((e) => { console.warn("[ai-source] failed", e); return { source: "ai", keywords: [] }; }),
+    );
+  }
+
+  // Run all sources in parallel and collect partial progress
+  const totalSources = sourcePromises.length || 1;
+  let doneSources = 0;
+  const settled = await Promise.allSettled(sourcePromises.map((p) =>
+    p.then(async (r) => {
+      doneSources++;
+      const prog = 5 + Math.floor((doneSources / totalSources) * 25);
+      await updateJob(jobId, { progress: prog });
+      return r;
+    }),
+  ));
+
+  const allFromSources = new Set<string>();
+  for (const s of settled) {
+    if (s.status !== "fulfilled") continue;
+    const r = s.value;
+    const filtered = filterValidKeywords(r.keywords);
+    breakdown[r.source] = filtered.length;
+    if (r.withVolumes) {
+      for (const v of r.withVolumes) {
+        const kw = v.keyword.toLowerCase();
+        if (!filterValidKeywords([kw]).length) continue;
+        const prev = dfsVolumes.get(kw) || 0;
+        if (v.search_volume > prev) dfsVolumes.set(kw, v.search_volume);
+      }
+    }
+    for (const kw of filtered) allFromSources.add(kw);
+  }
+
+  let rawKeywords = Array.from(allFromSources);
+
+  // Followup AI enrichment if DFS is available and AI source is enabled,
+  // OR fallback if total too small.
+  if (dfsAvailable && useAi && rawKeywords.length > 0) {
+    const extra = await aiFollowupExpand(topic, rawKeywords, 100);
+    const filteredExtra = filterValidKeywords(extra);
+    const before = rawKeywords.length;
+    rawKeywords = Array.from(new Set([...rawKeywords, ...filteredExtra]));
+    breakdown.ai += rawKeywords.length - before;
+  }
+  if (rawKeywords.length < 100) {
+    const fallback = await aiFollowupExpand(topic, rawKeywords, 300);
+    const filteredFb = filterValidKeywords(fallback);
+    const before = rawKeywords.length;
+    rawKeywords = Array.from(new Set([...rawKeywords, ...filteredFb]));
+    breakdown.ai += rawKeywords.length - before;
+  }
+
+  if (rawKeywords.length > MAX_KEYWORDS) rawKeywords = rawKeywords.slice(0, MAX_KEYWORDS);
+  if (!rawKeywords.length) throw new Error("Не удалось собрать ключевых слов из источников");
+
+  await updateJob(jobId, {
+    progress: 35,
+    keyword_count: rawKeywords.length,
+    source_breakdown: breakdown,
+    dataforseo_cost: Number(cost.total.toFixed(4)),
+  });
+
+  // STEP B: frequencies — prefer DataForSEO real volumes, fall back to wordstat/mock
+  await updateJob(jobId, { status: "frequencies", progress: 40 });
+  const dataSources: DataSource[] = new Array(rawKeywords.length);
+  const needFreq: { idx: number; keyword: string }[] = [];
+  const freqs: { ws: number; exact: number }[] = new Array(rawKeywords.length);
+  for (let i = 0; i < rawKeywords.length; i++) {
+    const kw = rawKeywords[i];
+    const dfsVol = dfsVolumes.get(kw);
+    if (dfsVol && dfsVol > 0) {
+      freqs[i] = { ws: dfsVol, exact: Math.floor(dfsVol * 0.3) };
+      dataSources[i] = "dataforseo";
+    } else {
+      needFreq.push({ idx: i, keyword: kw });
+      dataSources[i] = "mock";
+    }
+  }
+  if (needFreq.length) {
+    const freqInput = needFreq.map((n) => n.keyword);
+    const fetched = await fetchFrequencies(freqInput, region, jobId);
+    for (let j = 0; j < needFreq.length; j++) freqs[needFreq[j].idx] = fetched[j];
+  }
   await updateJob(jobId, { progress: 50 });
 
   // STEP C + D: intent + scoring
@@ -384,13 +770,13 @@ async function runPipeline(jobId: string) {
       cluster_id: null,
       cluster_name: null,
       serp_urls: [],
+      data_source: dataSources[i],
     };
   });
   await updateJob(jobId, { progress: 55 });
 
   // STEP E: SERP fetch for top-N
   await updateJob(jobId, { status: "serp", progress: 60 });
-  const serperKey = (await getSetting("serper_api_key")) || SERPER_KEY_ENV;
   if (!serperKey) throw new Error("Serper API ключ не настроен");
 
   const sortedByScore = [...kws].sort((a, b) => b.score - a.score);

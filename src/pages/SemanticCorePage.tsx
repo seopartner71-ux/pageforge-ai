@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Network, Loader2, Check, Search, Download, Tag, X, Plus,
-  AlertTriangle, LayoutGrid, Table as TableIcon, Sparkles, Info, ChevronDown,
+  AlertTriangle, LayoutGrid, Table as TableIcon, Sparkles, Info, ChevronDown, DollarSign,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -20,10 +20,18 @@ import { exportSemanticCoreXlsx } from '@/lib/semanticCore/exportSemanticCoreXls
 
 type Step = 'expand' | 'wordstat' | 'serp' | 'cluster';
 const STEP_LABELS: Record<Step, string> = {
-  expand: 'AI расширяет ядро...',
-  wordstat: 'Получаем частоты Яндекс.Вордстат...',
-  serp: 'Анализируем топ-10 выдачи...',
-  cluster: 'Кластеризуем запросы...',
+  expand: 'Собираем ключи из источников (DataForSEO + AI)...',
+  wordstat: 'Получаем частоты...',
+  serp: 'Анализируем выдачу...',
+  cluster: 'Кластеризуем...',
+};
+
+type SourceKey = 'autocomplete' | 'suggestions' | 'competitors' | 'ai';
+const SOURCE_LABELS: Record<SourceKey, { title: string; desc: string }> = {
+  autocomplete: { title: 'Подсказки поисковиков', desc: 'Автоподсказки Google/Yandex (DataForSEO)' },
+  suggestions:  { title: 'База ключевых слов',     desc: 'Семантически близкие запросы (DataForSEO)' },
+  competitors:  { title: 'Ключи конкурентов',      desc: 'Топ-3 домена из выдачи (DataForSEO)' },
+  ai:           { title: 'AI-генерация',           desc: 'Длинные хвосты, вопросные, сезонные (Gemini)' },
 };
 
 type JobStatus = 'pending' | 'expanding' | 'frequencies' | 'serp' | 'clustering' | 'done' | 'error';
@@ -87,12 +95,26 @@ function MockBadge() {
   );
 }
 
+function FreqDot({ source }: { source?: 'mock' | 'dataforseo' }) {
+  const real = source === 'dataforseo';
+  return (
+    <span
+      className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${real ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`}
+      title={real ? 'Реальные данные DataForSEO' : 'Оценочные данные'}
+    />
+  );
+}
+
 export default function SemanticCorePage() {
   const [topic, setTopic] = useState('');
   const [seeds, setSeeds] = useState<string[]>([]);
   const [seedInput, setSeedInput] = useState('');
   const [region, setRegion] = useState('Москва');
   const [engine, setEngine] = useState<'yandex' | 'google'>('yandex');
+  const [enabledSources, setEnabledSources] = useState<Record<SourceKey, boolean>>({
+    autocomplete: true, suggestions: true, competitors: true, ai: true,
+  });
+  const [dfsConfigured, setDfsConfigured] = useState<boolean | null>(null);
 
   const [running, setRunning] = useState(false);
   const [stepStatus, setStepStatus] = useState<Record<Step, 'idle' | 'active' | 'done'>>({
@@ -118,6 +140,8 @@ export default function SemanticCorePage() {
   const [jobProgress, setJobProgress] = useState(0);
   const [jobLiveCounts, setJobLiveCounts] = useState<{ keywords: number; clusters: number }>({ keywords: 0, clusters: 0 });
   const [dailyUsage, setDailyUsage] = useState<{ used: number; limit: number } | null>(null);
+  const [sourceBreakdown, setSourceBreakdown] = useState<Record<string, number>>({});
+  const [dataforseoCost, setDataforseoCost] = useState<number>(0);
   const pollRef = useRef<number | null>(null);
   const pollTimeoutRef = useRef<number | null>(null);
 
@@ -134,6 +158,23 @@ export default function SemanticCorePage() {
   useEffect(() => {
     isWordstatRealMode().then(setWordstatReal);
   }, [running]);
+
+  // Detect whether DataForSEO secrets are configured (best-effort via test endpoint).
+  // Falls back silently if user is not admin — we just show the warning badge.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke('dataforseo-test', { body: {} });
+        if (cancelled) return;
+        const conf = (data as any)?.configured;
+        if (typeof conf === 'boolean') setDfsConfigured(conf);
+      } catch {
+        // 403 for non-admins — silently leave as null
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Load daily quota
   useEffect(() => {
@@ -182,6 +223,7 @@ export default function SemanticCorePage() {
       cluster: r.cluster_id != null ? `c${r.cluster_id}` : 'unclustered',
       included: r.included,
       topUrls: r.serp_urls || [],
+      dataSource: r.data_source === 'dataforseo' ? 'dataforseo' : 'mock',
     }));
     const cls: SemanticCluster[] = (clRows || []).map((r: any) => {
       const items = kws.filter(k => k.cluster === `c${r.cluster_index}`);
@@ -207,7 +249,7 @@ export default function SemanticCorePage() {
     pollRef.current = window.setInterval(async () => {
       const { data: job, error } = await supabase
         .from('semantic_jobs')
-        .select('status, progress, keyword_count, cluster_count, error_message')
+        .select('status, progress, keyword_count, cluster_count, error_message, source_breakdown, dataforseo_cost')
         .eq('id', id)
         .maybeSingle();
       if (error || !job) return;
@@ -215,6 +257,14 @@ export default function SemanticCorePage() {
       setStepStatus(statusToStepStatus(status));
       setJobProgress(job.progress || 0);
       setJobLiveCounts({ keywords: job.keyword_count || 0, clusters: job.cluster_count || 0 });
+      if (job.source_breakdown && typeof job.source_breakdown === 'object') {
+        setSourceBreakdown(job.source_breakdown as Record<string, number>);
+      }
+      if (typeof job.dataforseo_cost === 'number') {
+        setDataforseoCost(job.dataforseo_cost);
+      } else if (job.dataforseo_cost) {
+        setDataforseoCost(Number(job.dataforseo_cost) || 0);
+      }
 
       if (status === 'done') {
         stopPolling();
@@ -239,15 +289,22 @@ export default function SemanticCorePage() {
       toast.error('Введите тему');
       return;
     }
+    const selectedSources = (Object.keys(enabledSources) as SourceKey[]).filter((k) => enabledSources[k]);
+    if (!selectedSources.length) {
+      toast.error('Выберите хотя бы один источник');
+      return;
+    }
     setRunning(true);
     setKeywords([]); setClusters([]); setCoreId(null); setJobId(null);
     setJobProgress(0);
     setJobLiveCounts({ keywords: 0, clusters: 0 });
+    setSourceBreakdown({});
+    setDataforseoCost(0);
     setStepStatus({ expand: 'active', wordstat: 'idle', serp: 'idle', cluster: 'idle' });
 
     try {
       const { data, error } = await supabase.functions.invoke('semantic-core-start', {
-        body: { topic, seeds, region, engine },
+        body: { topic, seeds, region, engine, enabled_sources: selectedSources },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -399,6 +456,57 @@ export default function SemanticCorePage() {
             </div>
           </div>
 
+          {/* SOURCES */}
+          <div className="rounded-md border border-border/60 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Источники сбора ключей</label>
+              <span className="text-[11px] text-muted-foreground">
+                Выбрано: {(Object.values(enabledSources) as boolean[]).filter(Boolean).length}/4
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+              {(Object.keys(SOURCE_LABELS) as SourceKey[]).map((k) => {
+                const meta = SOURCE_LABELS[k];
+                const checked = enabledSources[k];
+                const requiresDfs = k !== 'ai';
+                const disabled = requiresDfs && dfsConfigured === false;
+                return (
+                  <label
+                    key={k}
+                    className={`flex items-start gap-2 px-2.5 py-2 rounded border text-xs cursor-pointer transition-colors ${
+                      disabled
+                        ? 'border-border/40 bg-muted/10 opacity-50 cursor-not-allowed'
+                        : checked
+                        ? 'border-primary/40 bg-primary/5'
+                        : 'border-border/60 hover:bg-muted/20'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked && !disabled}
+                      disabled={disabled}
+                      onChange={(e) => setEnabledSources((p) => ({ ...p, [k]: e.target.checked }))}
+                      className="mt-0.5 accent-primary"
+                    />
+                    <span className="flex-1">
+                      <span className="font-medium text-foreground block">{meta.title}</span>
+                      <span className="text-muted-foreground">{meta.desc}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            {dfsConfigured === false && (
+              <div className="flex items-start gap-2 px-2 py-1.5 rounded bg-yellow-500/10 border border-yellow-500/30 text-[11px] text-yellow-200">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-yellow-500" />
+                <span>
+                  <strong className="text-yellow-400">DataForSEO не подключён</strong> — используется AI-генерация (меньше запросов).
+                  Добавьте credentials в Supabase Secrets (DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD).
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* How it works */}
           <div className="rounded-md border border-border/60 bg-muted/20">
             <button
@@ -420,10 +528,10 @@ export default function SemanticCorePage() {
               <div className="px-3 pb-3 pt-1">
                 <div className="flex flex-col md:flex-row md:items-stretch gap-3 md:gap-1">
                   {[
-                    { n: 1, t: 'AI-расширение', d: 'ИИ генерирует 150–200 запросов по теме: синонимы, хвосты, вопросы, коммерческие.' },
-                    { n: 2, t: 'Частоты', d: 'Яндекс.Вордстат возвращает частоту каждого запроса в месяц.' },
-                    { n: 3, t: 'Кластеры', d: 'Запросы с похожей выдачей в топе группируются в один кластер.' },
-                    { n: 4, t: 'Результат', d: 'Таблица с частотами, скорингом и кластерами. Экспорт в XLSX.' },
+                    { n: 1, t: 'Источники', d: 'DataForSEO собирает реальные подсказки, базу ключей и ключи конкурентов. AI добавляет редкие хвосты и вопросы.' },
+                    { n: 2, t: 'Частоты', d: 'Реальные месячные объёмы поиска — DataForSEO. Для ключей AI используется оценка.' },
+                    { n: 3, t: 'Кластеры', d: 'Запросы с похожей выдачей в топе группируются — отдельно коммерческие и информационные.' },
+                    { n: 4, t: 'Результат', d: 'Таблица с частотами, скорингом и кластерами. Зелёный индикатор = реальные данные. Экспорт в XLSX.' },
                   ].map((s, i, arr) => (
                     <div key={s.n} className="flex md:flex-1 items-stretch gap-1">
                       <div className="flex-1 rounded-md border border-border/60 bg-background p-3">
@@ -454,7 +562,7 @@ export default function SemanticCorePage() {
             {running ? 'Собираем ядро...' : 'Генерировать семантику'}
           </Button>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>AI расширит ядро → получит частоты → кластеризует по топам</span>
+            <span>Источники → частоты → SERP → кластеризация по интенту</span>
             {dailyUsage && (
               <span>
                 Использовано сегодня: <strong className="text-foreground">{dailyUsage.used}</strong> / {dailyUsage.limit}
@@ -500,9 +608,19 @@ export default function SemanticCorePage() {
                 <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
                   <span>{jobProgress}%</span>
                   {jobLiveCounts.keywords > 0 && (
-                    <span>
-                      Найдено <strong className="text-foreground">{jobLiveCounts.keywords}</strong> запросов
+                    <span
+                      title={
+                        Object.keys(sourceBreakdown).length
+                          ? `Подсказки: ${sourceBreakdown.autocomplete ?? 0}\nБаза DataForSEO: ${sourceBreakdown.suggestions ?? 0}\nКонкуренты: ${sourceBreakdown.competitors ?? 0}\nAI: ${sourceBreakdown.ai ?? 0}`
+                          : ''
+                      }
+                    >
+                      Собрано <strong className="text-foreground">{jobLiveCounts.keywords}</strong> запросов
+                      {Object.keys(sourceBreakdown).length > 0 && <> из 4 источников</>}
                       {jobLiveCounts.clusters > 0 && <> / <strong className="text-foreground">{jobLiveCounts.clusters}</strong> кластеров</>}
+                      {dataforseoCost > 0 && (
+                        <> · <span className="inline-flex items-center"><DollarSign className="w-3 h-3" />{dataforseoCost.toFixed(3)}</span></>
+                      )}
                     </span>
                   )}
                 </div>
@@ -606,10 +724,10 @@ export default function SemanticCorePage() {
                       <tr>
                         <th className="text-left px-3 py-2 cursor-pointer hover:text-primary" onClick={() => toggleSort('keyword')}>Запрос</th>
                         <th className="text-right px-3 py-2 cursor-pointer hover:text-primary whitespace-nowrap" onClick={() => toggleSort('wsFrequency')}>
-                          Частота WS{!wordstatReal && <MockBadge />}
+                          Частота WS
                         </th>
                         <th className="text-right px-3 py-2 cursor-pointer hover:text-primary whitespace-nowrap" onClick={() => toggleSort('exactFrequency')}>
-                          Точная{!wordstatReal && <MockBadge />}
+                          Точная
                         </th>
                         <th className="text-left px-3 py-2">Интент</th>
                         <th className="text-left px-3 py-2 cursor-pointer hover:text-primary" onClick={() => toggleSort('score')}>Score</th>
@@ -621,7 +739,10 @@ export default function SemanticCorePage() {
                       {filtered.map((k, i) => (
                         <tr key={k.keyword + i} className="border-t border-border/50 hover:bg-muted/20">
                           <td className="px-3 py-2">{k.keyword}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{k.wsFrequency.toLocaleString('ru')}</td>
+                          <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
+                            <FreqDot source={k.dataSource} />
+                            {k.wsFrequency.toLocaleString('ru')}
+                          </td>
                           <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{k.exactFrequency.toLocaleString('ru')}</td>
                           <td className="px-3 py-2">
                             <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${INTENT_BADGE[k.intent]}`}>
