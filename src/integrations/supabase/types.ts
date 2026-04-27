@@ -663,6 +663,8 @@ export type Database = {
           cluster_count: number
           completed_at: string | null
           created_at: string
+          dataforseo_cost: number
+          enabled_sources: string[]
           error_message: string | null
           id: string
           input_engine: string
@@ -672,6 +674,7 @@ export type Database = {
           keyword_count: number
           progress: number
           project_id: string | null
+          source_breakdown: Json
           status: string
           updated_at: string
           user_id: string
@@ -680,6 +683,8 @@ export type Database = {
           cluster_count?: number
           completed_at?: string | null
           created_at?: string
+          dataforseo_cost?: number
+          enabled_sources?: string[]
           error_message?: string | null
           id?: string
           input_engine?: string
@@ -689,6 +694,7 @@ export type Database = {
           keyword_count?: number
           progress?: number
           project_id?: string | null
+          source_breakdown?: Json
           status?: string
           updated_at?: string
           user_id: string
@@ -697,6 +703,8 @@ export type Database = {
           cluster_count?: number
           completed_at?: string | null
           created_at?: string
+          dataforseo_cost?: number
+          enabled_sources?: string[]
           error_message?: string | null
           id?: string
           input_engine?: string
@@ -706,6 +714,7 @@ export type Database = {
           keyword_count?: number
           progress?: number
           project_id?: string | null
+          source_breakdown?: Json
           status?: string
           updated_at?: string
           user_id?: string
@@ -717,6 +726,7 @@ export type Database = {
           cluster_id: number | null
           cluster_name: string | null
           created_at: string
+          data_source: string
           exact_frequency: number
           id: string
           included: boolean
@@ -731,6 +741,7 @@ export type Database = {
           cluster_id?: number | null
           cluster_name?: string | null
           created_at?: string
+          data_source?: string
           exact_frequency?: number
           id?: string
           included?: boolean
@@ -745,6 +756,7 @@ export type Database = {
           cluster_id?: number | null
           cluster_name?: string | null
           created_at?: string
+          data_source?: string
           exact_frequency?: number
           id?: string
           included?: boolean
