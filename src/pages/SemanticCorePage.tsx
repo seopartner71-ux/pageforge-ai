@@ -161,112 +161,99 @@ export default function SemanticCorePage() {
   const setStep = (step: Step, status: 'active' | 'done') =>
     setStepStatus(prev => ({ ...prev, [step]: status }));
 
+  const fetchJobResults = async (id: string) => {
+    const [{ data: kwRows }, { data: clRows }] = await Promise.all([
+      supabase.from('semantic_keywords').select('*').eq('job_id', id).order('score', { ascending: false }),
+      supabase.from('semantic_clusters').select('*').eq('job_id', id).order('avg_score', { ascending: false }),
+    ]);
+    const kws: SemanticKeyword[] = (kwRows || []).map((r: any) => ({
+      keyword: r.keyword,
+      wsFrequency: r.ws_frequency,
+      exactFrequency: r.exact_frequency,
+      intent: r.intent as IntentKind,
+      score: r.score,
+      cluster: r.cluster_id != null ? `c${r.cluster_id}` : 'unclustered',
+      included: r.included,
+      topUrls: r.serp_urls || [],
+    }));
+    const cls: SemanticCluster[] = (clRows || []).map((r: any) => {
+      const items = kws.filter(k => k.cluster === `c${r.cluster_index}`);
+      return {
+        id: `c${r.cluster_index}`,
+        name: r.name,
+        type: r.type === 'commercial' ? 'COMMERCIAL' : r.type === 'informational' ? 'INFORMATIONAL' : 'MIXED',
+        keywords: items.map(i => i.keyword),
+        totalQueries: items.length,
+      };
+    });
+    setKeywords(kws);
+    setClusters(cls);
+  };
+
+  const stopPolling = () => {
+    if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
+    if (pollTimeoutRef.current) { window.clearTimeout(pollTimeoutRef.current); pollTimeoutRef.current = null; }
+  };
+
+  const startPolling = (id: string) => {
+    stopPolling();
+    pollRef.current = window.setInterval(async () => {
+      const { data: job, error } = await supabase
+        .from('semantic_jobs')
+        .select('status, progress, keyword_count, cluster_count, error_message')
+        .eq('id', id)
+        .maybeSingle();
+      if (error || !job) return;
+      const status = job.status as JobStatus;
+      setStepStatus(statusToStepStatus(status));
+      setJobProgress(job.progress || 0);
+      setJobLiveCounts({ keywords: job.keyword_count || 0, clusters: job.cluster_count || 0 });
+
+      if (status === 'done') {
+        stopPolling();
+        await fetchJobResults(id);
+        setRunning(false);
+        toast.success(`Готово: ${job.keyword_count} запросов в ${job.cluster_count} кластерах`);
+      } else if (status === 'error') {
+        stopPolling();
+        setRunning(false);
+        toast.error(`Ошибка: ${job.error_message || 'неизвестная'}`);
+      }
+    }, 3000);
+    pollTimeoutRef.current = window.setTimeout(() => {
+      stopPolling();
+      setRunning(false);
+      toast.error('Таймаут анализа (10 минут). Проверьте задачу позже.');
+    }, 600000);
+  };
+
   const runGenerate = async () => {
-    if (!topic.trim() && !seeds.length) {
-      toast.error('Введите тему или хотя бы один seed-ключ');
+    if (!topic.trim()) {
+      toast.error('Введите тему');
       return;
     }
     setRunning(true);
-    setKeywords([]); setClusters([]); setCoreId(null);
-    setStepStatus({ expand: 'idle', wordstat: 'idle', serp: 'idle', cluster: 'idle' });
+    setKeywords([]); setClusters([]); setCoreId(null); setJobId(null);
+    setJobProgress(0);
+    setJobLiveCounts({ keywords: 0, clusters: 0 });
+    setStepStatus({ expand: 'active', wordstat: 'idle', serp: 'idle', cluster: 'idle' });
 
     try {
-      // 1) AI expand
-      setStep('expand', 'active');
-      const { data: expData, error: expErr } = await supabase.functions.invoke('semantic-core', {
-        body: { action: 'expand', topic, seeds },
+      const { data, error } = await supabase.functions.invoke('semantic-core-start', {
+        body: { topic, seeds, region, engine },
       });
-      if (expErr) throw expErr;
-      const expandedRaw: string[] = (expData as any)?.keywords || [];
-      // Включаем и сидов, чтобы пользовательские точно остались
-      const expanded = Array.from(new Set([...seeds, ...expandedRaw].map(s => s.toLowerCase().trim()).filter(Boolean)));
-      if (!expanded.length) throw new Error('AI не вернул ключевых слов');
-      setStep('expand', 'done');
-
-      // 2) Wordstat
-      setStep('wordstat', 'active');
-      const freqs = await getFrequencies(expanded);
-      setStep('wordstat', 'done');
-
-      const maxFreq = Math.max(1, ...freqs.map(f => f.wsFrequency));
-      let initial: SemanticKeyword[] = freqs.map(f => {
-        const intent = classifyIntentByKeyword(f.keyword);
-        const w = INTENT_WEIGHT[intent];
-        const ratio = f.wsFrequency > 0 ? f.exactFrequency / f.wsFrequency : 0;
-        const score = Math.max(0, Math.min(100, Math.round(
-          (Math.log(f.wsFrequency + 1) / Math.log(maxFreq + 1)) * 60 +
-          w * 25 +
-          ratio * 15
-        )));
-        return {
-          keyword: f.keyword, wsFrequency: f.wsFrequency, exactFrequency: f.exactFrequency,
-          intent, score, cluster: '', included: true,
-        };
-      });
-
-      // 3) SERP
-      setStep('serp', 'active');
-      // 4) Cluster (через ту же edge-функцию, она тянет SERP внутри)
-      setStep('cluster', 'active');
-      const { data: clData, error: clErr } = await supabase.functions.invoke('semantic-core', {
-        body: {
-          action: 'cluster',
-          region,
-          items: initial.map(k => ({ keyword: k.keyword, score: k.score })),
-        },
-      });
-      if (clErr) throw clErr;
-      setStep('serp', 'done');
-
-      const rawClusters: { id: string; name: string; keywords: string[] }[] = (clData as any)?.clusters || [];
-      const assignments: Record<string, string> = (clData as any)?.assignments || {};
-      const method: string | undefined = (clData as any)?.method;
-      if (method) setClusterMethod(method);
-
-      initial = initial.map(k => ({ ...k, cluster: assignments[k.keyword] || 'unclustered' }));
-
-      const builtClusters: SemanticCluster[] = rawClusters.map(c => {
-        const items = initial.filter(k => k.cluster === c.id);
-        return {
-          id: c.id,
-          name: c.name,
-          type: intentTypeForCluster(items),
-          keywords: items.map(i => i.keyword),
-          totalQueries: items.length,
-        };
-      });
-      setStep('cluster', 'done');
-
-      setKeywords(initial);
-      setClusters(builtClusters);
-
-      // 5) Save
-      const payload: SemanticCorePayload = {
-        topic, seedKeywords: seeds, region, searchEngine: engine,
-        keywords: initial, clusters: builtClusters,
-        wordstatMode: wordstatReal ? 'real' : 'mock',
-        generatedAt: new Date().toISOString(),
-      };
-      const { data: u } = await supabase.auth.getUser();
-      if (u?.user) {
-        const { data: saved } = await supabase.from('semantic_cores').insert({
-          user_id: u.user.id,
-          name: topic ? `СЯ: ${topic.slice(0, 60)}` : 'Семантическое ядро',
-          topic, seed_keywords: seeds, region, search_engine: engine,
-          keywords: initial as any, clusters: builtClusters as any,
-          wordstat_mode: payload.wordstatMode,
-        }).select('id').single();
-        if (saved?.id) setCoreId(saved.id);
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const id = (data as any)?.job_id as string;
+      if (!id) throw new Error('Не получен job_id');
+      setJobId(id);
+      if (typeof (data as any)?.daily_used === 'number') {
+        setDailyUsage({ used: (data as any).daily_used, limit: (data as any).daily_limit || 10 });
       }
-      toast.success(`Готово: ${initial.length} запросов в ${builtClusters.length} кластерах`);
-
-      if (initial.length > 0 && builtClusters.length / initial.length > 0.5) {
-        toast.warning('Кластеризация не дала результатов — попробуйте другую тему или проверьте API ключи');
-      }
+      startPolling(id);
     } catch (e: any) {
       const msg = e?.message || String(e);
-      toast.error(`Ошибка: ${msg}`);
-    } finally {
+      toast.error(`Ошибка запуска: ${msg}`);
       setRunning(false);
     }
   };
