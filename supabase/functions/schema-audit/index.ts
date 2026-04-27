@@ -205,6 +205,7 @@ function buildGeneratedCode(
   features: ReturnType<typeof detectPageFeatures>,
   pageTitle: string,
   pageData?: { companyName?: string | null; phone?: string | null; email?: string | null; address?: string | null; logo?: string | null; description?: string | null; workingHours?: string | null; priceRange?: string | null },
+  pageType: string = "general",
 ) {
   const blocks: { type: string; label: string; code: string; reason: string }[] = [];
   const origin = (() => { try { return new URL(url).origin; } catch { return url; } })();
@@ -235,8 +236,32 @@ function buildGeneratedCode(
     });
   }
 
-  // Organization always (uses extracted contacts)
-  if (!schemas.find(s => s.type === "Organization")) {
+  // Person schema for personal brand / event host (instead of Organization)
+  if (pageType === "event_host" && !schemas.find(s => s.type === "Person")) {
+    const person: any = {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "name": companyName,
+      "jobTitle": "Ведущий мероприятий",
+      "url": origin,
+    };
+    if (description) person.description = description;
+    if (email) person.email = email;
+    if (phone) person.telephone = phone;
+    if (logo) person.image = logo;
+    person.knowsAbout = ["Ведение мероприятий", "Свадьбы", "Корпоративы", "Частные события"];
+    person.areaServed = "Россия";
+    const dataSource = (email || phone || description) ? "✓ Данные взяты со страницы" : "⚠ Заполните контакты вручную";
+    blocks.push({
+      type: "Person",
+      label: "Person — добавить (личный бренд)",
+      reason: `Подходит для ведущих, экспертов, фрилансеров • ${dataSource}`,
+      code: JSON.stringify(person, null, 2),
+    });
+  }
+
+  // Organization (skip for personal brands — Person is more accurate)
+  if (pageType !== "event_host" && !schemas.find(s => s.type === "Organization")) {
     const org: any = {
       "@context": "https://schema.org",
       "@type": "Organization",
@@ -322,7 +347,30 @@ function buildGeneratedCode(
     });
   }
 
-  if (features.hasAddress && !schemas.find(s => s.type === "LocalBusiness")) {
+  // Service schema for service-type pages
+  if ((pageType === "service" || pageType === "event_host") && !schemas.find(s => s.type === "Service")) {
+    const svc: any = {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "name": pageType === "event_host" ? "Ведение мероприятий" : (pageTitle || "Услуги"),
+      "provider": {
+        "@type": pageType === "event_host" ? "Person" : "Organization",
+        "name": companyName,
+      },
+      "areaServed": "Россия",
+    };
+    if (description) svc.description = description;
+    if (pageData?.priceRange) svc.offers = { "@type": "Offer", priceCurrency: "RUB", price: pageData.priceRange.replace(/[^\d]/g, "") || "0" };
+    blocks.push({
+      type: "Service",
+      label: "Service — добавить",
+      reason: `Описание предоставляемой услуги • ${description ? "✓ Данные взяты со страницы" : "⚠ Уточните описание"}`,
+      code: JSON.stringify(svc, null, 2),
+    });
+  }
+
+  // LocalBusiness — for any site with contacts OR personal brand sites
+  if ((features.hasAddress || pageType === "event_host" || pageType === "local_business" || pageType === "service") && !schemas.find(s => s.type === "LocalBusiness")) {
     const lb: any = {
       "@context": "https://schema.org",
       "@type": "LocalBusiness",
@@ -338,11 +386,11 @@ function buildGeneratedCode(
     if (email) lb.email = email;
     if (logo) lb.image = logo;
     if (pageData?.priceRange) lb.priceRange = pageData.priceRange;
-    const dataSource = (address && phone) ? "✓ Данные взяты со страницы" : "⚠ Часть данных нужно уточнить";
+    const dataSource = (address && (phone || email)) ? "✓ Данные взяты со страницы" : "⚠ Часть данных нужно уточнить";
     blocks.push({
       type: "LocalBusiness",
       label: "LocalBusiness — добавить",
-      reason: `На странице найдены контакты • ${dataSource}`,
+      reason: `Локальный бизнес — повышает видимость в Картах • ${dataSource}`,
       code: JSON.stringify(lb, null, 2),
     });
   }
@@ -407,7 +455,7 @@ async function getAiRecommendations(
   },
   "missingSchemas": [
     {
-      "type": "Organization|WebSite|BreadcrumbList|Product|Article|LocalBusiness|FAQPage",
+      "type": "Person|Organization|WebSite|BreadcrumbList|Product|Service|Article|LocalBusiness|FAQPage|Event|Review",
       "priority": "critical"|"recommended",
       "reason": "почему нужна",
       "dataSource": "page"|"estimated",
@@ -421,7 +469,17 @@ async function getAiRecommendations(
   "overallScore": number
 }
 
-Обязательно сгенерируй: WebSite, Organization, BreadcrumbList. Для product добавь Product+Offer; для article — Article; для local_business — LocalBusiness; если есть FAQ — FAQPage.`;
+ВАЖНО: Определи тип бизнеса на основе контента страницы и предложи 3-5 наиболее подходящих схем Schema.org. Используй РЕАЛЬНЫЕ данные найденные на странице. Для каждой схемы сгенерируй полный рабочий JSON-LD код.
+
+Правила выбора схем:
+- Личный бренд / ведущий / фрилансер (есть слова: ведущий, мероприятие, свадьба, корпоратив, эксперт, консультант) → Person + Service + LocalBusiness + WebSite
+- E-commerce (есть: купить, цена, каталог, доставка, артикул) → Product + Offer + Organization + BreadcrumbList
+- Услуги (есть: услуги, стоимость, заказать, прайс) → Service + LocalBusiness + Organization
+- Статья/блог → Article + Organization (publisher) + BreadcrumbList
+- Локальный бизнес (есть адрес + телефон) → LocalBusiness + Organization
+- Если есть FAQ-блок (вопрос/ответ) → ВСЕГДА добавь FAQPage
+
+НЕ предлагай: ImageObject, ListItem standalone, BreadcrumbList с одним элементом — они не дают SEO-ценности.`;
 
   try {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -562,13 +620,19 @@ function detectPageType(url: string, content: string): string {
   let pathname = "/";
   try { pathname = new URL(url).pathname; } catch { /* ignore */ }
 
-  if (pathname === "/" || pathname === "") return "homepage";
-  if (/\/(product|tovar|item|good)/i.test(u) ||
-      /(в корзину|купить|add to cart|артикул|sku)/i.test(c)) return "product";
+  // Personal brand / event host (check first — strong signal)
+  if (/(ведущий|ведущая|тамада|свадьб|корпоратив|мероприят|праздник|event host|wedding host)/i.test(c)) {
+    return "event_host";
+  }
+  if (/\/(product|tovar|item|good|catalog|shop)/i.test(u) ||
+      /(в корзину|купить|add to cart|артикул|sku|каталог|доставка|оформить заказ)/i.test(c)) return "ecommerce";
   if (/\/(blog|article|news|post)/i.test(u) ||
       /(опубликован|published|posted on)/i.test(c)) return "article";
+  if (/(услуг[аи]|стоимость|заказать|прайс|консультац)/i.test(c) &&
+      !/(в корзину|купить)/i.test(c)) return "service";
   if (/(адрес|режим работы|время работы|opening hours)/i.test(c) &&
       /(тел\.|телефон|phone|\+\d)/i.test(c)) return "local_business";
+  if (pathname === "/" || pathname === "") return "homepage";
   return "general";
 }
 
@@ -799,7 +863,7 @@ Deno.serve(async (req: Request) => {
       const pageType = detectPageType(url, content);
       // Fallback: ensure companyName exists even if not extracted
       if (!pageData.companyName) pageData.companyName = domainToCompanyName(url);
-      const generated = buildGeneratedCode(url, validated, features, title, pageData);
+      const generated = buildGeneratedCode(url, validated, features, title, pageData, pageType);
       // Rich Results — count BOTH validated schemas + recommended ones we can add
       const RICH_TYPES = ["Product", "Article", "BlogPosting", "FAQPage", "BreadcrumbList", "LocalBusiness"];
       const richFromValidated = validated.filter(s => s.severity === "ok" && RICH_TYPES.includes(s.type)).length;

@@ -603,11 +603,30 @@ export default function SchemaAuditPage() {
     }
   };
 
+  // Schemas that provide actual SEO value (filter out noise like ImageObject, standalone ListItem, etc.)
+  const VALUABLE_SCHEMA_TYPES = new Set([
+    'Person', 'Organization', 'LocalBusiness', 'Product', 'Service',
+    'Article', 'BlogPosting', 'NewsArticle', 'FAQPage', 'WebSite', 'WebPage',
+    'Event', 'Review', 'AggregateRating', 'HowTo', 'Recipe', 'Course',
+    'BreadcrumbList', 'VideoObject',
+  ]);
+  const isValuableSchema = (s: any): boolean => {
+    if (!s?.type) return false;
+    if (!VALUABLE_SCHEMA_TYPES.has(s.type)) return false;
+    // Hide BreadcrumbList with only 1 item (no value)
+    if (s.type === 'BreadcrumbList') {
+      const items = s?.raw?.itemListElement;
+      if (Array.isArray(items) && items.length < 2) return false;
+    }
+    return true;
+  };
+
   const filteredSchemas = useMemo(() => {
     if (!audit) return [];
-    if (activeTab === 'all') return audit.schemas_data;
+    const valuable = audit.schemas_data.filter(isValuableSchema);
+    if (activeTab === 'all') return valuable;
     const map: Record<string, string> = { jsonld: 'JSON-LD', microdata: 'Microdata', rdfa: 'RDFa' };
-    return audit.schemas_data.filter(s => s.format === map[activeTab]);
+    return valuable.filter(s => s.format === map[activeTab]);
   }, [audit, activeTab]);
 
   const downloadTz = () => {
