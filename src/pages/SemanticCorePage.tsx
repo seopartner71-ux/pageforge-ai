@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getFrequencies, isWordstatRealMode } from '@/services/wordstatService';
 import {
-  classifyIntentByKeyword, INTENT_BADGE, INTENT_WEIGHT, REGIONS,
+  classifyIntentByKeyword, INTENT_BADGE, INTENT_WEIGHT, REGION_GROUPS,
   type IntentKind, type SemanticCluster, type SemanticCorePayload, type SemanticKeyword,
 } from '@/lib/semanticCore/types';
 import { exportSemanticCoreXlsx } from '@/lib/semanticCore/exportSemanticCoreXlsx';
@@ -438,7 +438,11 @@ export default function SemanticCorePage() {
                 onChange={(e) => setRegion(e.target.value)}
                 className="w-full h-10 px-3 rounded-md bg-background border border-input text-sm"
               >
-                {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                {REGION_GROUPS.map(g => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.regions.map(r => <option key={r} value={r}>{r}</option>)}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div>
