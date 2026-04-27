@@ -70,6 +70,7 @@ export default function SemanticCorePage() {
   const [keywords, setKeywords] = useState<SemanticKeyword[]>([]);
   const [clusters, setClusters] = useState<SemanticCluster[]>([]);
   const [coreId, setCoreId] = useState<string | null>(null);
+  const [clusterMethod, setClusterMethod] = useState<string | null>(null);
 
   const [view, setView] = useState<'table' | 'clusters'>('table');
   const [search, setSearch] = useState('');
@@ -156,6 +157,8 @@ export default function SemanticCorePage() {
 
       const rawClusters: { id: string; name: string; keywords: string[] }[] = (clData as any)?.clusters || [];
       const assignments: Record<string, string> = (clData as any)?.assignments || {};
+      const method: string | undefined = (clData as any)?.method;
+      if (method) setClusterMethod(method);
 
       initial = initial.map(k => ({ ...k, cluster: assignments[k.keyword] || 'unclustered' }));
 
@@ -193,6 +196,10 @@ export default function SemanticCorePage() {
         if (saved?.id) setCoreId(saved.id);
       }
       toast.success(`Готово: ${initial.length} запросов в ${builtClusters.length} кластерах`);
+
+      if (initial.length > 0 && builtClusters.length / initial.length > 0.5) {
+        toast.warning('Кластеризация не дала результатов — попробуйте другую тему или проверьте API ключи');
+      }
     } catch (e: any) {
       const msg = e?.message || String(e);
       toast.error(`Ошибка: ${msg}`);
