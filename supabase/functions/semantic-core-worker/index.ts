@@ -363,9 +363,8 @@ async function dfsKeywordsForSite(
   }
   if (!domains.length) return [];
 
-  const locationCode = dfsLocation(region);
   const merged = new Map<string, DfsKwData>();
-  console.log(`[DFS competitors] region: ${region} location_code: ${locationCode}`);
+  console.log(`[DFS competitors] region: ${region} (Labs API → location_name=Russia)`);
   await Promise.allSettled(domains.map(async (target) => {
     try {
       const resp = await fetch(
@@ -376,7 +375,7 @@ async function dfsKeywordsForSite(
           body: JSON.stringify([{
             target,
             language_name: "Russian", language_code: "ru",
-            location_code: locationCode,
+            location_name: "Russia",
             limit: 500,
             filters: [["keyword_info.search_volume", ">", 10]],
           }]),
@@ -385,13 +384,13 @@ async function dfsKeywordsForSite(
       const text = await resp.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
-      console.log(`[DFS competitors] target=${target} status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0} body=${text.slice(0, 500)}`);
+      console.log(`[DFS competitors] target=${target} status=${resp.status} task_status=${data?.tasks?.[0]?.status_code} task_msg="${data?.tasks?.[0]?.status_message ?? ''}" items=${data?.tasks?.[0]?.result?.[0]?.items?.length ?? 0}`);
       if (!resp.ok) return;
       cost.add(0.015 * 0.5);
       const items = data?.tasks?.[0]?.result?.[0]?.items;
       if (Array.isArray(items)) {
         if (items.length && merged.size === 0) {
-          console.log(`[DFS competitors sample] item0=${JSON.stringify(items[0]).slice(0, 500)}`);
+          console.log(`[DFS volume sample competitors]`, JSON.stringify(items[0]).slice(0, 400));
         }
         for (const it of items) {
           const kw = String(it?.keyword || "").trim().toLowerCase();
@@ -405,7 +404,7 @@ async function dfsKeywordsForSite(
       console.error(`[DFS competitors] error target=${target}:`, (e as Error).message);
     }
   }));
-  console.log(`[DFS competitors] domains=${domains.join(',')} merged=${merged.size}, locationCode=${locationCode}`);
+  console.log(`[DFS competitors] domains=${domains.join(',')} merged=${merged.size}`);
   return Array.from(merged.values());
 }
 
