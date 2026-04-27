@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Network, Loader2, Check, Search, Download, Tag, X, Plus,
-  AlertTriangle, LayoutGrid, Table as TableIcon, Sparkles, Info, ChevronDown, DollarSign,
+  AlertTriangle, LayoutGrid, Table as TableIcon, Sparkles, Info, ChevronDown, DollarSign, Star,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -140,6 +140,17 @@ function FreqDot({ source }: { source?: 'mock' | 'dataforseo' }) {
   );
 }
 
+// "Золотой" запрос: info-интент, частота >= 1000,
+// и KD <= 40 (или score >= 60, если KD неизвестно)
+function isGoldenKeyword(k: SemanticKeyword): boolean {
+  if (k.intent !== 'info') return false;
+  if ((k.wsFrequency ?? 0) < 1000) return false;
+  if (k.keywordDifficulty != null) return k.keywordDifficulty <= 40;
+  return k.score >= 60;
+}
+const GOLDEN_TOOLTIP =
+  'Золотой запрос: информационный, частота 1000+, KD ≤ 40. Идеально для статей и быстрого SEO-роста.';
+
 export default function SemanticCorePage() {
   const [topic, setTopic] = useState('');
   const [seeds, setSeeds] = useState<string[]>([]);
@@ -167,6 +178,7 @@ export default function SemanticCorePage() {
   const [clusterFilter, setClusterFilter] = useState<Set<string>>(new Set());
   const [kdFilter, setKdFilter] = useState<Set<KdBucket>>(new Set());
   const [idealOnly, setIdealOnly] = useState(false);
+  const [goldenOnly, setGoldenOnly] = useState(false);
   const [sortKey, setSortKey] = useState<'score' | 'wsFrequency' | 'exactFrequency' | 'keyword'>('score');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -386,16 +398,22 @@ export default function SemanticCorePage() {
         k.score > 70 && k.keywordDifficulty != null && k.keywordDifficulty < 40,
       );
     }
+    if (goldenOnly) arr = arr.filter(isGoldenKeyword);
     arr = [...arr].sort((a, b) => {
       const av = a[sortKey] as any, bv = b[sortKey] as any;
       const cmp = typeof av === 'string' ? av.localeCompare(bv) : (av - bv);
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return arr;
-  }, [keywords, search, intentFilter, clusterFilter, kdFilter, idealOnly, sortKey, sortDir]);
+  }, [keywords, search, intentFilter, clusterFilter, kdFilter, idealOnly, goldenOnly, sortKey, sortDir]);
 
   const idealCount = useMemo(
     () => keywords.filter(k => k.score > 70 && k.keywordDifficulty != null && k.keywordDifficulty < 40).length,
+    [keywords],
+  );
+
+  const goldenCount = useMemo(
+    () => keywords.filter(isGoldenKeyword).length,
     [keywords],
   );
 
@@ -745,6 +763,34 @@ export default function SemanticCorePage() {
                   </button>
                 )}
 
+                {/* Golden keywords banner */}
+                {goldenCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setGoldenOnly(v => !v)}
+                    className={`w-full flex items-start justify-between gap-3 px-4 py-3 rounded-md border text-left transition-all bg-gradient-to-r ${
+                      goldenOnly
+                        ? 'from-amber-500/25 to-yellow-500/15 border-amber-400/60'
+                        : 'from-amber-500/15 to-yellow-500/5 border-amber-500/40 hover:from-amber-500/20 hover:to-yellow-500/10'
+                    }`}
+                    title={GOLDEN_TOOLTIP}
+                  >
+                    <span className="flex-1">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-amber-300">
+                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                        Найдено {goldenCount} золотых запросов
+                      </span>
+                      <span className="block text-xs text-amber-200/80 mt-0.5 font-normal leading-relaxed">
+                        Информационные запросы с высоким трафиком и низкой конкурентностью —
+                        идеальны для быстрого роста органического трафика
+                      </span>
+                    </span>
+                    <span className="text-xs text-amber-200/90 shrink-0 self-center px-2 py-1 rounded border border-amber-400/40 bg-amber-500/10">
+                      {goldenOnly ? 'Сбросить фильтр' : 'Показать только золотые'}
+                    </span>
+                  </button>
+                )}
+
                 {/* Filters */}
                 <div className="space-y-2">
                   <div className="relative">
@@ -769,6 +815,20 @@ export default function SemanticCorePage() {
                         }`}
                        >{INTENT_LABELS[i] ?? i}</button>
                     ))}
+                    {goldenCount > 0 && (
+                      <button
+                        onClick={() => setGoldenOnly(v => !v)}
+                        title={GOLDEN_TOOLTIP}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition-all ${
+                          goldenOnly
+                            ? 'bg-amber-500/25 text-amber-200 border border-amber-400/60'
+                            : 'bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20'
+                        }`}
+                      >
+                        <Star className="w-3 h-3 fill-current" />
+                        Золотые
+                      </button>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <span className="text-xs text-muted-foreground self-center mr-1">Сложность:</span>
@@ -838,7 +898,17 @@ export default function SemanticCorePage() {
                     <tbody>
                       {filtered.map((k, i) => (
                         <tr key={k.keyword + i} className="border-t border-border/50 hover:bg-muted/20">
-                          <td className="px-3 py-2">{k.keyword}</td>
+                          <td className="px-3 py-2">
+                            {isGoldenKeyword(k) && (
+                              <span title={GOLDEN_TOOLTIP} className="inline-flex align-middle mr-1.5">
+                                <Star
+                                  className="w-3.5 h-3.5 fill-amber-400 text-amber-400"
+                                  aria-label="Золотой запрос"
+                                />
+                              </span>
+                            )}
+                            <span title={isGoldenKeyword(k) ? GOLDEN_TOOLTIP : undefined}>{k.keyword}</span>
+                          </td>
                           <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                             <FreqDot source={k.dataSource} />
                             {k.wsFrequency.toLocaleString('ru')}
@@ -920,6 +990,7 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
         const avgKd = kdValues.length
           ? Math.round(kdValues.reduce((s, v) => s + v, 0) / kdValues.length)
           : null;
+        const goldenItems = items.filter(isGoldenKeyword);
         return (
           <Card key={c.id} className="p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
@@ -933,13 +1004,29 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
             <div className="space-y-1">
               {display.map(k => (
                 <div key={k.keyword} className="flex items-center justify-between text-xs gap-2">
-                  <span className="truncate" title={k.keyword}>{k.keyword}</span>
+                  <span className="truncate flex items-center gap-1" title={k.keyword}>
+                    {isGoldenKeyword(k) && (
+                      <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                    )}
+                    <span className="truncate">{k.keyword}</span>
+                  </span>
                   <span className="tabular-nums text-muted-foreground shrink-0">{k.score}</span>
                 </div>
               ))}
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-border/50">
-              <span className="text-xs text-muted-foreground">{c.totalQueries} запр.</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-2">
+                <span>{c.totalQueries} запр.</span>
+                {goldenItems.length >= 3 && (
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                    title={GOLDEN_TOOLTIP}
+                  >
+                    <Star className="w-3 h-3 fill-current" />
+                    {goldenItems.length} золотых
+                  </span>
+                )}
+              </span>
               {items.length > 5 && (
                 <button onClick={() => toggle(c.id)} className="text-xs text-primary hover:underline">
                   {isOpen ? 'Свернуть' : 'Открыть кластер'}

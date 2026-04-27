@@ -1,5 +1,12 @@
 import * as XLSX from 'xlsx';
-import type { SemanticCorePayload } from './types';
+import type { SemanticCorePayload, SemanticKeyword } from './types';
+
+function isGolden(k: SemanticKeyword): boolean {
+  if (k.intent !== 'info') return false;
+  if ((k.wsFrequency ?? 0) < 1000) return false;
+  if (k.keywordDifficulty != null) return k.keywordDifficulty <= 40;
+  return k.score >= 60;
+}
 
 export function exportSemanticCoreXlsx(payload: SemanticCorePayload): void {
   const wb = XLSX.utils.book_new();
@@ -7,7 +14,7 @@ export function exportSemanticCoreXlsx(payload: SemanticCorePayload): void {
 
   // Лист «Запросы»
   const rows: any[][] = [[
-    'Запрос', 'Частота WS', 'Точная частота', 'Интент', 'Score', 'KD', 'Кластер', 'Включён',
+    'Запрос', 'Частота WS', 'Точная частота', 'Интент', 'Score', 'KD', 'Кластер', 'Золотой', 'Включён',
   ]];
   for (const k of payload.keywords) {
     rows.push([
@@ -18,11 +25,12 @@ export function exportSemanticCoreXlsx(payload: SemanticCorePayload): void {
       k.score,
       k.keywordDifficulty ?? '',
       clusterMap.get(k.cluster) || k.cluster,
+      isGolden(k) ? 'TRUE' : 'FALSE',
       k.included ? 'Да' : 'Нет',
     ]);
   }
   const ws1 = XLSX.utils.aoa_to_sheet(rows);
-  ws1['!cols'] = [{ wch: 42 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 6 }, { wch: 28 }, { wch: 10 }];
+  ws1['!cols'] = [{ wch: 42 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 6 }, { wch: 28 }, { wch: 9 }, { wch: 10 }];
   XLSX.utils.book_append_sheet(wb, ws1, 'Запросы');
 
   // Лист «Кластеры»
