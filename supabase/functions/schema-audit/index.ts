@@ -490,31 +490,8 @@ async function fetchRaw(url: string): Promise<string> {
   } catch { return ""; }
 }
 
-/* ─── Public CORS proxies (no auth) used as fallback when site blocks edge IPs ─── */
-async function fetchViaProxy(url: string): Promise<string> {
-  const proxies = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
-  ];
-  for (const p of proxies) {
-    try {
-      const r = await fetch(p, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
-        },
-      });
-      if (!r.ok) continue;
-      const txt = await r.text();
-      if (txt && txt.length > 500 && !isBotCheckPage(txt, "")) {
-        console.log("[schema-audit fetch] used proxy", p.split("?")[0], "len:", txt.length);
-        return txt;
-      }
-    } catch { /* try next */ }
-  }
-  return "";
-}
+/* CORS proxies removed: they injected their own HTML/CSS/email into extraction.
+   Fetching is now restricted to direct origin + Jina Reader (server-side, no CORS). */
 
 function urlVariants(url: string): string[] {
   const out = new Set<string>([url]);
@@ -545,10 +522,6 @@ async function fetchHtml(url: string): Promise<{ html: string; content: string; 
     let candidateHtml = raw;
     let candidateText = jinaText;
     if (!candidateHtml) candidateHtml = await fetchJina(v, "html");
-    if (!candidateHtml || candidateHtml.length < 500) {
-      const proxied = await fetchViaProxy(v);
-      if (proxied) candidateHtml = proxied;
-    }
     const blocked = isBotCheckPage(candidateHtml, candidateText);
     console.log("[schema-audit fetch]", { variant: v, htmlLen: candidateHtml.length, textLen: candidateText.length, blocked });
     if (!blocked && (candidateHtml || candidateText)) {
@@ -600,6 +573,60 @@ function detectPageType(url: string, content: string): string {
 }
 
 /* ─── Extract real page data via regex heuristics ─── */
+const BANNED_COMPANY_TOKENS = [
+  "corsproxy", "allorigins", "codetabs", "cloudflare", "ddos-guard", "killbot",
+  "google", "yandex", "nginx", "apache", "cdn", "proxy", "captcha", "akamai",
+];
+const BANNED_DESC_TOKENS = [
+  "corsproxy", "allorigins", "codetabs", "cdn", "proxy service", "free cors",
+  "bypass cors", "cloudflare ray", "ddos-guard", "is the world's leading",
+];
+
+function validatePhone(raw: string | null): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/[^\d+]/g, "");
+  // Russian: +7XXXXXXXXXX or 8XXXXXXXXXX (11 digits total)
+  if (!/^(\+7|8)\d{10}$/.test(digits)) return null;
+  return raw.trim();
+}
+
+function validateEmail(raw: string | null): string | null {
+  if (!raw) return null;
+  const e = raw.trim().toLowerCase();
+  if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(e)) return null;
+  // Reject CSS/JS/image asset paths
+  if (/\.(css|js|mjs|png|jpe?g|svg|webp|gif|woff2?|ico|map)(\?|$)/i.test(e)) return null;
+  // Reject hash-like prefixes (e.g. _@astro.fQOmH7rQ.css)
+  if (/^_/.test(e) || /[A-Z]{4,}/.test(raw)) return null;
+  return e;
+}
+
+function validateCompany(raw: string | null): string | null {
+  if (!raw) return null;
+  const s = raw.trim().replace(/\s+/g, " ");
+  if (s.length < 2 || s.length > 100) return null;
+  const lc = s.toLowerCase();
+  if (BANNED_COMPANY_TOKENS.some(t => lc.includes(t))) return null;
+  return s;
+}
+
+function validateDescription(raw: string | null): string | null {
+  if (!raw) return null;
+  const s = raw.trim().replace(/\s+/g, " ");
+  if (s.length < 50 || s.length > 500) return null;
+  const lc = s.toLowerCase();
+  if (BANNED_DESC_TOKENS.some(t => lc.includes(t))) return null;
+  return s;
+}
+
+/** Pull the homepage <h1> from existing HTML if present. */
+function extractH1(html: string): string | null {
+  const m = html.match(/<h1[^>]*>([\s\S]{1,200}?)<\/h1>/i);
+  if (!m) return null;
+  const txt = m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return txt.length >= 2 && txt.length <= 100 ? txt : null;
+}
+
 function extractPageData(html: string, content: string) {
   const text = (content || html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
 
@@ -607,25 +634,61 @@ function extractPageData(html: string, content: string) {
   const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   const addressMatch = text.match(/(?:г\.\s?[А-ЯЁ][а-яё\-]+|город\s+[А-ЯЁ][а-яё\-]+)[^.]{0,150}(?:ул\.|улица|пр\.|проспект|пер\.|шоссе|наб\.)[^.]{0,80}\d{1,4}/i);
   const priceMatch = text.match(/(?:от\s+)?(\d[\d\s]{0,9})\s?(₽|руб\.?|rub)/i);
+
   const ogSite = html.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i);
   const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const company = ogSite?.[1] || titleTag?.[1]?.split(/[|—\-]/)[0]?.trim() || null;
+  const titleClean = titleTag?.[1]?.split(/[|—\-–]/)[0]?.trim() || null;
+  const h1 = extractH1(html);
+  // Try to grab @type/name from any inline JSON-LD as Schema.org source
+  let schemaName: string | null = null;
+  const ldMatch = html.match(/"name"\s*:\s*"([^"]{2,80})"/);
+  if (ldMatch) schemaName = ldMatch[1];
+
+  // Confidence-ordered candidates: og:site_name → schema name → <title> → <h1>
+  const companyCandidates: Array<["high" | "low", string | null]> = [
+    ["high", ogSite?.[1] || null],
+    ["high", schemaName],
+    ["high", titleClean],
+    ["low", h1],
+  ];
+  let companyName: string | null = null;
+  let companyConfidence: "high" | "low" | "none" = "none";
+  for (const [conf, val] of companyCandidates) {
+    const v = validateCompany(val);
+    if (v) { companyName = v; companyConfidence = conf; break; }
+  }
+
   const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
                     html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+  const description = validateDescription(descMatch?.[1] || null);
+
   const logoMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
   const hoursMatch = text.match(/(?:режим работы|время работы|часы работы)[:\s]*([^.]{5,80})/i);
   const ratingMatch = text.match(/(?:рейтинг|оценка)[:\s]*(\d[.,]?\d?)/i);
 
+  const phone = validatePhone(phoneMatch?.[0] || null);
+  const email = validateEmail(emailMatch?.[0] || null);
+
+  const confidence = {
+    companyName: companyConfidence,
+    phone: phone ? "low" : "none",      // phone always from text → low
+    email: email ? "low" : "none",
+    description: description ? "high" : "none", // from meta tag → high
+    address: addressMatch ? "low" : "none",
+    logo: logoMatch ? "high" : "none",
+  };
+
   return {
-    companyName: company,
-    phone: phoneMatch?.[0] || null,
-    email: emailMatch?.[0] || null,
+    companyName,
+    phone,
+    email,
     address: addressMatch?.[0]?.trim() || null,
     priceRange: priceMatch ? `${priceMatch[1].replace(/\s/g, "")} ${priceMatch[2]}` : null,
-    description: descMatch?.[1] || null,
+    description,
     logo: logoMatch?.[1] || null,
     workingHours: hoursMatch?.[1]?.trim() || null,
     rating: ratingMatch?.[1] || null,
+    confidence,
   };
 }
 
