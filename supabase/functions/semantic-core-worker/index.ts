@@ -699,6 +699,7 @@ function normalizeName(s: string): string {
 
 // ============== MAIN PIPELINE ==============
 async function runPipeline(jobId: string) {
+  dfsDebugReplay = [];
   const sbc = sb();
   const { data: job } = await sbc.from("semantic_jobs").select("*").eq("id", jobId).maybeSingle();
   if (!job) throw new Error("Job not found");
@@ -774,6 +775,7 @@ async function runPipeline(jobId: string) {
       return r;
     }),
   ));
+  for (const line of dfsDebugReplay) console.log(line);
 
   const allFromSources = new Set<string>();
   for (const s of settled) {
@@ -838,6 +840,7 @@ async function runPipeline(jobId: string) {
   const dataSources: DataSource[] = new Array(rawKeywords.length);
   let realCount = 0;
   let mockCount = 0;
+  const mockFallbackKeywords: string[] = [];
   const needFreq: { idx: number; keyword: string }[] = [];
   const freqs: { ws: number; exact: number }[] = new Array(rawKeywords.length);
   for (let i = 0; i < rawKeywords.length; i++) {
@@ -851,8 +854,15 @@ async function runPipeline(jobId: string) {
       needFreq.push({ idx: i, keyword: kw });
       dataSources[i] = "mock";
       mockCount++;
-      console.log('[Mock fallback]', 'keyword:', kw, 'reason: DFS returned 0 results');
+      mockFallbackKeywords.push(kw);
     }
+  }
+  if (mockFallbackKeywords.length) {
+    console.log('[Mock fallback]', JSON.stringify({
+      reason: 'DFS returned 0 results',
+      count: mockFallbackKeywords.length,
+      keywords: mockFallbackKeywords,
+    }));
   }
   console.log(`[Volumes] real: ${realCount}, mock: ${mockCount}, dfsVolumesMapSize: ${dfsVolumes.size}`);
   if (needFreq.length) {
