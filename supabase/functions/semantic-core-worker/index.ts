@@ -1122,10 +1122,11 @@ async function runPipeline(jobId: string) {
     console.warn("[DataForSEO] Credentials missing or invalid — falling back to AI-only expansion");
   }
 
-  // DataForSEO does NOT support Russia/Belarus. For these regions we use
-  // Lovable AI for suggestions/competitors and Wordstat for real frequencies.
+  // NOTE: Wordstat API is unreachable from Supabase Edge runtime (DNS blocked).
+  // For RU/BY we fall back to DataForSEO suggestions without location_code
+  // (returns Ukrainian-market data but with valid KD), plus AI expansion.
   const isRu = isRussianRegion(region);
-  console.log(`[Region routing] region="${region}" isRussian=${isRu} → ${isRu ? "AI+Wordstat" : "DataForSEO"}`);
+  console.log(`[Region routing] region="${region}" isRussian=${isRu} → DataForSEO (Wordstat disabled)`);
 
   // Per-source storage with frequency map (only DFS sources have real volumes)
   const dfsVolumes = new Map<string, number>(); // keyword -> max DFS search_volume
@@ -1137,47 +1138,31 @@ async function runPipeline(jobId: string) {
   type SourcePromiseResult = { source: string; keywords: string[]; withVolumes?: DfsKwData[] };
   const sourcePromises: Promise<SourcePromiseResult>[] = [];
 
-  if (useAutocomplete && dfsAvailable && !isRu) {
+  if (useAutocomplete && dfsAvailable) {
     sourcePromises.push(
       dfsAutocompleteSource(topic, seeds, region, cost)
         .then((arr) => ({ source: "autocomplete", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
-  if (useSuggestions && dfsAvailable && !isRu) {
+  if (useSuggestions && dfsAvailable) {
     sourcePromises.push(
       dfsKeywordSuggestions(topic, seeds, region, cost)
         .then((arr) => ({ source: "suggestions", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
-  if (useCompetitors && dfsAvailable && !isRu) {
+  if (useCompetitors && dfsAvailable) {
     sourcePromises.push(
       dfsKeywordsForSite(topic, region, serperKey, cost)
         .then((arr) => ({ source: "competitors", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
 
-  // RU/BY routing: replace DFS-blocked sources with AI expansion.
-  // We split AI output across the "suggestions" and "competitors" buckets
-  // so the UI breakdown stays meaningful.
+  // RU/BY long-tail boost via AI (Wordstat is disabled — DNS blocked from edge).
   if (isRu && (useSuggestions || useCompetitors)) {
-    // Primary: Yandex Wordstat (real RU data with frequencies, no KD).
-    sourcePromises.push(
-      wordstatSourceForRu(topic, seeds, region)
-        .then((arr) => ({
-          source: useSuggestions ? "suggestions" : "competitors",
-          keywords: arr.map((x) => x.keyword),
-          withVolumes: arr,
-        }))
-        .catch((e) => {
-          console.warn("[wordstat-source] failed", e);
-          return { source: "suggestions", keywords: [] };
-        }),
-    );
-    // Secondary: AI expansion to boost long-tail coverage.
     sourcePromises.push(
       aiSuggestionsForRu(topic, seeds, region)
         .then((kws) => ({ source: "ai", keywords: kws }))
-        .catch((e) => { console.warn("[ai-suggestions-ru] failed", e); return { source: "suggestions", keywords: [] }; }),
+        .catch((e) => { console.warn("[ai-suggestions-ru] failed", e); return { source: "ai", keywords: [] }; }),
     );
   }
 
