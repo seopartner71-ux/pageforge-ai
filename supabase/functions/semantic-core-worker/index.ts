@@ -599,7 +599,6 @@ async function dfsKeywordsForSite(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             target,
-            location_code: 2643,
             language_code: "ru",
             limit: 500,
             filters: [["keyword_info.search_volume", ">", 10]],
@@ -757,13 +756,16 @@ async function topvisorVolumes(
         },
         body: JSON.stringify({ keywords: batch, region_index: regionId }),
       });
-      console.log(`[Topvisor] regionId=${regionId} keywords=${batch.length} status=${resp.status}`);
       if (!resp.ok) {
         const t = await resp.text();
         console.error(`[Topvisor] FAIL batch=${b} status=${resp.status} body=${t}`);
         for (let i = 0; i < batch.length; i++) out[start + i] = null;
       } else {
         const data = await resp.json();
+        console.log(`[Topvisor] regionId=${regionId} keywords=${batch.length} status=${resp.status}`);
+        if (b === 0) {
+          console.log('[Topvisor RAW response]', JSON.stringify(data).slice(0, 2000));
+        }
         const result = Array.isArray(data?.result) ? data.result : (Array.isArray(data) ? data : []);
         // Build a lookup by keyword to be robust to ordering.
         const byKw = new Map<string, { ws: number; exact: number }>();
@@ -1284,6 +1286,9 @@ async function runPipeline(jobId: string) {
   const maxFreq = Math.max(1, ...freqs.map((f) => f.ws));
   const kws: Kw[] = rawKeywords.map((kw, i) => {
     const intent = classifyIntent(kw);
+    // For Russian regions DataForSEO often returns KD=0 (no real data) — treat 0 as null.
+    let kd: number | null = dfsKd.has(kw) ? (dfsKd.get(kw) as number) : null;
+    if (isRu && kd === 0) kd = null;
     return {
       keyword: kw,
       ws_frequency: freqs[i].ws,
@@ -1294,7 +1299,7 @@ async function runPipeline(jobId: string) {
       cluster_name: null,
       serp_urls: [],
       data_source: dataSources[i],
-      keyword_difficulty: dfsKd.has(kw) ? (dfsKd.get(kw) as number) : null,
+      keyword_difficulty: kd,
     };
   });
   await updateJob(jobId, { progress: 55 });
