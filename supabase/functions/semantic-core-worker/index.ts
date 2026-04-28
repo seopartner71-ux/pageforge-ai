@@ -1284,7 +1284,6 @@ async function runPipeline(jobId: string) {
   // STEP C + D: intent + scoring
   await updateJob(jobId, { progress: 52 });
   const maxFreq = Math.max(1, ...freqs.map((f) => f.ws));
-  const isRu = isRussianRegion(region);
   const kws: Kw[] = rawKeywords.map((kw, i) => {
     const intent = classifyIntent(kw);
     // For Russian regions DataForSEO often returns KD=0 (no real data) — treat 0 as null.
