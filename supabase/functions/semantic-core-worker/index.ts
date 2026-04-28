@@ -814,13 +814,17 @@ async function fetchFrequencies(
   region: string,
   jobId: string,
 ): Promise<{ ws: number; exact: number }[]> {
-  const wordstatKey = await getWordstatKey();
+  // Wordstat API is unreachable from Supabase edge runtime (DNS blocked
+  // for api.wordstat.yandex.ru). Always use mock frequencies for now;
+  // real DFS volumes are merged separately in the pipeline when available.
   const out: { ws: number; exact: number }[] = new Array(keywords.length);
-  if (!wordstatKey) {
-    await sleep(1000); // simulate
-    for (let i = 0; i < keywords.length; i++) out[i] = mockFreq(keywords[i]);
-    return out;
-  }
+  await sleep(500);
+  for (let i = 0; i < keywords.length; i++) out[i] = mockFreq(keywords[i]);
+  await updateJob(jobId, { progress: 50 });
+  return out;
+  // eslint-disable-next-line no-unreachable
+  /* legacy Wordstat path (disabled):
+  const wordstatKey = await getWordstatKey();
   // Real Wordstat — batched (best-effort; falls back to mock per-batch on error)
   const regionId = wordstatRegionId(region);
   const batchSize = 50;
@@ -856,6 +860,7 @@ async function fetchFrequencies(
     if (b < totalBatches - 1) await sleep(500);
   }
   return out;
+  */
 }
 
 // ============== STEP C: INTENT ==============
