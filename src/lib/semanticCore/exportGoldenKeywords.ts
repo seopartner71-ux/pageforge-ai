@@ -1,13 +1,21 @@
 import * as XLSX from 'xlsx';
 import type { SemanticCorePayload, SemanticKeyword } from './types';
 
+const GOLDEN_STOP_BRANDS = [
+  'авито', 'яндекс', 'озон', 'ozon', 'wildberries', 'вайлдберриз',
+  'aliexpress', 'алиэкспресс', 'сбер', 'вк', 'mail',
+];
 function isGolden(k: SemanticKeyword): boolean {
   if (k.intent !== 'info' && k.intent !== 'commercial') return false;
-  if ((k.wsFrequency ?? 0) < 1000) return false;
-  if (k.keywordDifficulty == null) {
-    return (k.score ?? 0) > 70;
-  }
-  return k.keywordDifficulty <= 40;
+  if ((k.score ?? 0) <= 65) return false;
+  const ws = k.wsFrequency ?? 0;
+  if (ws < 1000 || ws > 80000) return false;
+  if (k.intent === 'commercial' && ws < 3000) return false;
+  const kw = (k.keyword || '').trim().toLowerCase();
+  const wordCount = kw.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 2) return false;
+  if (GOLDEN_STOP_BRANDS.some(b => kw.includes(b))) return false;
+  return true;
 }
 
 const INTENT_RU: Record<string, string> = {
@@ -22,9 +30,9 @@ function safeFile(s: string): string {
 }
 
 function priorityLabel(score: number): string {
-  if (score > 85) return 'Высокий';
-  if (score > 70) return 'Средний';
-  return 'Низкий';
+  if (score >= 85) return 'Отличный потенциал';
+  if (score >= 75) return 'Высокий потенциал';
+  return 'Средний потенциал';
 }
 
 export function exportGoldenKeywordsXlsx(payload: SemanticCorePayload): number {

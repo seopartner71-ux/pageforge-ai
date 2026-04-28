@@ -157,17 +157,34 @@ function FreqDot({ source }: { source?: 'mock' | 'dataforseo' | 'topvisor' }) {
   );
 }
 
-// "Золотой" запрос:
-// - С KD: info или commercial интент, частота >= 1000, KD <= 40.
-// - Без KD (Яндекс Вордстат для РФ): info или commercial интент,
-//   частота >= 1000, score > 70.
+// "Золотой" запрос — реалистичные критерии для быстрого SEO-роста:
+// 1. Частота 1000-80000 (выше — монстры в топе, ниже — нет смысла)
+// 2. Score > 65
+// 3. Интент info или commercial
+// 4. Минимум 2 слова в запросе
+// 5. Не содержит брендов-агрегаторов
+// 6. Для commercial порог частоты выше (3000), т.к. труднее продвигать
+const GOLDEN_STOP_BRANDS = [
+  'авито', 'яндекс', 'озон', 'ozon', 'wildberries', 'вайлдберриз',
+  'aliexpress', 'алиэкспресс', 'сбер', 'вк', 'mail',
+];
 function isGoldenKeyword(k: SemanticKeyword): boolean {
   if (k.intent !== 'info' && k.intent !== 'commercial') return false;
-  if ((k.wsFrequency ?? 0) < 1000) return false;
-  if (k.keywordDifficulty == null) {
-    return (k.score ?? 0) > 70;
-  }
-  return k.keywordDifficulty <= 40;
+  if ((k.score ?? 0) <= 65) return false;
+  const ws = k.wsFrequency ?? 0;
+  if (ws < 1000 || ws > 80000) return false;
+  if (k.intent === 'commercial' && ws < 3000) return false;
+  const kw = (k.keyword || '').trim().toLowerCase();
+  const wordCount = kw.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 2) return false;
+  if (GOLDEN_STOP_BRANDS.some(b => kw.includes(b))) return false;
+  return true;
+}
+
+function goldenPotentialLabel(score: number): string {
+  if (score >= 85) return 'Отличный потенциал';
+  if (score >= 75) return 'Высокий потенциал';
+  return 'Средний потенциал';
 }
 
 // Грамматически правильное склонение для «идеальный запрос»
@@ -181,7 +198,7 @@ function idealLabel(n: number): string {
   return `Найдено ${n} идеальных запросов`;
 }
 const GOLDEN_TOOLTIP =
-  'Золотой запрос: информационный, частота 1000+, KD ≤ 40. Идеально для статей и быстрого SEO-роста.';
+  'Золотой запрос: info/commercial, частота 1000-80000, score > 65, ≥2 слов, без брендов-агрегаторов. Идеально для быстрого SEO-роста.';
 
 export default function SemanticCorePage() {
   const [topic, setTopic] = useState('');
@@ -1015,14 +1032,14 @@ export default function SemanticCorePage() {
                         <tr key={k.keyword + i} className="border-t border-border/50 hover:bg-muted/20">
                           <td className="px-3 py-2">
                             {isGoldenKeyword(k) && (
-                              <span title={GOLDEN_TOOLTIP} className="inline-flex align-middle mr-1.5">
+                              <span title={`${goldenPotentialLabel(k.score)} (score ${k.score}). ${GOLDEN_TOOLTIP}`} className="inline-flex align-middle mr-1.5">
                                 <Star
                                   className="w-3.5 h-3.5 fill-amber-400 text-amber-400"
-                                  aria-label="Золотой запрос"
+                                  aria-label={`Золотой запрос — ${goldenPotentialLabel(k.score)}`}
                                 />
                               </span>
                             )}
-                            <span title={isGoldenKeyword(k) ? GOLDEN_TOOLTIP : undefined}>{k.keyword}</span>
+                            <span title={isGoldenKeyword(k) ? `${goldenPotentialLabel(k.score)} — ${GOLDEN_TOOLTIP}` : undefined}>{k.keyword}</span>
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                             <FreqDot source={k.dataSource} />
@@ -1121,7 +1138,9 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
                 <div key={k.keyword} className="flex items-center justify-between text-xs gap-2">
                   <span className="truncate flex items-center gap-1" title={k.keyword}>
                     {isGoldenKeyword(k) && (
-                      <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                      <span title={goldenPotentialLabel(k.score)} className="inline-flex shrink-0">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                      </span>
                     )}
                     <span className="truncate">{k.keyword}</span>
                   </span>
