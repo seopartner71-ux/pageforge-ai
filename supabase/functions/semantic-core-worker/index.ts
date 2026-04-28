@@ -809,58 +809,95 @@ function mockFreq(keyword: string): { ws: number; exact: number } {
   return { ws, exact };
 }
 
+// ============== TOPVISOR API ==============
+// Replaces Wordstat for Russian regions (Wordstat DNS is blocked from edge runtime).
+// Docs: https://topvisor.com/api/services/keywords_base/wordstat/
+const TOPVISOR_BASE = "https://api.topvisor.com/v2/json/get/keywords_base/wordstat";
+const TOPVISOR_KEY_ENV = Deno.env.get("TOPVISOR_API_KEY") ?? "";
+const TOPVISOR_USER_ID_ENV = Deno.env.get("TOPVISOR_USER_ID") ?? "";
+
+// Topvisor region_index map (Yandex region ids).
+const TOPVISOR_REGION_MAP: Record<string, number> = {
+  "Москва": 213,
+  "Санкт-Петербург": 2,
+  "Россия": 225,
+};
+function topvisorRegionId(region: string): number {
+  return TOPVISOR_REGION_MAP[region] ?? 225;
+}
+
+async function topvisorVolumes(
+  keywords: string[],
+  regionId: number,
+): Promise<{ ws: number; exact: number }[]> {
+  const out: { ws: number; exact: number }[] = new Array(keywords.length);
+  const token = TOPVISOR_KEY_ENV;
+  const userId = TOPVISOR_USER_ID_ENV;
+  if (!token || !userId) {
+    console.warn(`[Topvisor] missing TOPVISOR_API_KEY or TOPVISOR_USER_ID — falling back to mock`);
+    for (let i = 0; i < keywords.length; i++) out[i] = mockFreq(keywords[i]);
+    return out;
+  }
+  const batchSize = 100;
+  const totalBatches = Math.ceil(keywords.length / batchSize);
+  let realCount = 0;
+  for (let b = 0; b < totalBatches; b++) {
+    const start = b * batchSize;
+    const batch = keywords.slice(start, start + batchSize);
+    try {
+      const resp = await fetch(TOPVISOR_BASE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Id": userId,
+          "Authorization": `bearer ${token}`,
+        },
+        body: JSON.stringify({ keywords: batch, region_index: regionId }),
+      });
+      console.log(`[Topvisor] regionId=${regionId} keywords=${batch.length} status=${resp.status}`);
+      if (!resp.ok) {
+        const t = await resp.text();
+        console.error(`[Topvisor] FAIL batch=${b} status=${resp.status} body=${t}`);
+        for (let i = 0; i < batch.length; i++) out[start + i] = mockFreq(batch[i]);
+      } else {
+        const data = await resp.json();
+        const result = Array.isArray(data?.result) ? data.result : (Array.isArray(data) ? data : []);
+        for (let i = 0; i < batch.length; i++) {
+          const it = result[i] || {};
+          const ws = Number(it.shows ?? it.ws ?? 0);
+          const exact = Number(it.exact ?? Math.floor(ws * 0.3));
+          if (ws > 0) realCount++;
+          out[start + i] = { ws: ws || mockFreq(batch[i]).ws, exact: exact || 0 };
+        }
+      }
+    } catch (e) {
+      console.warn(`[Topvisor] batch=${b} error:`, (e as Error).message);
+      for (let i = 0; i < batch.length; i++) out[start + i] = mockFreq(batch[i]);
+    }
+    if (b < totalBatches - 1) await sleep(300);
+  }
+  console.log(`[Volumes] real: ${realCount} / ${keywords.length}`);
+  return out;
+}
+
 async function fetchFrequencies(
   keywords: string[],
   region: string,
   jobId: string,
 ): Promise<{ ws: number; exact: number }[]> {
-  // Wordstat API is unreachable from Supabase edge runtime (DNS blocked
-  // for api.wordstat.yandex.ru). Always use mock frequencies for now;
-  // real DFS volumes are merged separately in the pipeline when available.
+  // For Russian regions, enrich via Topvisor (Wordstat DNS is blocked from edge runtime).
+  // For non-Russian regions, mock frequencies (DFS volumes merged separately upstream).
+  if (isRussianRegion(region)) {
+    const regionId = topvisorRegionId(region);
+    const out = await topvisorVolumes(keywords, regionId);
+    await updateJob(jobId, { progress: 50 });
+    return out;
+  }
   const out: { ws: number; exact: number }[] = new Array(keywords.length);
-  await sleep(500);
+  await sleep(300);
   for (let i = 0; i < keywords.length; i++) out[i] = mockFreq(keywords[i]);
   await updateJob(jobId, { progress: 50 });
   return out;
-  // eslint-disable-next-line no-unreachable
-  /* legacy Wordstat path (disabled):
-  const wordstatKey = await getWordstatKey();
-  // Real Wordstat — batched (best-effort; falls back to mock per-batch on error)
-  const regionId = wordstatRegionId(region);
-  const batchSize = 50;
-  const totalBatches = Math.ceil(keywords.length / batchSize);
-  for (let b = 0; b < totalBatches; b++) {
-    const start = b * batchSize;
-    const batch = keywords.slice(start, start + batchSize);
-    try {
-      const resp = await fetch(`${WORDSTAT_BASE}/keywords/count`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${wordstatKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords: batch, geo_id: [regionId] }),
-      });
-      if (!resp.ok) {
-        const t = await resp.text();
-        console.error(`[fetchFrequencies] wordstat FAIL url=${WORDSTAT_BASE}/keywords/count status=${resp.status} body=${t}`);
-        throw new Error(`wordstat ${resp.status}: ${t.slice(0, 300)}`);
-      }
-      const data = await resp.json();
-      const items = Array.isArray(data?.items) ? data.items : [];
-      for (let i = 0; i < batch.length; i++) {
-        const it = items[i] || {};
-        const ws = Number(it.shows ?? it.ws_frequency ?? 0);
-        const exact = Number(it.exact ?? it.exact_frequency ?? Math.floor(ws * 0.3));
-        out[start + i] = { ws: ws || mockFreq(batch[i]).ws, exact: exact || 0 };
-      }
-    } catch (e) {
-      console.warn(`[worker] wordstat batch ${b} failed, using mock`, e);
-      for (let i = 0; i < batch.length; i++) out[start + i] = mockFreq(batch[i]);
-    }
-    const progress = 25 + Math.floor(((b + 1) / totalBatches) * 25);
-    await updateJob(jobId, { progress });
-    if (b < totalBatches - 1) await sleep(500);
-  }
-  return out;
-  */
 }
 
 // ============== STEP C: INTENT ==============
