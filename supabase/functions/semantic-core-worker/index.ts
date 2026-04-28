@@ -821,6 +821,59 @@ const TOPVISOR_REGION_MAP: Record<string, number> = {
   "Москва": 213,
   "Санкт-Петербург": 2,
   "Россия": 225,
+  "Новосибирск": 65,
+  "Екатеринбург": 54,
+  "Казань": 43,
+  "Нижний Новгород": 47,
+  "Челябинск": 56,
+  "Самара": 51,
+  "Уфа": 172,
+  "Красноярск": 62,
+  "Ростов-на-Дону": 39,
+  "Пермь": 50,
+  "Воронеж": 193,
+  "Краснодар": 35,
+  "Волгоград": 38,
+  "Саратов": 194,
+  "Тюмень": 55,
+  "Тольятти": 240,
+  "Ижевск": 44,
+  "Барнаул": 197,
+  "Ульяновск": 195,
+  "Иркутск": 63,
+  "Хабаровск": 76,
+  "Омск": 66,
+  "Ярославль": 16,
+  "Владивосток": 75,
+  "Махачкала": 28,
+  "Томск": 67,
+  "Оренбург": 48,
+  "Кемерово": 64,
+  "Новокузнецк": 237,
+  "Рязань": 11,
+  "Астрахань": 37,
+  "Набережные Челны": 45,
+  "Пенза": 49,
+  "Липецк": 9,
+  "Тула": 15,
+  "Киров": 46,
+  "Чебоксары": 45,
+  "Калининград": 22,
+  "Брянск": 191,
+  "Курск": 8,
+  "Магнитогорск": 216,
+  "Иваново": 5,
+  "Улан-Удэ": 198,
+  "Сочи": 239,
+  "Ставрополь": 36,
+  "Белгород": 4,
+  "Нижний Тагил": 232,
+  "Владимир": 192,
+  "Архангельск": 20,
+  "Чита": 74,
+  "Смоленск": 12,
+  "Калуга": 6,
+  "Мурманск": 23,
 };
 function topvisorRegionId(region: string): number {
   return TOPVISOR_REGION_MAP[region] ?? 225;
@@ -829,18 +882,21 @@ function topvisorRegionId(region: string): number {
 async function topvisorVolumes(
   keywords: string[],
   regionId: number,
-): Promise<{ ws: number; exact: number }[]> {
-  const out: { ws: number; exact: number }[] = new Array(keywords.length);
+): Promise<({ ws: number; exact: number } | null)[]> {
+  // Returns null when Topvisor gave no answer for that keyword (network/HTTP error).
+  // Returns { ws: 0, exact: 0 } when Topvisor explicitly reports zero — that is a REAL zero.
+  const out: ({ ws: number; exact: number } | null)[] = new Array(keywords.length);
   const token = TOPVISOR_KEY_ENV;
   const userId = TOPVISOR_USER_ID_ENV;
   if (!token || !userId) {
-    console.warn(`[Topvisor] missing TOPVISOR_API_KEY or TOPVISOR_USER_ID — falling back to mock`);
-    for (let i = 0; i < keywords.length; i++) out[i] = mockFreq(keywords[i]);
+    console.warn(`[Topvisor] missing TOPVISOR_API_KEY or TOPVISOR_USER_ID`);
+    for (let i = 0; i < keywords.length; i++) out[i] = null;
     return out;
   }
   const batchSize = 100;
   const totalBatches = Math.ceil(keywords.length / batchSize);
   let realCount = 0;
+  let zeroCount = 0;
   for (let b = 0; b < totalBatches; b++) {
     const start = b * batchSize;
     const batch = keywords.slice(start, start + batchSize);
@@ -858,25 +914,40 @@ async function topvisorVolumes(
       if (!resp.ok) {
         const t = await resp.text();
         console.error(`[Topvisor] FAIL batch=${b} status=${resp.status} body=${t}`);
-        for (let i = 0; i < batch.length; i++) out[start + i] = mockFreq(batch[i]);
+        for (let i = 0; i < batch.length; i++) out[start + i] = null;
       } else {
         const data = await resp.json();
         const result = Array.isArray(data?.result) ? data.result : (Array.isArray(data) ? data : []);
+        // Build a lookup by keyword to be robust to ordering.
+        const byKw = new Map<string, { ws: number; exact: number }>();
+        for (const it of result) {
+          if (!it) continue;
+          const k = String(it.keyword ?? it.query ?? "").trim().toLowerCase();
+          if (!k) continue;
+          const ws = Number(it.shows ?? it.ws ?? 0) || 0;
+          const exact = Number(it.exact ?? 0) || 0;
+          byKw.set(k, { ws, exact });
+        }
         for (let i = 0; i < batch.length; i++) {
-          const it = result[i] || {};
-          const ws = Number(it.shows ?? it.ws ?? 0);
-          const exact = Number(it.exact ?? Math.floor(ws * 0.3));
-          if (ws > 0) realCount++;
-          out[start + i] = { ws: ws || mockFreq(batch[i]).ws, exact: exact || 0 };
+          const key = batch[i].toLowerCase();
+          const hit = byKw.get(key) ?? null;
+          if (hit) {
+            if (hit.ws > 0) realCount++;
+            else zeroCount++;
+            out[start + i] = hit;
+          } else {
+            // Topvisor didn't return this keyword at all — unknown, not a real zero.
+            out[start + i] = null;
+          }
         }
       }
     } catch (e) {
       console.warn(`[Topvisor] batch=${b} error:`, (e as Error).message);
-      for (let i = 0; i < batch.length; i++) out[start + i] = mockFreq(batch[i]);
+      for (let i = 0; i < batch.length; i++) out[start + i] = null;
     }
     if (b < totalBatches - 1) await sleep(300);
   }
-  console.log(`[Volumes] real: ${realCount} / ${keywords.length}`);
+  console.log(`[Topvisor] real>0: ${realCount}, real=0: ${zeroCount}, total: ${keywords.length}`);
   return out;
 }
 
@@ -885,12 +956,11 @@ async function fetchFrequencies(
   region: string,
   jobId: string,
 ): Promise<{ ws: number; exact: number }[]> {
-  // Topvisor enrichment for RU regions runs upstream (covers ALL keywords),
-  // so by the time we get here only keywords with no real volume remain.
-  // Use mock for any leftover.
+  // Topvisor enrichment for RU regions and DFS volumes for non-RU run upstream.
+  // Anything reaching here had NO real data — return real zeros, not fake mock numbers.
+  // (Mock numbers like 21134/22218 are misleading and were causing wrong analysis.)
   const out: { ws: number; exact: number }[] = new Array(keywords.length);
-  await sleep(300);
-  for (let i = 0; i < keywords.length; i++) out[i] = mockFreq(keywords[i]);
+  for (let i = 0; i < keywords.length; i++) out[i] = { ws: 0, exact: 0 };
   await updateJob(jobId, { progress: 50 });
   return out;
 }
@@ -1300,24 +1370,40 @@ async function runPipeline(jobId: string) {
 
   // For Russian regions: enrich ALL keywords via Topvisor (real Yandex Russian frequencies).
   // Topvisor data overrides DFS volumes (which are Ukrainian/non-RU and misleading for RU SEO).
+  // We store BOTH zero and non-zero answers — a real zero from Topvisor is more truthful
+  // than a fake mock number or a misleading Ukrainian DFS volume.
   const topvisorMap = new Map<string, { ws: number; exact: number }>();
   if (isRussianRegion(region)) {
     const regionId = topvisorRegionId(region);
     console.log(`[Topvisor enrich] region="${region}" regionId=${regionId} keywords=${rawKeywords.length}`);
     const tvVols = await topvisorVolumes(rawKeywords, regionId);
+    let nonZero = 0;
+    let zero = 0;
     for (let i = 0; i < rawKeywords.length; i++) {
       const v = tvVols[i];
-      if (v && v.ws > 0) topvisorMap.set(rawKeywords[i], v);
+      if (v) {
+        topvisorMap.set(rawKeywords[i], v);
+        if (v.ws > 0) nonZero++;
+        else zero++;
+      }
     }
-    console.log(`[Topvisor enrich] real frequencies: ${topvisorMap.size} / ${rawKeywords.length}`);
+    console.log(`[Topvisor enrich] answered: ${topvisorMap.size}/${rawKeywords.length} (non-zero=${nonZero}, zero=${zero})`);
+    // Sample log for QA
+    const sample = rawKeywords.slice(0, 5).map((k) => {
+      const v = topvisorMap.get(k);
+      return `"${k}"=${v ? v.ws : "?"}`;
+    }).join(", ");
+    console.log(`[Topvisor sample] ${sample}`);
   }
 
   for (let i = 0; i < rawKeywords.length; i++) {
     const kw = rawKeywords[i];
     const tv = topvisorMap.get(kw);
     const dfsVol = dfsVolumes.get(kw);
-    if (tv) {
-      freqs[i] = { ws: tv.ws, exact: tv.exact };
+    if (tv !== undefined) {
+      // Topvisor answered (even with 0) — trust it for RU regions.
+      const exact = tv.exact > 0 ? tv.exact : Math.floor(tv.ws * 0.3);
+      freqs[i] = { ws: tv.ws, exact };
       dataSources[i] = "topvisor";
       realCount++;
     } else if (dfsVol && dfsVol > 0) {
