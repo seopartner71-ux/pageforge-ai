@@ -157,17 +157,34 @@ function FreqDot({ source }: { source?: 'mock' | 'dataforseo' | 'topvisor' }) {
   );
 }
 
-// "Золотой" запрос:
-// - С KD: info или commercial интент, частота >= 1000, KD <= 40.
-// - Без KD (Яндекс Вордстат для РФ): info или commercial интент,
-//   частота >= 1000, score > 70.
+// "Золотой" запрос — реалистичные критерии для быстрого SEO-роста:
+// 1. Частота 1000-80000 (выше — монстры в топе, ниже — нет смысла)
+// 2. Score > 65
+// 3. Интент info или commercial
+// 4. Минимум 2 слова в запросе
+// 5. Не содержит брендов-агрегаторов
+// 6. Для commercial порог частоты выше (3000), т.к. труднее продвигать
+const GOLDEN_STOP_BRANDS = [
+  'авито', 'яндекс', 'озон', 'ozon', 'wildberries', 'вайлдберриз',
+  'aliexpress', 'алиэкспресс', 'сбер', 'вк', 'mail',
+];
 function isGoldenKeyword(k: SemanticKeyword): boolean {
   if (k.intent !== 'info' && k.intent !== 'commercial') return false;
-  if ((k.wsFrequency ?? 0) < 1000) return false;
-  if (k.keywordDifficulty == null) {
-    return (k.score ?? 0) > 70;
-  }
-  return k.keywordDifficulty <= 40;
+  if ((k.score ?? 0) <= 65) return false;
+  const ws = k.wsFrequency ?? 0;
+  if (ws < 1000 || ws > 80000) return false;
+  if (k.intent === 'commercial' && ws < 3000) return false;
+  const kw = (k.keyword || '').trim().toLowerCase();
+  const wordCount = kw.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 2) return false;
+  if (GOLDEN_STOP_BRANDS.some(b => kw.includes(b))) return false;
+  return true;
+}
+
+function goldenPotentialLabel(score: number): string {
+  if (score >= 85) return 'Отличный потенциал';
+  if (score >= 75) return 'Высокий потенциал';
+  return 'Средний потенциал';
 }
 
 // Грамматически правильное склонение для «идеальный запрос»
@@ -181,7 +198,7 @@ function idealLabel(n: number): string {
   return `Найдено ${n} идеальных запросов`;
 }
 const GOLDEN_TOOLTIP =
-  'Золотой запрос: информационный, частота 1000+, KD ≤ 40. Идеально для статей и быстрого SEO-роста.';
+  'Золотой запрос: info/commercial, частота 1000-80000, score > 65, ≥2 слов, без брендов-агрегаторов. Идеально для быстрого SEO-роста.';
 
 export default function SemanticCorePage() {
   const [topic, setTopic] = useState('');
