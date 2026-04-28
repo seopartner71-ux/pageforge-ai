@@ -264,7 +264,6 @@ async function dfsAutocompleteSource(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             keywords: chunk,
-            location_code: 2643,
             language_code: "ru",
           }]),
         },
