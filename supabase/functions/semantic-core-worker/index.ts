@@ -426,7 +426,6 @@ async function dfsKeywordsForSite(
       headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
       body: JSON.stringify({
         q: topic, gl: "ru", hl: "ru", num: 10,
-        location: region === "Москва" ? "Moscow,Russia" : "Russia",
       }),
     });
     if (resp.ok) {
