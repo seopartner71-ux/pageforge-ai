@@ -474,6 +474,52 @@ export default function SerpHistoryPage() {
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-card border border-border inline-block" /> Без изменений</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-secondary inline-block" /> Агрегатор / МП</span>
             </div>
+
+            {/* CURRENT TOP — always show details for today */}
+            {data.current && data.current.length > 0 && (
+              <Card className="overflow-hidden">
+                <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                  <div className="font-semibold">Текущий ТОП — {new Date().toLocaleDateString('ru-RU')}</div>
+                  <div className="text-xs text-muted-foreground">{data.engine === 'yandex' ? 'Яндекс' : 'Google'} · {data.region}</div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/50 text-left">
+                        <th className="px-3 py-2 w-14">Поз.</th>
+                        <th className="px-3 py-2">Домен</th>
+                        <th className="px-3 py-2">Заголовок</th>
+                        <th className="px-3 py-2">URL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.current.map((it) => (
+                        <tr key={it.position} className="border-b border-border/40 hover:bg-muted/30">
+                          <td className="px-3 py-2 font-semibold text-muted-foreground">{it.position}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <img src={`https://www.google.com/s2/favicons?domain=${it.domain}&sz=16`} alt="" className="w-4 h-4" />
+                              <span className="font-medium">{it.domain}</span>
+                              {detectBadge(it.domain) && (
+                                <Badge variant="outline" className={`${detectBadge(it.domain)!.cls} text-[9px] py-0 px-1`}>
+                                  {detectBadge(it.domain)!.label}
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 max-w-md truncate" title={it.title}>{it.title}</td>
+                          <td className="px-3 py-2 max-w-xs truncate text-xs text-muted-foreground">
+                            <a href={it.url} target="_blank" rel="noopener noreferrer" className="hover:text-primary hover:underline" title={it.url}>
+                              {it.url}
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
           </>
         )}
 
