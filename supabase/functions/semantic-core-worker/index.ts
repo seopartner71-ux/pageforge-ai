@@ -760,7 +760,7 @@ async function topvisorVolumes(
         const data = await resp.json();
         console.log(`[Topvisor] regionId=${regionId} keywords=${batch.length} status=${resp.status}`);
         if (b === 0) {
-          console.log('[Topvisor RAW response]', JSON.stringify(data).slice(0, 2000));
+          console.log('[Topvisor RAW first batch]', JSON.stringify(data).slice(0, 3000));
         }
         const result = Array.isArray(data?.result) ? data.result : (Array.isArray(data) ? data : []);
         // Build a lookup by keyword to be robust to ordering.
