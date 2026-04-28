@@ -23,7 +23,7 @@ interface AnalysisRow {
   created_at: string;
 }
 
-export default function AccountPage() {
+export default function AccountPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { lang } = useLang();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -142,8 +142,8 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <AppHeader />
+      <div className={embedded ? '' : 'min-h-screen'}>
+        {!embedded && <AppHeader />}
         <div className="flex items-center justify-center py-24">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </div>
@@ -152,9 +152,9 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <AppHeader />
-      <main className="container py-6 space-y-6">
+    <div className={embedded ? '' : 'min-h-screen'}>
+      {!embedded && <AppHeader />}
+      <main className={embedded ? 'space-y-6' : 'container py-6 space-y-6'}>
         {/* Header with greeting */}
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
