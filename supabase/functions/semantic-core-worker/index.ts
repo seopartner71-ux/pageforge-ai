@@ -341,6 +341,7 @@ async function dfsKeywordSuggestions(
       cost.add(0.015 * (limit / 1000));
       const items = data?.tasks?.[0]?.result?.[0]?.items;
       if (Array.isArray(items)) {
+        let __kdDbgIdx = 0;
         if (items.length && merged.size === 0) {
           console.log(`[DFS volume sample suggestions]`, JSON.stringify(items[0]).slice(0, 400));
             console.log('[FULL ITEM suggestions]',
@@ -377,6 +378,16 @@ async function dfsKeywordSuggestions(
               ?? it?.keyword_properties?.keyword_difficulty
               ?? it?.keyword_info?.keyword_difficulty
               ?? it?.keyword_info?.keyword_properties?.keyword_difficulty;
+          if (__kdDbgIdx < 3) {
+            __kdDbgIdx++;
+            console.log('[KD RAW DEBUG]', JSON.stringify({
+              keyword: it?.keyword,
+              kd_raw: kdRaw,
+              all_keys: Object.keys(it || {}),
+              keyword_info_keys: Object.keys(it?.keyword_info || {}),
+              keyword_properties: it?.keyword_properties,
+            }));
+          }
           const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
           if (!prev || sv > prev.search_volume) {
