@@ -811,7 +811,7 @@ async function fetchFrequencies(
   region: string,
   jobId: string,
 ): Promise<{ ws: number; exact: number }[]> {
-  const wordstatKey = WORDSTAT_KEY_ENV || (await getSetting("wordstat_api_key"));
+  const wordstatKey = await getWordstatKey();
   const out: { ws: number; exact: number }[] = new Array(keywords.length);
   if (!wordstatKey) {
     await sleep(1000); // simulate
@@ -819,20 +819,22 @@ async function fetchFrequencies(
     return out;
   }
   // Real Wordstat — batched (best-effort; falls back to mock per-batch on error)
-  const regionMap: Record<string, number> = { "Москва": 1, "Санкт-Петербург": 2, "Россия": 0 };
-  const regionId = regionMap[region] ?? 0;
+  const regionId = wordstatRegionId(region);
   const batchSize = 50;
   const totalBatches = Math.ceil(keywords.length / batchSize);
   for (let b = 0; b < totalBatches; b++) {
     const start = b * batchSize;
     const batch = keywords.slice(start, start + batchSize);
     try {
-      const resp = await fetch("https://api.wordstat.yandex.ru/v1/keywords/count", {
+      const resp = await fetch(`${WORDSTAT_BASE}/keywords/count`, {
         method: "POST",
         headers: { Authorization: `Bearer ${wordstatKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({ keywords: batch, region_id: regionId }),
       });
-      if (!resp.ok) throw new Error(`wordstat ${resp.status}`);
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`wordstat ${resp.status}: ${t.slice(0, 200)}`);
+      }
       const data = await resp.json();
       const items = Array.isArray(data?.items) ? data.items : [];
       for (let i = 0; i < batch.length; i++) {
