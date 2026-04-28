@@ -54,6 +54,21 @@ Deno.serve(async (req) => {
       enabledSources = ["autocomplete", "suggestions", "competitors", "ai"];
     }
 
+    // Stop-words: пользовательские слова-исключения. Принимаем строку
+    // через запятую/перевод строки или массив. Нормализуем к нижнему регистру,
+    // обрезаем длину каждого слова и общее количество.
+    const stopWordsRaw = (body as any).stop_words;
+    let stopWordsInput: string[] = [];
+    if (Array.isArray(stopWordsRaw)) {
+      stopWordsInput = stopWordsRaw.map((s) => String(s));
+    } else if (typeof stopWordsRaw === "string") {
+      stopWordsInput = stopWordsRaw.split(/[,\n]/);
+    }
+    const stopWords: string[] = stopWordsInput
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length > 0 && s.length <= 80)
+      .slice(0, 100);
+
     if (!topic) return json(400, { error: "Тема не указана" });
     if (topic.length > 500) return json(400, { error: "Тема слишком длинная (макс. 500 символов)" });
 
@@ -109,6 +124,7 @@ Deno.serve(async (req) => {
         input_region: region,
         input_engine: engine,
         enabled_sources: enabledSources,
+        input_stop_words: stopWords,
       })
       .select("id")
       .single();

@@ -230,6 +230,7 @@ export default function SemanticCorePage() {
   const [topic, setTopic] = useState('');
   const [seeds, setSeeds] = useState<string[]>([]);
   const [seedInput, setSeedInput] = useState('');
+  const [stopWordsText, setStopWordsText] = useState('');
   const [region, setRegion] = useState('Москва');
   const [engine, setEngine] = useState<'yandex' | 'google'>('yandex');
   const [enabledSources, setEnabledSources] = useState<Record<SourceKey, boolean>>({
@@ -450,8 +451,13 @@ export default function SemanticCorePage() {
         setRunning(false);
         return;
       }
+      const stop_words = stopWordsText
+        .split(/[,\n]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 100);
       const { data, error } = await supabase.functions.invoke('semantic-core-start', {
-        body: { topic, seeds, region, engine, enabled_sources: selectedSources },
+        body: { topic, seeds, region, engine, enabled_sources: selectedSources, stop_words },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (error) throw error;
@@ -633,6 +639,22 @@ export default function SemanticCorePage() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="text-sm font-medium mb-2 block flex items-center gap-1.5">
+              <X className="w-3.5 h-3.5" /> Стоп-слова
+            </label>
+            <Textarea
+              value={stopWordsText}
+              onChange={(e) => setStopWordsText(e.target.value.slice(0, 2000))}
+              placeholder="авито, яндекс, дром, бесплатно..."
+              className="min-h-[64px] text-sm"
+              maxLength={2000}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Ключевые слова содержащие эти слова будут исключены
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

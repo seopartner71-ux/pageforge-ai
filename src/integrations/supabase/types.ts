@@ -730,6 +730,7 @@ export type Database = {
           input_engine: string
           input_region: string
           input_seeds: string[]
+          input_stop_words: string[]
           input_topic: string
           keyword_count: number
           progress: number
@@ -750,6 +751,7 @@ export type Database = {
           input_engine?: string
           input_region?: string
           input_seeds?: string[]
+          input_stop_words?: string[]
           input_topic?: string
           keyword_count?: number
           progress?: number
@@ -770,6 +772,7 @@ export type Database = {
           input_engine?: string
           input_region?: string
           input_seeds?: string[]
+          input_stop_words?: string[]
           input_topic?: string
           keyword_count?: number
           progress?: number

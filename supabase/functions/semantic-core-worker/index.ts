@@ -1083,6 +1083,9 @@ async function runPipeline(jobId: string) {
   const enabledSources: string[] = Array.isArray(job.enabled_sources) && job.enabled_sources.length
     ? job.enabled_sources
     : ["autocomplete", "suggestions", "competitors", "ai"];
+  const userStopWords: string[] = (Array.isArray(job.input_stop_words) ? job.input_stop_words : [])
+    .map((s: unknown) => String(s || "").trim().toLowerCase())
+    .filter((s: string) => s.length > 0);
   const useAutocomplete = enabledSources.includes("autocomplete");
   const useSuggestions = enabledSources.includes("suggestions");
   const useCompetitors = enabledSources.includes("competitors");
@@ -1196,6 +1199,17 @@ async function runPipeline(jobId: string) {
 
   let rawKeywords = Array.from(allFromSources);
   console.log(`[Total after dedup]: ${rawKeywords.length} keywords | breakdown=${JSON.stringify(breakdown)} | dfsVolumes=${dfsVolumes.size}`);
+
+  // Пользовательские стоп-слова: исключаем ключи, которые их содержат
+  if (userStopWords.length > 0) {
+    const beforeStop = rawKeywords.length;
+    rawKeywords = rawKeywords.filter((kw) => {
+      const lower = kw.toLowerCase();
+      return !userStopWords.some((sw) => lower.includes(sw));
+    });
+    const droppedStop = beforeStop - rawKeywords.length;
+    console.log(`[Stop-words filter] applied=${userStopWords.length} dropped=${droppedStop} (${beforeStop} -> ${rawKeywords.length})`);
+  }
 
   // Global post-processing: drop non-Russian / Ukrainian-leaking keywords
   const beforeRu = rawKeywords.length;
