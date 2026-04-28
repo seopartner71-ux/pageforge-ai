@@ -526,6 +526,184 @@ export default function SchemaAuditPage() {
   const codeSectionRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  /* ── Multi-page audit state ── */
+  const [auditMode, setAuditMode] = useState<'single' | 'site'>('single');
+  const [pages, setPages] = useState<MultiPageItem[]>([
+    { id: crypto.randomUUID(), url: '', type: 'homepage' },
+  ]);
+  const [sitemapBusy, setSitemapBusy] = useState(false);
+  const [multiResults, setMultiResults] = useState<MultiResult[]>([]);
+  const [multiActiveTab, setMultiActiveTab] = useState<string>('');
+
+  const addPage = () => setPages(p => [...p, { id: crypto.randomUUID(), url: '', type: 'product' }]);
+  const removePage = (id: string) => setPages(p => p.length > 1 ? p.filter(x => x.id !== id) : p);
+  const updatePage = (id: string, patch: Partial<MultiPageItem>) =>
+    setPages(p => p.map(x => x.id === id ? { ...x, ...patch } : x));
+
+  const fetchSitemapPages = async () => {
+    const seed = (pages[0]?.url || url || '').trim();
+    if (!seed) {
+      toast({ title: 'Укажите домен', description: 'Введите URL хотя бы в одну строку — мы найдём sitemap', variant: 'destructive' });
+      return;
+    }
+    let target = seed;
+    if (!/^https?:\/\//i.test(target)) target = 'https://' + target;
+    setSitemapBusy(true);
+    try {
+      const projectId = `${import.meta.env.VITE_SUPABASE_PROJECT_ID}`;
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/schema-audit?action=sitemap`;
+      const resp = await fetch(fnUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: target }),
+      });
+      const j = await resp.json();
+      if (!j?.suggestions || j.suggestions.length === 0) {
+        toast({ title: 'Sitemap не найден', description: j?.error || 'Добавьте URL вручную', variant: 'destructive' });
+        return;
+      }
+      setPages(j.suggestions.map((s: { type: string; url: string }) => ({
+        id: crypto.randomUUID(), url: s.url, type: s.type,
+      })));
+      toast({ title: 'Найдено страниц', description: `${j.suggestions.length} рекомендуемых страниц добавлено` });
+    } catch (e: any) {
+      toast({ title: 'Ошибка', description: e?.message || 'Не удалось получить sitemap', variant: 'destructive' });
+    } finally {
+      setSitemapBusy(false);
+    }
+  };
+
+  /* Run a single audit for a given URL+type, return resulting AuditRow */
+  const runOne = async (target: string, pageType: string, accessToken: string, projectId: string | null): Promise<AuditRow> => {
+    const { data, error: fnErr } = await supabase.functions.invoke('schema-audit', {
+      body: { url: target, project_id: projectId, page_type: pageType },
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (data?.error) throw new Error(data.error);
+    if (fnErr) throw new Error(fnErr.message);
+    const auditId = data?.audit_id;
+    if (!auditId) throw new Error('Не получен ID анализа');
+    const started = Date.now();
+    while (Date.now() - started < 90_000) {
+      const { data: row } = await supabase.from('schema_audits').select('*').eq('id', auditId).maybeSingle();
+      if (row && (row.status === 'done' || row.status === 'error')) {
+        if (row.status === 'error') throw new Error(row.error_message || 'Ошибка анализа');
+        return row as unknown as AuditRow;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    throw new Error('Таймаут анализа');
+  };
+
+  const handleRunMulti = async () => {
+    const valid = pages.filter(p => p.url.trim()).map(p => ({
+      ...p, url: /^https?:\/\//i.test(p.url.trim()) ? p.url.trim() : 'https://' + p.url.trim(),
+    }));
+    if (valid.length === 0) {
+      toast({ title: 'Нет URL', description: 'Добавьте хотя бы одну страницу', variant: 'destructive' });
+      return;
+    }
+    setRunning(true);
+    setError(null);
+    setMultiResults(valid.map(v => ({ type: v.type, url: v.url, status: 'pending' })));
+    try {
+      await supabase.auth.refreshSession();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ title: 'Сессия истекла', description: 'Войдите снова', variant: 'destructive' });
+        return;
+      }
+      const { data: projects } = await supabase
+        .from('projects').select('id').eq('user_id', session.user.id)
+        .order('created_at', { ascending: false }).limit(1);
+      const projectId = projects?.[0]?.id || null;
+
+      // Run all pages in parallel; update status incrementally
+      await Promise.all(valid.map(async (item, idx) => {
+        setMultiResults(prev => prev.map((r, i) => i === idx ? { ...r, status: 'running' } : r));
+        try {
+          const auditRow = await runOne(item.url, item.type, session.access_token, projectId);
+          setMultiResults(prev => prev.map((r, i) => i === idx ? { ...r, status: 'done', audit: auditRow } : r));
+        } catch (e: any) {
+          setMultiResults(prev => prev.map((r, i) => i === idx ? { ...r, status: 'error', error: e?.message || 'Ошибка' } : r));
+        }
+      }));
+      // Activate first done tab
+      setMultiActiveTab(prev => prev || valid[0].id);
+    } catch (e: any) {
+      setError(e?.message || 'Ошибка анализа');
+      toast({ title: 'Ошибка анализа', description: e?.message || 'Ошибка', variant: 'destructive' });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  /* Combined TZ for all pages */
+  const downloadMultiTz = () => {
+    const done = multiResults.filter(r => r.status === 'done' && r.audit);
+    if (done.length === 0) return;
+    const date = new Date().toLocaleDateString('ru-RU');
+    const parts: string[] = [];
+    parts.push(`# Техническое задание на микроразметку Schema.org — весь сайт`);
+    parts.push('');
+    parts.push(`**Дата аудита:** ${date}  `);
+    parts.push(`**Проверено страниц:** ${done.length}  `);
+    const avg = Math.round(done.reduce((s, r) => s + (r.audit!.overall_score || 0), 0) / done.length);
+    parts.push(`**Средний балл:** ${avg}/100  `);
+    parts.push('');
+    parts.push('---');
+    parts.push('');
+    done.forEach((r, idx) => {
+      const a = r.audit!;
+      parts.push(`## ${idx + 1}. ${pageTypeLabel(r.type)} — ${a.url}`);
+      parts.push('');
+      parts.push(`Балл: **${a.overall_score}/100** · Найдено схем: ${a.found_schemas_count} · Критических ошибок: ${a.errors_count}`);
+      parts.push('');
+      a.generated_code.forEach((b, i) => {
+        parts.push(`### ${idx + 1}.${i + 1} ${b.type} — ${b.label}`);
+        parts.push('');
+        parts.push('```html');
+        parts.push('<script type="application/ld+json">');
+        parts.push(b.code);
+        parts.push('</script>');
+        parts.push('```');
+        parts.push('');
+      });
+      parts.push('---');
+      parts.push('');
+    });
+    const blob = new Blob([parts.join('\n')], { type: 'text/markdown;charset=utf-8' });
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `TZ_schema_site_${dateStr}.md`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast({ title: 'Сводное ТЗ скачано', description: 'Один документ для всех страниц.' });
+  };
+
+  /* Summary stats for site mode */
+  const siteSummary = useMemo(() => {
+    const done = multiResults.filter(r => r.status === 'done' && r.audit);
+    if (done.length === 0) return null;
+    const total = done.length;
+    const avgScore = Math.round(done.reduce((s, r) => s + (r.audit!.overall_score || 0), 0) / total);
+    const totalErrors = done.reduce((s, r) => s + (r.audit!.errors_count || 0), 0);
+    // Priority list — sort by score asc, take top 3 with their #1 missing schema
+    const priorities = [...done]
+      .sort((a, b) => (a.audit!.overall_score || 0) - (b.audit!.overall_score || 0))
+      .slice(0, 3)
+      .map(r => {
+        const a = r.audit!;
+        const reqMissing = (PAGE_TYPE_MAP[r.type]?.required || [])
+          .filter(req => !a.schemas_data.some((s: any) => s.type === req));
+        const issue = reqMissing[0] || a.issues[0]?.problem?.split(':')[0] || 'Улучшения';
+        return { type: r.type, label: pageTypeLabel(r.type), problem: reqMissing[0] ? `нет ${issue} схемы` : (a.issues[0]?.problem || 'Требует улучшений') };
+      });
+    return { total, avgScore, totalErrors, priorities };
+  }, [multiResults]);
+
   const handleRun = async () => {
     let target = url.trim();
     if (!target) return;
