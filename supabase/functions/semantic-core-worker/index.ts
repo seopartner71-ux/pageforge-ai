@@ -168,6 +168,73 @@ function filterValidKeywords(arr: string[]): string[] {
     .filter((s) => s.length >= 3 && !/[a-zA-Z]/.test(s));
 }
 
+// AI-based suggestions for RU/BY (DFS Labs blocks these regions).
+// Uses two parallel prompts to get broad coverage similar to DFS suggestions volume.
+async function aiSuggestionsForRu(
+  topic: string,
+  seeds: string[],
+  region: string,
+): Promise<string[]> {
+  const sys =
+    "Ты эксперт по SEO для русскоязычного рынка (Россия и Беларусь). " +
+    "Возвращай ТОЛЬКО валидный JSON массив строк (поисковых запросов). " +
+    "ЗАПРЕЩЕНО: английские слова, транслитерация, украинские топонимы. " +
+    "Запросы должны быть реальными — такими, как их вводят пользователи в Яндекс/Google.";
+  const user1 =
+    `Тема: ${topic}\nДоп. ключи: ${seeds.join(", ") || "—"}\nРегион: ${region}\n\n` +
+    `Сгенерируй 200 высокочастотных и среднечастотных поисковых запросов:\n` +
+    `- прямые коммерческие (купить, цена, заказать, доставка, недорого)\n` +
+    `- транзакционные (оформить, оплатить, в наличии)\n` +
+    `- брендовые и категорийные\n` +
+    `- с гео-привязкой к региону "${region}" где уместно\n` +
+    `Только JSON массив строк.`;
+  const user2 =
+    `Тема: ${topic}\nРегион: ${region}\n\n` +
+    `Сгенерируй 200 информационных и длиннохвостых запросов:\n` +
+    `- вопросные (как, что, почему, зачем, где, сколько стоит)\n` +
+    `- сравнительные (vs, или, лучше, отличие)\n` +
+    `- обзоры и рейтинги (топ, лучший, обзор, отзывы)\n` +
+    `- инструкции (как выбрать, как пользоваться, своими руками)\n` +
+    `- 4-7 слов в запросе\n` +
+    `Только JSON массив строк.`;
+
+  async function call(userPrompt: string): Promise<string[]> {
+    try {
+      const resp = await fetch(AI_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            { role: "system", content: sys },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      });
+      if (!resp.ok) {
+        console.warn(`[AI suggestions RU] status=${resp.status}`);
+        return [];
+      }
+      const data = await resp.json();
+      const raw = String(data?.choices?.[0]?.message?.content || "");
+      const m = raw.match(/\[[\s\S]*\]/);
+      if (!m) return [];
+      const arr = JSON.parse(m[0]);
+      if (!Array.isArray(arr)) return [];
+      return arr.map((x) => String(x).trim().toLowerCase()).filter(Boolean);
+    } catch (e) {
+      console.warn(`[AI suggestions RU] error`, (e as Error).message);
+      return [];
+    }
+  }
+
+  const [a, b] = await Promise.all([call(user1), call(user2)]);
+  const merged = new Set<string>();
+  for (const k of [...a, ...b]) merged.add(k);
+  console.log(`[AI suggestions RU] generated=${merged.size} (${a.length}+${b.length})`);
+  return Array.from(merged);
+}
+
 // Russian-only filter: strips Ukrainian/foreign keywords that DataForSEO
 // occasionally returns when language field is omitted.
 const UKRAINIAN_WORDS = [
