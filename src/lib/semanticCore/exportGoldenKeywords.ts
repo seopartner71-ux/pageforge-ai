@@ -2,9 +2,11 @@ import * as XLSX from 'xlsx';
 import type { SemanticCorePayload, SemanticKeyword } from './types';
 
 function isGolden(k: SemanticKeyword): boolean {
-  if (k.intent !== 'info') return false;
+  if (k.intent !== 'info' && k.intent !== 'commercial') return false;
   if ((k.wsFrequency ?? 0) < 1000) return false;
-  if (k.keywordDifficulty == null) return false;
+  if (k.keywordDifficulty == null) {
+    return (k.score ?? 0) > 70;
+  }
   return k.keywordDifficulty <= 40;
 }
 
