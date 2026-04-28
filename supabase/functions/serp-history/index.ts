@@ -28,16 +28,20 @@ interface Snapshot { date: string; items: PositionItem[] }
 
 async function fetchDataForSEOHistory(keyword: string, engine: "yandex" | "google", depth: number): Promise<Snapshot[]> {
   if (!DFS_LOGIN || !DFS_PASSWORD) return [];
-  const path = engine === "yandex"
-    ? "https://api.dataforseo.com/v3/serp/yandex/organic/history/live/advanced"
-    : "https://api.dataforseo.com/v3/serp/google/organic/history/live/advanced";
+  // NOTE: yandex history endpoint doesn't exist on DFS — only google has /history.
+  // For yandex we return [] and rely on accumulated own snapshots + current SERP.
+  if (engine === "yandex") {
+    console.log("[DFS] yandex history endpoint not available, skipping");
+    return [];
+  }
+  const path = "https://api.dataforseo.com/v3/serp/google/organic/history/live/advanced";
   const auth = btoa(`${DFS_LOGIN}:${DFS_PASSWORD}`);
   const today = new Date();
   const from = new Date(today.getFullYear() - 2, today.getMonth(), 1);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   const body = [{
     keyword,
-    location_name: engine === "yandex" ? "Russia" : "Russia",
+    location_name: "Russia",
     language_code: "ru",
     date_from: fmt(from),
     date_to: fmt(today),
@@ -49,11 +53,15 @@ async function fetchDataForSEOHistory(keyword: string, engine: "yandex" | "googl
       headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    console.log("[DFS] status:", res.status);
     if (!res.ok) {
-      console.log("[DFS] non-ok", res.status);
+      const txt = await res.text();
+      console.log("[DFS] non-ok body:", txt.slice(0, 500));
       return [];
     }
     const data = await res.json();
+    console.log("[DFS] task status:", data?.tasks?.[0]?.status_code, "msg:", data?.tasks?.[0]?.status_message);
+    console.log("[DFS] result items count:", data?.tasks?.[0]?.result?.[0]?.items?.length);
     const items = data?.tasks?.[0]?.result?.[0]?.items ?? [];
     const snaps: Snapshot[] = [];
     for (const snap of items) {
