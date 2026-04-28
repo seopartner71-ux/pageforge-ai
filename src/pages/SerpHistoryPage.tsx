@@ -345,6 +345,16 @@ export default function SerpHistoryPage() {
         {/* TABLE */}
         {data && data.snapshots.length > 0 && (
           <>
+            {data.fallback && (
+              <Card className="p-4 border-l-4 border-l-primary bg-primary/5">
+                <div className="text-sm">
+                  <div className="font-medium mb-1">ℹ️ Показана только текущая выдача</div>
+                  <div className="text-muted-foreground">
+                    {data.message || 'Исторические данные DataForSEO недоступны для этого запроса. История будет накапливаться при каждом новом запросе.'}
+                  </div>
+                </div>
+              </Card>
+            )}
             {/* FILTERS */}
             <Card className="p-4 flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
