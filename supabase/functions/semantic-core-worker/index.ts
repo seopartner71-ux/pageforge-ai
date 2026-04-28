@@ -309,9 +309,60 @@ async function dfsKeywordSuggestions(
   cost: CostTracker,
 ): Promise<DfsKwData[]> {
   if (!dfsConfigured()) return [];
-  const queries = [topic, ...seeds.slice(0, 5)];
   const merged = new Map<string, DfsKwData>();
-  console.log(`[DFS suggestions] region: ${region} (Labs API, no location)`);
+  const keywordsList = [topic, ...seeds.slice(0, 19)].filter(Boolean);
+  console.log(`[DFS suggestions] region: ${region} → using keywords_for_keywords (location_code=2643), ${keywordsList.length} seeds`);
+
+  // Primary: Keywords Data → Google Ads → keywords_for_keywords (accepts location_code on this plan)
+  try {
+    const resp = await fetch(
+      "https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live",
+      {
+        method: "POST",
+        headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
+        body: JSON.stringify([{
+          keywords: keywordsList.slice(0, 20),
+          location_code: 2643,
+          language_code: "ru",
+          date_from: "2025-01-01",
+          date_to: "2025-12-31",
+        }]),
+      },
+    );
+    const text = await resp.text();
+    let data: any = {};
+    try { data = JSON.parse(text); } catch {}
+    logDfsResult("suggestions", resp, data);
+    const taskStatus = data?.tasks?.[0]?.status_code;
+    const taskMsg = data?.tasks?.[0]?.status_message;
+    const items = data?.tasks?.[0]?.result;
+    console.log(`[DFS suggestions/keywords_for_keywords] status=${resp.status} task_status=${taskStatus} task_msg="${taskMsg ?? ''}" items=${Array.isArray(items) ? items.length : 0}`);
+    if (resp.ok && taskStatus === 20000 && Array.isArray(items)) {
+      cost.add(0.05);
+      if (items.length) {
+        console.log(`[DFS volume sample suggestions/kfk]`, JSON.stringify(items[0]).slice(0, 400));
+      }
+      for (const it of items) {
+        const kw = String(it?.keyword || "").trim().toLowerCase();
+        const sv = Number(it?.search_volume ?? 0);
+        if (!kw) continue;
+        if (!isRussianKeyword(kw)) continue;
+        const prev = merged.get(kw);
+        if (!prev || sv > prev.search_volume) {
+          merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: prev?.keyword_difficulty ?? null });
+        }
+      }
+      console.log(`[DFS suggestions] merged=${merged.size} (via keywords_for_keywords)`);
+      return Array.from(merged.values());
+    }
+    console.warn(`[DFS suggestions/keywords_for_keywords] failed, falling back to Labs endpoint`);
+  } catch (e) {
+    console.error(`[DFS suggestions/keywords_for_keywords] error:`, (e as Error).message);
+  }
+
+  // Fallback: Labs keyword_suggestions (no location_code — was rejecting on this plan)
+  const queries = [topic, ...seeds.slice(0, 5)];
+  console.log(`[DFS suggestions] FALLBACK to Labs API (no location)`);
 
   for (const q of queries) {
     try {
@@ -323,7 +374,6 @@ async function dfsKeywordSuggestions(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             keyword: q,
-            location_code: 2643,
             language_code: "ru",
             limit,
             order_by: ["keyword_info.search_volume,desc"],
