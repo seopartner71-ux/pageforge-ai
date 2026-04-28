@@ -88,6 +88,147 @@ function isRussianRegion(region: string): boolean {
   if (!r) return true; // default to RU
   return RU_BY_MARKERS.some((m) => r.includes(m));
 }
+
+// ============== YANDEX WORDSTAT API ==============
+// Primary keyword source for Russian regions (DataForSEO blocks RU/BY).
+// Docs: https://yandex.ru/dev/wordstat/
+const WORDSTAT_BASE = "https://api.wordstat.yandex.net/v1";
+
+// Wordstat geo IDs (different from Yandex.Direct geo).
+// 0 = all Russia. 213 = Moscow city. 2 = Saint Petersburg.
+const WORDSTAT_REGION_MAP: Record<string, number> = {
+  "Москва": 213,
+  "Санкт-Петербург": 2,
+  "Россия": 0,
+};
+function wordstatRegionId(region: string): number {
+  if (region in WORDSTAT_REGION_MAP) return WORDSTAT_REGION_MAP[region];
+  // Any other Russian city → fall back to all Russia (0).
+  return 0;
+}
+
+async function getWordstatKey(): Promise<string> {
+  return WORDSTAT_KEY_ENV || (await getSetting("wordstat_api_key")) || "";
+}
+
+// Wordstat suggestions: topRequests + associations for the seed phrase.
+async function wordstatSuggestions(
+  phrase: string,
+  regionId: number,
+  token: string,
+): Promise<string[]> {
+  try {
+    const resp = await fetch(`${WORDSTAT_BASE}/topRequests`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ phrase, regions: [regionId] }),
+    });
+    const text = await resp.text();
+    let data: any = {};
+    try { data = JSON.parse(text); } catch {}
+    if (!resp.ok) {
+      console.warn(`[Wordstat suggestions] phrase="${phrase}" status=${resp.status} body=${text.slice(0, 300)}`);
+      return [];
+    }
+    const top = Array.isArray(data?.topRequests) ? data.topRequests : [];
+    const assoc = Array.isArray(data?.associations) ? data.associations : [];
+    const all = [...top, ...assoc]
+      .map((i: any) => String(i?.phrase ?? i?.keyword ?? "").trim().toLowerCase())
+      .filter(Boolean);
+    console.log(`[Wordstat suggestions] phrase="${phrase}" items=${all.length} (top=${top.length}, assoc=${assoc.length})`);
+    return all;
+  } catch (e) {
+    console.warn(`[Wordstat suggestions] phrase="${phrase}" error:`, (e as Error).message);
+    return [];
+  }
+}
+
+// Wordstat volumes: real shows per keyword, batched.
+async function wordstatVolumes(
+  keywords: string[],
+  regionId: number,
+  token: string,
+): Promise<Map<string, { ws: number; exact: number }>> {
+  const out = new Map<string, { ws: number; exact: number }>();
+  if (!keywords.length) return out;
+  const batchSize = 50;
+  let realCount = 0;
+  for (let b = 0; b < keywords.length; b += batchSize) {
+    const batch = keywords.slice(b, b + batchSize);
+    try {
+      const resp = await fetch(`${WORDSTAT_BASE}/keywords/count`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ keywords: batch, region_id: regionId }),
+      });
+      const text = await resp.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch {}
+      if (!resp.ok) {
+        console.warn(`[Wordstat volumes] batch=${b} status=${resp.status} body=${text.slice(0, 300)}`);
+        continue;
+      }
+      const items = Array.isArray(data?.items) ? data.items : [];
+      for (let i = 0; i < batch.length; i++) {
+        const it = items[i] || {};
+        const ws = Number(it?.shows ?? it?.ws_frequency ?? 0);
+        if (ws > 0) {
+          out.set(batch[i], { ws, exact: Math.floor(ws * 0.3) });
+          realCount++;
+        }
+      }
+    } catch (e) {
+      console.warn(`[Wordstat volumes] batch=${b} error:`, (e as Error).message);
+    }
+    if (b + batchSize < keywords.length) await sleep(300);
+  }
+  console.log(`[Wordstat volumes] real: ${realCount} / ${keywords.length}`);
+  return out;
+}
+
+// High-level: collect Wordstat suggestions for topic + seeds, then enrich with real volumes.
+async function wordstatSourceForRu(
+  topic: string,
+  seeds: string[],
+  region: string,
+): Promise<DfsKwData[]> {
+  const token = await getWordstatKey();
+  if (!token) {
+    console.warn(`[Wordstat] no API key configured — skipping`);
+    return [];
+  }
+  const regionId = wordstatRegionId(region);
+  const seedPhrases = [topic, ...seeds.slice(0, 4)].filter(Boolean);
+  console.log(`[Wordstat] region="${region}" regionId=${regionId} seeds=${seedPhrases.length}`);
+
+  const merged = new Set<string>();
+  for (const p of seedPhrases) {
+    const arr = await wordstatSuggestions(p, regionId, token);
+    for (const k of arr) merged.add(k);
+  }
+  const candidates = Array.from(merged).slice(0, 500);
+  if (!candidates.length) return [];
+
+  const volumes = await wordstatVolumes(candidates, regionId, token);
+  const out: DfsKwData[] = [];
+  for (const kw of candidates) {
+    if (!isRussianKeyword(kw)) continue;
+    const v = volumes.get(kw);
+    out.push({
+      keyword: kw,
+      search_volume: v?.ws ?? 0,
+      keyword_difficulty: null, // Wordstat does not provide KD
+    });
+  }
+  console.log(`[Wordstat source] candidates=${candidates.length} withVolumes=${out.filter(x => x.search_volume > 0).length}`);
+  return out;
+}
 function dfsAuth(): string {
   return "Basic " + btoa(`${DFS_LOGIN}:${DFS_PASSWORD}`);
 }
@@ -670,7 +811,7 @@ async function fetchFrequencies(
   region: string,
   jobId: string,
 ): Promise<{ ws: number; exact: number }[]> {
-  const wordstatKey = WORDSTAT_KEY_ENV || (await getSetting("wordstat_api_key"));
+  const wordstatKey = await getWordstatKey();
   const out: { ws: number; exact: number }[] = new Array(keywords.length);
   if (!wordstatKey) {
     await sleep(1000); // simulate
@@ -678,20 +819,22 @@ async function fetchFrequencies(
     return out;
   }
   // Real Wordstat — batched (best-effort; falls back to mock per-batch on error)
-  const regionMap: Record<string, number> = { "Москва": 1, "Санкт-Петербург": 2, "Россия": 0 };
-  const regionId = regionMap[region] ?? 0;
+  const regionId = wordstatRegionId(region);
   const batchSize = 50;
   const totalBatches = Math.ceil(keywords.length / batchSize);
   for (let b = 0; b < totalBatches; b++) {
     const start = b * batchSize;
     const batch = keywords.slice(start, start + batchSize);
     try {
-      const resp = await fetch("https://api.wordstat.yandex.ru/v1/keywords/count", {
+      const resp = await fetch(`${WORDSTAT_BASE}/keywords/count`, {
         method: "POST",
         headers: { Authorization: `Bearer ${wordstatKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({ keywords: batch, region_id: regionId }),
       });
-      if (!resp.ok) throw new Error(`wordstat ${resp.status}`);
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`wordstat ${resp.status}: ${t.slice(0, 200)}`);
+      }
       const data = await resp.json();
       const items = Array.isArray(data?.items) ? data.items : [];
       for (let i = 0; i < batch.length; i++) {
@@ -1013,9 +1156,23 @@ async function runPipeline(jobId: string) {
   // We split AI output across the "suggestions" and "competitors" buckets
   // so the UI breakdown stays meaningful.
   if (isRu && (useSuggestions || useCompetitors)) {
+    // Primary: Yandex Wordstat (real RU data with frequencies, no KD).
+    sourcePromises.push(
+      wordstatSourceForRu(topic, seeds, region)
+        .then((arr) => ({
+          source: useSuggestions ? "suggestions" : "competitors",
+          keywords: arr.map((x) => x.keyword),
+          withVolumes: arr,
+        }))
+        .catch((e) => {
+          console.warn("[wordstat-source] failed", e);
+          return { source: "suggestions", keywords: [] };
+        }),
+    );
+    // Secondary: AI expansion to boost long-tail coverage.
     sourcePromises.push(
       aiSuggestionsForRu(topic, seeds, region)
-        .then((kws) => ({ source: useSuggestions ? "suggestions" : "competitors", keywords: kws }))
+        .then((kws) => ({ source: "ai", keywords: kws }))
         .catch((e) => { console.warn("[ai-suggestions-ru] failed", e); return { source: "suggestions", keywords: [] }; }),
     );
   }

@@ -151,12 +151,16 @@ function FreqDot({ source }: { source?: 'mock' | 'dataforseo' }) {
   );
 }
 
-// "Золотой" запрос: info-интент, частота >= 1000, KD известен и KD <= 40.
-// Если KD неизвестен — запрос НЕ считается золотым (конкурентность не подтверждена).
+// "Золотой" запрос:
+// - С KD: info-интент, частота >= 1000, KD <= 40 (классический критерий).
+// - Без KD (например, Яндекс Вордстат для России — KD не предоставляется):
+//   info-интент, частота >= 1000, score > 70.
 function isGoldenKeyword(k: SemanticKeyword): boolean {
   if (k.intent !== 'info') return false;
   if ((k.wsFrequency ?? 0) < 1000) return false;
-  if (k.keywordDifficulty == null) return false;
+  if (k.keywordDifficulty == null) {
+    return (k.score ?? 0) > 70;
+  }
   return k.keywordDifficulty <= 40;
 }
 
@@ -822,6 +826,17 @@ export default function SemanticCorePage() {
 
             {view === 'table' ? (
               <>
+                {/* Wordstat (RU) info banner — shown when KD is unavailable for the dataset */}
+                {keywords.length > 0 && keywords.every(k => k.keywordDifficulty == null) && (
+                  <div className="w-full flex items-start gap-3 px-4 py-2.5 rounded-md border bg-blue-500/10 border-blue-500/30 text-blue-300 text-sm">
+                    <span className="text-base leading-none mt-0.5">ℹ️</span>
+                    <span>
+                      <strong>Данные частот:</strong> Яндекс Вордстат — реальные данные по России.{' '}
+                      <span className="opacity-80">KD недоступен для данных Яндекса (показатель есть только в DataForSEO).</span>
+                    </span>
+                  </div>
+                )}
+
                 {/* Ideal opportunities banner */}
                 {idealCount > 0 && (
                   <button
