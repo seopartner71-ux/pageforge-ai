@@ -657,15 +657,6 @@ async function dfsKeywordsForSite(
   return Array.from(merged.values());
 }
 
-// ============== STEP B: WORDSTAT (mock) ==============
-function mockFreq(keyword: string): { ws: number; exact: number } {
-  const seed = keyword.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-  const rng = ((seed * 9301 + 49297) % 233280) / 233280;
-  const ws = Math.floor(Math.pow(rng, 2) * 45000) + 200;
-  const exact = Math.floor(ws * (0.1 + rng * 0.5));
-  return { ws, exact };
-}
-
 // ============== TOPVISOR API ==============
 // Replaces Wordstat for Russian regions (Wordstat DNS is blocked from edge runtime).
 // Docs: https://topvisor.com/api/services/keywords_base/wordstat/
