@@ -460,6 +460,7 @@ async function dfsKeywordsForSite(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             target,
+            location_code: 2643,
             language_code: "ru",
             limit: 500,
             filters: [["keyword_info.search_volume", ">", 10]],
