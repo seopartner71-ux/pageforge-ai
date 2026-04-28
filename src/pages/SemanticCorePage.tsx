@@ -435,6 +435,17 @@ export default function SemanticCorePage() {
       const cmp = typeof av === 'string' ? av.localeCompare(bv) : (av - bv);
       return sortDir === 'asc' ? cmp : -cmp;
     });
+    console.log('[filtered debug]', {
+      arrLen: arr.length,
+      kwLen: keywords.length,
+      idealOnly,
+      goldenOnly,
+      search,
+      intentFilter: intentFilter.size,
+      clusterFilter: clusterFilter.size,
+      kdFilter: kdFilter.size,
+      sample: keywords.slice(0, 2),
+    });
     return arr;
   }, [keywords, search, intentFilter, clusterFilter, kdFilter, idealOnly, goldenOnly, sortKey, sortDir]);
 
