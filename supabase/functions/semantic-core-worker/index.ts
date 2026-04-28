@@ -323,6 +323,7 @@ async function dfsKeywordSuggestions(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             keyword: q,
+            location_code: 2643,
             language_code: "ru",
             limit,
             order_by: ["keyword_info.search_volume,desc"],
@@ -459,6 +460,7 @@ async function dfsKeywordsForSite(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             target,
+            location_code: 2643,
             language_code: "ru",
             limit: 500,
             filters: [["keyword_info.search_volume", ">", 10]],
