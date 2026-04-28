@@ -2,11 +2,17 @@ import { useLang } from '@/contexts/LangContext';
 import { LangToggle } from '@/components/LangToggle';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
-import { Zap, LogOut } from 'lucide-react';
+import { Zap, LogOut, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { NotificationBell } from '@/components/NotificationBell';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export function AppHeader() {
   const { tr } = useLang();
@@ -18,6 +24,13 @@ export function AppHeader() {
     await supabase.auth.signOut();
   };
 
+  const semanticPaths = ['/semantic-core', '/blog-topics'];
+  const semanticActive = semanticPaths.includes(location.pathname);
+  const semanticChildren = [
+    { label: '📊 Семантическое ядро', path: '/semantic-core' },
+    { label: '✍️ Темы для блога', path: '/blog-topics' },
+  ];
+
   const navItems = [
     { label: tr.nav.analysis, path: '/dashboard' },
     { label: 'GEO Audit', path: '/geo-audit' },
@@ -25,7 +38,6 @@ export function AppHeader() {
     { label: 'Конкуренты', path: '/competitors' },
     { label: 'Анализ топа', path: '/top-analysis' },
     { label: 'Интент', path: '/intent' },
-    { label: 'Семантическое ядро', path: '/semantic-core' },
     { label: 'Микроразметка', path: '/schema-audit' },
     { label: 'История SERP', path: '/serp-history' },
     { label: tr.nav.history, path: '/history' },
@@ -48,7 +60,48 @@ export function AppHeader() {
 
         {/* Center: Navigation */}
         <nav className="hidden md:flex items-center justify-center gap-1 flex-1">
-          {navItems.map((item) => (
+          {navItems.slice(0, 6).map((item) => (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`px-3 py-1.5 text-[13px] rounded-md whitespace-nowrap transition-colors ${
+                location.pathname === item.path
+                  ? 'font-medium text-foreground bg-secondary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+
+          {/* Семантическое ядро dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={`px-3 py-1.5 text-[13px] rounded-md whitespace-nowrap transition-colors inline-flex items-center gap-1 ${
+                  semanticActive
+                    ? 'font-medium text-foreground bg-secondary'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                }`}
+              >
+                Семантическое ядро
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[200px]">
+              {semanticChildren.map((c) => (
+                <DropdownMenuItem
+                  key={c.path}
+                  onClick={() => navigate(c.path)}
+                  className={location.pathname === c.path ? 'bg-secondary font-medium' : ''}
+                >
+                  {c.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {navItems.slice(6).map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}

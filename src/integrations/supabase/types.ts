@@ -123,6 +123,119 @@ export type Database = {
           },
         ]
       }
+      blog_topics: {
+        Row: {
+          blog_score: number
+          competition_level: string | null
+          created_at: string
+          data_source: string
+          id: string
+          intent: string
+          job_id: string
+          keyword: string
+          serp_checked: boolean
+          serp_urls: Json
+          strong_count: number | null
+          traffic_potential: number
+          word_count: number
+          ws_frequency: number
+        }
+        Insert: {
+          blog_score?: number
+          competition_level?: string | null
+          created_at?: string
+          data_source?: string
+          id?: string
+          intent?: string
+          job_id: string
+          keyword: string
+          serp_checked?: boolean
+          serp_urls?: Json
+          strong_count?: number | null
+          traffic_potential?: number
+          word_count?: number
+          ws_frequency?: number
+        }
+        Update: {
+          blog_score?: number
+          competition_level?: string | null
+          created_at?: string
+          data_source?: string
+          id?: string
+          intent?: string
+          job_id?: string
+          keyword?: string
+          serp_checked?: boolean
+          serp_urls?: Json
+          strong_count?: number | null
+          traffic_potential?: number
+          word_count?: number
+          ws_frequency?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_topics_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "blog_topics_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blog_topics_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          dataforseo_cost: number
+          error_message: string | null
+          id: string
+          input_region: string
+          input_topic: string
+          progress: number
+          project_id: string | null
+          serp_checked: number
+          serp_total: number
+          status: string
+          topic_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          dataforseo_cost?: number
+          error_message?: string | null
+          id?: string
+          input_region?: string
+          input_topic?: string
+          progress?: number
+          project_id?: string | null
+          serp_checked?: number
+          serp_total?: number
+          status?: string
+          topic_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          dataforseo_cost?: number
+          error_message?: string | null
+          id?: string
+          input_region?: string
+          input_topic?: string
+          progress?: number
+          project_id?: string | null
+          serp_checked?: number
+          serp_total?: number
+          status?: string
+          topic_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       competitor_analyses: {
         Row: {
           ai_markdown: string | null
