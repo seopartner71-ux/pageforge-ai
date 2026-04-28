@@ -141,12 +141,18 @@ function MockBadge() {
   );
 }
 
-function FreqDot({ source }: { source?: 'mock' | 'dataforseo' }) {
-  const real = source === 'dataforseo';
+function FreqDot({ source }: { source?: 'mock' | 'dataforseo' | 'topvisor' }) {
+  const real = source === 'dataforseo' || source === 'topvisor';
+  const title =
+    source === 'topvisor'
+      ? 'Реальные данные Яндекс Wordstat (Topvisor)'
+      : source === 'dataforseo'
+        ? 'Реальные данные DataForSEO'
+        : 'Оценочные данные';
   return (
     <span
       className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${real ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`}
-      title={real ? 'Реальные данные DataForSEO' : 'Оценочные данные'}
+      title={title}
     />
   );
 }
@@ -307,7 +313,12 @@ export default function SemanticCorePage() {
       cluster: r.cluster_id != null ? `c${r.cluster_id}` : 'unclustered',
       included: r.included,
       topUrls: r.serp_urls || [],
-      dataSource: r.data_source === 'dataforseo' ? 'dataforseo' : 'mock',
+      dataSource:
+        r.data_source === 'dataforseo'
+          ? 'dataforseo'
+          : r.data_source === 'topvisor'
+            ? 'topvisor'
+            : 'mock',
       keywordDifficulty: r.keyword_difficulty == null ? null : Number(r.keyword_difficulty),
     }));
     const cls: SemanticCluster[] = (clRows || []).map((r: any) => {

@@ -9,7 +9,7 @@ export interface SemanticKeyword {
   cluster: string;            // cluster id
   included: boolean;
   topUrls?: string[];
-  dataSource?: 'mock' | 'dataforseo';
+  dataSource?: 'mock' | 'dataforseo' | 'topvisor';
   keywordDifficulty?: number | null; // 0-100
 }
 
