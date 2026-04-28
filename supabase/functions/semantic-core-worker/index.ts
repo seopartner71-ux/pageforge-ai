@@ -411,10 +411,7 @@ async function dfsKeywordSuggestions(
         headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
         body: JSON.stringify([{
           keywords: keywordsList.slice(0, 20),
-          location_code: 2643,
           language_code: "ru",
-          date_from: "2025-01-01",
-          date_to: "2025-12-31",
         }]),
       },
     );
