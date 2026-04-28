@@ -975,6 +975,11 @@ async function runPipeline(jobId: string) {
     console.warn("[DataForSEO] Credentials missing or invalid — falling back to AI-only expansion");
   }
 
+  // DataForSEO does NOT support Russia/Belarus. For these regions we use
+  // Lovable AI for suggestions/competitors and Wordstat for real frequencies.
+  const isRu = isRussianRegion(region);
+  console.log(`[Region routing] region="${region}" isRussian=${isRu} → ${isRu ? "AI+Wordstat" : "DataForSEO"}`);
+
   // Per-source storage with frequency map (only DFS sources have real volumes)
   const dfsVolumes = new Map<string, number>(); // keyword -> max DFS search_volume
   const dfsKd = new Map<string, number>();      // keyword -> keyword_difficulty (Labs sources)
@@ -985,24 +990,36 @@ async function runPipeline(jobId: string) {
   type SourcePromiseResult = { source: string; keywords: string[]; withVolumes?: DfsKwData[] };
   const sourcePromises: Promise<SourcePromiseResult>[] = [];
 
-  if (useAutocomplete && dfsAvailable) {
+  if (useAutocomplete && dfsAvailable && !isRu) {
     sourcePromises.push(
       dfsAutocompleteSource(topic, seeds, region, cost)
         .then((arr) => ({ source: "autocomplete", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
-  if (useSuggestions && dfsAvailable) {
+  if (useSuggestions && dfsAvailable && !isRu) {
     sourcePromises.push(
       dfsKeywordSuggestions(topic, seeds, region, cost)
         .then((arr) => ({ source: "suggestions", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
-  if (useCompetitors && dfsAvailable) {
+  if (useCompetitors && dfsAvailable && !isRu) {
     sourcePromises.push(
       dfsKeywordsForSite(topic, region, serperKey, cost)
         .then((arr) => ({ source: "competitors", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
+
+  // RU/BY routing: replace DFS-blocked sources with AI expansion.
+  // We split AI output across the "suggestions" and "competitors" buckets
+  // so the UI breakdown stays meaningful.
+  if (isRu && (useSuggestions || useCompetitors)) {
+    sourcePromises.push(
+      aiSuggestionsForRu(topic, seeds, region)
+        .then((kws) => ({ source: useSuggestions ? "suggestions" : "competitors", keywords: kws }))
+        .catch((e) => { console.warn("[ai-suggestions-ru] failed", e); return { source: "suggestions", keywords: [] }; }),
+    );
+  }
+
   if (useAi || !dfsAvailable) {
     // AI source — when DFS unavailable we still rely on AI for the bulk
     sourcePromises.push(
