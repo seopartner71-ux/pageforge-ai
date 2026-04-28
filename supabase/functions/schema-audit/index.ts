@@ -216,8 +216,9 @@ function buildGeneratedCode(
   const logo = pageData?.logo || null;
   const description = pageData?.description || null;
 
-  // WebSite always (with real name)
-  if (!schemas.find(s => s.type === "WebSite")) {
+  // WebSite — only on homepage (or unknown/general)
+  const wantsWebSite = pageType === "homepage" || pageType === "general" || pageType === "event_host" || pageType === "service";
+  if (wantsWebSite && !schemas.find(s => s.type === "WebSite")) {
     blocks.push({
       type: "WebSite",
       label: "WebSite — добавить",
@@ -261,7 +262,8 @@ function buildGeneratedCode(
   }
 
   // Organization (skip for personal brands — Person is more accurate)
-  if (pageType !== "event_host" && !schemas.find(s => s.type === "Organization")) {
+  const wantsOrg = pageType !== "event_host" && pageType !== "category" && pageType !== "product" && pageType !== "article" && pageType !== "contacts";
+  if (wantsOrg && !schemas.find(s => s.type === "Organization")) {
     const org: any = {
       "@context": "https://schema.org",
       "@type": "Organization",
@@ -287,8 +289,8 @@ function buildGeneratedCode(
     });
   }
 
-  // BreadcrumbList from URL
-  if (!schemas.find(s => s.type === "BreadcrumbList")) {
+  // BreadcrumbList from URL — for non-home pages
+  if (pageType !== "homepage" && !schemas.find(s => s.type === "BreadcrumbList")) {
     try {
       const u = new URL(url);
       const parts = u.pathname.split("/").filter(Boolean);
@@ -370,7 +372,7 @@ function buildGeneratedCode(
   }
 
   // LocalBusiness — for any site with contacts OR personal brand sites
-  if ((features.hasAddress || pageType === "event_host" || pageType === "local_business" || pageType === "service") && !schemas.find(s => s.type === "LocalBusiness")) {
+  if ((features.hasAddress || pageType === "event_host" || pageType === "local_business" || pageType === "service" || pageType === "contacts" || pageType === "homepage") && !schemas.find(s => s.type === "LocalBusiness")) {
     const lb: any = {
       "@context": "https://schema.org",
       "@type": "LocalBusiness",
@@ -393,6 +395,92 @@ function buildGeneratedCode(
       reason: `Локальный бизнес — повышает видимость в Картах • ${dataSource}`,
       code: JSON.stringify(lb, null, 2),
     });
+  }
+
+  // Category page → ItemList + CollectionPage
+  if (pageType === "category" && !schemas.find(s => s.type === "ItemList")) {
+    blocks.push({
+      type: "ItemList",
+      label: "ItemList — добавить (страница категории)",
+      reason: "Перечень товаров категории • ⚠ Заполните позиции из каталога",
+      code: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": pageTitle || "Категория",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "url": origin + "/product/example-1", "name": "Пример товара 1" },
+          { "@type": "ListItem", "position": 2, "url": origin + "/product/example-2", "name": "Пример товара 2" },
+        ],
+      }, null, 2),
+    });
+    blocks.push({
+      type: "CollectionPage",
+      label: "CollectionPage — рекомендуется",
+      reason: "Помогает поисковикам понять, что это страница каталога",
+      code: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": pageTitle || "Категория",
+        "url": url,
+      }, null, 2),
+    });
+  }
+
+  // Product page → Product + Offer + AggregateRating
+  if (pageType === "product" && !schemas.find(s => s.type === "Product")) {
+    const product: any = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": pageTitle || "Название товара",
+      "url": url,
+      "offers": {
+        "@type": "Offer",
+        "priceCurrency": "RUB",
+        "price": (pageData?.priceRange || "0").replace(/[^\d]/g, "") || "0",
+        "availability": "https://schema.org/InStock",
+        "url": url,
+      },
+    };
+    if (description) product.description = description;
+    if (logo) product.image = logo;
+    product.aggregateRating = { "@type": "AggregateRating", "ratingValue": "5", "reviewCount": "1" };
+    const dataSource = (description || pageData?.priceRange) ? "✓ Данные частично со страницы" : "⚠ Заполните данные товара вручную";
+    blocks.push({
+      type: "Product",
+      label: "Product — добавить (карточка товара)",
+      reason: `Включает Offer + AggregateRating • ${dataSource}`,
+      code: JSON.stringify(product, null, 2),
+    });
+  }
+
+  // Article page → Article + Author + Publisher
+  if (pageType === "article" && !schemas.find(s => s.type === "Article") && !schemas.find(s => s.type === "BlogPosting")) {
+    const article: any = {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": pageTitle || "Заголовок статьи",
+      "url": url,
+      "datePublished": new Date().toISOString().slice(0, 10),
+      "author": { "@type": "Person", "name": "Имя автора" },
+      "publisher": {
+        "@type": "Organization",
+        "name": companyName,
+        ...(logo ? { "logo": { "@type": "ImageObject", "url": logo } } : {}),
+      },
+    };
+    if (description) article.description = description;
+    if (logo) article.image = logo;
+    blocks.push({
+      type: "Article",
+      label: "Article — добавить (статья / блог)",
+      reason: "⚠ Укажите реального автора и дату публикации",
+      code: JSON.stringify(article, null, 2),
+    });
+  }
+
+  // Contacts page → ensure full PostalAddress + OpeningHours hint
+  if (pageType === "contacts" && !schemas.find(s => s.type === "LocalBusiness")) {
+    // already handled above; nothing extra here.
   }
 
   return blocks;
