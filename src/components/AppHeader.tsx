@@ -41,7 +41,7 @@ export function AppHeader() {
     { label: 'Микроразметка', path: '/schema-audit' },
     { label: 'История SERP', path: '/serp-history' },
     { label: tr.nav.history, path: '/history' },
-    { label: tr.nav.account, path: '/account' },
+    ...(isAdmin ? [] : [{ label: tr.nav.account, path: '/account' }]),
     ...(isAdmin ? [{ label: '⚙ Админ', path: '/admin' }] : []),
   ];
 
