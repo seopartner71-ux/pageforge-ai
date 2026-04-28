@@ -938,10 +938,10 @@ export default function SemanticCorePage() {
                         <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                         Найдено {goldenCount} золотых запросов
                       </span>
-                      <span className="block text-xs text-amber-200/80 mt-0.5 font-normal leading-relaxed">
-                        Информационные запросы с высоким трафиком и низкой конкурентностью —
-                        идеальны для быстрого роста органического трафика
-                      </span>
+                       <span className="block text-xs text-amber-200/80 mt-0.5 font-normal leading-relaxed">
+                         Информационные запросы для SEO-статей — пишите экспертный
+                         контент и получайте органический трафик
+                       </span>
                     </span>
                     <span className="text-xs text-amber-200/90 shrink-0 self-center px-2 py-1 rounded border border-amber-400/40 bg-amber-500/10">
                       {goldenOnly ? 'Сбросить фильтр' : 'Показать только золотые'}
