@@ -390,7 +390,9 @@ async function dfsKeywordSuggestions(
           const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
           if (!prev || sv > prev.search_volume) {
-            merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: kd });
+            // Preserve previously-seen KD if the new item lacks one
+            const mergedKd = kd != null ? kd : (prev?.keyword_difficulty ?? null);
+            merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: mergedKd });
           } else if (prev && kd != null && prev.keyword_difficulty == null) {
             prev.keyword_difficulty = kd;
           }
@@ -500,7 +502,8 @@ async function dfsKeywordsForSite(
           const kd = (kdRaw === null || kdRaw === undefined) ? null : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
           const prev = merged.get(kw);
           if (!prev || sv > prev.search_volume) {
-            merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: kd });
+            const mergedKd = kd != null ? kd : (prev?.keyword_difficulty ?? null);
+            merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: mergedKd });
           } else if (prev && kd != null && prev.keyword_difficulty == null) {
             prev.keyword_difficulty = kd;
           }
