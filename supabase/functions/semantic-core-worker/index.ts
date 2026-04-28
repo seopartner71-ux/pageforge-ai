@@ -92,7 +92,9 @@ function isRussianRegion(region: string): boolean {
 // ============== YANDEX WORDSTAT API ==============
 // Primary keyword source for Russian regions (DataForSEO blocks RU/BY).
 // Docs: https://yandex.ru/dev/wordstat/
-const WORDSTAT_BASE = "https://api.wordstat.yandex.net/v1";
+// Yandex Wordstat API base. The official host is api.wordstat.yandex.ru
+// (the .net variant returns 403/404). Override via WORDSTAT_BASE env if needed.
+const WORDSTAT_BASE = Deno.env.get("WORDSTAT_BASE") ?? "https://api.wordstat.yandex.ru/v1";
 
 // Wordstat geo IDs (different from Yandex.Direct geo).
 // 0 = all Russia. 213 = Moscow city. 2 = Saint Petersburg.
@@ -118,19 +120,20 @@ async function wordstatSuggestions(
   token: string,
 ): Promise<string[]> {
   try {
+    const reqBody = { phrase, geo_id: [regionId] };
     const resp = await fetch(`${WORDSTAT_BASE}/topRequests`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ phrase, regions: [regionId] }),
+      body: JSON.stringify(reqBody),
     });
     const text = await resp.text();
     let data: any = {};
     try { data = JSON.parse(text); } catch {}
     if (!resp.ok) {
-      console.warn(`[Wordstat suggestions] phrase="${phrase}" status=${resp.status} body=${text.slice(0, 300)}`);
+      console.error(`[Wordstat suggestions] FAIL phrase="${phrase}" url=${WORDSTAT_BASE}/topRequests status=${resp.status} body=${text}`);
       return [];
     }
     const top = Array.isArray(data?.topRequests) ? data.topRequests : [];
@@ -165,13 +168,13 @@ async function wordstatVolumes(
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ keywords: batch, region_id: regionId }),
+        body: JSON.stringify({ keywords: batch, geo_id: [regionId] }),
       });
       const text = await resp.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch {}
       if (!resp.ok) {
-        console.warn(`[Wordstat volumes] batch=${b} status=${resp.status} body=${text.slice(0, 300)}`);
+        console.error(`[Wordstat volumes] FAIL batch=${b} url=${WORDSTAT_BASE}/keywords/count status=${resp.status} body=${text}`);
         continue;
       }
       const items = Array.isArray(data?.items) ? data.items : [];
@@ -829,11 +832,12 @@ async function fetchFrequencies(
       const resp = await fetch(`${WORDSTAT_BASE}/keywords/count`, {
         method: "POST",
         headers: { Authorization: `Bearer ${wordstatKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords: batch, region_id: regionId }),
+        body: JSON.stringify({ keywords: batch, geo_id: [regionId] }),
       });
       if (!resp.ok) {
         const t = await resp.text();
-        throw new Error(`wordstat ${resp.status}: ${t.slice(0, 200)}`);
+        console.error(`[fetchFrequencies] wordstat FAIL url=${WORDSTAT_BASE}/keywords/count status=${resp.status} body=${t}`);
+        throw new Error(`wordstat ${resp.status}: ${t.slice(0, 300)}`);
       }
       const data = await resp.json();
       const items = Array.isArray(data?.items) ? data.items : [];
