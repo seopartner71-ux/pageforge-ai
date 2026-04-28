@@ -17,7 +17,8 @@ import {
   type IntentKind, type SemanticCluster, type SemanticCorePayload, type SemanticKeyword,
 } from '@/lib/semanticCore/types';
 import { exportSemanticCoreXlsx } from '@/lib/semanticCore/exportSemanticCoreXlsx';
-import { exportGoldenKeywordsXlsx, downloadGoldenJuniorBriefMd } from '@/lib/semanticCore/exportGoldenKeywords';
+import { exportGoldenKeywordsXlsx } from '@/lib/semanticCore/exportGoldenKeywords';
+import { exportSeoRecommendationsDocx } from '@/lib/semanticCore/exportSeoRecommendationsDocx';
 
 type Step = 'expand' | 'wordstat' | 'serp' | 'cluster';
 const STEP_LABELS: Record<Step, string> = {
@@ -567,10 +568,10 @@ export default function SemanticCorePage() {
     else toast.success(`Экспортировано ${n} золотых запросов`);
   };
 
-  const handleDownloadJuniorBrief = () => {
-    const n = downloadGoldenJuniorBriefMd(buildPayload());
-    if (n === 0) toast.error('Золотых запросов не найдено — задание создавать не для чего');
-    else toast.success('Задание для SEO-джуна скачано');
+  const handleDownloadSeoRecommendations = () => {
+    const n = exportSeoRecommendationsDocx(buildPayload());
+    if (n === 0) toast.error('Золотых запросов не найдено — рекомендации создавать не для чего');
+    else toast.success('Рекомендации SEO скачаны');
   };
 
   const allIntents: IntentKind[] = ['info', 'commercial', 'nav', 'transac'];
@@ -898,11 +899,11 @@ export default function SemanticCorePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleDownloadJuniorBrief}
+                    onClick={handleDownloadSeoRecommendations}
                     className="gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
-                    title="Готовое ТЗ для SEO-специалиста по работе с золотыми запросами"
+                    title="Word-документ с рекомендациями по работе с золотыми запросами"
                   >
-                    <Download className="w-3.5 h-3.5" /> Задание для SEO-джуна
+                    <Download className="w-3.5 h-3.5" /> Рекомендации SEO
                   </Button>
                 </>
               )}
