@@ -133,6 +133,7 @@ export type Database = {
           intent: string
           job_id: string
           keyword: string
+          keyword_difficulty: number | null
           serp_checked: boolean
           serp_urls: Json
           strong_count: number | null
@@ -149,6 +150,7 @@ export type Database = {
           intent?: string
           job_id: string
           keyword: string
+          keyword_difficulty?: number | null
           serp_checked?: boolean
           serp_urls?: Json
           strong_count?: number | null
@@ -165,6 +167,7 @@ export type Database = {
           intent?: string
           job_id?: string
           keyword?: string
+          keyword_difficulty?: number | null
           serp_checked?: boolean
           serp_urls?: Json
           strong_count?: number | null
