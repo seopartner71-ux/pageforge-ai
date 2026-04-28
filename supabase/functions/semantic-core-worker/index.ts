@@ -66,6 +66,28 @@ const DFS_REGION_CODES: Record<string, number> = {
 function dfsLocation(region: string): number {
   return DFS_REGION_CODES[region] ?? 21136;
 }
+
+// DataForSEO does NOT support Russia/Belarus (political restriction since 2022).
+// For these regions we route suggestions/competitors through Lovable AI expansion
+// and rely on Wordstat (when wordstat_api_key is configured) for real frequencies.
+const RU_BY_MARKERS = [
+  "росси", "москв", "санкт-петер", "питер", "екатеринбург", "новосибирск",
+  "казань", "нижний новгород", "челябинск", "самара", "уфа", "красноярск",
+  "ростов", "пермь", "воронеж", "краснодар", "волгоград", "саратов",
+  "тюмень", "тольятти", "ижевск", "барнаул", "ульяновск", "иркутск",
+  "хабаровск", "омск", "ярославль", "владивосток", "махачкала", "томск",
+  "оренбург", "кемерово", "новокузнецк", "рязань", "астрахань",
+  "набережные челны", "пенза", "липецк", "тула", "киров", "чебоксары",
+  "калининград", "брянск", "курск", "магнитогорск", "иваново", "улан-удэ",
+  "сочи", "ставрополь", "белгород", "нижний тагил", "владимир",
+  "архангельск", "чита", "смоленск", "калуга", "мурманск",
+  "беларус", "минск", "гомель", "брест", "витебск", "гродно", "могилёв", "могилев",
+];
+function isRussianRegion(region: string): boolean {
+  const r = (region || "").toLowerCase().trim();
+  if (!r) return true; // default to RU
+  return RU_BY_MARKERS.some((m) => r.includes(m));
+}
 function dfsAuth(): string {
   return "Basic " + btoa(`${DFS_LOGIN}:${DFS_PASSWORD}`);
 }
