@@ -240,7 +240,7 @@ function dfsConfigured(): boolean {
 }
 
 type Intent = "info" | "commercial" | "nav" | "transac";
-type DataSource = "mock" | "dataforseo";
+type DataSource = "mock" | "dataforseo" | "topvisor";
 
 interface Kw {
   keyword: string;
