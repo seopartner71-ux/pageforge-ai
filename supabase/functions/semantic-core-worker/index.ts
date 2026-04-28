@@ -411,10 +411,7 @@ async function dfsKeywordSuggestions(
         headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
         body: JSON.stringify([{
           keywords: keywordsList.slice(0, 20),
-          location_code: 2643,
           language_code: "ru",
-          date_from: "2025-01-01",
-          date_to: "2025-12-31",
         }]),
       },
     );
@@ -601,7 +598,6 @@ async function dfsKeywordsForSite(
             target,
             language_code: "ru",
             limit: 500,
-            filters: [["keyword_info.search_volume", ">", 10]],
           }]),
         },
       );
@@ -764,7 +760,7 @@ async function topvisorVolumes(
         const data = await resp.json();
         console.log(`[Topvisor] regionId=${regionId} keywords=${batch.length} status=${resp.status}`);
         if (b === 0) {
-          console.log('[Topvisor RAW response]', JSON.stringify(data).slice(0, 2000));
+          console.log('[Topvisor RAW first batch]', JSON.stringify(data).slice(0, 3000));
         }
         const result = Array.isArray(data?.result) ? data.result : (Array.isArray(data) ? data : []);
         // Build a lookup by keyword to be robust to ordering.
