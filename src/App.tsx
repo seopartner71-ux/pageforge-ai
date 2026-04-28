@@ -28,6 +28,7 @@ const CompetitorsPage = lazy(() => import('./pages/CompetitorsPage.tsx'));
 const TopAnalysisPage = lazy(() => import('./pages/TopAnalysisPage.tsx'));
 const IntentPage = lazy(() => import('./pages/IntentPage.tsx'));
 const SemanticCorePage = lazy(() => import('./pages/SemanticCorePage.tsx'));
+const BlogTopicsPage = lazy(() => import('./pages/BlogTopicsPage.tsx'));
 const SchemaAuditPage = lazy(() => import('./pages/SchemaAuditPage.tsx'));
 const SerpHistoryPage = lazy(() => import('./pages/SerpHistoryPage.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
@@ -122,6 +123,7 @@ const App = () => (
                 <Route path="/top-analysis" element={<AuthGate><TopAnalysisPage /></AuthGate>} />
                 <Route path="/intent" element={<AuthGate><IntentPage /></AuthGate>} />
                 <Route path="/semantic-core" element={<AuthGate><SemanticCorePage /></AuthGate>} />
+                <Route path="/blog-topics" element={<AuthGate><BlogTopicsPage /></AuthGate>} />
                 <Route path="/schema-audit" element={<AuthGate><SchemaAuditPage /></AuthGate>} />
                 <Route path="/serp-history" element={<AuthGate><SerpHistoryPage /></AuthGate>} />
                 <Route path="/shared/:token" element={<SharedReportPage />} />
