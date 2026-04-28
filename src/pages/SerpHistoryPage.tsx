@@ -23,6 +23,8 @@ interface Snapshot { date: string; items: PositionItem[] }
 interface ApiResponse {
   keyword: string; region: string; engine: 'yandex' | 'google'; depth: number;
   snapshots: Snapshot[]; current: PositionItem[]; fallback: boolean; message: string | null;
+  serper_error?: 'no_credits' | 'no_key' | 'api_error' | null;
+  serper_message?: string | null;
 }
 
 const AGGREGATORS = new Set([
@@ -325,6 +327,30 @@ export default function SerpHistoryPage() {
             </div>
           )}
         </Card>
+
+        {/* SERPER ERROR BANNER (shown whenever Serper failed, even if no data) */}
+        {data?.serper_error === 'no_credits' && (
+          <Card className="p-4 border-l-4 border-l-destructive bg-destructive/10">
+            <div className="text-sm">
+              <div className="font-semibold text-destructive mb-1">⚠️ Закончились кредиты Serper.dev</div>
+              <div className="text-muted-foreground">
+                Пополните баланс на{' '}
+                <a href="https://serper.dev/billing" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
+                  serper.dev/billing
+                </a>
+                . После пополнения анализ заработает автоматически.
+              </div>
+            </div>
+          </Card>
+        )}
+        {data?.serper_error === 'api_error' && (
+          <Card className="p-4 border-l-4 border-l-destructive bg-destructive/10">
+            <div className="text-sm">
+              <div className="font-semibold text-destructive mb-1">⚠️ Ошибка Serper.dev</div>
+              <div className="text-muted-foreground">{data.serper_message || 'Сервис временно недоступен'}</div>
+            </div>
+          </Card>
+        )}
 
         {/* EMPTY STATE */}
         {!data && !loading && (

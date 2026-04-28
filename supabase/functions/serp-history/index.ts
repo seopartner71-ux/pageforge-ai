@@ -90,11 +90,13 @@ async function fetchDataForSEOHistory(keyword: string, engine: "yandex" | "googl
   }
 }
 
-async function fetchCurrentSerper(keyword: string, engine: "yandex" | "google", depth: number, region: string): Promise<PositionItem[]> {
+type SerperResult = { items: PositionItem[]; error?: "no_credits" | "no_key" | "api_error"; message?: string };
+
+async function fetchCurrentSerper(keyword: string, engine: "yandex" | "google", depth: number, region: string): Promise<SerperResult> {
   console.log("[Serper] key configured:", !!SERPER_API_KEY);
   if (!SERPER_API_KEY) {
     console.error("[Serper] SERPER_API_KEY missing in edge function secrets");
-    return [];
+    return { items: [], error: "no_key", message: "SERPER_API_KEY not configured" };
   }
   try {
     const url = "https://google.serper.dev/search";
@@ -115,7 +117,12 @@ async function fetchCurrentSerper(keyword: string, engine: "yandex" | "google", 
     if (!res.ok) {
       const errTxt = await res.text();
       console.error("[Serper] non-ok body:", errTxt.slice(0, 500));
-      return [];
+      const isNoCredits = res.status === 400 && /not enough credits/i.test(errTxt);
+      return {
+        items: [],
+        error: isNoCredits ? "no_credits" : "api_error",
+        message: isNoCredits ? "Закончились кредиты Serper.dev" : `Serper API ${res.status}`,
+      };
     }
     const data = await res.json();
     console.log("[Serper] organic count:", data?.organic?.length, "error:", data?.error);
@@ -127,10 +134,10 @@ async function fetchCurrentSerper(keyword: string, engine: "yandex" | "google", 
       title: it?.title || "",
     }));
     console.log("[Serper] mapped items:", out.length);
-    return out;
+    return { items: out };
   } catch (e) {
     console.error("[Serper] error", e);
-    return [];
+    return { items: [], error: "api_error", message: String(e) };
   }
 }
 
@@ -138,6 +145,20 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    const reqUrl = new URL(req.url);
+    if (reqUrl.searchParams.get("action") === "health") {
+      if (!SERPER_API_KEY) return json({ serper: "no_key" });
+      const probe = await fetch("https://google.serper.dev/search", {
+        method: "POST",
+        headers: { "X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ q: "test", gl: "ru", hl: "ru", num: 1 }),
+      });
+      const txt = await probe.text();
+      if (probe.ok) return json({ serper: "ok" });
+      if (probe.status === 400 && /not enough credits/i.test(txt)) return json({ serper: "no_credits", message: "Закончились кредиты Serper.dev" });
+      return json({ serper: "api_error", status: probe.status, message: txt.slice(0, 200) });
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -175,7 +196,8 @@ Deno.serve(async (req) => {
     let usedFallback = false;
 
     // 2. Always also fetch current via Serper (or DFS empty)
-    const current = await fetchCurrentSerper(keyword, engine, depth, region);
+    const serperResult = await fetchCurrentSerper(keyword, engine, depth, region);
+    const current = serperResult.items;
     console.log("[serp-history] DFS history snapshots:", history.length, "current items:", current.length);
 
     // 3. Save current snapshot
@@ -221,8 +243,9 @@ Deno.serve(async (req) => {
 
     const merged = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 
-    // Deduct credits (skip for admin)
-    if (!isAdmin) {
+    // Deduct credits (skip for admin, skip if Serper out of credits AND no history loaded)
+    const noUsefulData = current.length === 0 && history.length === 0 && ownAsSnaps.length === 0;
+    if (!isAdmin && !noUsefulData) {
       await supabase
         .from("profiles")
         .update({ credits: Math.max(0, profile.credits - COST) })
@@ -237,6 +260,8 @@ Deno.serve(async (req) => {
       snapshots: merged,
       current,
       fallback: usedFallback,
+      serper_error: serperResult.error || null,
+      serper_message: serperResult.message || null,
       message: usedFallback
         ? "Исторические данные недоступны. Показываем текущую выдачу. История накапливается с первого запроса."
         : null,

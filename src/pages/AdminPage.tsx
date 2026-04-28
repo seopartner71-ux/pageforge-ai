@@ -175,7 +175,7 @@ function ApiSettingsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
-  const [apiStatuses, setApiStatuses] = useState<Record<string, 'ok' | 'error' | 'checking' | 'unknown'>>({});
+  const [apiStatuses, setApiStatuses] = useState<Record<string, 'ok' | 'error' | 'checking' | 'unknown' | 'no_credits'>>({});
 
   useEffect(() => {
     supabase.from('system_settings').select('*').then(({ data }) => {
@@ -188,11 +188,25 @@ function ApiSettingsTab() {
   useEffect(() => {
     if (settings.length === 0) return;
     const checkStatuses = async () => {
-      const statuses: Record<string, 'ok' | 'error' | 'unknown'> = {};
+      const statuses: Record<string, 'ok' | 'error' | 'unknown' | 'no_credits'> = {};
       for (const s of settings) {
         statuses[s.key_name] = s.key_value && s.key_value.trim().length > 5 ? 'ok' : 'error';
       }
       setApiStatuses(statuses);
+      // Real-time health check for Serper.dev (detects no-credits)
+      try {
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+        const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/serp-history?action=health`, {
+          headers: { apikey: ANON, Authorization: `Bearer ${ANON}` },
+        });
+        const data = await res.json();
+        if (data?.serper === 'no_credits') setApiStatuses(prev => ({ ...prev, serper_api_key: 'no_credits' }));
+        else if (data?.serper === 'ok') setApiStatuses(prev => ({ ...prev, serper_api_key: 'ok' }));
+        else if (data?.serper === 'no_key' || data?.serper === 'api_error') setApiStatuses(prev => ({ ...prev, serper_api_key: 'error' }));
+      } catch (e) {
+        console.warn('Serper health check failed', e);
+      }
     };
     checkStatuses();
   }, [settings]);
@@ -246,13 +260,25 @@ function ApiSettingsTab() {
               <div className="flex items-center gap-1.5">
                 {status === 'ok' && <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />}
                 {status === 'error' && <div className="w-2.5 h-2.5 rounded-full bg-red-500" />}
+                {status === 'no_credits' && <div className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />}
                 {status === 'checking' && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                 {status === 'unknown' && <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50" />}
                 <span className="text-[10px] text-muted-foreground">
-                  {status === 'ok' ? 'Подключен' : status === 'error' ? 'Не настроен' : 'Проверка...'}
+                  {status === 'ok' ? 'Подключен'
+                    : status === 'error' ? 'Не настроен'
+                    : status === 'no_credits' ? 'Нет кредитов'
+                    : 'Проверка...'}
                 </span>
               </div>
             </div>
+            {status === 'no_credits' && s.key_name === 'serper_api_key' && (
+              <div className="text-[11px] p-2 rounded-md bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400">
+                ⚠️ Закончились кредиты Serper.dev. Пополните на{' '}
+                <a href="https://serper.dev/billing" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+                  serper.dev/billing
+                </a>
+              </div>
+            )}
             <div className="flex gap-2">
               <Input
                 type={showKeys[s.key_name] ? 'text' : 'password'}
