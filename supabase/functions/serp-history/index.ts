@@ -243,8 +243,9 @@ Deno.serve(async (req) => {
 
     const merged = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 
-    // Deduct credits (skip for admin)
-    if (!isAdmin) {
+    // Deduct credits (skip for admin, skip if Serper out of credits AND no history loaded)
+    const noUsefulData = current.length === 0 && history.length === 0 && ownAsSnaps.length === 0;
+    if (!isAdmin && !noUsefulData) {
       await supabase
         .from("profiles")
         .update({ credits: Math.max(0, profile.credits - COST) })
