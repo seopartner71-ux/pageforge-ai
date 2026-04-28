@@ -756,13 +756,16 @@ async function topvisorVolumes(
         },
         body: JSON.stringify({ keywords: batch, region_index: regionId }),
       });
-      console.log(`[Topvisor] regionId=${regionId} keywords=${batch.length} status=${resp.status}`);
       if (!resp.ok) {
         const t = await resp.text();
         console.error(`[Topvisor] FAIL batch=${b} status=${resp.status} body=${t}`);
         for (let i = 0; i < batch.length; i++) out[start + i] = null;
       } else {
         const data = await resp.json();
+        console.log(`[Topvisor] regionId=${regionId} keywords=${batch.length} status=${resp.status}`);
+        if (b === 0) {
+          console.log('[Topvisor RAW response]', JSON.stringify(data).slice(0, 2000));
+        }
         const result = Array.isArray(data?.result) ? data.result : (Array.isArray(data) ? data : []);
         // Build a lookup by keyword to be robust to ordering.
         const byKw = new Map<string, { ws: number; exact: number }>();
