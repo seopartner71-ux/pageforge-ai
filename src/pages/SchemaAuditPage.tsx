@@ -15,6 +15,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { downloadAuditDocx, downloadCombinedAuditDocx } from '@/lib/schemaAuditDocx';
 
 /* ─── Types ─── */
 interface SchemaField { key: string; status: 'ok' | 'missing' | 'warning'; value?: string }
@@ -639,48 +640,15 @@ export default function SchemaAuditPage() {
   };
 
   /* Combined TZ for all pages */
-  const downloadMultiTz = () => {
+  const downloadMultiTz = async () => {
     const done = multiResults.filter(r => r.status === 'done' && r.audit);
     if (done.length === 0) return;
-    const date = new Date().toLocaleDateString('ru-RU');
-    const parts: string[] = [];
-    parts.push(`# Техническое задание на микроразметку Schema.org — весь сайт`);
-    parts.push('');
-    parts.push(`**Дата аудита:** ${date}  `);
-    parts.push(`**Проверено страниц:** ${done.length}  `);
-    const avg = Math.round(done.reduce((s, r) => s + (r.audit!.overall_score || 0), 0) / done.length);
-    parts.push(`**Средний балл:** ${avg}/100  `);
-    parts.push('');
-    parts.push('---');
-    parts.push('');
-    done.forEach((r, idx) => {
-      const a = r.audit!;
-      parts.push(`## ${idx + 1}. ${pageTypeLabel(r.type)} — ${a.url}`);
-      parts.push('');
-      parts.push(`Балл: **${a.overall_score}/100** · Найдено схем: ${a.found_schemas_count} · Критических ошибок: ${a.errors_count}`);
-      parts.push('');
-      a.generated_code.forEach((b, i) => {
-        parts.push(`### ${idx + 1}.${i + 1} ${b.type} — ${b.label}`);
-        parts.push('');
-        parts.push('```html');
-        parts.push('<script type="application/ld+json">');
-        parts.push(b.code);
-        parts.push('</script>');
-        parts.push('```');
-        parts.push('');
-      });
-      parts.push('---');
-      parts.push('');
-    });
-    const blob = new Blob([parts.join('\n')], { type: 'text/markdown;charset=utf-8' });
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `TZ_schema_site_${dateStr}.md`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast({ title: 'Сводное ТЗ скачано', description: 'Один документ для всех страниц.' });
+    try {
+      await downloadCombinedAuditDocx(done.map(r => ({ type: r.type, audit: r.audit! as any })));
+      toast({ title: 'ТЗ скачано в формате Word ✓', description: 'Один документ для всех страниц.' });
+    } catch (e: any) {
+      toast({ title: 'Ошибка генерации', description: e?.message || 'Не удалось создать .docx', variant: 'destructive' });
+    }
   };
 
   /* Summary stats for site mode */
@@ -826,19 +794,14 @@ export default function SchemaAuditPage() {
     return valuable.filter(s => s.format === map[activeTab]);
   }, [audit, activeTab]);
 
-  const downloadTz = () => {
+  const downloadTz = async () => {
     if (!audit) return;
-    const md = buildTzMarkdown(audit);
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    const safeDomain = (audit.domain || 'site').replace(/[^\w.-]/g, '_');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `TZ_schema_${safeDomain}_${dateStr}.md`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast({ title: 'ТЗ скачано', description: 'Передайте разработчику для внедрения.' });
+    try {
+      await downloadAuditDocx(audit as any);
+      toast({ title: 'ТЗ скачано в формате Word ✓', description: 'Передайте разработчику для внедрения.' });
+    } catch (e: any) {
+      toast({ title: 'Ошибка генерации', description: e?.message || 'Не удалось создать .docx', variant: 'destructive' });
+    }
   };
 
   const scrollToCode = () => codeSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
