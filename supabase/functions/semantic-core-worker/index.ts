@@ -66,6 +66,28 @@ const DFS_REGION_CODES: Record<string, number> = {
 function dfsLocation(region: string): number {
   return DFS_REGION_CODES[region] ?? 21136;
 }
+
+// DataForSEO does NOT support Russia/Belarus (political restriction since 2022).
+// For these regions we route suggestions/competitors through Lovable AI expansion
+// and rely on Wordstat (when wordstat_api_key is configured) for real frequencies.
+const RU_BY_MARKERS = [
+  "росси", "москв", "санкт-петер", "питер", "екатеринбург", "новосибирск",
+  "казань", "нижний новгород", "челябинск", "самара", "уфа", "красноярск",
+  "ростов", "пермь", "воронеж", "краснодар", "волгоград", "саратов",
+  "тюмень", "тольятти", "ижевск", "барнаул", "ульяновск", "иркутск",
+  "хабаровск", "омск", "ярославль", "владивосток", "махачкала", "томск",
+  "оренбург", "кемерово", "новокузнецк", "рязань", "астрахань",
+  "набережные челны", "пенза", "липецк", "тула", "киров", "чебоксары",
+  "калининград", "брянск", "курск", "магнитогорск", "иваново", "улан-удэ",
+  "сочи", "ставрополь", "белгород", "нижний тагил", "владимир",
+  "архангельск", "чита", "смоленск", "калуга", "мурманск",
+  "беларус", "минск", "гомель", "брест", "витебск", "гродно", "могилёв", "могилев",
+];
+function isRussianRegion(region: string): boolean {
+  const r = (region || "").toLowerCase().trim();
+  if (!r) return true; // default to RU
+  return RU_BY_MARKERS.some((m) => r.includes(m));
+}
 function dfsAuth(): string {
   return "Basic " + btoa(`${DFS_LOGIN}:${DFS_PASSWORD}`);
 }
@@ -144,6 +166,73 @@ function filterValidKeywords(arr: string[]): string[] {
   return arr
     .map((s) => String(s || "").trim().toLowerCase())
     .filter((s) => s.length >= 3 && !/[a-zA-Z]/.test(s));
+}
+
+// AI-based suggestions for RU/BY (DFS Labs blocks these regions).
+// Uses two parallel prompts to get broad coverage similar to DFS suggestions volume.
+async function aiSuggestionsForRu(
+  topic: string,
+  seeds: string[],
+  region: string,
+): Promise<string[]> {
+  const sys =
+    "Ты эксперт по SEO для русскоязычного рынка (Россия и Беларусь). " +
+    "Возвращай ТОЛЬКО валидный JSON массив строк (поисковых запросов). " +
+    "ЗАПРЕЩЕНО: английские слова, транслитерация, украинские топонимы. " +
+    "Запросы должны быть реальными — такими, как их вводят пользователи в Яндекс/Google.";
+  const user1 =
+    `Тема: ${topic}\nДоп. ключи: ${seeds.join(", ") || "—"}\nРегион: ${region}\n\n` +
+    `Сгенерируй 200 высокочастотных и среднечастотных поисковых запросов:\n` +
+    `- прямые коммерческие (купить, цена, заказать, доставка, недорого)\n` +
+    `- транзакционные (оформить, оплатить, в наличии)\n` +
+    `- брендовые и категорийные\n` +
+    `- с гео-привязкой к региону "${region}" где уместно\n` +
+    `Только JSON массив строк.`;
+  const user2 =
+    `Тема: ${topic}\nРегион: ${region}\n\n` +
+    `Сгенерируй 200 информационных и длиннохвостых запросов:\n` +
+    `- вопросные (как, что, почему, зачем, где, сколько стоит)\n` +
+    `- сравнительные (vs, или, лучше, отличие)\n` +
+    `- обзоры и рейтинги (топ, лучший, обзор, отзывы)\n` +
+    `- инструкции (как выбрать, как пользоваться, своими руками)\n` +
+    `- 4-7 слов в запросе\n` +
+    `Только JSON массив строк.`;
+
+  async function call(userPrompt: string): Promise<string[]> {
+    try {
+      const resp = await fetch(AI_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            { role: "system", content: sys },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      });
+      if (!resp.ok) {
+        console.warn(`[AI suggestions RU] status=${resp.status}`);
+        return [];
+      }
+      const data = await resp.json();
+      const raw = String(data?.choices?.[0]?.message?.content || "");
+      const m = raw.match(/\[[\s\S]*\]/);
+      if (!m) return [];
+      const arr = JSON.parse(m[0]);
+      if (!Array.isArray(arr)) return [];
+      return arr.map((x) => String(x).trim().toLowerCase()).filter(Boolean);
+    } catch (e) {
+      console.warn(`[AI suggestions RU] error`, (e as Error).message);
+      return [];
+    }
+  }
+
+  const [a, b] = await Promise.all([call(user1), call(user2)]);
+  const merged = new Set<string>();
+  for (const k of [...a, ...b]) merged.add(k);
+  console.log(`[AI suggestions RU] generated=${merged.size} (${a.length}+${b.length})`);
+  return Array.from(merged);
 }
 
 // Russian-only filter: strips Ukrainian/foreign keywords that DataForSEO
@@ -886,6 +975,11 @@ async function runPipeline(jobId: string) {
     console.warn("[DataForSEO] Credentials missing or invalid — falling back to AI-only expansion");
   }
 
+  // DataForSEO does NOT support Russia/Belarus. For these regions we use
+  // Lovable AI for suggestions/competitors and Wordstat for real frequencies.
+  const isRu = isRussianRegion(region);
+  console.log(`[Region routing] region="${region}" isRussian=${isRu} → ${isRu ? "AI+Wordstat" : "DataForSEO"}`);
+
   // Per-source storage with frequency map (only DFS sources have real volumes)
   const dfsVolumes = new Map<string, number>(); // keyword -> max DFS search_volume
   const dfsKd = new Map<string, number>();      // keyword -> keyword_difficulty (Labs sources)
@@ -896,24 +990,36 @@ async function runPipeline(jobId: string) {
   type SourcePromiseResult = { source: string; keywords: string[]; withVolumes?: DfsKwData[] };
   const sourcePromises: Promise<SourcePromiseResult>[] = [];
 
-  if (useAutocomplete && dfsAvailable) {
+  if (useAutocomplete && dfsAvailable && !isRu) {
     sourcePromises.push(
       dfsAutocompleteSource(topic, seeds, region, cost)
         .then((arr) => ({ source: "autocomplete", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
-  if (useSuggestions && dfsAvailable) {
+  if (useSuggestions && dfsAvailable && !isRu) {
     sourcePromises.push(
       dfsKeywordSuggestions(topic, seeds, region, cost)
         .then((arr) => ({ source: "suggestions", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
-  if (useCompetitors && dfsAvailable) {
+  if (useCompetitors && dfsAvailable && !isRu) {
     sourcePromises.push(
       dfsKeywordsForSite(topic, region, serperKey, cost)
         .then((arr) => ({ source: "competitors", keywords: arr.map((x) => x.keyword), withVolumes: arr })),
     );
   }
+
+  // RU/BY routing: replace DFS-blocked sources with AI expansion.
+  // We split AI output across the "suggestions" and "competitors" buckets
+  // so the UI breakdown stays meaningful.
+  if (isRu && (useSuggestions || useCompetitors)) {
+    sourcePromises.push(
+      aiSuggestionsForRu(topic, seeds, region)
+        .then((kws) => ({ source: useSuggestions ? "suggestions" : "competitors", keywords: kws }))
+        .catch((e) => { console.warn("[ai-suggestions-ru] failed", e); return { source: "suggestions", keywords: [] }; }),
+    );
+  }
+
   if (useAi || !dfsAvailable) {
     // AI source — when DFS unavailable we still rely on AI for the bulk
     sourcePromises.push(
