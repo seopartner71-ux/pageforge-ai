@@ -465,7 +465,7 @@ async function dfsAutocompleteSource(
   for (let i = 0; i < candidates.length; i += chunkSize) {
     const chunk = candidates.slice(i, i + chunkSize);
     try {
-      const resp = await fetch(
+      const resp = await proxyFetch(
         "https://api.dataforseo.com/v3/keywords_data/google/search_volume/live",
         {
           method: "POST",
@@ -523,7 +523,7 @@ async function dfsKeywordSuggestions(
 
   // Primary: Keywords Data → Google Ads → keywords_for_keywords (accepts location_code on this plan)
   try {
-    const resp = await fetch(
+    const resp = await proxyFetch(
       "https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live",
       {
         method: "POST",
@@ -572,7 +572,7 @@ async function dfsKeywordSuggestions(
   for (const q of queries) {
     try {
       const limit = q === topic ? 1000 : 200;
-      const resp = await fetch(
+      const resp = await proxyFetch(
         "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_suggestions/live",
         {
           method: "POST",
@@ -708,7 +708,7 @@ async function dfsKeywordsForSite(
   console.log(`[DFS competitors] region: ${region} (Labs API, no location)`);
   await Promise.allSettled(domains.map(async (target) => {
     try {
-      const resp = await fetch(
+      const resp = await proxyFetch(
         "https://api.dataforseo.com/v3/dataforseo_labs/google/keywords_for_site/live",
         {
           method: "POST",
