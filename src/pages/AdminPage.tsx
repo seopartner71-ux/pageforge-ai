@@ -195,14 +195,15 @@ function ApiSettingsTab() {
       setApiStatuses(statuses);
       // Real-time health check for Serper.dev (detects no-credits)
       try {
-        const { data } = await supabase.functions.invoke('serp-history?action=health', { method: 'GET' as any });
-        if (data?.serper === 'no_credits') {
-          setApiStatuses(prev => ({ ...prev, serper_api_key: 'no_credits' }));
-        } else if (data?.serper === 'ok') {
-          setApiStatuses(prev => ({ ...prev, serper_api_key: 'ok' }));
-        } else if (data?.serper === 'no_key' || data?.serper === 'api_error') {
-          setApiStatuses(prev => ({ ...prev, serper_api_key: 'error' }));
-        }
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+        const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/serp-history?action=health`, {
+          headers: { apikey: ANON, Authorization: `Bearer ${ANON}` },
+        });
+        const data = await res.json();
+        if (data?.serper === 'no_credits') setApiStatuses(prev => ({ ...prev, serper_api_key: 'no_credits' }));
+        else if (data?.serper === 'ok') setApiStatuses(prev => ({ ...prev, serper_api_key: 'ok' }));
+        else if (data?.serper === 'no_key' || data?.serper === 'api_error') setApiStatuses(prev => ({ ...prev, serper_api_key: 'error' }));
       } catch (e) {
         console.warn('Serper health check failed', e);
       }
