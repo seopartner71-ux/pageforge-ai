@@ -345,7 +345,18 @@ export default function SerpHistoryPage() {
         {/* TABLE */}
         {data && data.snapshots.length > 0 && (
           <>
-            {data.fallback && (
+            {/* Engine-specific banners */}
+            {data.engine === 'yandex' && (
+              <Card className="p-4 border-l-4 border-l-primary bg-primary/5">
+                <div className="text-sm">
+                  <div className="font-medium mb-1">ℹ️ Яндекс: история накапливается</div>
+                  <div className="text-muted-foreground">
+                    DataForSEO не предоставляет историю выдачи Яндекса. История накапливается при каждом запросе. Запускайте анализ ежемесячно для построения полной картины.
+                  </div>
+                </div>
+              </Card>
+            )}
+            {data.engine === 'google' && data.fallback && (
               <Card className="p-4 border-l-4 border-l-primary bg-primary/5">
                 <div className="text-sm">
                   <div className="font-medium mb-1">ℹ️ Показана только текущая выдача</div>
@@ -355,6 +366,24 @@ export default function SerpHistoryPage() {
                 </div>
               </Card>
             )}
+
+            {/* Snapshot accumulation summary */}
+            <Card className="p-4 flex items-center justify-between flex-wrap gap-3 bg-card">
+              <div className="text-sm">
+                <span className="font-medium">Накоплено снимков:</span>{' '}
+                <span className="text-primary font-semibold">{data.snapshots.length}</span>
+                {data.snapshots.length > 0 && (
+                  <span className="text-muted-foreground ml-2">
+                    ({data.snapshots.map(s => monthLabel(s.date)).join(', ')})
+                  </span>
+                )}
+              </div>
+              {data.snapshots.length < 3 && (
+                <div className="text-xs text-muted-foreground italic">
+                  💡 Совет: запускайте анализ раз в месяц — через 3-4 месяца появится полная история выдачи для сравнения конкурентов.
+                </div>
+              )}
+            </Card>
             {/* FILTERS */}
             <Card className="p-4 flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
