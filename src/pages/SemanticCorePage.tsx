@@ -1032,14 +1032,14 @@ export default function SemanticCorePage() {
                         <tr key={k.keyword + i} className="border-t border-border/50 hover:bg-muted/20">
                           <td className="px-3 py-2">
                             {isGoldenKeyword(k) && (
-                              <span title={GOLDEN_TOOLTIP} className="inline-flex align-middle mr-1.5">
+                              <span title={`${goldenPotentialLabel(k.score)} (score ${k.score}). ${GOLDEN_TOOLTIP}`} className="inline-flex align-middle mr-1.5">
                                 <Star
                                   className="w-3.5 h-3.5 fill-amber-400 text-amber-400"
-                                  aria-label="Золотой запрос"
+                                  aria-label={`Золотой запрос — ${goldenPotentialLabel(k.score)}`}
                                 />
                               </span>
                             )}
-                            <span title={isGoldenKeyword(k) ? GOLDEN_TOOLTIP : undefined}>{k.keyword}</span>
+                            <span title={isGoldenKeyword(k) ? `${goldenPotentialLabel(k.score)} — ${GOLDEN_TOOLTIP}` : undefined}>{k.keyword}</span>
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                             <FreqDot source={k.dataSource} />
@@ -1138,7 +1138,12 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
                 <div key={k.keyword} className="flex items-center justify-between text-xs gap-2">
                   <span className="truncate flex items-center gap-1" title={k.keyword}>
                     {isGoldenKeyword(k) && (
-                      <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                      <Star
+                        className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0"
+                        aria-label={goldenPotentialLabel(k.score)}
+                      >
+                        <title>{goldenPotentialLabel(k.score)}</title>
+                      </Star>
                     )}
                     <span className="truncate">{k.keyword}</span>
                   </span>
