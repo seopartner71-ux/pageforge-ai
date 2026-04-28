@@ -1,4 +1,4 @@
-// deploy: v2 - topvisor get_volume fix
+// deploy: v3 - proxy support for external APIs
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -13,6 +13,111 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const SERPER_KEY_ENV = Deno.env.get("SERPER_API_KEY") ?? "";
 const DFS_LOGIN = Deno.env.get("DATAFORSEO_LOGIN") ?? "";
 const DFS_PASSWORD = Deno.env.get("DATAFORSEO_PASSWORD") ?? "";
+
+// =====================================================================
+// PROXY RELAY SUPPORT
+// ---------------------------------------------------------------------
+// Supabase Edge Functions run on Deno Deploy where `Deno.createHttpClient`
+// is NOT available. To route external API calls (DataForSEO, Serper, etc.)
+// through an outbound IP we POST to an external relay endpoint instead.
+//
+// Expected relay contract (user hosts on Beget/VPS):
+//   POST {PROXY_URL}
+//   Headers: { "x-proxy-token": <PROXY_TOKEN> } (optional)
+//   Body: { "url": "...", "method": "POST", "headers": {...}, "body": "..." }
+//   Response: { "status": 200, "headers": {...}, "body": "..." }
+//
+// PROXY_URL / PROXY_ENABLED / PROXY_TOKEN can be supplied EITHER as
+// Supabase secrets OR as rows in `system_settings`. Settings DB takes
+// precedence so admins can flip the toggle from the UI without redeploy.
+// =====================================================================
+let __proxyCfgCache: { url: string; enabled: boolean; token: string; ts: number } | null = null;
+async function getProxyConfig(): Promise<{ url: string; enabled: boolean; token: string }> {
+  // 30s in-memory cache so we don't query system_settings on every fetch
+  if (__proxyCfgCache && Date.now() - __proxyCfgCache.ts < 30_000) {
+    return __proxyCfgCache;
+  }
+  let url = Deno.env.get("PROXY_URL") ?? "";
+  let enabled = (Deno.env.get("PROXY_ENABLED") ?? "").toLowerCase() === "true";
+  let token = Deno.env.get("PROXY_TOKEN") ?? "";
+  try {
+    const { data } = await sb()
+      .from("system_settings")
+      .select("key_name,key_value")
+      .in("key_name", ["proxy_url", "proxy_enabled", "proxy_token"]);
+    if (data) {
+      for (const row of data as Array<{ key_name: string; key_value: string }>) {
+        if (row.key_name === "proxy_url" && row.key_value) url = row.key_value;
+        else if (row.key_name === "proxy_enabled") enabled = String(row.key_value).toLowerCase() === "true";
+        else if (row.key_name === "proxy_token" && row.key_value) token = row.key_value;
+      }
+    }
+  } catch (_e) { /* ignore — fall back to env */ }
+  __proxyCfgCache = { url, enabled, token, ts: Date.now() };
+  return __proxyCfgCache;
+}
+
+/**
+ * Drop-in replacement for `fetch()` that routes through the configured
+ * relay when proxy is enabled. Falls back to direct fetch otherwise.
+ */
+async function proxyFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const cfg = await getProxyConfig();
+  if (!cfg.enabled || !cfg.url) {
+    return await fetch(url, options);
+  }
+  // Serialize body to string so it survives JSON envelope
+  let bodyStr: string | null = null;
+  if (options.body != null) {
+    bodyStr = typeof options.body === "string" ? options.body : String(options.body);
+  }
+  const headersObj: Record<string, string> = {};
+  if (options.headers) {
+    if (options.headers instanceof Headers) {
+      options.headers.forEach((v, k) => { headersObj[k] = v; });
+    } else if (Array.isArray(options.headers)) {
+      for (const [k, v] of options.headers) headersObj[k] = String(v);
+    } else {
+      for (const [k, v] of Object.entries(options.headers as Record<string, string>)) headersObj[k] = String(v);
+    }
+  }
+  try {
+    const relayResp = await fetch(cfg.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(cfg.token ? { "x-proxy-token": cfg.token } : {}),
+      },
+      body: JSON.stringify({
+        url,
+        method: (options.method || "GET").toUpperCase(),
+        headers: headersObj,
+        body: bodyStr,
+      }),
+    });
+    if (!relayResp.ok) {
+      // Relay itself failed — surface as a synthetic Response with same status
+      const errText = await relayResp.text().catch(() => "");
+      return new Response(errText || `Proxy relay error ${relayResp.status}`, {
+        status: relayResp.status,
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
+    const env = await relayResp.json().catch(() => null) as
+      | { status?: number; headers?: Record<string, string>; body?: string }
+      | null;
+    if (!env || typeof env.status !== "number") {
+      return new Response("Invalid proxy relay response", { status: 502 });
+    }
+    return new Response(env.body ?? "", {
+      status: env.status,
+      headers: env.headers || {},
+    });
+  } catch (e) {
+    console.error("[proxyFetch] relay failed, falling back to direct fetch:", (e as Error).message);
+    return await fetch(url, options);
+  }
+}
 
 const AI_MODEL = "google/gemini-2.5-flash";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -360,7 +465,7 @@ async function dfsAutocompleteSource(
   for (let i = 0; i < candidates.length; i += chunkSize) {
     const chunk = candidates.slice(i, i + chunkSize);
     try {
-      const resp = await fetch(
+      const resp = await proxyFetch(
         "https://api.dataforseo.com/v3/keywords_data/google/search_volume/live",
         {
           method: "POST",
@@ -418,7 +523,7 @@ async function dfsKeywordSuggestions(
 
   // Primary: Keywords Data → Google Ads → keywords_for_keywords (accepts location_code on this plan)
   try {
-    const resp = await fetch(
+    const resp = await proxyFetch(
       "https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live",
       {
         method: "POST",
@@ -467,7 +572,7 @@ async function dfsKeywordSuggestions(
   for (const q of queries) {
     try {
       const limit = q === topic ? 1000 : 200;
-      const resp = await fetch(
+      const resp = await proxyFetch(
         "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_suggestions/live",
         {
           method: "POST",
@@ -603,7 +708,7 @@ async function dfsKeywordsForSite(
   console.log(`[DFS competitors] region: ${region} (Labs API, no location)`);
   await Promise.allSettled(domains.map(async (target) => {
     try {
-      const resp = await fetch(
+      const resp = await proxyFetch(
         "https://api.dataforseo.com/v3/dataforseo_labs/google/keywords_for_site/live",
         {
           method: "POST",

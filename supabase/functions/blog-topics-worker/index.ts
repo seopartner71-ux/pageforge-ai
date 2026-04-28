@@ -1,4 +1,6 @@
-// blog-topics-worker — поиск тем для блога с анализом конкуренции через SERP
+// blog-topics-worker — поиск тем для блога. Конкуренция определяется
+// в первую очередь по Keyword Difficulty (KD) от DataForSEO Labs,
+// SERP-проверка через Serper.dev оставлена как fallback / уточнение.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -58,6 +60,62 @@ const STRONG_DOMAINS = [
 function sb() {
   return createClient(SUPABASE_URL, SERVICE_ROLE);
 }
+
+// =====================================================================
+// PROXY RELAY — see semantic-core-worker for full contract docs.
+// =====================================================================
+let __proxyCfgCache: { url: string; enabled: boolean; token: string; ts: number } | null = null;
+async function getProxyConfig(): Promise<{ url: string; enabled: boolean; token: string }> {
+  if (__proxyCfgCache && Date.now() - __proxyCfgCache.ts < 30_000) return __proxyCfgCache;
+  let url = Deno.env.get("PROXY_URL") ?? "";
+  let enabled = (Deno.env.get("PROXY_ENABLED") ?? "").toLowerCase() === "true";
+  let token = Deno.env.get("PROXY_TOKEN") ?? "";
+  try {
+    const { data } = await sb()
+      .from("system_settings")
+      .select("key_name,key_value")
+      .in("key_name", ["proxy_url", "proxy_enabled", "proxy_token"]);
+    if (data) {
+      for (const row of data as Array<{ key_name: string; key_value: string }>) {
+        if (row.key_name === "proxy_url" && row.key_value) url = row.key_value;
+        else if (row.key_name === "proxy_enabled") enabled = String(row.key_value).toLowerCase() === "true";
+        else if (row.key_name === "proxy_token" && row.key_value) token = row.key_value;
+      }
+    }
+  } catch (_e) { /* fall back to env */ }
+  __proxyCfgCache = { url, enabled, token, ts: Date.now() };
+  return __proxyCfgCache;
+}
+async function proxyFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const cfg = await getProxyConfig();
+  if (!cfg.enabled || !cfg.url) return await fetch(url, options);
+  let bodyStr: string | null = null;
+  if (options.body != null) bodyStr = typeof options.body === "string" ? options.body : String(options.body);
+  const headersObj: Record<string, string> = {};
+  if (options.headers) {
+    if (options.headers instanceof Headers) options.headers.forEach((v, k) => { headersObj[k] = v; });
+    else if (Array.isArray(options.headers)) for (const [k, v] of options.headers) headersObj[k] = String(v);
+    else for (const [k, v] of Object.entries(options.headers as Record<string, string>)) headersObj[k] = String(v);
+  }
+  try {
+    const relayResp = await fetch(cfg.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(cfg.token ? { "x-proxy-token": cfg.token } : {}) },
+      body: JSON.stringify({ url, method: (options.method || "GET").toUpperCase(), headers: headersObj, body: bodyStr }),
+    });
+    if (!relayResp.ok) {
+      const errText = await relayResp.text().catch(() => "");
+      return new Response(errText || `Proxy relay error ${relayResp.status}`, { status: relayResp.status });
+    }
+    const env = await relayResp.json().catch(() => null) as { status?: number; headers?: Record<string, string>; body?: string } | null;
+    if (!env || typeof env.status !== "number") return new Response("Invalid proxy relay response", { status: 502 });
+    return new Response(env.body ?? "", { status: env.status, headers: env.headers || {} });
+  } catch (e) {
+    console.error("[proxyFetch] relay failed:", (e as Error).message);
+    return await fetch(url, options);
+  }
+}
+
 async function getSetting(key: string): Promise<string> {
   const { data } = await sb().from("system_settings").select("key_value").eq("key_name", key).maybeSingle();
   return (data?.key_value || "").trim();
@@ -124,10 +182,15 @@ async function aiGenerateInfoQueries(topic: string): Promise<string[]> {
 }
 
 // ============== STEP 1B: DataForSEO related (info filtered) ==============
-async function dfsRelatedKeywords(topic: string, region: string): Promise<string[]> {
+// Returns both the keyword list AND a kw→KD map (KD comes from Labs API).
+async function dfsRelatedKeywords(
+  topic: string,
+  region: string,
+  kdMap: Map<string, number>,
+): Promise<string[]> {
   if (!dfsConfigured()) return [];
   try {
-    const resp = await fetch(
+    const resp = await proxyFetch(
       "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_suggestions/live",
       {
         method: "POST",
@@ -144,7 +207,21 @@ async function dfsRelatedKeywords(topic: string, region: string): Promise<string
     if (!resp.ok) return [];
     const data = await resp.json();
     const items = data?.tasks?.[0]?.result?.[0]?.items || [];
-    return items.map((it: any) => String(it?.keyword || "").trim().toLowerCase()).filter(Boolean);
+    const out: string[] = [];
+    for (const it of items) {
+      const kw = String(it?.keyword || "").trim().toLowerCase();
+      if (!kw) continue;
+      out.push(kw);
+      const kdRaw = it?.keyword_difficulty
+        ?? it?.keyword_properties?.keyword_difficulty
+        ?? it?.keyword_info?.keyword_difficulty
+        ?? it?.keyword_info?.keyword_properties?.keyword_difficulty;
+      if (kdRaw != null) {
+        const kd = Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
+        kdMap.set(kw, kd);
+      }
+    }
+    return out;
   } catch (e) {
     console.warn("[blog-topics] dfs related failed", e);
     return [];
@@ -155,7 +232,7 @@ async function dfsRelatedKeywords(topic: string, region: string): Promise<string
 async function dfsAutocomplete(topic: string, region: string): Promise<string[]> {
   if (!dfsConfigured()) return [];
   try {
-    const resp = await fetch(
+    const resp = await proxyFetch(
       "https://api.dataforseo.com/v3/keywords_data/google/keyword_suggestions/live",
       {
         method: "POST",
@@ -186,7 +263,7 @@ async function dfsSearchVolume(keywords: string[], region: string): Promise<Map<
   for (let i = 0; i < keywords.length; i += 700) chunks.push(keywords.slice(i, i + 700));
   for (const chunk of chunks) {
     try {
-      const resp = await fetch(
+      const resp = await proxyFetch(
         "https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live",
         {
           method: "POST",
@@ -221,7 +298,7 @@ interface CompetitionResult {
 }
 async function serperSearch(keyword: string, apiKey: string): Promise<CompetitionResult | null> {
   try {
-    const resp = await fetch("https://google.serper.dev/search", {
+    const resp = await proxyFetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({ q: keyword, gl: "ru", hl: "ru", num: 10 }),
@@ -251,6 +328,14 @@ async function serperSearch(keyword: string, apiKey: string): Promise<Competitio
 }
 
 // ============== STEP 4: scoring ==============
+// Map KD (0-100) to competition level. Lower KD = easier to rank.
+function kdToLevel(kd: number | null | undefined): "easy" | "medium" | "hard" | null {
+  if (kd == null) return null;
+  if (kd <= 30) return "easy";
+  if (kd <= 60) return "medium";
+  return "hard";
+}
+
 function calcBlogScore(opts: {
   frequency: number;
   isInfo: boolean;
@@ -277,9 +362,12 @@ async function runJob(jobId: string) {
   try {
     // ==== STEP 1: collect candidate keywords ====
     await updateJob(jobId, { status: "expanding", progress: 5 });
+    // KD map populated by Labs API (Russia is restricted on DFS, but the
+    // call is routed through the proxy; if relay fails KD will be empty).
+    const kdMap = new Map<string, number>();
     const [aiList, dfsRel, dfsAuto] = await Promise.all([
       aiGenerateInfoQueries(topic),
-      dfsRelatedKeywords(topic, region),
+      dfsRelatedKeywords(topic, region, kdMap),
       dfsAutocomplete(topic, region),
     ]);
     const merged = new Set<string>();
@@ -326,31 +414,41 @@ async function runJob(jobId: string) {
     await updateJob(jobId, { status: "serp", serp_total: toCheck.length, serp_checked: 0 });
 
     const compResults = new Map<string, CompetitionResult>();
-    if (serperKey) {
+    // Skip SERP entirely for keywords where KD already gave us a level —
+    // saves Serper credits and is the new primary signal.
+    const needSerp = toCheck.filter((c) => kdMap.get(c.keyword) == null);
+    if (serperKey && needSerp.length) {
       // батчи по 5 параллельно, между батчами 200мс
-      for (let i = 0; i < toCheck.length; i += 5) {
-        const batch = toCheck.slice(i, i + 5);
+      for (let i = 0; i < needSerp.length; i += 5) {
+        const batch = needSerp.slice(i, i + 5);
         const res = await Promise.all(batch.map((c) => serperSearch(c.keyword, serperKey)));
         for (let j = 0; j < batch.length; j++) {
           const r = res[j];
           if (r) compResults.set(batch[j].keyword, r);
         }
-        const checked = Math.min(i + 5, toCheck.length);
-        const prog = 45 + Math.round((checked / Math.max(toCheck.length, 1)) * 45);
+        const checked = Math.min(i + 5, needSerp.length);
+        const prog = 45 + Math.round((checked / Math.max(needSerp.length, 1)) * 45);
         await updateJob(jobId, { serp_checked: checked, progress: prog });
         await sleep(200);
       }
+    } else {
+      // Mark SERP as fully "checked" so UI shows progress completion.
+      await updateJob(jobId, { serp_checked: toCheck.length, progress: 90 });
     }
 
     // ==== STEP 4: build final topics ====
     await updateJob(jobId, { status: "saving", progress: 92 });
     const rows = candidates.map((c) => {
-      const comp = compResults.get(c.keyword) || null;
+      const kd = kdMap.get(c.keyword) ?? null;
+      const kdLevel = kdToLevel(kd);
+      const serpComp = compResults.get(c.keyword) || null;
+      // KD-based level wins; fall back to SERP-derived level
+      const level = kdLevel ?? (serpComp?.level ?? null);
       const score = calcBlogScore({
         frequency: c.freq,
         isInfo: c.isInfo,
         wordCount: c.wordCount,
-        competitionLevel: comp?.level ?? null,
+        competitionLevel: level,
       });
       const traffic = Math.round(c.freq * 0.11);
       return {
@@ -359,13 +457,14 @@ async function runJob(jobId: string) {
         ws_frequency: c.freq,
         word_count: c.wordCount,
         intent: "info",
-        competition_level: comp?.level ?? null,
-        strong_count: comp?.strongCount ?? null,
-        serp_urls: comp?.urls ?? [],
+        competition_level: level,
+        strong_count: serpComp?.strongCount ?? null,
+        serp_urls: serpComp?.urls ?? [],
+        keyword_difficulty: kd,
         blog_score: score,
         traffic_potential: traffic,
         data_source: dfsConfigured() ? "dataforseo" : "ai",
-        serp_checked: !!comp,
+        serp_checked: !!serpComp || kd != null,
       };
     });
 

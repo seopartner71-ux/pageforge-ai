@@ -15,6 +15,7 @@ import {
   Settings, Users, BarChart3, Save, Loader2, Eye, EyeOff, ScrollText,
   ShieldCheck, CheckCircle2, XCircle, Activity, Zap, Clock, Mail, Send,
   Filter, TrendingUp, Globe, Layers, Calendar, ExternalLink, Database,
+  Network,
 } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
@@ -251,6 +252,7 @@ function ApiSettingsTab() {
     <div className="space-y-6 max-w-2xl">
       <p className="text-sm text-muted-foreground">Управление ключами API. Изменения применяются мгновенно для всех Edge Functions.</p>
       <DataForSeoCard />
+      <ProxySettingsCard />
       {displaySettings.map(s => {
         const status = apiStatuses[s.key_name] || 'unknown';
         return (
@@ -1082,6 +1084,176 @@ function SystemCheckTab() {
                   <div className="text-xs text-muted-foreground">Всего проверено</div>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Proxy Settings Card ─── */
+function ProxySettingsCard() {
+  const { toast } = useToast();
+  const [proxyUrl, setProxyUrl] = useState('');
+  const [proxyToken, setProxyToken] = useState('');
+  const [proxyEnabled, setProxyEnabled] = useState(false);
+  const [showUrl, setShowUrl] = useState(false);
+  const [showToken, setShowToken] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<null | {
+    ok: boolean; ip?: string | null; country?: string | null;
+    dfsStatus?: number; ipError?: string | null; dfsError?: string | null; error?: string;
+  }>(null);
+
+  useEffect(() => {
+    supabase
+      .from('system_settings')
+      .select('key_name,key_value')
+      .in('key_name', ['proxy_url', 'proxy_enabled', 'proxy_token'])
+      .then(({ data }) => {
+        for (const row of (data ?? []) as Array<{ key_name: string; key_value: string }>) {
+          if (row.key_name === 'proxy_url') setProxyUrl(row.key_value || '');
+          else if (row.key_name === 'proxy_enabled') setProxyEnabled(String(row.key_value).toLowerCase() === 'true');
+          else if (row.key_name === 'proxy_token') setProxyToken(row.key_value || '');
+        }
+        setLoading(false);
+      });
+  }, []);
+
+  const upsertSetting = async (key: string, value: string) => {
+    const { data: existing } = await supabase.from('system_settings').select('id').eq('key_name', key).maybeSingle();
+    if (existing) {
+      await supabase.from('system_settings').update({ key_value: value, updated_at: new Date().toISOString() }).eq('key_name', key);
+    } else {
+      await supabase.from('system_settings').insert({ key_name: key, key_value: value });
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await Promise.all([
+      upsertSetting('proxy_url', proxyUrl.trim()),
+      upsertSetting('proxy_enabled', proxyEnabled ? 'true' : 'false'),
+      upsertSetting('proxy_token', proxyToken.trim()),
+    ]);
+    setSaving(false);
+    toast({ title: 'Настройки прокси сохранены ✓' });
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      // Сначала сохраним URL/token чтобы edge функция увидела актуальные значения
+      await Promise.all([
+        upsertSetting('proxy_url', proxyUrl.trim()),
+        upsertSetting('proxy_token', proxyToken.trim()),
+      ]);
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+      const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/proxy-test`, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      setTestResult(data);
+    } catch (e) {
+      setTestResult({ ok: false, error: (e as Error).message });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  if (loading) return <div className="glass-card p-4"><Loader2 className="w-4 h-4 animate-spin" /></div>;
+
+  return (
+    <div className="glass-card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Network className="w-4 h-4 text-primary" />
+          Прокси для внешних API
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground">{proxyEnabled ? 'Включён' : 'Выключен'}</span>
+          <button
+            type="button"
+            onClick={() => setProxyEnabled(v => !v)}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${proxyEnabled ? 'bg-primary' : 'bg-muted'}`}
+            aria-pressed={proxyEnabled}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${proxyEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          </button>
+        </div>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Все запросы к DataForSEO и Serper будут идти через ваш relay-эндпоинт (на Beget/VPS).
+        Relay должен принимать <code className="px-1 py-0.5 rounded bg-muted">POST</code> с JSON
+        <code className="px-1 py-0.5 rounded bg-muted">{'{ url, method, headers, body }'}</code> и возвращать
+        <code className="px-1 py-0.5 rounded bg-muted">{'{ status, headers, body }'}</code>.
+      </p>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-foreground">PROXY_URL</label>
+        <div className="flex gap-2">
+          <Input
+            type={showUrl ? 'text' : 'password'}
+            value={proxyUrl}
+            onChange={(e) => setProxyUrl(e.target.value)}
+            placeholder="https://your-relay.beget.tech/proxy"
+            className="font-mono text-sm"
+          />
+          <Button variant="outline" size="icon" onClick={() => setShowUrl(v => !v)}>
+            {showUrl ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-foreground">PROXY_TOKEN <span className="text-muted-foreground font-normal">(опционально, передаётся в заголовке x-proxy-token)</span></label>
+        <div className="flex gap-2">
+          <Input
+            type={showToken ? 'text' : 'password'}
+            value={proxyToken}
+            onChange={(e) => setProxyToken(e.target.value)}
+            placeholder="секретный токен авторизации relay"
+            className="font-mono text-sm"
+          />
+          <Button variant="outline" size="icon" onClick={() => setShowToken(v => !v)}>
+            {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <Button onClick={handleSave} disabled={saving} className="btn-gradient border-0 gap-2">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Сохранить
+        </Button>
+        <Button onClick={handleTest} disabled={testing || !proxyUrl.trim()} variant="outline" className="gap-2">
+          {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+          Проверить прокси
+        </Button>
+      </div>
+
+      {testResult && (
+        <div className={`text-[12px] p-3 rounded-md border ${testResult.ok ? 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'}`}>
+          {testResult.ok ? (
+            <div className="space-y-0.5">
+              <div>✅ Прокси работает{testResult.ip ? `, IP: ${testResult.ip}` : ''}{testResult.country ? ` (${testResult.country})` : ''}</div>
+              {!!testResult.dfsStatus && (
+                <div className="text-muted-foreground">DataForSEO ответил: HTTP {testResult.dfsStatus}</div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-0.5">
+              <div>❌ Прокси не работает</div>
+              {testResult.error && <div>{testResult.error}</div>}
+              {testResult.ipError && <div>IP-эхо: {testResult.ipError}</div>}
+              {testResult.dfsError && <div>DataForSEO: {testResult.dfsError}</div>}
             </div>
           )}
         </div>
