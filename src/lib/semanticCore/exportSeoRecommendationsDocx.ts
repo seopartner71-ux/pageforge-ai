@@ -351,6 +351,10 @@ export function exportSeoRecommendationsDocx(payload: SemanticCorePayload): numb
           level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT,
           style: { paragraph: { indent: { left: 360, hanging: 200 } } },
         }] },
+        { reference: 'priority-bullets', levels: [{
+          level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 360, hanging: 200 } } },
+        }] },
         { reference: 'stats-bullets', levels: [{
           level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT,
           style: { paragraph: { indent: { left: 360, hanging: 200 } } },
