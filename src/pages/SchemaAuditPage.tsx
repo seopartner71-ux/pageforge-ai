@@ -983,7 +983,7 @@ export default function SchemaAuditPage() {
           </div>
         )}
 
-        {error && !running && errorCode === 'BOT_PROTECTED' && (
+        {auditMode === 'single' && error && !running && errorCode === 'BOT_PROTECTED' && (
           <div className="rounded-xl border border-yellow-500/30 bg-card p-6 max-w-2xl mx-auto space-y-3">
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-yellow-500" />
@@ -1013,7 +1013,7 @@ export default function SchemaAuditPage() {
           </div>
         )}
 
-        {error && !running && errorCode !== 'BOT_PROTECTED' && (
+        {auditMode === 'single' && error && !running && errorCode !== 'BOT_PROTECTED' && (
           <div className="rounded-xl border border-red-500/30 bg-card p-6 text-center max-w-2xl mx-auto">
             <XCircle className="w-7 h-7 text-red-500 mx-auto mb-3" />
             <p className="text-sm font-medium text-foreground mb-1">Не удалось выполнить анализ</p>
@@ -1021,10 +1021,10 @@ export default function SchemaAuditPage() {
           </div>
         )}
 
-        {!audit && !running && !error && <EmptyState onStart={() => inputRef.current?.focus()} />}
+        {auditMode === 'single' && !audit && !running && !error && <EmptyState onStart={() => inputRef.current?.focus()} />}
 
         {/* Results */}
-        {audit && !running && (
+        {auditMode === 'single' && audit && !running && (
           <div className="space-y-8 animate-in fade-in duration-500">
             {/* Scores */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
