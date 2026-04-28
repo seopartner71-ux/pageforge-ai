@@ -10,8 +10,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   Play, CheckCircle2, AlertTriangle, XCircle, Loader2, Code2, Copy, Download,
-  FileCode, Sparkles, ChevronDown, ChevronUp, ShieldAlert,
+  FileCode, Sparkles, ChevronDown, ChevronUp, ShieldAlert, Plus, Trash2, Globe, Wand2,
 } from 'lucide-react';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 
 /* ─── Types ─── */
 interface SchemaField { key: string; status: 'ok' | 'missing' | 'warning'; value?: string }
