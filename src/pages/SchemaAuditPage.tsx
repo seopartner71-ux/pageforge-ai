@@ -855,7 +855,26 @@ export default function SchemaAuditPage() {
           </p>
         </div>
 
-        {/* Input panel */}
+        {/* Mode toggle */}
+        <div className="max-w-2xl mx-auto flex items-center justify-center gap-1 rounded-lg border border-border/60 bg-card p-1">
+          <button
+            onClick={() => setAuditMode('single')}
+            disabled={running}
+            className={`flex-1 px-4 py-2 text-sm rounded-md transition-colors ${auditMode === 'single' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Одна страница
+          </button>
+          <button
+            onClick={() => setAuditMode('site')}
+            disabled={running}
+            className={`flex-1 px-4 py-2 text-sm rounded-md transition-colors ${auditMode === 'site' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Globe className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" /> Весь сайт
+          </button>
+        </div>
+
+        {/* Single page input */}
+        {auditMode === 'single' && (
         <div className="rounded-xl border border-border/60 bg-card p-6 max-w-2xl mx-auto space-y-3">
           <Input
             ref={inputRef}
@@ -889,6 +908,63 @@ export default function SchemaAuditPage() {
             Анализируем JSON-LD, Microdata и RDFa • Стоимость: 2 кредита
           </p>
         </div>
+        )}
+
+        {/* Multi-page input */}
+        {auditMode === 'site' && (
+        <div className="rounded-xl border border-border/60 bg-card p-6 max-w-3xl mx-auto space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Добавьте до 5 ключевых страниц сайта — для каждой укажите тип</p>
+            <Button size="sm" variant="outline" onClick={fetchSitemapPages} disabled={running || sitemapBusy} className="gap-2 h-8 text-xs">
+              {sitemapBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+              Найти страницы автоматически
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {pages.map((p) => (
+              <div key={p.id} className="flex items-center gap-2">
+                <Select value={p.type} onValueChange={v => updatePage(p.id, { type: v })} disabled={running}>
+                  <SelectTrigger className="w-[180px] h-10 text-xs shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_TYPES.map(pt => (
+                      <SelectItem key={pt.value} value={pt.value} className="text-xs">{pt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={p.url}
+                  onChange={e => updatePage(p.id, { url: e.target.value })}
+                  placeholder="https://site.ru/page"
+                  className="h-10 text-sm flex-1"
+                  disabled={running}
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => removePage(p.id)}
+                  disabled={running || pages.length <= 1}
+                  className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
+                  aria-label="Удалить"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button size="sm" variant="ghost" onClick={addPage} disabled={running || pages.length >= 5} className="gap-1 text-xs">
+            <Plus className="w-3.5 h-3.5" /> Добавить URL ({pages.length}/5)
+          </Button>
+          <Button onClick={handleRunMulti} disabled={running || pages.every(p => !p.url.trim())} className="w-full h-11 gap-2">
+            {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {running ? 'Анализ страниц...' : `Проверить весь сайт (${pages.filter(p => p.url.trim()).length})`}
+          </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            Стоимость: 2 кредита за страницу • {pages.filter(p => p.url.trim()).length * 2} кредитов
+          </p>
+        </div>
+        )}
 
         {/* Loading */}
         {running && (
