@@ -1190,6 +1190,147 @@ export default function SchemaAuditPage() {
             </div>
           </div>
         )}
+
+        {/* ── Multi-page results ── */}
+        {auditMode === 'site' && multiResults.length > 0 && (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            {/* Per-page status while running */}
+            {running && (
+              <div className="rounded-xl border border-border/60 bg-card p-5 space-y-2 max-w-2xl mx-auto">
+                <p className="text-sm font-semibold text-foreground mb-2">Анализируем страницы…</p>
+                {multiResults.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2">
+                      {r.status === 'done' && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
+                      {r.status === 'error' && <XCircle className="w-3.5 h-3.5 text-red-500" />}
+                      {r.status === 'running' && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
+                      {r.status === 'pending' && <div className="w-3.5 h-3.5 rounded-full border border-border" />}
+                      <span className="text-muted-foreground">{pageTypeLabel(r.type)}</span>
+                      <span className="text-foreground/70 truncate max-w-[260px]">{r.url}</span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      {r.status === 'done' && `${r.audit?.overall_score ?? 0}/100`}
+                      {r.status === 'error' && 'ошибка'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Summary card */}
+            {!running && siteSummary && (
+              <div className="rounded-xl border border-border/60 bg-card p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold text-foreground">Сводный отчёт по сайту</h2>
+                  <Button onClick={downloadMultiTz} className="gap-2">
+                    <Download className="w-4 h-4" /> Скачать сводное ТЗ
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-lg border border-border/40 bg-background p-4 text-center">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Проверено страниц</p>
+                    <p className="text-2xl font-bold text-foreground">{siteSummary.total}</p>
+                  </div>
+                  <div className="rounded-lg border border-border/40 bg-background p-4 text-center">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Средний балл</p>
+                    <p className={`text-2xl font-bold ${scoreColor(siteSummary.avgScore)}`}>{siteSummary.avgScore}<span className="text-sm text-muted-foreground font-normal">/100</span></p>
+                  </div>
+                  <div className="rounded-lg border border-border/40 bg-background p-4 text-center">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Критических ошибок</p>
+                    <p className={`text-2xl font-bold ${siteSummary.totalErrors > 0 ? 'text-red-400' : 'text-green-400'}`}>{siteSummary.totalErrors}</p>
+                  </div>
+                </div>
+                {siteSummary.priorities.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">Приоритет исправлений</p>
+                    <ol className="space-y-1.5 text-sm">
+                      {siteSummary.priorities.map((p, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-muted-foreground shrink-0">{i + 1}.</span>
+                          <span className="text-foreground"><span className="font-medium">{p.label}</span> — {p.problem}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Per-page tabs */}
+            {!running && multiResults.some(r => r.status === 'done') && (
+              <Tabs value={multiActiveTab || multiResults.find(r => r.status === 'done')?.url} onValueChange={setMultiActiveTab}>
+                <TabsList className="flex-wrap h-auto">
+                  {multiResults.map((r) => (
+                    <TabsTrigger key={r.url} value={r.url} className="text-xs">
+                      {pageTypeLabel(r.type)}
+                      {r.status === 'done' && r.audit && (
+                        <span className={`ml-2 ${scoreColor(r.audit.overall_score)}`}>{r.audit.overall_score}/100</span>
+                      )}
+                      {r.status === 'error' && <span className="ml-2 text-red-400">ошибка</span>}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {multiResults.map((r) => (
+                  <TabsContent key={r.url} value={r.url} className="mt-4 space-y-4">
+                    {r.status === 'error' && (
+                      <div className="rounded-xl border border-red-500/30 bg-card p-5 text-sm text-red-400">
+                        {r.error || 'Ошибка анализа'}
+                      </div>
+                    )}
+                    {r.status === 'done' && r.audit && (
+                      <>
+                        {/* Required-vs-found for this page type */}
+                        {(() => {
+                          const meta = PAGE_TYPE_MAP[r.type];
+                          if (!meta) return null;
+                          const found = new Set(r.audit!.schemas_data.map((s: any) => s.type));
+                          return (
+                            <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
+                              <h3 className="text-sm font-semibold text-foreground">Требуемые схемы для типа «{pageTypeLabel(r.type)}»</h3>
+                              <div className="flex flex-wrap gap-2 text-xs">
+                                {meta.required.map(t => (
+                                  <span key={t} className={`flex items-center gap-1 px-2 py-1 rounded ${found.has(t) ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                                    {found.has(t) ? '✓' : '✗'} {t}
+                                  </span>
+                                ))}
+                                {meta.recommended.map(t => (
+                                  <span key={t} className={`flex items-center gap-1 px-2 py-1 rounded ${found.has(t) ? 'bg-green-500/10 text-green-400' : 'bg-secondary text-muted-foreground'}`}>
+                                    {found.has(t) ? '✓' : '○'} {t} <span className="opacity-60">(реком.)</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Found schemas */}
+                        {r.audit.schemas_data.filter(isValuableSchema).length > 0 && (
+                          <div className="space-y-3">
+                            <h3 className="text-sm font-semibold text-foreground">Найдено на странице ({r.audit.schemas_data.filter(isValuableSchema).length})</h3>
+                            {r.audit.schemas_data.filter(isValuableSchema).map((s: any, i: number) => (
+                              <SchemaCard key={i} schema={s} />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Generated code blocks */}
+                        {r.audit.generated_code.length > 0 && (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-primary" />
+                              <h3 className="text-sm font-semibold text-foreground">Готовый код для вставки</h3>
+                            </div>
+                            {r.audit.generated_code.map((b, i) => <CodeBlock key={i} block={b} />)}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </TabsContent>
+                ))}
+              </Tabs>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
