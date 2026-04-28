@@ -91,23 +91,43 @@ async function fetchDataForSEOHistory(keyword: string, engine: "yandex" | "googl
 }
 
 async function fetchCurrentSerper(keyword: string, engine: "yandex" | "google", depth: number, region: string): Promise<PositionItem[]> {
-  if (!SERPER_API_KEY) return [];
+  console.log("[Serper] key configured:", !!SERPER_API_KEY);
+  if (!SERPER_API_KEY) {
+    console.error("[Serper] SERPER_API_KEY missing in edge function secrets");
+    return [];
+  }
   try {
-    const url = engine === "google" ? "https://google.serper.dev/search" : "https://google.serper.dev/search";
+    const url = "https://google.serper.dev/search";
+    const payload = {
+      q: keyword,
+      gl: "ru",
+      hl: "ru",
+      location: region || "Moscow,Russia",
+      num: Math.max(depth, 10),
+    };
+    console.log("[Serper] requesting:", keyword, "region:", region, "depth:", depth);
     const res = await fetch(url, {
       method: "POST",
       headers: { "X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: keyword, gl: "ru", hl: "ru", location: region, num: Math.max(depth, 10) }),
+      body: JSON.stringify(payload),
     });
-    if (!res.ok) return [];
+    console.log("[Serper] status:", res.status);
+    if (!res.ok) {
+      const errTxt = await res.text();
+      console.error("[Serper] non-ok body:", errTxt.slice(0, 500));
+      return [];
+    }
     const data = await res.json();
+    console.log("[Serper] organic count:", data?.organic?.length, "error:", data?.error);
     const organic = data?.organic ?? [];
-    return organic.slice(0, depth).map((it: any, i: number): PositionItem => ({
+    const out = organic.slice(0, depth).map((it: any, i: number): PositionItem => ({
       position: it?.position || i + 1,
       domain: getDomain(it?.link || ""),
       url: it?.link || "",
       title: it?.title || "",
     }));
+    console.log("[Serper] mapped items:", out.length);
+    return out;
   } catch (e) {
     console.error("[Serper] error", e);
     return [];
@@ -156,9 +176,11 @@ Deno.serve(async (req) => {
 
     // 2. Always also fetch current via Serper (or DFS empty)
     const current = await fetchCurrentSerper(keyword, engine, depth, region);
+    console.log("[serp-history] DFS history snapshots:", history.length, "current items:", current.length);
 
     // 3. Save current snapshot
     if (current.length) {
+      console.log("[Snapshot] saving:", { keyword, region, engine, results_count: current.length });
       await supabase.from("serp_snapshots").insert({
         user_id: cd.user.id,
         project_id: projectId,
