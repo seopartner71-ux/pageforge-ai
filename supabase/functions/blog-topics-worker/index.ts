@@ -362,9 +362,12 @@ async function runJob(jobId: string) {
   try {
     // ==== STEP 1: collect candidate keywords ====
     await updateJob(jobId, { status: "expanding", progress: 5 });
+    // KD map populated by Labs API (Russia is restricted on DFS, but the
+    // call is routed through the proxy; if relay fails KD will be empty).
+    const kdMap = new Map<string, number>();
     const [aiList, dfsRel, dfsAuto] = await Promise.all([
       aiGenerateInfoQueries(topic),
-      dfsRelatedKeywords(topic, region),
+      dfsRelatedKeywords(topic, region, kdMap),
       dfsAutocomplete(topic, region),
     ]);
     const merged = new Set<string>();
@@ -411,31 +414,41 @@ async function runJob(jobId: string) {
     await updateJob(jobId, { status: "serp", serp_total: toCheck.length, serp_checked: 0 });
 
     const compResults = new Map<string, CompetitionResult>();
-    if (serperKey) {
+    // Skip SERP entirely for keywords where KD already gave us a level —
+    // saves Serper credits and is the new primary signal.
+    const needSerp = toCheck.filter((c) => kdMap.get(c.keyword) == null);
+    if (serperKey && needSerp.length) {
       // батчи по 5 параллельно, между батчами 200мс
-      for (let i = 0; i < toCheck.length; i += 5) {
-        const batch = toCheck.slice(i, i + 5);
+      for (let i = 0; i < needSerp.length; i += 5) {
+        const batch = needSerp.slice(i, i + 5);
         const res = await Promise.all(batch.map((c) => serperSearch(c.keyword, serperKey)));
         for (let j = 0; j < batch.length; j++) {
           const r = res[j];
           if (r) compResults.set(batch[j].keyword, r);
         }
-        const checked = Math.min(i + 5, toCheck.length);
-        const prog = 45 + Math.round((checked / Math.max(toCheck.length, 1)) * 45);
+        const checked = Math.min(i + 5, needSerp.length);
+        const prog = 45 + Math.round((checked / Math.max(needSerp.length, 1)) * 45);
         await updateJob(jobId, { serp_checked: checked, progress: prog });
         await sleep(200);
       }
+    } else {
+      // Mark SERP as fully "checked" so UI shows progress completion.
+      await updateJob(jobId, { serp_checked: toCheck.length, progress: 90 });
     }
 
     // ==== STEP 4: build final topics ====
     await updateJob(jobId, { status: "saving", progress: 92 });
     const rows = candidates.map((c) => {
-      const comp = compResults.get(c.keyword) || null;
+      const kd = kdMap.get(c.keyword) ?? null;
+      const kdLevel = kdToLevel(kd);
+      const serpComp = compResults.get(c.keyword) || null;
+      // KD-based level wins; fall back to SERP-derived level
+      const level = kdLevel ?? (serpComp?.level ?? null);
       const score = calcBlogScore({
         frequency: c.freq,
         isInfo: c.isInfo,
         wordCount: c.wordCount,
-        competitionLevel: comp?.level ?? null,
+        competitionLevel: level,
       });
       const traffic = Math.round(c.freq * 0.11);
       return {
@@ -444,13 +457,14 @@ async function runJob(jobId: string) {
         ws_frequency: c.freq,
         word_count: c.wordCount,
         intent: "info",
-        competition_level: comp?.level ?? null,
-        strong_count: comp?.strongCount ?? null,
-        serp_urls: comp?.urls ?? [],
+        competition_level: level,
+        strong_count: serpComp?.strongCount ?? null,
+        serp_urls: serpComp?.urls ?? [],
+        keyword_difficulty: kd,
         blog_score: score,
         traffic_potential: traffic,
         data_source: dfsConfigured() ? "dataforseo" : "ai",
-        serp_checked: !!comp,
+        serp_checked: !!serpComp || kd != null,
       };
     });
 
