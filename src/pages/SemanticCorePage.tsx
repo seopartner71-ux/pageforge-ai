@@ -1138,12 +1138,9 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
                 <div key={k.keyword} className="flex items-center justify-between text-xs gap-2">
                   <span className="truncate flex items-center gap-1" title={k.keyword}>
                     {isGoldenKeyword(k) && (
-                      <Star
-                        className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0"
-                        aria-label={goldenPotentialLabel(k.score)}
-                      >
-                        <title>{goldenPotentialLabel(k.score)}</title>
-                      </Star>
+                      <span title={goldenPotentialLabel(k.score)} className="inline-flex shrink-0">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                      </span>
                     )}
                     <span className="truncate">{k.keyword}</span>
                   </span>
