@@ -23,6 +23,8 @@ interface Snapshot { date: string; items: PositionItem[] }
 interface ApiResponse {
   keyword: string; region: string; engine: 'yandex' | 'google'; depth: number;
   snapshots: Snapshot[]; current: PositionItem[]; fallback: boolean; message: string | null;
+  serper_error?: 'no_credits' | 'no_key' | 'api_error' | null;
+  serper_message?: string | null;
 }
 
 const AGGREGATORS = new Set([
