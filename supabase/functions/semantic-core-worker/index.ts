@@ -601,7 +601,6 @@ async function dfsKeywordsForSite(
             target,
             language_code: "ru",
             limit: 500,
-            filters: [["keyword_info.search_volume", ">", 10]],
           }]),
         },
       );
