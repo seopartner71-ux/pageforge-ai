@@ -10,7 +10,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const SERPER_KEY_ENV = Deno.env.get("SERPER_API_KEY") ?? "";
-const WORDSTAT_KEY_ENV = Deno.env.get("WORDSTAT_API_KEY") ?? "";
 const DFS_LOGIN = Deno.env.get("DATAFORSEO_LOGIN") ?? "";
 const DFS_PASSWORD = Deno.env.get("DATAFORSEO_PASSWORD") ?? "";
 
