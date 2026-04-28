@@ -1057,15 +1057,23 @@ export default function SemanticCorePage() {
                       {filtered.map((k, i) => (
                         <tr key={k.keyword + i} className="border-t border-border/50 hover:bg-muted/20">
                           <td className="px-3 py-2">
-                            {isGoldenKeyword(k) && (
-                              <span title={`${goldenPotentialLabel(k.score)} (score ${k.score}). ${GOLDEN_TOOLTIP}`} className="inline-flex align-middle mr-1.5">
-                                <Star
-                                  className="w-3.5 h-3.5 fill-amber-400 text-amber-400"
-                                  aria-label={`Золотой запрос — ${goldenPotentialLabel(k.score)}`}
-                                />
-                              </span>
-                            )}
-                            <span title={isGoldenKeyword(k) ? `${goldenPotentialLabel(k.score)} — ${GOLDEN_TOOLTIP}` : undefined}>{k.keyword}</span>
+                            {(() => {
+                              const tier = goldenTier(k);
+                              if (!tier) return <span>{k.keyword}</span>;
+                              const meta = TIER_META[tier];
+                              const tip = `${meta.emoji} ${meta.label} — ${tierTooltip(tier)} (score ${k.score}, ${k.wsFrequency.toLocaleString('ru')}/мес)`;
+                              return (
+                                <>
+                                  <span title={tip} className="inline-flex items-center gap-1 align-middle mr-1.5">
+                                    <Star className={`w-3.5 h-3.5 ${meta.star}`} aria-label={`Золотой запрос — ${meta.label}`} />
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${meta.badge}`}>
+                                      {meta.emoji} {meta.label}
+                                    </span>
+                                  </span>
+                                  <span title={tip}>{k.keyword}</span>
+                                </>
+                              );
+                            })()}
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                             <FreqDot source={k.dataSource} />
@@ -1163,11 +1171,16 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
               {display.map(k => (
                 <div key={k.keyword} className="flex items-center justify-between text-xs gap-2">
                   <span className="truncate flex items-center gap-1" title={k.keyword}>
-                    {isGoldenKeyword(k) && (
-                      <span title={goldenPotentialLabel(k.score)} className="inline-flex shrink-0">
-                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                      </span>
-                    )}
+                    {(() => {
+                      const tier = goldenTier(k);
+                      if (!tier) return null;
+                      const meta = TIER_META[tier];
+                      return (
+                        <span title={`${meta.emoji} ${meta.label} — ${tierTooltip(tier)}`} className="inline-flex shrink-0">
+                          <Star className={`w-3 h-3 ${meta.star}`} />
+                        </span>
+                      );
+                    })()}
                     <span className="truncate">{k.keyword}</span>
                   </span>
                   <span className="tabular-nums text-muted-foreground shrink-0">{k.score}</span>
