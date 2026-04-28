@@ -620,7 +620,6 @@ async function fetchSerp(query: string, region: string, key: string): Promise<st
         gl: "ru",
         hl: "ru",
         num: 10,
-        location: region === "Москва" ? "Moscow,Russia" : "Russia",
       }),
     });
     if (!resp.ok) return [];
