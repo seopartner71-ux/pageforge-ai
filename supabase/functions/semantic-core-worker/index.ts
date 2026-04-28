@@ -654,7 +654,7 @@ async function dfsKeywordsForSite(
 // ============== TOPVISOR API ==============
 // Replaces Wordstat for Russian regions (Wordstat DNS is blocked from edge runtime).
 // Docs: https://topvisor.com/api/services/keywords_base/wordstat/
-const TOPVISOR_BASE = "https://api.topvisor.com/v2/json/get/keywords_base/wordstat";
+const TOPVISOR_BASE = "https://api.topvisor.com/v2/json/get/keywords_base/overview";
 const TOPVISOR_KEY_ENV = Deno.env.get("TOPVISOR_API_KEY") ?? "";
 const TOPVISOR_USER_ID_ENV = Deno.env.get("TOPVISOR_USER_ID") ?? "";
 
@@ -750,7 +750,10 @@ async function topvisorVolumes(
           "User-Id": userId,
           "Authorization": `bearer ${token}`,
         },
-        body: JSON.stringify({ keywords: batch, region_index: regionId }),
+        body: JSON.stringify({
+          regions_indexes: [String(regionId)],
+          keywords: batch,
+        }),
       });
       if (!resp.ok) {
         const t = await resp.text();
@@ -760,7 +763,7 @@ async function topvisorVolumes(
         const data = await resp.json();
         console.log(`[Topvisor] regionId=${regionId} keywords=${batch.length} status=${resp.status}`);
         if (b === 0) {
-          console.log('[Topvisor RAW first batch]', JSON.stringify(data).slice(0, 3000));
+          console.log('[Topvisor RAW v2]', JSON.stringify(data).slice(0, 2000));
         }
         const result = Array.isArray(data?.result) ? data.result : (Array.isArray(data) ? data : []);
         // Build a lookup by keyword to be robust to ordering.
