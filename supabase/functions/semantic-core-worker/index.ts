@@ -885,14 +885,9 @@ async function fetchFrequencies(
   region: string,
   jobId: string,
 ): Promise<{ ws: number; exact: number }[]> {
-  // For Russian regions, enrich via Topvisor (Wordstat DNS is blocked from edge runtime).
-  // For non-Russian regions, mock frequencies (DFS volumes merged separately upstream).
-  if (isRussianRegion(region)) {
-    const regionId = topvisorRegionId(region);
-    const out = await topvisorVolumes(keywords, regionId);
-    await updateJob(jobId, { progress: 50 });
-    return out;
-  }
+  // Topvisor enrichment for RU regions runs upstream (covers ALL keywords),
+  // so by the time we get here only keywords with no real volume remain.
+  // Use mock for any leftover.
   const out: { ws: number; exact: number }[] = new Array(keywords.length);
   await sleep(300);
   for (let i = 0; i < keywords.length; i++) out[i] = mockFreq(keywords[i]);
