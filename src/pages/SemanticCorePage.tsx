@@ -463,6 +463,14 @@ export default function SemanticCorePage() {
     [keywords],
   );
 
+  // Авто-сброс фильтра «только золотые», если в текущем ядре нет ни одного золотого
+  // запроса — чтобы пользователь не видел пустую таблицу.
+  useEffect(() => {
+    if (goldenOnly && keywords.length > 0 && goldenCount === 0) {
+      setGoldenOnly(false);
+    }
+  }, [goldenOnly, goldenCount, keywords.length]);
+
   const clusterMap = useMemo(() => new Map(clusters.map(c => [c.id, c])), [clusters]);
 
   const toggleSet = <T,>(set: Set<T>, val: T): Set<T> => {
