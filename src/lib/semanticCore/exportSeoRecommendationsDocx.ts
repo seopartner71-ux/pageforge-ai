@@ -49,6 +49,63 @@ const TIER_RECOMMENDATION: Record<GoldenTier, string> = {
   hard: 'Экспертная статья 3000+ слов + видео + ссылки. Результат: 6+ мес',
 };
 
+// ============== H1 GENERATOR ==============
+// Шаблон: запрос (с заглавной) + информационное продолжение,
+// подобранное по типу запроса (списки, цена, инструкция, обзор и т.д.)
+function capitalize(s: string): string {
+  const t = s.trim();
+  if (!t) return t;
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function generateH1(keyword: string): string {
+  const kw = (keyword || '').trim().replace(/\s+/g, ' ');
+  if (!kw) return '';
+  const lower = kw.toLowerCase();
+  const base = capitalize(lower);
+
+  // По смысловым маркерам подбираем «хвост»
+  if (/\b(как|способ|инструкц)/.test(lower)) {
+    return `${base}: пошаговая инструкция и советы`;
+  }
+  if (/\b(почему|зачем)/.test(lower)) {
+    return `${base} — разбираем причины и что делать`;
+  }
+  if (/\b(что такое|что значит|значение|означает)/.test(lower)) {
+    return `${base}: значение, особенности и примеры`;
+  }
+  if (/\b(сколько|стоимость|цена|цены)/.test(lower)) {
+    return `${base}: сколько стоит и от чего зависит цена`;
+  }
+  if (/\b(где|куда)/.test(lower)) {
+    return `${base}: где найти и на что обратить внимание`;
+  }
+  if (/\b(когда|сроки|срок)/.test(lower)) {
+    return `${base}: когда и в какие сроки`;
+  }
+  if (/\b(виды|типы|сорта|разновидност)/.test(lower)) {
+    return `${base}: классификация, фото и описание`;
+  }
+  if (/\b(обзор|сравнение|рейтинг|топ|лучш)/.test(lower)) {
+    return `${base} — подробный обзор и сравнение`;
+  }
+  if (/\b(отзыв)/.test(lower)) {
+    return `${base}: реальные отзывы и опыт использования`;
+  }
+  if (/\b(своими руками|сделать|собрать|изготов)/.test(lower)) {
+    return `${base}: пошаговое руководство своими руками`;
+  }
+  if (/\b(букет|цвет|роз|пион|тюльпан|хризантем|лили)/.test(lower)) {
+    // Числовой букет — особый шаблон
+    if (/\b\d{2,3}\b/.test(lower)) {
+      return `${base}: сколько стоит и что означает`;
+    }
+    return `${base}: виды, фото, как выбрать`;
+  }
+  // Универсальный шаблон по умолчанию
+  return `${base}: что нужно знать, виды и советы`;
+}
+
 // ============== HELPERS ==============
 function safeFile(s: string): string {
   return (s || 'project').replace(/[^\p{L}\p{N}_-]+/gu, '_').slice(0, 60);
@@ -131,14 +188,16 @@ export function exportSeoRecommendationsDocx(payload: SemanticCorePayload): numb
     spacing: { before: 200, after: 160 },
   }));
 
-  const colWidths = [3400, 1300, 1400, 3260]; // sum = 9360 (US Letter content)
+  // sum = 9360 (US Letter content)
+  const colWidths = [2200, 2700, 1100, 1200, 2160];
   const goldenRows: TableRow[] = [
-    headerRow(['Запрос', 'Частота WS', 'Сложность', 'Рекомендация'], colWidths),
+    headerRow(['Запрос', 'Заголовок H1', 'Частота WS', 'Сложность', 'Рекомендация'], colWidths),
   ];
   for (const k of sortedGolden) {
     const tier = tierOf(k);
     goldenRows.push(bodyRow([
       k.keyword,
+      generateH1(k.keyword),
       (k.wsFrequency || 0).toLocaleString('ru'),
       TIER_LABEL[tier],
       TIER_RECOMMENDATION[tier],
@@ -173,6 +232,37 @@ export function exportSeoRecommendationsDocx(payload: SemanticCorePayload): numb
     }));
   }
 
+  // Приоритетные статьи — топ-5 «лёгких» с готовым H1
+  const easyTop = sortedGolden.filter((k) => tierOf(k) === 'easy').slice(0, 5);
+  if (easyTop.length > 0) {
+    children.push(new Paragraph({
+      spacing: { before: 200, after: 120 },
+      children: [new TextRun({
+        text: 'Приоритетные статьи для старта (первые 2 недели):',
+        bold: true, size: 24, color: '2E75B6',
+      })],
+    }));
+    for (const k of easyTop) {
+      children.push(new Paragraph({
+        numbering: { reference: 'priority-bullets', level: 0 },
+        spacing: { after: 60 },
+        children: [
+          new TextRun({ text: '🟢 ', size: 22 }),
+          new TextRun({ text: `${k.keyword} `, size: 22 }),
+          new TextRun({ text: `(${(k.wsFrequency || 0).toLocaleString('ru')}/мес)`, size: 20, color: '666666' }),
+        ],
+      }));
+      children.push(new Paragraph({
+        indent: { left: 720 },
+        spacing: { after: 120 },
+        children: [
+          new TextRun({ text: 'H1: ', italics: true, size: 20, color: '666666' }),
+          new TextRun({ text: generateH1(k.keyword), size: 20 }),
+        ],
+      }));
+    }
+  }
+
   children.push(divider());
 
   // ===== РАЗДЕЛ 3: Кластеры =====
@@ -182,11 +272,15 @@ export function exportSeoRecommendationsDocx(payload: SemanticCorePayload): numb
     spacing: { before: 200, after: 160 },
   }));
 
-  const sortedClusters = [...payload.clusters].sort((a, b) => b.totalQueries - a.totalQueries);
+  // Исключаем пустые кластеры
+  const sortedClusters = [...payload.clusters]
+    .filter((c) => (c.totalQueries ?? 0) > 0)
+    .sort((a, b) => b.totalQueries - a.totalQueries);
   for (const c of sortedClusters) {
     const items = payload.keywords
       .filter((k) => k.cluster === c.id)
       .sort((a, b) => (b.wsFrequency || 0) - (a.wsFrequency || 0));
+    if (items.length === 0) continue;
     const top = items.slice(0, 3);
     children.push(new Paragraph({
       numbering: { reference: 'cluster-bullets', level: 0 },
