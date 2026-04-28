@@ -151,12 +151,16 @@ function FreqDot({ source }: { source?: 'mock' | 'dataforseo' }) {
   );
 }
 
-// "Золотой" запрос: info-интент, частота >= 1000, KD известен и KD <= 40.
-// Если KD неизвестен — запрос НЕ считается золотым (конкурентность не подтверждена).
+// "Золотой" запрос:
+// - С KD: info-интент, частота >= 1000, KD <= 40 (классический критерий).
+// - Без KD (например, Яндекс Вордстат для России — KD не предоставляется):
+//   info-интент, частота >= 1000, score > 70.
 function isGoldenKeyword(k: SemanticKeyword): boolean {
   if (k.intent !== 'info') return false;
   if ((k.wsFrequency ?? 0) < 1000) return false;
-  if (k.keywordDifficulty == null) return false;
+  if (k.keywordDifficulty == null) {
+    return (k.score ?? 0) > 70;
+  }
   return k.keywordDifficulty <= 40;
 }
 
