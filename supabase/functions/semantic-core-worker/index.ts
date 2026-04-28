@@ -1154,9 +1154,23 @@ async function runPipeline(jobId: string) {
   // We split AI output across the "suggestions" and "competitors" buckets
   // so the UI breakdown stays meaningful.
   if (isRu && (useSuggestions || useCompetitors)) {
+    // Primary: Yandex Wordstat (real RU data with frequencies, no KD).
+    sourcePromises.push(
+      wordstatSourceForRu(topic, seeds, region)
+        .then((arr) => ({
+          source: useSuggestions ? "suggestions" : "competitors",
+          keywords: arr.map((x) => x.keyword),
+          withVolumes: arr,
+        }))
+        .catch((e) => {
+          console.warn("[wordstat-source] failed", e);
+          return { source: "suggestions", keywords: [] };
+        }),
+    );
+    // Secondary: AI expansion to boost long-tail coverage.
     sourcePromises.push(
       aiSuggestionsForRu(topic, seeds, region)
-        .then((kws) => ({ source: useSuggestions ? "suggestions" : "competitors", keywords: kws }))
+        .then((kws) => ({ source: "ai", keywords: kws }))
         .catch((e) => { console.warn("[ai-suggestions-ru] failed", e); return { source: "suggestions", keywords: [] }; }),
     );
   }
