@@ -203,11 +203,27 @@ function addDays(d: Date, n: number): Date {
 }
 function pageTypeLabel(t: string): string {
   const map: Record<string, string> = {
-    homepage: 'Главная страница', product: 'Карточка товара', article: 'Статья / блог',
+    homepage: 'Главная', product: 'Карточка товара', article: 'Статья / блог',
     local_business: 'Локальный бизнес', general: 'Общая страница', other: 'Общая страница',
+    services: 'Услуги', contacts: 'Контакты', category: 'Категория',
+    event_host: 'Личный бренд', service: 'Услуги', ecommerce: 'E-commerce',
   };
   return map[t] || t || '—';
 }
+
+/* ─── Page types for multi-page audit ─── */
+const PAGE_TYPES: { value: string; label: string; required: string[]; recommended: string[] }[] = [
+  { value: 'homepage', label: 'Главная',         required: ['WebSite', 'Organization'],     recommended: ['LocalBusiness', 'SiteNavigationElement'] },
+  { value: 'services', label: 'Услуги',          required: ['Service'],                     recommended: ['LocalBusiness', 'Offer', 'AggregateRating'] },
+  { value: 'contacts', label: 'Контакты',        required: ['LocalBusiness', 'PostalAddress'], recommended: ['GeoCoordinates', 'OpeningHoursSpecification'] },
+  { value: 'category', label: 'Категория',       required: ['BreadcrumbList', 'ItemList'],  recommended: ['CollectionPage'] },
+  { value: 'product',  label: 'Карточка товара', required: ['Product', 'Offer'],            recommended: ['AggregateRating', 'Review', 'BreadcrumbList'] },
+  { value: 'article',  label: 'Статья / блог',   required: ['Article', 'Author'],           recommended: ['BreadcrumbList', 'Publisher'] },
+];
+const PAGE_TYPE_MAP = Object.fromEntries(PAGE_TYPES.map(p => [p.value, p]));
+
+interface MultiPageItem { id: string; url: string; type: string }
+interface MultiResult { type: string; url: string; status: 'pending' | 'running' | 'done' | 'error'; audit?: AuditRow; error?: string }
 function priorityLabel(score: number): string {
   if (score < 40) return 'КРИТИЧЕСКИЙ';
   if (score < 70) return 'ВЫСОКИЙ';
