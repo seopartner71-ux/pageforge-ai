@@ -956,12 +956,11 @@ async function fetchFrequencies(
   region: string,
   jobId: string,
 ): Promise<{ ws: number; exact: number }[]> {
-  // Topvisor enrichment for RU regions runs upstream (covers ALL keywords),
-  // so by the time we get here only keywords with no real volume remain.
-  // Use mock for any leftover.
+  // Topvisor enrichment for RU regions and DFS volumes for non-RU run upstream.
+  // Anything reaching here had NO real data — return real zeros, not fake mock numbers.
+  // (Mock numbers like 21134/22218 are misleading and were causing wrong analysis.)
   const out: { ws: number; exact: number }[] = new Array(keywords.length);
-  await sleep(300);
-  for (let i = 0; i < keywords.length; i++) out[i] = mockFreq(keywords[i]);
+  for (let i = 0; i < keywords.length; i++) out[i] = { ws: 0, exact: 0 };
   await updateJob(jobId, { progress: 50 });
   return out;
 }
