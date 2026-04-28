@@ -1,4 +1,4 @@
-// deploy: v3 - proxy support for external APIs
+// deploy: v4 - proxy support
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
