@@ -840,6 +840,45 @@ export type Database = {
           },
         ]
       }
+      serp_snapshots: {
+        Row: {
+          created_at: string
+          depth: number
+          engine: string
+          id: string
+          keyword: string
+          project_id: string | null
+          region: string
+          results: Json
+          snapshot_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          depth?: number
+          engine?: string
+          id?: string
+          keyword: string
+          project_id?: string | null
+          region?: string
+          results?: Json
+          snapshot_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          depth?: number
+          engine?: string
+          id?: string
+          keyword?: string
+          project_id?: string | null
+          region?: string
+          results?: Json
+          snapshot_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       system_settings: {
         Row: {
           id: string

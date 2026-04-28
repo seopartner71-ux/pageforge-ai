@@ -27,6 +27,7 @@ export function AppHeader() {
     { label: 'Интент', path: '/intent' },
     { label: 'Семантическое ядро', path: '/semantic-core' },
     { label: 'Микроразметка', path: '/schema-audit' },
+    { label: 'История SERP', path: '/serp-history' },
     { label: tr.nav.history, path: '/history' },
     { label: tr.nav.account, path: '/account' },
     ...(isAdmin ? [{ label: '⚙ Админ', path: '/admin' }] : []),

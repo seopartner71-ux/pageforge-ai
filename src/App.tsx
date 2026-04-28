@@ -29,6 +29,7 @@ const TopAnalysisPage = lazy(() => import('./pages/TopAnalysisPage.tsx'));
 const IntentPage = lazy(() => import('./pages/IntentPage.tsx'));
 const SemanticCorePage = lazy(() => import('./pages/SemanticCorePage.tsx'));
 const SchemaAuditPage = lazy(() => import('./pages/SchemaAuditPage.tsx'));
+const SerpHistoryPage = lazy(() => import('./pages/SerpHistoryPage.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
 
 const queryClient = new QueryClient();
@@ -122,6 +123,7 @@ const App = () => (
                 <Route path="/intent" element={<AuthGate><IntentPage /></AuthGate>} />
                 <Route path="/semantic-core" element={<AuthGate><SemanticCorePage /></AuthGate>} />
                 <Route path="/schema-audit" element={<AuthGate><SchemaAuditPage /></AuthGate>} />
+                <Route path="/serp-history" element={<AuthGate><SerpHistoryPage /></AuthGate>} />
                 <Route path="/shared/:token" element={<SharedReportPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
