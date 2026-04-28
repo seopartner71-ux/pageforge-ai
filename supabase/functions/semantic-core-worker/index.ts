@@ -1302,10 +1302,30 @@ async function runPipeline(jobId: string) {
   const mockFallbackKeywords: string[] = [];
   const needFreq: { idx: number; keyword: string }[] = [];
   const freqs: { ws: number; exact: number }[] = new Array(rawKeywords.length);
+
+  // For Russian regions: enrich ALL keywords via Topvisor (real Yandex Russian frequencies).
+  // Topvisor data overrides DFS volumes (which are Ukrainian/non-RU and misleading for RU SEO).
+  const topvisorMap = new Map<string, { ws: number; exact: number }>();
+  if (isRussianRegion(region)) {
+    const regionId = topvisorRegionId(region);
+    console.log(`[Topvisor enrich] region="${region}" regionId=${regionId} keywords=${rawKeywords.length}`);
+    const tvVols = await topvisorVolumes(rawKeywords, regionId);
+    for (let i = 0; i < rawKeywords.length; i++) {
+      const v = tvVols[i];
+      if (v && v.ws > 0) topvisorMap.set(rawKeywords[i], v);
+    }
+    console.log(`[Topvisor enrich] real frequencies: ${topvisorMap.size} / ${rawKeywords.length}`);
+  }
+
   for (let i = 0; i < rawKeywords.length; i++) {
     const kw = rawKeywords[i];
+    const tv = topvisorMap.get(kw);
     const dfsVol = dfsVolumes.get(kw);
-    if (dfsVol && dfsVol > 0) {
+    if (tv) {
+      freqs[i] = { ws: tv.ws, exact: tv.exact };
+      dataSources[i] = "topvisor";
+      realCount++;
+    } else if (dfsVol && dfsVol > 0) {
       freqs[i] = { ws: dfsVol, exact: Math.floor(dfsVol * 0.3) };
       dataSources[i] = "dataforseo";
       realCount++;
@@ -1323,7 +1343,7 @@ async function runPipeline(jobId: string) {
       keywords: mockFallbackKeywords,
     }));
   }
-  console.log(`[Volumes] real: ${realCount}, mock: ${mockCount}, dfsVolumesMapSize: ${dfsVolumes.size}`);
+  console.log(`[Volumes] real: ${realCount}, mock: ${mockCount}, dfsVolumesMapSize: ${dfsVolumes.size}, topvisorMapSize: ${topvisorMap.size}`);
   if (needFreq.length) {
     const freqInput = needFreq.map((n) => n.keyword);
     const fetched = await fetchFrequencies(freqInput, region, jobId);
