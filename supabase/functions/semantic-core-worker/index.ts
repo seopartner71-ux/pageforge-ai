@@ -1284,8 +1284,12 @@ async function runPipeline(jobId: string) {
   // STEP C + D: intent + scoring
   await updateJob(jobId, { progress: 52 });
   const maxFreq = Math.max(1, ...freqs.map((f) => f.ws));
+  const isRu = isRussianRegion(region);
   const kws: Kw[] = rawKeywords.map((kw, i) => {
     const intent = classifyIntent(kw);
+    // For Russian regions DataForSEO often returns KD=0 (no real data) — treat 0 as null.
+    let kd: number | null = dfsKd.has(kw) ? (dfsKd.get(kw) as number) : null;
+    if (isRu && kd === 0) kd = null;
     return {
       keyword: kw,
       ws_frequency: freqs[i].ws,
@@ -1296,7 +1300,7 @@ async function runPipeline(jobId: string) {
       cluster_name: null,
       serp_urls: [],
       data_source: dataSources[i],
-      keyword_difficulty: dfsKd.has(kw) ? (dfsKd.get(kw) as number) : null,
+      keyword_difficulty: kd,
     };
   });
   await updateJob(jobId, { progress: 55 });
