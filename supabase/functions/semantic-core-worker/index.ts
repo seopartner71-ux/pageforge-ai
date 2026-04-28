@@ -1371,24 +1371,40 @@ async function runPipeline(jobId: string) {
 
   // For Russian regions: enrich ALL keywords via Topvisor (real Yandex Russian frequencies).
   // Topvisor data overrides DFS volumes (which are Ukrainian/non-RU and misleading for RU SEO).
+  // We store BOTH zero and non-zero answers — a real zero from Topvisor is more truthful
+  // than a fake mock number or a misleading Ukrainian DFS volume.
   const topvisorMap = new Map<string, { ws: number; exact: number }>();
   if (isRussianRegion(region)) {
     const regionId = topvisorRegionId(region);
     console.log(`[Topvisor enrich] region="${region}" regionId=${regionId} keywords=${rawKeywords.length}`);
     const tvVols = await topvisorVolumes(rawKeywords, regionId);
+    let nonZero = 0;
+    let zero = 0;
     for (let i = 0; i < rawKeywords.length; i++) {
       const v = tvVols[i];
-      if (v && v.ws > 0) topvisorMap.set(rawKeywords[i], v);
+      if (v) {
+        topvisorMap.set(rawKeywords[i], v);
+        if (v.ws > 0) nonZero++;
+        else zero++;
+      }
     }
-    console.log(`[Topvisor enrich] real frequencies: ${topvisorMap.size} / ${rawKeywords.length}`);
+    console.log(`[Topvisor enrich] answered: ${topvisorMap.size}/${rawKeywords.length} (non-zero=${nonZero}, zero=${zero})`);
+    // Sample log for QA
+    const sample = rawKeywords.slice(0, 5).map((k) => {
+      const v = topvisorMap.get(k);
+      return `"${k}"=${v ? v.ws : "?"}`;
+    }).join(", ");
+    console.log(`[Topvisor sample] ${sample}`);
   }
 
   for (let i = 0; i < rawKeywords.length; i++) {
     const kw = rawKeywords[i];
     const tv = topvisorMap.get(kw);
     const dfsVol = dfsVolumes.get(kw);
-    if (tv) {
-      freqs[i] = { ws: tv.ws, exact: tv.exact };
+    if (tv !== undefined) {
+      // Topvisor answered (even with 0) — trust it for RU regions.
+      const exact = tv.exact > 0 ? tv.exact : Math.floor(tv.ws * 0.3);
+      freqs[i] = { ws: tv.ws, exact };
       dataSources[i] = "topvisor";
       realCount++;
     } else if (dfsVol && dfsVol > 0) {
