@@ -654,7 +654,7 @@ async function dfsKeywordsForSite(
 // ============== TOPVISOR API ==============
 // Replaces Wordstat for Russian regions (Wordstat DNS is blocked from edge runtime).
 // Docs: https://topvisor.com/api/services/keywords_base/wordstat/
-const TOPVISOR_BASE = "https://api.topvisor.com/v2/json/get/keywords_base/wordstat";
+const TOPVISOR_BASE = "https://api.topvisor.com/v2/json/get/keywords_base/overview";
 const TOPVISOR_KEY_ENV = Deno.env.get("TOPVISOR_API_KEY") ?? "";
 const TOPVISOR_USER_ID_ENV = Deno.env.get("TOPVISOR_USER_ID") ?? "";
 
