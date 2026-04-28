@@ -157,34 +157,60 @@ function FreqDot({ source }: { source?: 'mock' | 'dataforseo' | 'topvisor' }) {
   );
 }
 
-// "Золотой" запрос — реалистичные критерии для быстрого SEO-роста:
-// 1. Частота 1000-80000 (выше — монстры в топе, ниже — нет смысла)
-// 2. Score > 65
-// 3. Интент info или commercial
-// 4. Минимум 2 слова в запросе
-// 5. Не содержит брендов-агрегаторов
-// 6. Для commercial порог частоты выше (3000), т.к. труднее продвигать
-const GOLDEN_STOP_BRANDS = [
-  'авито', 'яндекс', 'озон', 'ozon', 'wildberries', 'вайлдберриз',
-  'aliexpress', 'алиэкспресс', 'сбер', 'вк', 'mail',
+// "Золотой" запрос — органический трафик через SEO-статьи (long-tail info).
+// Условия (все обязательны):
+// 1. intent === 'info' (коммерческие убираем — там платная реклама давит)
+// 2. wsFrequency 1000-60000 (меньше — нет трафика, больше — монстры)
+// 3. ≥3 слов в запросе (long-tail = ниже конкуренция)
+// 4. Без агрегаторов-монстров
+// 5. score > 60
+// 6. Без года (устаревают)
+const GOLDEN_STOP_WORDS = [
+  'авито', 'яндекс', 'озон', 'ozon', 'сбер',
+  'wildberries', 'вайлдберриз', 'aliexpress', 'алиэкспресс',
+  'маркет', 'дром', 'auto.ru',
 ];
-function isGoldenKeyword(k: SemanticKeyword): boolean {
-  if (k.intent !== 'info' && k.intent !== 'commercial') return false;
-  if ((k.score ?? 0) <= 65) return false;
+const YEAR_RX = /\b(201[0-9]|202[0-9])\b/;
+
+export type GoldenTier = 'easy' | 'medium' | 'hard';
+
+export function isGoldenKeyword(k: SemanticKeyword): boolean {
+  if (k.intent !== 'info') return false;
+  if ((k.score ?? 0) <= 60) return false;
   const ws = k.wsFrequency ?? 0;
-  if (ws < 1000 || ws > 80000) return false;
-  if (k.intent === 'commercial' && ws < 3000) return false;
-  const kw = (k.keyword || '').trim().toLowerCase();
-  const wordCount = kw.split(/\s+/).filter(Boolean).length;
-  if (wordCount < 2) return false;
-  if (GOLDEN_STOP_BRANDS.some(b => kw.includes(b))) return false;
+  if (ws < 1000 || ws > 60000) return false;
+  const kw = (k.keyword || '').trim();
+  if (!kw) return false;
+  if (kw.split(/\s+/).filter(Boolean).length < 3) return false;
+  if (YEAR_RX.test(kw)) return false;
+  const lower = kw.toLowerCase();
+  if (GOLDEN_STOP_WORDS.some(b => lower.includes(b))) return false;
   return true;
 }
 
-function goldenPotentialLabel(score: number): string {
-  if (score >= 85) return 'Отличный потенциал';
-  if (score >= 75) return 'Высокий потенциал';
-  return 'Средний потенциал';
+export function goldenTier(k: SemanticKeyword): GoldenTier | null {
+  if (!isGoldenKeyword(k)) return null;
+  const ws = k.wsFrequency ?? 0;
+  const score = k.score ?? 0;
+  if (ws >= 1000 && ws < 5000 && score > 70) return 'easy';
+  if (ws >= 5000 && ws < 20000 && score > 65) return 'medium';
+  if (ws >= 20000 && ws <= 60000 && score > 60) return 'hard';
+  // Попадает в golden, но между tier'ами — выбираем по частоте
+  if (ws < 5000) return 'easy';
+  if (ws < 20000) return 'medium';
+  return 'hard';
+}
+
+const TIER_META: Record<GoldenTier, { label: string; emoji: string; star: string; badge: string }> = {
+  easy:   { label: 'Легко',  emoji: '🟢', star: 'fill-emerald-400 text-emerald-400', badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40' },
+  medium: { label: 'Средне', emoji: '🟡', star: 'fill-amber-400 text-amber-400',     badge: 'bg-amber-500/15 text-amber-300 border-amber-500/40' },
+  hard:   { label: 'Сложно', emoji: '🟠', star: 'fill-orange-500 text-orange-500',   badge: 'bg-orange-500/15 text-orange-300 border-orange-500/40' },
+};
+
+function tierTooltip(tier: GoldenTier): string {
+  if (tier === 'easy')   return 'Легко взять топ — мало конкурентов';
+  if (tier === 'medium') return 'Средние усилия — нужна качественная статья';
+  return 'Сложно — нужна экспертная статья и время';
 }
 
 // Грамматически правильное склонение для «идеальный запрос»
@@ -198,7 +224,7 @@ function idealLabel(n: number): string {
   return `Найдено ${n} идеальных запросов`;
 }
 const GOLDEN_TOOLTIP =
-  'Золотой запрос: info/commercial, частота 1000-80000, score > 65, ≥2 слов, без брендов-агрегаторов. Идеально для быстрого SEO-роста.';
+  'Информационные запросы для SEO-статей — пишите экспертный контент и получайте органический трафик';
 
 export default function SemanticCorePage() {
   const [topic, setTopic] = useState('');
@@ -912,10 +938,10 @@ export default function SemanticCorePage() {
                         <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                         Найдено {goldenCount} золотых запросов
                       </span>
-                      <span className="block text-xs text-amber-200/80 mt-0.5 font-normal leading-relaxed">
-                        Информационные запросы с высоким трафиком и низкой конкурентностью —
-                        идеальны для быстрого роста органического трафика
-                      </span>
+                       <span className="block text-xs text-amber-200/80 mt-0.5 font-normal leading-relaxed">
+                         Информационные запросы для SEO-статей — пишите экспертный
+                         контент и получайте органический трафик
+                       </span>
                     </span>
                     <span className="text-xs text-amber-200/90 shrink-0 self-center px-2 py-1 rounded border border-amber-400/40 bg-amber-500/10">
                       {goldenOnly ? 'Сбросить фильтр' : 'Показать только золотые'}
@@ -1031,15 +1057,23 @@ export default function SemanticCorePage() {
                       {filtered.map((k, i) => (
                         <tr key={k.keyword + i} className="border-t border-border/50 hover:bg-muted/20">
                           <td className="px-3 py-2">
-                            {isGoldenKeyword(k) && (
-                              <span title={`${goldenPotentialLabel(k.score)} (score ${k.score}). ${GOLDEN_TOOLTIP}`} className="inline-flex align-middle mr-1.5">
-                                <Star
-                                  className="w-3.5 h-3.5 fill-amber-400 text-amber-400"
-                                  aria-label={`Золотой запрос — ${goldenPotentialLabel(k.score)}`}
-                                />
-                              </span>
-                            )}
-                            <span title={isGoldenKeyword(k) ? `${goldenPotentialLabel(k.score)} — ${GOLDEN_TOOLTIP}` : undefined}>{k.keyword}</span>
+                            {(() => {
+                              const tier = goldenTier(k);
+                              if (!tier) return <span>{k.keyword}</span>;
+                              const meta = TIER_META[tier];
+                              const tip = `${meta.emoji} ${meta.label} — ${tierTooltip(tier)} (score ${k.score}, ${k.wsFrequency.toLocaleString('ru')}/мес)`;
+                              return (
+                                <>
+                                  <span title={tip} className="inline-flex items-center gap-1 align-middle mr-1.5">
+                                    <Star className={`w-3.5 h-3.5 ${meta.star}`} aria-label={`Золотой запрос — ${meta.label}`} />
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${meta.badge}`}>
+                                      {meta.emoji} {meta.label}
+                                    </span>
+                                  </span>
+                                  <span title={tip}>{k.keyword}</span>
+                                </>
+                              );
+                            })()}
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                             <FreqDot source={k.dataSource} />
@@ -1137,11 +1171,16 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
               {display.map(k => (
                 <div key={k.keyword} className="flex items-center justify-between text-xs gap-2">
                   <span className="truncate flex items-center gap-1" title={k.keyword}>
-                    {isGoldenKeyword(k) && (
-                      <span title={goldenPotentialLabel(k.score)} className="inline-flex shrink-0">
-                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                      </span>
-                    )}
+                    {(() => {
+                      const tier = goldenTier(k);
+                      if (!tier) return null;
+                      const meta = TIER_META[tier];
+                      return (
+                        <span title={`${meta.emoji} ${meta.label} — ${tierTooltip(tier)}`} className="inline-flex shrink-0">
+                          <Star className={`w-3 h-3 ${meta.star}`} />
+                        </span>
+                      );
+                    })()}
                     <span className="truncate">{k.keyword}</span>
                   </span>
                   <span className="tabular-nums text-muted-foreground shrink-0">{k.score}</span>

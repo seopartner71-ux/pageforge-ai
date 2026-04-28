@@ -1,22 +1,40 @@
 import * as XLSX from 'xlsx';
 import type { SemanticCorePayload, SemanticKeyword } from './types';
 
-const GOLDEN_STOP_BRANDS = [
-  'авито', 'яндекс', 'озон', 'ozon', 'wildberries', 'вайлдберриз',
-  'aliexpress', 'алиэкспресс', 'сбер', 'вк', 'mail',
+const GOLDEN_STOP_WORDS = [
+  'авито', 'яндекс', 'озон', 'ozon', 'сбер',
+  'wildberries', 'вайлдберриз', 'aliexpress', 'алиэкспресс',
+  'маркет', 'дром', 'auto.ru',
 ];
+const YEAR_RX = /\b(201[0-9]|202[0-9])\b/;
+
+type GoldenTier = 'easy' | 'medium' | 'hard';
+
 function isGolden(k: SemanticKeyword): boolean {
-  if (k.intent !== 'info' && k.intent !== 'commercial') return false;
-  if ((k.score ?? 0) <= 65) return false;
+  if (k.intent !== 'info') return false;
+  if ((k.score ?? 0) <= 60) return false;
   const ws = k.wsFrequency ?? 0;
-  if (ws < 1000 || ws > 80000) return false;
-  if (k.intent === 'commercial' && ws < 3000) return false;
-  const kw = (k.keyword || '').trim().toLowerCase();
-  const wordCount = kw.split(/\s+/).filter(Boolean).length;
-  if (wordCount < 2) return false;
-  if (GOLDEN_STOP_BRANDS.some(b => kw.includes(b))) return false;
+  if (ws < 1000 || ws > 60000) return false;
+  const kw = (k.keyword || '').trim();
+  if (!kw) return false;
+  if (kw.split(/\s+/).filter(Boolean).length < 3) return false;
+  if (YEAR_RX.test(kw)) return false;
+  const lower = kw.toLowerCase();
+  if (GOLDEN_STOP_WORDS.some(b => lower.includes(b))) return false;
   return true;
 }
+
+function tierOf(k: SemanticKeyword): GoldenTier {
+  const ws = k.wsFrequency ?? 0;
+  if (ws < 5000) return 'easy';
+  if (ws < 20000) return 'medium';
+  return 'hard';
+}
+const TIER_LABEL: Record<GoldenTier, string> = {
+  easy: '🟢 Легко',
+  medium: '🟡 Средне',
+  hard: '🟠 Сложно',
+};
 
 const INTENT_RU: Record<string, string> = {
   info: 'Информационный',
@@ -43,7 +61,7 @@ export function exportGoldenKeywordsXlsx(payload: SemanticCorePayload): number {
   const wb = XLSX.utils.book_new();
 
   const header = [
-    'Запрос', 'Частота WS', 'Точная частота', 'KD (сложность)', 'Интент', 'Кластер', 'Score',
+    'Запрос', 'Сложность', 'Частота WS', 'Точная частота', 'KD (сложность)', 'Интент', 'Кластер', 'Score',
     'Потенциал трафика топ-1', 'Потенциал трафика топ-3', 'Потенциал трафика топ-10',
     'Приоритет', 'Статус', 'Исполнитель', 'Дата',
   ];
@@ -56,6 +74,7 @@ export function exportGoldenKeywordsXlsx(payload: SemanticCorePayload): number {
     const f = k.wsFrequency || 0;
     rows.push([
       k.keyword,
+      TIER_LABEL[tierOf(k)],
       f,
       k.exactFrequency || 0,
       k.keywordDifficulty ?? '',
@@ -72,8 +91,8 @@ export function exportGoldenKeywordsXlsx(payload: SemanticCorePayload): number {
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [
-    { wch: 42 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 26 }, { wch: 8 },
-    { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 12 },
+    { wch: 42 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 26 }, { wch: 8 },
+    { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 12 },
   ];
   XLSX.utils.book_append_sheet(wb, ws, 'Золотые запросы');
 
