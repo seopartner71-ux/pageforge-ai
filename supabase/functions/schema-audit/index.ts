@@ -216,8 +216,9 @@ function buildGeneratedCode(
   const logo = pageData?.logo || null;
   const description = pageData?.description || null;
 
-  // WebSite always (with real name)
-  if (!schemas.find(s => s.type === "WebSite")) {
+  // WebSite — only on homepage (or unknown/general)
+  const wantsWebSite = pageType === "homepage" || pageType === "general" || pageType === "event_host" || pageType === "service";
+  if (wantsWebSite && !schemas.find(s => s.type === "WebSite")) {
     blocks.push({
       type: "WebSite",
       label: "WebSite — добавить",
@@ -261,7 +262,8 @@ function buildGeneratedCode(
   }
 
   // Organization (skip for personal brands — Person is more accurate)
-  if (pageType !== "event_host" && !schemas.find(s => s.type === "Organization")) {
+  const wantsOrg = pageType !== "event_host" && pageType !== "category" && pageType !== "product" && pageType !== "article" && pageType !== "contacts";
+  if (wantsOrg && !schemas.find(s => s.type === "Organization")) {
     const org: any = {
       "@context": "https://schema.org",
       "@type": "Organization",
@@ -287,8 +289,8 @@ function buildGeneratedCode(
     });
   }
 
-  // BreadcrumbList from URL
-  if (!schemas.find(s => s.type === "BreadcrumbList")) {
+  // BreadcrumbList from URL — for non-home pages
+  if (pageType !== "homepage" && !schemas.find(s => s.type === "BreadcrumbList")) {
     try {
       const u = new URL(url);
       const parts = u.pathname.split("/").filter(Boolean);
@@ -370,7 +372,7 @@ function buildGeneratedCode(
   }
 
   // LocalBusiness — for any site with contacts OR personal brand sites
-  if ((features.hasAddress || pageType === "event_host" || pageType === "local_business" || pageType === "service") && !schemas.find(s => s.type === "LocalBusiness")) {
+  if ((features.hasAddress || pageType === "event_host" || pageType === "local_business" || pageType === "service" || pageType === "contacts" || pageType === "homepage") && !schemas.find(s => s.type === "LocalBusiness")) {
     const lb: any = {
       "@context": "https://schema.org",
       "@type": "LocalBusiness",
@@ -393,6 +395,92 @@ function buildGeneratedCode(
       reason: `Локальный бизнес — повышает видимость в Картах • ${dataSource}`,
       code: JSON.stringify(lb, null, 2),
     });
+  }
+
+  // Category page → ItemList + CollectionPage
+  if (pageType === "category" && !schemas.find(s => s.type === "ItemList")) {
+    blocks.push({
+      type: "ItemList",
+      label: "ItemList — добавить (страница категории)",
+      reason: "Перечень товаров категории • ⚠ Заполните позиции из каталога",
+      code: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": pageTitle || "Категория",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "url": origin + "/product/example-1", "name": "Пример товара 1" },
+          { "@type": "ListItem", "position": 2, "url": origin + "/product/example-2", "name": "Пример товара 2" },
+        ],
+      }, null, 2),
+    });
+    blocks.push({
+      type: "CollectionPage",
+      label: "CollectionPage — рекомендуется",
+      reason: "Помогает поисковикам понять, что это страница каталога",
+      code: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": pageTitle || "Категория",
+        "url": url,
+      }, null, 2),
+    });
+  }
+
+  // Product page → Product + Offer + AggregateRating
+  if (pageType === "product" && !schemas.find(s => s.type === "Product")) {
+    const product: any = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": pageTitle || "Название товара",
+      "url": url,
+      "offers": {
+        "@type": "Offer",
+        "priceCurrency": "RUB",
+        "price": (pageData?.priceRange || "0").replace(/[^\d]/g, "") || "0",
+        "availability": "https://schema.org/InStock",
+        "url": url,
+      },
+    };
+    if (description) product.description = description;
+    if (logo) product.image = logo;
+    product.aggregateRating = { "@type": "AggregateRating", "ratingValue": "5", "reviewCount": "1" };
+    const dataSource = (description || pageData?.priceRange) ? "✓ Данные частично со страницы" : "⚠ Заполните данные товара вручную";
+    blocks.push({
+      type: "Product",
+      label: "Product — добавить (карточка товара)",
+      reason: `Включает Offer + AggregateRating • ${dataSource}`,
+      code: JSON.stringify(product, null, 2),
+    });
+  }
+
+  // Article page → Article + Author + Publisher
+  if (pageType === "article" && !schemas.find(s => s.type === "Article") && !schemas.find(s => s.type === "BlogPosting")) {
+    const article: any = {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": pageTitle || "Заголовок статьи",
+      "url": url,
+      "datePublished": new Date().toISOString().slice(0, 10),
+      "author": { "@type": "Person", "name": "Имя автора" },
+      "publisher": {
+        "@type": "Organization",
+        "name": companyName,
+        ...(logo ? { "logo": { "@type": "ImageObject", "url": logo } } : {}),
+      },
+    };
+    if (description) article.description = description;
+    if (logo) article.image = logo;
+    blocks.push({
+      type: "Article",
+      label: "Article — добавить (статья / блог)",
+      reason: "⚠ Укажите реального автора и дату публикации",
+      code: JSON.stringify(article, null, 2),
+    });
+  }
+
+  // Contacts page → ensure full PostalAddress + OpeningHours hint
+  if (pageType === "contacts" && !schemas.find(s => s.type === "LocalBusiness")) {
+    // already handled above; nothing extra here.
   }
 
   return blocks;
@@ -760,6 +848,93 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const reqUrl = new URL(req.url);
+    // Lightweight sitemap discovery — no auth/credit needed (read-only fetch)
+    if (reqUrl.searchParams.get("action") === "sitemap") {
+      const body = await req.json().catch(() => ({}));
+      const target: string = (body?.url || "").trim();
+      if (!target) {
+        return new Response(JSON.stringify({ error: "URL is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      try {
+        const u = new URL(target.startsWith("http") ? target : "https://" + target);
+        const candidates = [
+          `${u.origin}/sitemap.xml`,
+          `${u.origin}/sitemap_index.xml`,
+          `${u.origin}/sitemap-index.xml`,
+        ];
+        let xml = "";
+        for (const c of candidates) {
+          try {
+            const r = await fetch(c, { headers: { "User-Agent": "Mozilla/5.0 (compatible; PageForge-SEO)" } });
+            if (r.ok) { xml = await r.text(); break; }
+          } catch { /* ignore */ }
+        }
+        if (!xml) {
+          return new Response(JSON.stringify({ urls: [], error: "sitemap.xml not found" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        // Extract <loc>…</loc>
+        const locs = Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/gi)).map(m => m[1].trim());
+        // If sitemap index — fetch first nested sitemap
+        let urls = locs.filter(l => !/sitemap.*\.xml$/i.test(l));
+        if (urls.length === 0 && locs.length > 0) {
+          const nested = locs[0];
+          try {
+            const r2 = await fetch(nested, { headers: { "User-Agent": "Mozilla/5.0 (compatible; PageForge-SEO)" } });
+            if (r2.ok) {
+              const xml2 = await r2.text();
+              urls = Array.from(xml2.matchAll(/<loc>([^<]+)<\/loc>/gi)).map(m => m[1].trim());
+            }
+          } catch { /* ignore */ }
+        }
+        // Classify by URL pattern → page type
+        const classify = (link: string): string => {
+          const lc = link.toLowerCase();
+          if (/\/(product|tovar|item|good)\//i.test(lc)) return "product";
+          if (/\/(catalog|category|kategor)/i.test(lc)) return "category";
+          if (/\/(blog|article|news|post|stat)/i.test(lc)) return "article";
+          if (/\/(contact|kontakt)/i.test(lc)) return "contacts";
+          if (/\/(service|uslug)/i.test(lc)) return "services";
+          try {
+            const p = new URL(link).pathname.replace(/\/$/, "");
+            if (p === "" || p === "/") return "homepage";
+          } catch { /* ignore */ }
+          return "general";
+        };
+        const seen = new Set<string>();
+        const grouped: Record<string, string[]> = {};
+        for (const link of urls) {
+          if (seen.has(link)) continue;
+          seen.add(link);
+          const t = classify(link);
+          (grouped[t] ||= []).push(link);
+        }
+        // Pick up to 5 most important: homepage, services, contacts, category, product, article
+        const PRIORITY = ["homepage", "services", "contacts", "category", "product", "article"];
+        const suggestions: { type: string; url: string }[] = [];
+        for (const t of PRIORITY) {
+          const list = grouped[t];
+          if (list && list.length) suggestions.push({ type: t, url: list[0] });
+          if (suggestions.length >= 5) break;
+        }
+        // Ensure homepage included
+        if (!suggestions.find(s => s.type === "homepage")) {
+          suggestions.unshift({ type: "homepage", url: new URL(target.startsWith("http") ? target : "https://" + target).origin + "/" });
+        }
+        return new Response(JSON.stringify({ suggestions: suggestions.slice(0, 5), totalFound: urls.length }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ error: e?.message || "sitemap fetch failed" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const authHeader = req.headers.get("Authorization") || "";
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -781,6 +956,7 @@ Deno.serve(async (req: Request) => {
     const url: string = (body?.url || "").trim();
     const projectId: string | null = body?.project_id || null;
     const manualHtml: string = typeof body?.manual_html === "string" ? body.manual_html : "";
+    const pageTypeOverride: string | null = typeof body?.page_type === "string" && body.page_type ? body.page_type : null;
     if (!url) {
       return new Response(JSON.stringify({ error: "URL is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -860,7 +1036,7 @@ Deno.serve(async (req: Request) => {
       const issues = buildIssues(validated);
       const features = detectPageFeatures(html, content);
       const pageData = extractPageData(html, content);
-      const pageType = detectPageType(url, content);
+      const pageType = pageTypeOverride || detectPageType(url, content);
       // Fallback: ensure companyName exists even if not extracted
       if (!pageData.companyName) pageData.companyName = domainToCompanyName(url);
       const generated = buildGeneratedCode(url, validated, features, title, pageData, pageType);

@@ -10,8 +10,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   Play, CheckCircle2, AlertTriangle, XCircle, Loader2, Code2, Copy, Download,
-  FileCode, Sparkles, ChevronDown, ChevronUp, ShieldAlert,
+  FileCode, Sparkles, ChevronDown, ChevronUp, ShieldAlert, Plus, Trash2, Globe, Wand2,
 } from 'lucide-react';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 
 /* ─── Types ─── */
 interface SchemaField { key: string; status: 'ok' | 'missing' | 'warning'; value?: string }
@@ -200,11 +203,27 @@ function addDays(d: Date, n: number): Date {
 }
 function pageTypeLabel(t: string): string {
   const map: Record<string, string> = {
-    homepage: 'Главная страница', product: 'Карточка товара', article: 'Статья / блог',
+    homepage: 'Главная', product: 'Карточка товара', article: 'Статья / блог',
     local_business: 'Локальный бизнес', general: 'Общая страница', other: 'Общая страница',
+    services: 'Услуги', contacts: 'Контакты', category: 'Категория',
+    event_host: 'Личный бренд', service: 'Услуги', ecommerce: 'E-commerce',
   };
   return map[t] || t || '—';
 }
+
+/* ─── Page types for multi-page audit ─── */
+const PAGE_TYPES: { value: string; label: string; required: string[]; recommended: string[] }[] = [
+  { value: 'homepage', label: 'Главная',         required: ['WebSite', 'Organization'],     recommended: ['LocalBusiness', 'SiteNavigationElement'] },
+  { value: 'services', label: 'Услуги',          required: ['Service'],                     recommended: ['LocalBusiness', 'Offer', 'AggregateRating'] },
+  { value: 'contacts', label: 'Контакты',        required: ['LocalBusiness', 'PostalAddress'], recommended: ['GeoCoordinates', 'OpeningHoursSpecification'] },
+  { value: 'category', label: 'Категория',       required: ['BreadcrumbList', 'ItemList'],  recommended: ['CollectionPage'] },
+  { value: 'product',  label: 'Карточка товара', required: ['Product', 'Offer'],            recommended: ['AggregateRating', 'Review', 'BreadcrumbList'] },
+  { value: 'article',  label: 'Статья / блог',   required: ['Article', 'Author'],           recommended: ['BreadcrumbList', 'Publisher'] },
+];
+const PAGE_TYPE_MAP = Object.fromEntries(PAGE_TYPES.map(p => [p.value, p]));
+
+interface MultiPageItem { id: string; url: string; type: string }
+interface MultiResult { type: string; url: string; status: 'pending' | 'running' | 'done' | 'error'; audit?: AuditRow; error?: string }
 function priorityLabel(score: number): string {
   if (score < 40) return 'КРИТИЧЕСКИЙ';
   if (score < 70) return 'ВЫСОКИЙ';
@@ -507,6 +526,184 @@ export default function SchemaAuditPage() {
   const codeSectionRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  /* ── Multi-page audit state ── */
+  const [auditMode, setAuditMode] = useState<'single' | 'site'>('single');
+  const [pages, setPages] = useState<MultiPageItem[]>([
+    { id: crypto.randomUUID(), url: '', type: 'homepage' },
+  ]);
+  const [sitemapBusy, setSitemapBusy] = useState(false);
+  const [multiResults, setMultiResults] = useState<MultiResult[]>([]);
+  const [multiActiveTab, setMultiActiveTab] = useState<string>('');
+
+  const addPage = () => setPages(p => [...p, { id: crypto.randomUUID(), url: '', type: 'product' }]);
+  const removePage = (id: string) => setPages(p => p.length > 1 ? p.filter(x => x.id !== id) : p);
+  const updatePage = (id: string, patch: Partial<MultiPageItem>) =>
+    setPages(p => p.map(x => x.id === id ? { ...x, ...patch } : x));
+
+  const fetchSitemapPages = async () => {
+    const seed = (pages[0]?.url || url || '').trim();
+    if (!seed) {
+      toast({ title: 'Укажите домен', description: 'Введите URL хотя бы в одну строку — мы найдём sitemap', variant: 'destructive' });
+      return;
+    }
+    let target = seed;
+    if (!/^https?:\/\//i.test(target)) target = 'https://' + target;
+    setSitemapBusy(true);
+    try {
+      const projectId = `${import.meta.env.VITE_SUPABASE_PROJECT_ID}`;
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/schema-audit?action=sitemap`;
+      const resp = await fetch(fnUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: target }),
+      });
+      const j = await resp.json();
+      if (!j?.suggestions || j.suggestions.length === 0) {
+        toast({ title: 'Sitemap не найден', description: j?.error || 'Добавьте URL вручную', variant: 'destructive' });
+        return;
+      }
+      setPages(j.suggestions.map((s: { type: string; url: string }) => ({
+        id: crypto.randomUUID(), url: s.url, type: s.type,
+      })));
+      toast({ title: 'Найдено страниц', description: `${j.suggestions.length} рекомендуемых страниц добавлено` });
+    } catch (e: any) {
+      toast({ title: 'Ошибка', description: e?.message || 'Не удалось получить sitemap', variant: 'destructive' });
+    } finally {
+      setSitemapBusy(false);
+    }
+  };
+
+  /* Run a single audit for a given URL+type, return resulting AuditRow */
+  const runOne = async (target: string, pageType: string, accessToken: string, projectId: string | null): Promise<AuditRow> => {
+    const { data, error: fnErr } = await supabase.functions.invoke('schema-audit', {
+      body: { url: target, project_id: projectId, page_type: pageType },
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (data?.error) throw new Error(data.error);
+    if (fnErr) throw new Error(fnErr.message);
+    const auditId = data?.audit_id;
+    if (!auditId) throw new Error('Не получен ID анализа');
+    const started = Date.now();
+    while (Date.now() - started < 90_000) {
+      const { data: row } = await supabase.from('schema_audits').select('*').eq('id', auditId).maybeSingle();
+      if (row && (row.status === 'done' || row.status === 'error')) {
+        if (row.status === 'error') throw new Error(row.error_message || 'Ошибка анализа');
+        return row as unknown as AuditRow;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    throw new Error('Таймаут анализа');
+  };
+
+  const handleRunMulti = async () => {
+    const valid = pages.filter(p => p.url.trim()).map(p => ({
+      ...p, url: /^https?:\/\//i.test(p.url.trim()) ? p.url.trim() : 'https://' + p.url.trim(),
+    }));
+    if (valid.length === 0) {
+      toast({ title: 'Нет URL', description: 'Добавьте хотя бы одну страницу', variant: 'destructive' });
+      return;
+    }
+    setRunning(true);
+    setError(null);
+    setMultiResults(valid.map(v => ({ type: v.type, url: v.url, status: 'pending' })));
+    try {
+      await supabase.auth.refreshSession();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ title: 'Сессия истекла', description: 'Войдите снова', variant: 'destructive' });
+        return;
+      }
+      const { data: projects } = await supabase
+        .from('projects').select('id').eq('user_id', session.user.id)
+        .order('created_at', { ascending: false }).limit(1);
+      const projectId = projects?.[0]?.id || null;
+
+      // Run all pages in parallel; update status incrementally
+      await Promise.all(valid.map(async (item, idx) => {
+        setMultiResults(prev => prev.map((r, i) => i === idx ? { ...r, status: 'running' } : r));
+        try {
+          const auditRow = await runOne(item.url, item.type, session.access_token, projectId);
+          setMultiResults(prev => prev.map((r, i) => i === idx ? { ...r, status: 'done', audit: auditRow } : r));
+        } catch (e: any) {
+          setMultiResults(prev => prev.map((r, i) => i === idx ? { ...r, status: 'error', error: e?.message || 'Ошибка' } : r));
+        }
+      }));
+      // Activate first done tab
+      setMultiActiveTab(prev => prev || valid[0].id);
+    } catch (e: any) {
+      setError(e?.message || 'Ошибка анализа');
+      toast({ title: 'Ошибка анализа', description: e?.message || 'Ошибка', variant: 'destructive' });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  /* Combined TZ for all pages */
+  const downloadMultiTz = () => {
+    const done = multiResults.filter(r => r.status === 'done' && r.audit);
+    if (done.length === 0) return;
+    const date = new Date().toLocaleDateString('ru-RU');
+    const parts: string[] = [];
+    parts.push(`# Техническое задание на микроразметку Schema.org — весь сайт`);
+    parts.push('');
+    parts.push(`**Дата аудита:** ${date}  `);
+    parts.push(`**Проверено страниц:** ${done.length}  `);
+    const avg = Math.round(done.reduce((s, r) => s + (r.audit!.overall_score || 0), 0) / done.length);
+    parts.push(`**Средний балл:** ${avg}/100  `);
+    parts.push('');
+    parts.push('---');
+    parts.push('');
+    done.forEach((r, idx) => {
+      const a = r.audit!;
+      parts.push(`## ${idx + 1}. ${pageTypeLabel(r.type)} — ${a.url}`);
+      parts.push('');
+      parts.push(`Балл: **${a.overall_score}/100** · Найдено схем: ${a.found_schemas_count} · Критических ошибок: ${a.errors_count}`);
+      parts.push('');
+      a.generated_code.forEach((b, i) => {
+        parts.push(`### ${idx + 1}.${i + 1} ${b.type} — ${b.label}`);
+        parts.push('');
+        parts.push('```html');
+        parts.push('<script type="application/ld+json">');
+        parts.push(b.code);
+        parts.push('</script>');
+        parts.push('```');
+        parts.push('');
+      });
+      parts.push('---');
+      parts.push('');
+    });
+    const blob = new Blob([parts.join('\n')], { type: 'text/markdown;charset=utf-8' });
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `TZ_schema_site_${dateStr}.md`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast({ title: 'Сводное ТЗ скачано', description: 'Один документ для всех страниц.' });
+  };
+
+  /* Summary stats for site mode */
+  const siteSummary = useMemo(() => {
+    const done = multiResults.filter(r => r.status === 'done' && r.audit);
+    if (done.length === 0) return null;
+    const total = done.length;
+    const avgScore = Math.round(done.reduce((s, r) => s + (r.audit!.overall_score || 0), 0) / total);
+    const totalErrors = done.reduce((s, r) => s + (r.audit!.errors_count || 0), 0);
+    // Priority list — sort by score asc, take top 3 with their #1 missing schema
+    const priorities = [...done]
+      .sort((a, b) => (a.audit!.overall_score || 0) - (b.audit!.overall_score || 0))
+      .slice(0, 3)
+      .map(r => {
+        const a = r.audit!;
+        const reqMissing = (PAGE_TYPE_MAP[r.type]?.required || [])
+          .filter(req => !a.schemas_data.some((s: any) => s.type === req));
+        const issue = reqMissing[0] || a.issues[0]?.problem?.split(':')[0] || 'Улучшения';
+        return { type: r.type, label: pageTypeLabel(r.type), problem: reqMissing[0] ? `нет ${issue} схемы` : (a.issues[0]?.problem || 'Требует улучшений') };
+      });
+    return { total, avgScore, totalErrors, priorities };
+  }, [multiResults]);
+
   const handleRun = async () => {
     let target = url.trim();
     if (!target) return;
@@ -658,7 +855,26 @@ export default function SchemaAuditPage() {
           </p>
         </div>
 
-        {/* Input panel */}
+        {/* Mode toggle */}
+        <div className="max-w-2xl mx-auto flex items-center justify-center gap-1 rounded-lg border border-border/60 bg-card p-1">
+          <button
+            onClick={() => setAuditMode('single')}
+            disabled={running}
+            className={`flex-1 px-4 py-2 text-sm rounded-md transition-colors ${auditMode === 'single' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Одна страница
+          </button>
+          <button
+            onClick={() => setAuditMode('site')}
+            disabled={running}
+            className={`flex-1 px-4 py-2 text-sm rounded-md transition-colors ${auditMode === 'site' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Globe className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" /> Весь сайт
+          </button>
+        </div>
+
+        {/* Single page input */}
+        {auditMode === 'single' && (
         <div className="rounded-xl border border-border/60 bg-card p-6 max-w-2xl mx-auto space-y-3">
           <Input
             ref={inputRef}
@@ -692,6 +908,63 @@ export default function SchemaAuditPage() {
             Анализируем JSON-LD, Microdata и RDFa • Стоимость: 2 кредита
           </p>
         </div>
+        )}
+
+        {/* Multi-page input */}
+        {auditMode === 'site' && (
+        <div className="rounded-xl border border-border/60 bg-card p-6 max-w-3xl mx-auto space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Добавьте до 5 ключевых страниц сайта — для каждой укажите тип</p>
+            <Button size="sm" variant="outline" onClick={fetchSitemapPages} disabled={running || sitemapBusy} className="gap-2 h-8 text-xs">
+              {sitemapBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+              Найти страницы автоматически
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {pages.map((p) => (
+              <div key={p.id} className="flex items-center gap-2">
+                <Select value={p.type} onValueChange={v => updatePage(p.id, { type: v })} disabled={running}>
+                  <SelectTrigger className="w-[180px] h-10 text-xs shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_TYPES.map(pt => (
+                      <SelectItem key={pt.value} value={pt.value} className="text-xs">{pt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={p.url}
+                  onChange={e => updatePage(p.id, { url: e.target.value })}
+                  placeholder="https://site.ru/page"
+                  className="h-10 text-sm flex-1"
+                  disabled={running}
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => removePage(p.id)}
+                  disabled={running || pages.length <= 1}
+                  className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
+                  aria-label="Удалить"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button size="sm" variant="ghost" onClick={addPage} disabled={running || pages.length >= 5} className="gap-1 text-xs">
+            <Plus className="w-3.5 h-3.5" /> Добавить URL ({pages.length}/5)
+          </Button>
+          <Button onClick={handleRunMulti} disabled={running || pages.every(p => !p.url.trim())} className="w-full h-11 gap-2">
+            {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {running ? 'Анализ страниц...' : `Проверить весь сайт (${pages.filter(p => p.url.trim()).length})`}
+          </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            Стоимость: 2 кредита за страницу • {pages.filter(p => p.url.trim()).length * 2} кредитов
+          </p>
+        </div>
+        )}
 
         {/* Loading */}
         {running && (
@@ -710,7 +983,7 @@ export default function SchemaAuditPage() {
           </div>
         )}
 
-        {error && !running && errorCode === 'BOT_PROTECTED' && (
+        {auditMode === 'single' && error && !running && errorCode === 'BOT_PROTECTED' && (
           <div className="rounded-xl border border-yellow-500/30 bg-card p-6 max-w-2xl mx-auto space-y-3">
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-yellow-500" />
@@ -740,7 +1013,7 @@ export default function SchemaAuditPage() {
           </div>
         )}
 
-        {error && !running && errorCode !== 'BOT_PROTECTED' && (
+        {auditMode === 'single' && error && !running && errorCode !== 'BOT_PROTECTED' && (
           <div className="rounded-xl border border-red-500/30 bg-card p-6 text-center max-w-2xl mx-auto">
             <XCircle className="w-7 h-7 text-red-500 mx-auto mb-3" />
             <p className="text-sm font-medium text-foreground mb-1">Не удалось выполнить анализ</p>
@@ -748,10 +1021,10 @@ export default function SchemaAuditPage() {
           </div>
         )}
 
-        {!audit && !running && !error && <EmptyState onStart={() => inputRef.current?.focus()} />}
+        {auditMode === 'single' && !audit && !running && !error && <EmptyState onStart={() => inputRef.current?.focus()} />}
 
         {/* Results */}
-        {audit && !running && (
+        {auditMode === 'single' && audit && !running && (
           <div className="space-y-8 animate-in fade-in duration-500">
             {/* Scores */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -915,6 +1188,147 @@ export default function SchemaAuditPage() {
                 <Download className="w-4 h-4" /> Скачать ТЗ
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* ── Multi-page results ── */}
+        {auditMode === 'site' && multiResults.length > 0 && (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            {/* Per-page status while running */}
+            {running && (
+              <div className="rounded-xl border border-border/60 bg-card p-5 space-y-2 max-w-2xl mx-auto">
+                <p className="text-sm font-semibold text-foreground mb-2">Анализируем страницы…</p>
+                {multiResults.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2">
+                      {r.status === 'done' && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
+                      {r.status === 'error' && <XCircle className="w-3.5 h-3.5 text-red-500" />}
+                      {r.status === 'running' && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
+                      {r.status === 'pending' && <div className="w-3.5 h-3.5 rounded-full border border-border" />}
+                      <span className="text-muted-foreground">{pageTypeLabel(r.type)}</span>
+                      <span className="text-foreground/70 truncate max-w-[260px]">{r.url}</span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      {r.status === 'done' && `${r.audit?.overall_score ?? 0}/100`}
+                      {r.status === 'error' && 'ошибка'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Summary card */}
+            {!running && siteSummary && (
+              <div className="rounded-xl border border-border/60 bg-card p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold text-foreground">Сводный отчёт по сайту</h2>
+                  <Button onClick={downloadMultiTz} className="gap-2">
+                    <Download className="w-4 h-4" /> Скачать сводное ТЗ
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-lg border border-border/40 bg-background p-4 text-center">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Проверено страниц</p>
+                    <p className="text-2xl font-bold text-foreground">{siteSummary.total}</p>
+                  </div>
+                  <div className="rounded-lg border border-border/40 bg-background p-4 text-center">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Средний балл</p>
+                    <p className={`text-2xl font-bold ${scoreColor(siteSummary.avgScore)}`}>{siteSummary.avgScore}<span className="text-sm text-muted-foreground font-normal">/100</span></p>
+                  </div>
+                  <div className="rounded-lg border border-border/40 bg-background p-4 text-center">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Критических ошибок</p>
+                    <p className={`text-2xl font-bold ${siteSummary.totalErrors > 0 ? 'text-red-400' : 'text-green-400'}`}>{siteSummary.totalErrors}</p>
+                  </div>
+                </div>
+                {siteSummary.priorities.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">Приоритет исправлений</p>
+                    <ol className="space-y-1.5 text-sm">
+                      {siteSummary.priorities.map((p, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-muted-foreground shrink-0">{i + 1}.</span>
+                          <span className="text-foreground"><span className="font-medium">{p.label}</span> — {p.problem}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Per-page tabs */}
+            {!running && multiResults.some(r => r.status === 'done') && (
+              <Tabs value={multiActiveTab || multiResults.find(r => r.status === 'done')?.url} onValueChange={setMultiActiveTab}>
+                <TabsList className="flex-wrap h-auto">
+                  {multiResults.map((r) => (
+                    <TabsTrigger key={r.url} value={r.url} className="text-xs">
+                      {pageTypeLabel(r.type)}
+                      {r.status === 'done' && r.audit && (
+                        <span className={`ml-2 ${scoreColor(r.audit.overall_score)}`}>{r.audit.overall_score}/100</span>
+                      )}
+                      {r.status === 'error' && <span className="ml-2 text-red-400">ошибка</span>}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {multiResults.map((r) => (
+                  <TabsContent key={r.url} value={r.url} className="mt-4 space-y-4">
+                    {r.status === 'error' && (
+                      <div className="rounded-xl border border-red-500/30 bg-card p-5 text-sm text-red-400">
+                        {r.error || 'Ошибка анализа'}
+                      </div>
+                    )}
+                    {r.status === 'done' && r.audit && (
+                      <>
+                        {/* Required-vs-found for this page type */}
+                        {(() => {
+                          const meta = PAGE_TYPE_MAP[r.type];
+                          if (!meta) return null;
+                          const found = new Set(r.audit!.schemas_data.map((s: any) => s.type));
+                          return (
+                            <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3">
+                              <h3 className="text-sm font-semibold text-foreground">Требуемые схемы для типа «{pageTypeLabel(r.type)}»</h3>
+                              <div className="flex flex-wrap gap-2 text-xs">
+                                {meta.required.map(t => (
+                                  <span key={t} className={`flex items-center gap-1 px-2 py-1 rounded ${found.has(t) ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                                    {found.has(t) ? '✓' : '✗'} {t}
+                                  </span>
+                                ))}
+                                {meta.recommended.map(t => (
+                                  <span key={t} className={`flex items-center gap-1 px-2 py-1 rounded ${found.has(t) ? 'bg-green-500/10 text-green-400' : 'bg-secondary text-muted-foreground'}`}>
+                                    {found.has(t) ? '✓' : '○'} {t} <span className="opacity-60">(реком.)</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Found schemas */}
+                        {r.audit.schemas_data.filter(isValuableSchema).length > 0 && (
+                          <div className="space-y-3">
+                            <h3 className="text-sm font-semibold text-foreground">Найдено на странице ({r.audit.schemas_data.filter(isValuableSchema).length})</h3>
+                            {r.audit.schemas_data.filter(isValuableSchema).map((s: any, i: number) => (
+                              <SchemaCard key={i} schema={s} />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Generated code blocks */}
+                        {r.audit.generated_code.length > 0 && (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-primary" />
+                              <h3 className="text-sm font-semibold text-foreground">Готовый код для вставки</h3>
+                            </div>
+                            {r.audit.generated_code.map((b, i) => <CodeBlock key={i} block={b} />)}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </TabsContent>
+                ))}
+              </Tabs>
+            )}
           </div>
         )}
       </main>
