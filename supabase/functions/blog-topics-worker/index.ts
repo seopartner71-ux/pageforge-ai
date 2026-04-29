@@ -47,8 +47,9 @@ const OPENROUTER_HEADERS_EXTRA = {
 };
 
 const MAX_TOPICS = 500;
-const MAX_SERP_QUERIES = 50;
-const MIN_FREQUENCY = 50;
+const MAX_SERP_QUERIES = 30;
+const MIN_FREQUENCY = 500;
+const RESULT_LIMIT = 30;
 
 // Google Ads / DataForSEO location codes (NOT Yandex Wordstat geo IDs).
 // Russian cities aren't standalone Google Ads geo-targets, so all RU regions
