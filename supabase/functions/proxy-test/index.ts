@@ -17,6 +17,20 @@ const DFS_PASSWORD = Deno.env.get("DATAFORSEO_PASSWORD") ?? "";
 
 function sb() { return createClient(SUPABASE_URL, SERVICE_ROLE); }
 
+function validateRelayUrl(rawUrl: string): string | null {
+  try {
+    const relay = new URL(rawUrl);
+    const port = relay.port || (relay.protocol === "https:" ? "443" : relay.protocol === "http:" ? "80" : "");
+    const isStandardHttpPort = port === "80" || port === "443";
+    if (!isStandardHttpPort) {
+      return `Relay URL ${relay.origin} использует порт ${port}. Edge Function не может надёжно достучаться до нестандартных портов — поставьте relay за nginx на 443/HTTPS или 80/HTTP.`;
+    }
+    return null;
+  } catch {
+    return "PROXY_URL имеет некорректный формат";
+  }
+}
+
 async function getProxyConfig() {
   let url = Deno.env.get("PROXY_URL") ?? "";
   let token = Deno.env.get("PROXY_TOKEN") ?? "";
@@ -44,11 +58,7 @@ async function callRelay(url: string, opts: {
   console.log("[proxy-test] target URL:", url);
   console.log("[proxy-test] token present:", !!opts.token);
   const t0 = Date.now();
-  const ctrl = new AbortController();
-  const timeoutId = setTimeout(() => {
-    console.error("[proxy-test] aborting after 20s timeout");
-    ctrl.abort();
-  }, 20_000);
+  const signal = AbortSignal.timeout(12_000);
   try {
     console.log("[proxy-test] fetch started");
     const r = await fetch(opts.proxyUrl, {
@@ -63,9 +73,8 @@ async function callRelay(url: string, opts: {
         headers: opts.headers ?? {},
         body: opts.body ?? null,
       }),
-      signal: ctrl.signal,
+      signal,
     });
-    clearTimeout(timeoutId);
     console.log(`[proxy-test] fetch status: ${r.status} (${Date.now() - t0}ms)`);
     const txt = await r.text();
     console.log(`[proxy-test] relay body length: ${txt.length}, preview: ${txt.slice(0, 200)}`);
@@ -73,11 +82,14 @@ async function callRelay(url: string, opts: {
     try { env = JSON.parse(txt); } catch { console.warn("[proxy-test] relay returned non-JSON"); }
     return { relayStatus: r.status, env, raw: txt };
   } catch (e) {
-    clearTimeout(timeoutId);
     const msg = (e as Error).message;
     const name = (e as Error).name;
     console.error(`[proxy-test] fetch error after ${Date.now() - t0}ms: name=${name} message=${msg}`);
-    throw e;
+    return {
+      relayStatus: name === "TimeoutError" || name === "AbortError" ? 504 : 502,
+      env: null,
+      raw: `Relay fetch failed after ${Date.now() - t0}ms: ${name}: ${msg}`,
+    };
   }
 }
 
@@ -103,6 +115,20 @@ Deno.serve(async (req) => {
         ok: false,
         error: "PROXY_URL не задан в админке",
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const relayUrlError = validateRelayUrl(cfg.url);
+    if (relayUrlError) {
+      console.error("[proxy-test] relay URL rejected:", relayUrlError);
+      return new Response(JSON.stringify({
+        ok: false,
+        error: relayUrlError,
+        ip: null,
+        country: null,
+        dfsStatus: 0,
+        ipError: relayUrlError,
+        dfsError: null,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // 1) Проверка через ip-эхо (api.ipify.org возвращает текстовый IP)
