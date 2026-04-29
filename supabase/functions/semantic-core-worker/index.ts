@@ -1179,7 +1179,9 @@ async function nameClustersBatch(
 // Retry naming for a single cluster with a simpler prompt — used as fallback
 // when the batch call returned the default "Кластер N" placeholder.
 async function nameClusterSingle(keywords: string[]): Promise<string | null> {
-  if (!keywords.length || !LOVABLE_API_KEY) return null;
+  if (!keywords.length) return null;
+  const aiKey = await getOpenRouterKey();
+  if (!aiKey) return null;
   const top5 = keywords.slice(0, 5).join(", ");
   try {
     const resp = await fetch(AI_URL, {
@@ -1870,7 +1872,8 @@ Deno.serve(async (req) => {
 
     // Debug: AI key status. Note — this project uses Lovable AI Gateway,
     // not OpenRouter. 402 from gateway = workspace AI credits exhausted.
-    console.log("[Lovable AI] key configured:", !!LOVABLE_API_KEY, "model:", AI_MODEL);
+    const aiKey = await getOpenRouterKey();
+    console.log("[OpenRouter] key configured:", !!aiKey, "source:", OPENROUTER_API_KEY_ENV ? "env" : (aiKey ? "system_settings" : "none"), "model:", AI_MODEL);
 
     // Run async; respond immediately so caller doesn't wait
     EdgeRuntime.waitUntil(
