@@ -1,4 +1,4 @@
-// deploy: v7 - extract KD from competition_index (Google Ads keywords_for_keywords)
+// deploy: v8 - openrouter ai
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const OPENROUTER_API_KEY_ENV = Deno.env.get("OPENROUTER_API_KEY") ?? "";
 const SERPER_KEY_ENV = Deno.env.get("SERPER_API_KEY") ?? "";
 const DFS_LOGIN = Deno.env.get("DATAFORSEO_LOGIN") ?? "";
 const DFS_PASSWORD = Deno.env.get("DATAFORSEO_PASSWORD") ?? "";
@@ -120,7 +120,38 @@ async function proxyFetch(url: string, options: RequestInit = {}): Promise<Respo
 }
 
 const AI_MODEL = "google/gemini-2.5-flash";
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const AI_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+// Resolves the OpenRouter API key. Priority:
+//   1) Deno env var OPENROUTER_API_KEY (Supabase secret)
+//   2) system_settings.openrouter_api_key (DB-managed via Admin Panel)
+// Cached in-memory for the lifetime of the isolate (~5 min TTL).
+let _aiKeyCache: { key: string; ts: number } | null = null;
+const AI_KEY_TTL_MS = 5 * 60 * 1000;
+async function getOpenRouterKey(): Promise<string> {
+  if (OPENROUTER_API_KEY_ENV) return OPENROUTER_API_KEY_ENV;
+  if (_aiKeyCache && Date.now() - _aiKeyCache.ts < AI_KEY_TTL_MS) {
+    return _aiKeyCache.key;
+  }
+  try {
+    const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const { data } = await sb
+      .from("system_settings")
+      .select("value")
+      .eq("key", "openrouter_api_key")
+      .maybeSingle();
+    const key = String((data as any)?.value ?? "").trim();
+    _aiKeyCache = { key, ts: Date.now() };
+    return key;
+  } catch (e) {
+    console.warn("[OpenRouter] system_settings read failed:", (e as Error).message);
+    return "";
+  }
+}
+const OPENROUTER_HEADERS_EXTRA = {
+  "HTTP-Referer": "https://seo-modul.pro",
+  "X-Title": "SEO-Audit Semantic Core",
+};
 
 const MAX_KEYWORDS = 5000;
 const MAX_SERP_KEYWORDS = 80;
@@ -250,7 +281,7 @@ function expandUserPrompt(topic: string, seeds: string[], region: string) {
 async function aiExpandOnce(topic: string, seeds: string[], region: string): Promise<string[]> {
   const resp = await fetch(AI_URL, {
     method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
     body: JSON.stringify({
       model: AI_MODEL,
       messages: [
@@ -321,7 +352,7 @@ async function aiSuggestionsForRu(
     try {
       const resp = await fetch(AI_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
         body: JSON.stringify({
           model: AI_MODEL,
           messages: [
@@ -391,7 +422,7 @@ async function aiFollowupExpand(
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
@@ -1115,7 +1146,7 @@ async function nameClustersBatch(
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
@@ -1148,12 +1179,14 @@ async function nameClustersBatch(
 // Retry naming for a single cluster with a simpler prompt — used as fallback
 // when the batch call returned the default "Кластер N" placeholder.
 async function nameClusterSingle(keywords: string[]): Promise<string | null> {
-  if (!keywords.length || !LOVABLE_API_KEY) return null;
+  if (!keywords.length) return null;
+  const aiKey = await getOpenRouterKey();
+  if (!aiKey) return null;
   const top5 = keywords.slice(0, 5).join(", ");
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
@@ -1839,7 +1872,8 @@ Deno.serve(async (req) => {
 
     // Debug: AI key status. Note — this project uses Lovable AI Gateway,
     // not OpenRouter. 402 from gateway = workspace AI credits exhausted.
-    console.log("[Lovable AI] key configured:", !!LOVABLE_API_KEY, "model:", AI_MODEL);
+    const aiKey = await getOpenRouterKey();
+    console.log("[OpenRouter] key configured:", !!aiKey, "source:", OPENROUTER_API_KEY_ENV ? "env" : (aiKey ? "system_settings" : "none"), "model:", AI_MODEL);
 
     // Run async; respond immediately so caller doesn't wait
     EdgeRuntime.waitUntil(
