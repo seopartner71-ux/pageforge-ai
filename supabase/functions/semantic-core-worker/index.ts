@@ -299,7 +299,7 @@ function sleep(ms: number) {
 }
 
 // ============== STEP A: AI EXPANSION ==============
-const EXPAND_SYSTEM =
+const EXPAND_SYSTEM_RU =
   "Ты эксперт по SEO для русскоязычного рынка. Генерируй ТОЛЬКО русскоязычные поисковые запросы. " +
   "ЗАПРЕЩЕНО: английские слова, транслитерация. " +
   "Генерируй ТОЛЬКО запросы от 2 до 6 слов. " +
@@ -307,8 +307,33 @@ const EXPAND_SYSTEM =
   "Каждый запрос должен отражать реальное намерение пользователя (купить/как выбрать/доставка/цена и т.д.). " +
   "Возвращай ТОЛЬКО валидный JSON массив строк без пояснений и без markdown.";
 
+function expandSystemForRegion(region: string): string {
+  const cfg = intlConfig(region);
+  if (!cfg) return EXPAND_SYSTEM_RU;
+  return (
+    `You are an SEO expert for the ${region} market. ` +
+    `Generate ONLY ${cfg.language_name}-language search queries that real users type into Google in ${region}. ` +
+    `FORBIDDEN: Russian or non-${cfg.language_name} words, transliteration. ` +
+    `Each query must be 2-6 words and reflect a real user intent (buy/how to/price/review/etc). ` +
+    `Return ONLY a valid JSON array of strings, no markdown, no explanations.`
+  );
+}
+
 function expandUserPrompt(topic: string, seeds: string[], region: string) {
-  return `Тема: ${topic}\nДоп. ключи: ${seeds.join(", ") || "—"}\n\nСгенерируй 150-200 поисковых запросов по категориям:\n1. Основные (20-30): прямые запросы\n2. Коммерческие (40-50): купить, цена, заказать, недорого, доставка\n3. Информационные (30-40): как выбрать, отзывы, рейтинг, сравнение\n4. Вопросные (20-30): как, что, где, почему, сколько стоит\n5. Хвостовые (30-40): с уточнениями по бренду, городу, размеру\n6. LSI и синонимы (20-30): смежные понятия\nРегион: ${region}`;
+  const cfg = intlConfig(region);
+  if (!cfg) {
+    return `Тема: ${topic}\nДоп. ключи: ${seeds.join(", ") || "—"}\n\nСгенерируй 150-200 поисковых запросов по категориям:\n1. Основные (20-30): прямые запросы\n2. Коммерческие (40-50): купить, цена, заказать, недорого, доставка\n3. Информационные (30-40): как выбрать, отзывы, рейтинг, сравнение\n4. Вопросные (20-30): как, что, где, почему, сколько стоит\n5. Хвостовые (30-40): с уточнениями по бренду, городу, размеру\n6. LSI и синонимы (20-30): смежные понятия\nРегион: ${region}`;
+  }
+  return (
+    `Topic: ${topic}\nExtra seeds: ${seeds.join(", ") || "—"}\nRegion: ${region}\nLanguage: ${cfg.language_name}\n\n` +
+    `Generate 150-200 search queries in ${cfg.language_name} across these categories:\n` +
+    `1. Core (20-30): direct topical queries\n` +
+    `2. Commercial (40-50): buy, price, order, cheap, shipping, near me\n` +
+    `3. Informational (30-40): how to choose, reviews, rating, comparison\n` +
+    `4. Question (20-30): how, what, where, why, how much\n` +
+    `5. Long-tail (30-40): with brand/city/size qualifiers\n` +
+    `6. LSI / synonyms (20-30): related concepts`
+  );
 }
 
 async function aiExpandOnce(topic: string, seeds: string[], region: string): Promise<string[]> {
