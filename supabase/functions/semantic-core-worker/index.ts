@@ -1,4 +1,4 @@
-// deploy: v8 - openrouter ai
+// deploy: v9 - openrouter key from system_settings (key_name/key_value) + intl regions
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -137,10 +137,10 @@ async function getOpenRouterKey(): Promise<string> {
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data } = await sb
       .from("system_settings")
-      .select("value")
-      .eq("key", "openrouter_api_key")
+      .select("key_value")
+      .eq("key_name", "openrouter_api_key")
       .maybeSingle();
-    const key = String((data as any)?.value ?? "").trim();
+    const key = String((data as any)?.key_value ?? "").trim();
     _aiKeyCache = { key, ts: Date.now() };
     return key;
   } catch (e) {
