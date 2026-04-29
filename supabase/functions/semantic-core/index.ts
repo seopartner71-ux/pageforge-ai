@@ -19,13 +19,12 @@ async function getOpenRouterKey(): Promise<string> {
   if (_aiKeyCache && Date.now() - _aiKeyCache.ts < AI_KEY_TTL_MS) return _aiKeyCache.key;
   try {
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
-    // Try both possible schemas: (key,value) and (key_name,key_value)
-    let { data } = await sb.from("system_settings").select("value").eq("key", "openrouter_api_key").maybeSingle();
-    let key = String((data as any)?.value ?? "").trim();
-    if (!key) {
-      const r2 = await sb.from("system_settings").select("key_value").eq("key_name", "openrouter_api_key").maybeSingle();
-      key = String((r2.data as any)?.key_value ?? "").trim();
-    }
+    const { data } = await sb
+      .from("system_settings")
+      .select("key_value")
+      .eq("key_name", "openrouter_api_key")
+      .maybeSingle();
+    const key = String((data as any)?.key_value ?? "").trim();
     _aiKeyCache = { key, ts: Date.now() };
     return key;
   } catch {
