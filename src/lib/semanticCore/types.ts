@@ -88,6 +88,16 @@ export const REGION_GROUPS: { label: string; regions: string[] }[] = [
       'Чита', 'Смоленск', 'Калуга', 'Мурманск',
     ],
   },
+  {
+    label: 'Международные',
+    regions: [
+      'United States',
+      'United Kingdom',
+      'Germany',
+      'France',
+      'Spain',
+    ],
+  },
 ];
 
 // Flat list (kept for backwards compatibility)
