@@ -546,15 +546,34 @@ async function dfsKeywordSuggestions(
       cost.add(0.05);
       if (items.length) {
         console.log(`[DFS volume sample suggestions/kfk]`, JSON.stringify(items[0]).slice(0, 400));
+        const dbg = items[0];
+        console.log('[KD debug suggestions/kfk]', JSON.stringify({
+          keyword: dbg?.keyword,
+          competition: dbg?.competition,
+          competition_index: dbg?.competition_index,
+          keyword_difficulty: dbg?.keyword_difficulty,
+          top_keys: Object.keys(dbg || {}),
+        }));
       }
       for (const it of items) {
         const kw = String(it?.keyword || "").trim().toLowerCase();
         const sv = Number(it?.search_volume ?? 0);
         if (!kw) continue;
         if (!isRussianKeyword(kw)) continue;
+        // Google Ads endpoint returns `competition_index` (0-100) — use as KD proxy.
+        const kdRaw = it?.keyword_difficulty
+          ?? it?.competition_index
+          ?? it?.keyword_properties?.keyword_difficulty
+          ?? it?.keyword_info?.keyword_difficulty;
+        const kd = (kdRaw === null || kdRaw === undefined)
+          ? null
+          : Math.max(0, Math.min(100, Math.round(Number(kdRaw))));
         const prev = merged.get(kw);
         if (!prev || sv > prev.search_volume) {
-          merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: prev?.keyword_difficulty ?? null });
+          const mergedKd = kd != null ? kd : (prev?.keyword_difficulty ?? null);
+          merged.set(kw, { keyword: kw, search_volume: sv, keyword_difficulty: mergedKd });
+        } else if (prev && kd != null && prev.keyword_difficulty == null) {
+          prev.keyword_difficulty = kd;
         }
       }
       console.log(`[DFS suggestions] merged=${merged.size} (via keywords_for_keywords)`);
