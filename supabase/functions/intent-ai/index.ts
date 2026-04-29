@@ -1,3 +1,4 @@
+// deploy: v8 - openrouter everywhere
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -11,9 +12,17 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY не настроен" }), {
+    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    let OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") ?? "";
+    if (!OPENROUTER_API_KEY && SERVICE_ROLE) {
+      try {
+        const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
+        const { data } = await sb.from("system_settings").select("value").eq("key", "openrouter_api_key").maybeSingle();
+        OPENROUTER_API_KEY = String((data as any)?.value ?? "").trim();
+      } catch {/* ignore */}
+    }
+    if (!OPENROUTER_API_KEY) {
+      return new Response(JSON.stringify({ error: "OPENROUTER_API_KEY не настроен" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -55,9 +64,14 @@ Deno.serve(async (req) => {
 ${JSON.stringify(compact, null, 2)}
 \`\`\``;
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Audit Intent AI",
+      },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
@@ -68,7 +82,7 @@ ${JSON.stringify(compact, null, 2)}
     });
     if (!aiResp.ok) {
       const t = await aiResp.text();
-      return new Response(JSON.stringify({ error: `AI Gateway ${aiResp.status}: ${t}` }), {
+      return new Response(JSON.stringify({ error: `OpenRouter ${aiResp.status}: ${t}` }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

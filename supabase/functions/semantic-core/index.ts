@@ -1,3 +1,4 @@
+// deploy: v8 - openrouter everywhere
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -8,7 +9,30 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const OPENROUTER_API_KEY_ENV = Deno.env.get("OPENROUTER_API_KEY") ?? "";
+
+const AI_URL = "https://openrouter.ai/api/v1/chat/completions";
+let _aiKeyCache: { key: string; ts: number } | null = null;
+const AI_KEY_TTL_MS = 5 * 60 * 1000;
+async function getOpenRouterKey(): Promise<string> {
+  if (OPENROUTER_API_KEY_ENV) return OPENROUTER_API_KEY_ENV;
+  if (_aiKeyCache && Date.now() - _aiKeyCache.ts < AI_KEY_TTL_MS) return _aiKeyCache.key;
+  try {
+    const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
+    // Try both possible schemas: (key,value) and (key_name,key_value)
+    let { data } = await sb.from("system_settings").select("value").eq("key", "openrouter_api_key").maybeSingle();
+    let key = String((data as any)?.value ?? "").trim();
+    if (!key) {
+      const r2 = await sb.from("system_settings").select("key_value").eq("key_name", "openrouter_api_key").maybeSingle();
+      key = String((r2.data as any)?.key_value ?? "").trim();
+    }
+    _aiKeyCache = { key, ts: Date.now() };
+    return key;
+  } catch {
+    return "";
+  }
+}
+const OR_HEADERS_EXTRA = { "HTTP-Referer": "https://seo-modul.pro", "X-Title": "SEO-Audit Semantic Core" };
 
 async function getSetting(key: string): Promise<string> {
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
@@ -31,9 +55,9 @@ async function callExpandOnce(topic: string, seeds: string[]): Promise<string[]>
       { role: "user", content: buildExpandUserPrompt(topic, seeds) },
     ],
   };
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const resp = await fetch(AI_URL, {
     method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OR_HEADERS_EXTRA },
     body: JSON.stringify(body),
   });
   if (!resp.ok) {
@@ -97,9 +121,9 @@ async function nameCluster(keywords: string[]): Promise<string> {
     ],
   };
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OR_HEADERS_EXTRA },
       body: JSON.stringify(body),
     });
     if (!resp.ok) return keywords[0] || "Кластер";
@@ -176,9 +200,9 @@ async function clusterWithAI(keywords: string[]): Promise<Map<string, string[]> 
       ],
     };
     try {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const resp = await fetch(AI_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OR_HEADERS_EXTRA },
         body: JSON.stringify(body),
       });
       if (!resp.ok) return null;
