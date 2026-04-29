@@ -1372,7 +1372,8 @@ async function runPipeline(jobId: string) {
   }
 
   // RU/BY long-tail boost via AI (Wordstat is disabled — DNS blocked from edge).
-  if (isRu && (useSuggestions || useCompetitors)) {
+  // For international regions we skip this branch — aiExpandOnce handles it.
+  if (isRu && !isIntlRegion(region) && (useSuggestions || useCompetitors)) {
     sourcePromises.push(
       aiSuggestionsForRu(topic, seeds, region)
         .then((kws) => ({ source: "ai", keywords: kws }))
@@ -1406,13 +1407,13 @@ async function runPipeline(jobId: string) {
   for (const s of settled) {
     if (s.status !== "fulfilled") continue;
     const r = s.value;
-    const filtered = filterValidKeywords(r.keywords);
+    const filtered = filterValidKeywords(r.keywords, region);
     breakdown[r.source] = filtered.length;
     console.log(`[Source ${r.source}] raw=${r.keywords.length}, filtered=${filtered.length}, withVolumes=${r.withVolumes?.length ?? 0}`);
     if (r.withVolumes) {
       for (const v of r.withVolumes) {
         const kw = v.keyword.toLowerCase();
-        if (!filterValidKeywords([kw]).length) continue;
+        if (!filterValidKeywords([kw], region).length) continue;
         const prev = dfsVolumes.get(kw) || 0;
         if (v.search_volume > prev) dfsVolumes.set(kw, v.search_volume);
         if (v.keyword_difficulty != null) {
@@ -1444,24 +1445,24 @@ async function runPipeline(jobId: string) {
     console.log(`[Stop-words filter] applied=${userStopWords.length} dropped=${droppedStop} (${beforeStop} -> ${rawKeywords.length})`);
   }
 
-  // Global post-processing: drop non-Russian / Ukrainian-leaking keywords
+  // Global post-processing: drop non-region-language keywords
   const beforeRu = rawKeywords.length;
-  rawKeywords = rawKeywords.filter(isRussianKeyword);
+  rawKeywords = rawKeywords.filter((kw) => keepKeyword(kw, region));
   const droppedRu = beforeRu - rawKeywords.length;
-  if (droppedRu > 0) console.log(`[Russian filter] dropped ${droppedRu} non-Russian keywords (${beforeRu} -> ${rawKeywords.length})`);
+  if (droppedRu > 0) console.log(`[Region filter] dropped ${droppedRu} off-language keywords (${beforeRu} -> ${rawKeywords.length})`);
 
   // Followup AI enrichment if DFS is available and AI source is enabled,
   // OR fallback if total too small.
   if (dfsAvailable && useAi && rawKeywords.length > 0) {
-    const extra = await aiFollowupExpand(topic, rawKeywords, 100);
-    const filteredExtra = filterValidKeywords(extra);
+    const extra = await aiFollowupExpand(topic, rawKeywords, 100, region);
+    const filteredExtra = filterValidKeywords(extra, region);
     const before = rawKeywords.length;
     rawKeywords = Array.from(new Set([...rawKeywords, ...filteredExtra]));
     breakdown.ai += rawKeywords.length - before;
   }
   if (rawKeywords.length < 100) {
-    const fallback = await aiFollowupExpand(topic, rawKeywords, 300);
-    const filteredFb = filterValidKeywords(fallback);
+    const fallback = await aiFollowupExpand(topic, rawKeywords, 300, region);
+    const filteredFb = filterValidKeywords(fallback, region);
     const before = rawKeywords.length;
     rawKeywords = Array.from(new Set([...rawKeywords, ...filteredFb]));
     breakdown.ai += rawKeywords.length - before;
@@ -1491,7 +1492,7 @@ async function runPipeline(jobId: string) {
   // We store BOTH zero and non-zero answers — a real zero from Topvisor is more truthful
   // than a fake mock number or a misleading Ukrainian DFS volume.
   const topvisorMap = new Map<string, { ws: number; exact: number }>();
-  if (isRussianRegion(region)) {
+  if (isRussianRegion(region) && !isIntlRegion(region)) {
     const regionId = topvisorRegionId(region);
     console.log(`[Topvisor enrich] region="${region}" regionId=${regionId} keywords=${rawKeywords.length}`);
     const tvVols = await topvisorVolumes(rawKeywords, regionId);
