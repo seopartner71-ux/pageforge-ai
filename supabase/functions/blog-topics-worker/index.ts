@@ -1,4 +1,4 @@
-// deploy: v11 - fix DFS location_code (2643 RU) + lower MIN_FREQUENCY=50
+// deploy: v12 - DFS use location_name, drop bad autocomplete endpoint, sanitize keywords
 // blog-topics-worker — поиск тем для блога. Конкуренция определяется
 // в первую очередь по Keyword Difficulty (KD) от DataForSEO Labs,
 // SERP-проверка через Serper.dev оставлена как fallback / уточнение.
@@ -84,6 +84,26 @@ function dfsLocation(region: string): number {
 }
 function dfsLanguage(region: string): string {
   return DFS_LANGUAGE_CODES[region] ?? "ru";
+}
+const DFS_LOCATION_NAMES: Record<string, string> = {
+  "United States": "United States",
+  "United Kingdom": "United Kingdom",
+  "Germany": "Germany",
+  "France": "France",
+  "Spain": "Spain",
+};
+function dfsLocationName(region: string): string {
+  return DFS_LOCATION_NAMES[region] ?? "Russia";
+}
+
+// DataForSEO rejects keywords containing characters like ?, !, *, etc.
+// Allowed: letters (any unicode), digits, spaces, dash, apostrophe.
+function sanitizeKeyword(kw: string): string {
+  return kw
+    .replace(/[?!*"'`<>+\[\]{}()|\\\/.,:;@#$%^&=~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 function dfsAuth(): string {
   return "Basic " + btoa(`${DFS_LOGIN}:${DFS_PASSWORD}`);
