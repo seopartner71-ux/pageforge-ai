@@ -54,9 +54,22 @@ async function callRelay(url: string, opts: {
     }),
   });
   const txt = await r.text();
-  let env: { status?: number; body?: string } | null = null;
-  try { env = JSON.parse(txt); } catch { /* not JSON */ }
+  // Outer envelope from relay: {status, headers, body}
+  let env: { status?: number; headers?: Record<string, string>; body?: string } | null = null;
+  try { env = JSON.parse(txt); } catch { /* relay returned non-JSON */ }
   return { relayStatus: r.status, env, raw: txt };
+}
+
+// Безопасный парсинг inner JSON из env.body.
+// Возвращает { json, text } — json есть только если body валидный JSON.
+function parseInnerBody(body: unknown): { json: any | null; text: string } {
+  if (body == null) return { json: null, text: "" };
+  const text = typeof body === "string" ? body : JSON.stringify(body);
+  try {
+    return { json: JSON.parse(text), text };
+  } catch {
+    return { json: null, text };
+  }
 }
 
 Deno.serve(async (req) => {
@@ -80,15 +93,16 @@ Deno.serve(async (req) => {
         proxyUrl: cfg.url, token: cfg.token, method: "GET",
       });
       if (ipRes.relayStatus !== 200 || !ipRes.env) {
-        ipError = `Relay ответил ${ipRes.relayStatus}: ${ipRes.raw.slice(0, 200)}`;
+        ipError = `Relay ответил ${ipRes.relayStatus} или вернул не-JSON: ${ipRes.raw.slice(0, 300)}`;
       } else if ((ipRes.env.status ?? 0) >= 400) {
-        ipError = `IP-эхо ответило ${ipRes.env.status}`;
+        const inner = parseInnerBody(ipRes.env.body);
+        ipError = `IP-эхо ответило ${ipRes.env.status}: ${inner.text.slice(0, 200)}`;
       } else {
-        try {
-          const j = JSON.parse(ipRes.env.body ?? "{}");
-          ip = String(j.ip || "").trim();
-        } catch {
-          ip = (ipRes.env.body ?? "").trim();
+        const inner = parseInnerBody(ipRes.env.body);
+        if (inner.json && typeof inner.json.ip === "string") {
+          ip = inner.json.ip.trim();
+        } else {
+          ip = inner.text.trim();
         }
       }
     } catch (e) {
@@ -101,9 +115,9 @@ Deno.serve(async (req) => {
         const cRes = await callRelay(`https://ipapi.co/${ip}/json/`, {
           proxyUrl: cfg.url, token: cfg.token, method: "GET",
         });
-        if (cRes.env?.body) {
-          const j = JSON.parse(cRes.env.body);
-          country = String(j.country_name || j.country || "").trim();
+        const inner = parseInnerBody(cRes.env?.body);
+        if (inner.json) {
+          country = String(inner.json.country_name || inner.json.country || "").trim();
         }
       } catch { /* country optional */ }
     }
@@ -120,7 +134,8 @@ Deno.serve(async (req) => {
         });
         dfsStatus = dRes.env?.status ?? dRes.relayStatus;
         if (dfsStatus >= 400) {
-          dfsError = `DataForSEO ответил ${dfsStatus}: ${(dRes.env?.body ?? "").slice(0, 200)}`;
+          const inner = parseInnerBody(dRes.env?.body);
+          dfsError = `DataForSEO ответил ${dfsStatus}: ${inner.text.slice(0, 200)}`;
         }
       } catch (e) {
         dfsError = (e as Error).message;
