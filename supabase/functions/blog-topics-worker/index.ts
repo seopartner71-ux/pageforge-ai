@@ -522,6 +522,12 @@ async function runJob(jobId: string) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  console.log("[blog-topics-worker] started");
+  // Clone to read body twice (log + parse)
+  let rawBody = "";
+  try { rawBody = await req.clone().text(); } catch {}
+  console.log("[blog-topics-worker] request body:", rawBody);
+
   try {
     const body = await req.json().catch(() => ({}));
     const action = String((body as any).action || "");
