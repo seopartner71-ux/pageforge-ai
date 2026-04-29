@@ -1,4 +1,4 @@
-// deploy: v5 - proxy for dataforseo
+// deploy: v6 - proxy debug
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -1804,6 +1804,18 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Debug: log effective proxy config at request time
+    try {
+      const proxyConfig = await getProxyConfig();
+      console.log("[proxy config]", JSON.stringify({
+        enabled: proxyConfig.enabled,
+        url: proxyConfig.url ? "set" : "not set",
+        token: proxyConfig.token ? "set" : "not set",
+      }));
+    } catch (e) {
+      console.error("[proxy config] read failed:", (e as Error).message);
     }
 
     // Run async; respond immediately so caller doesn't wait
