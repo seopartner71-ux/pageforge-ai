@@ -302,6 +302,14 @@ export default function LandingPage() {
               <span>{l.footer.company}</span>
             </div>
             <div className="flex items-center gap-6">
+              <a
+                href="https://systemnoe-seo.ru/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-foreground transition-colors"
+              >
+                Системное SEO
+              </a>
               <Link to="/privacy" className="hover:text-foreground transition-colors">{l.footer.privacy}</Link>
               <Link to="/terms" className="hover:text-foreground transition-colors">{l.footer.terms}</Link>
               <span>© {new Date().getFullYear()}</span>
