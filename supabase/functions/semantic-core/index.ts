@@ -121,9 +121,9 @@ async function nameCluster(keywords: string[]): Promise<string> {
     ],
   };
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OR_HEADERS_EXTRA },
       body: JSON.stringify(body),
     });
     if (!resp.ok) return keywords[0] || "Кластер";
@@ -200,9 +200,9 @@ async function clusterWithAI(keywords: string[]): Promise<Map<string, string[]> 
       ],
     };
     try {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const resp = await fetch(AI_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OR_HEADERS_EXTRA },
         body: JSON.stringify(body),
       });
       if (!resp.ok) return null;
