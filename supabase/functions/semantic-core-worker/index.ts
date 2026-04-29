@@ -550,7 +550,8 @@ async function dfsAutocompleteSource(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             keywords: chunk,
-            language_code: "ru",
+            language_code: dfsLanguage(region),
+            ...(dfsLocationCodeIntl(region) != null ? { location_code: dfsLocationCodeIntl(region) } : {}),
           }]),
         },
       );
@@ -597,7 +598,9 @@ async function dfsKeywordSuggestions(
   if (!dfsConfigured()) return [];
   const merged = new Map<string, DfsKwData>();
   const keywordsList = [topic, ...seeds.slice(0, 19)].filter(Boolean);
-  console.log(`[DFS suggestions] region: ${region} → using keywords_for_keywords (location_code=2643), ${keywordsList.length} seeds`);
+  const dfsLang = dfsLanguage(region);
+  const dfsLoc = dfsLocationCodeIntl(region);
+  console.log(`[DFS suggestions] region: ${region} lang=${dfsLang} loc=${dfsLoc ?? "none"} → keywords_for_keywords, ${keywordsList.length} seeds`);
 
   // Primary: Keywords Data → Google Ads → keywords_for_keywords (accepts location_code on this plan)
   try {
@@ -608,7 +611,8 @@ async function dfsKeywordSuggestions(
         headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
         body: JSON.stringify([{
           keywords: keywordsList.slice(0, 20),
-          language_code: "ru",
+          language_code: dfsLang,
+          ...(dfsLoc != null ? { location_code: dfsLoc } : {}),
         }]),
       },
     );
@@ -637,7 +641,7 @@ async function dfsKeywordSuggestions(
         const kw = String(it?.keyword || "").trim().toLowerCase();
         const sv = Number(it?.search_volume ?? 0);
         if (!kw) continue;
-        if (!isRussianKeyword(kw)) continue;
+        if (!keepKeyword(kw, region)) continue;
         // Google Ads endpoint returns `competition_index` (0-100) — use as KD proxy.
         const kdRaw = it?.keyword_difficulty
           ?? it?.competition_index
