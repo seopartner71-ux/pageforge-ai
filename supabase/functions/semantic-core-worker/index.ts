@@ -817,7 +817,8 @@ async function dfsKeywordsForSite(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             target,
-            language_code: "ru",
+            language_code: dfsLanguage(region),
+            ...(dfsLocationCodeIntl(region) != null ? { location_code: dfsLocationCodeIntl(region) } : {}),
             limit: 500,
           }]),
         },
@@ -848,8 +849,8 @@ async function dfsKeywordsForSite(
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
-          // Post-filter: Russian-only
-          if (!isRussianKeyword(kw)) continue;
+          // Post-filter: region-aware
+          if (!keepKeyword(kw, region)) continue;
           const kdRaw = it?.keyword_difficulty
             ?? it?.keyword_properties?.keyword_difficulty
             ?? it?.keyword_info?.keyword_difficulty
