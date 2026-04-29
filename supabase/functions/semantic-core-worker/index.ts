@@ -680,7 +680,8 @@ async function dfsKeywordSuggestions(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             keyword: q,
-            language_code: "ru",
+            language_code: dfsLanguage(region),
+            ...(dfsLocationCodeIntl(region) != null ? { location_code: dfsLocationCodeIntl(region) } : {}),
             limit,
             order_by: ["keyword_info.search_volume,desc"],
             filters: [["keyword_info.search_volume", ">", 10]],
@@ -727,8 +728,8 @@ async function dfsKeywordSuggestions(
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
-            // Post-filter: Russian-only (no language field allowed in request)
-            if (!isRussianKeyword(kw)) continue;
+            // Post-filter: region-aware (Russian for RU, Latin for INTL)
+            if (!keepKeyword(kw, region)) continue;
             const kdRaw = it?.keyword_difficulty
               ?? it?.keyword_properties?.keyword_difficulty
               ?? it?.keyword_info?.keyword_difficulty
