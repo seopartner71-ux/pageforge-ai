@@ -473,7 +473,7 @@ async function runJob(jobId: string) {
     for (const arr of [aiList, dfsRel, dfsAuto]) {
       for (const k of arr) {
         if (!k) continue;
-        const trimmed = k.trim();
+        const trimmed = sanitizeKeyword(k);
         if (trimmed.length < 5 || trimmed.length > 120) continue;
         if (/[a-zA-Z]/.test(trimmed)) continue; // только кириллица
         const wc = trimmed.split(/\s+/).filter(Boolean).length;
