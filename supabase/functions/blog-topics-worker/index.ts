@@ -270,8 +270,8 @@ async function dfsRelatedKeywords(
         method: "POST",
         headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
         body: JSON.stringify([{
-          keyword: topic,
-          location_code: dfsLocation(region),
+          keyword: sanitizeKeyword(topic),
+          location_name: dfsLocationName(region),
           language_code: dfsLanguage(region),
           limit: 200,
           include_seed_keyword: true,
@@ -286,7 +286,7 @@ async function dfsRelatedKeywords(
     const taskStatus = data?.tasks?.[0]?.status_code;
     const taskMsg = data?.tasks?.[0]?.status_message;
     const items = data?.tasks?.[0]?.result?.[0]?.items || [];
-    console.log(`[dfsRelatedKeywords] loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
+    console.log(`[dfsRelatedKeywords] loc_name="${dfsLocationName(region)}" lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
     const out: string[] = [];
     for (const it of items) {
       const kw = String(it?.keyword || "").trim().toLowerCase();
