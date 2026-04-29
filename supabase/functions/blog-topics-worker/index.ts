@@ -1,4 +1,4 @@
-// deploy: v9 - openrouter key from system_settings (key_name/key_value) + intl regions
+// deploy: v10 - blog-topics-worker entry+pipeline diagnostics
 // blog-topics-worker — поиск тем для блога. Конкуренция определяется
 // в первую очередь по Keyword Difficulty (KD) от DataForSEO Labs,
 // SERP-проверка через Serper.dev оставлена как fallback / уточнение.
@@ -383,9 +383,13 @@ function calcBlogScore(opts: {
 // ============== MAIN PIPELINE ==============
 async function runJob(jobId: string) {
   const { data: job } = await sb().from("blog_topics_jobs").select("*").eq("id", jobId).maybeSingle();
-  if (!job) return;
+  if (!job) {
+    console.warn("[runJob] job not found:", jobId);
+    return;
+  }
   const topic = job.input_topic as string;
   const region = job.input_region as string;
+  console.log(`[runJob] start jobId=${jobId} topic="${topic}" region="${region}"`);
 
   try {
     // ==== STEP 1: collect candidate keywords ====
@@ -398,6 +402,7 @@ async function runJob(jobId: string) {
       dfsRelatedKeywords(topic, region, kdMap),
       dfsAutocomplete(topic, region),
     ]);
+    console.log(`[runJob] sources: ai=${aiList.length} dfsRel=${dfsRel.length} dfsAuto=${dfsAuto.length} kdMap=${kdMap.size}`);
     const merged = new Set<string>();
     for (const arr of [aiList, dfsRel, dfsAuto]) {
       for (const k of arr) {
@@ -413,11 +418,13 @@ async function runJob(jobId: string) {
     }
     // оставляем только информационные
     const infoOnly = Array.from(merged).filter(isInfoQuery);
+    console.log(`[runJob] merged=${merged.size} infoOnly=${infoOnly.length}`);
     await updateJob(jobId, { progress: 20 });
 
     // ==== STEP 2: frequencies ====
     await updateJob(jobId, { status: "frequencies", progress: 30 });
     const volumes = await dfsSearchVolume(infoOnly, region);
+    console.log(`[runJob] volumes returned=${volumes.size}`);
 
     // фильтр >= MIN_FREQUENCY
     type Cand = { keyword: string; freq: number; wordCount: number; isInfo: boolean };
@@ -433,6 +440,7 @@ async function runJob(jobId: string) {
       });
     }
     candidates.sort((a, b) => b.freq - a.freq);
+    console.log(`[runJob] candidates after MIN_FREQUENCY(${MIN_FREQUENCY})=${candidates.length}`);
 
     await updateJob(jobId, { progress: 45, topic_count: candidates.length });
 
@@ -521,6 +529,12 @@ async function runJob(jobId: string) {
 // ============== HTTP entry ==============
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  console.log("[blog-topics-worker] started");
+  // Clone to read body twice (log + parse)
+  let rawBody = "";
+  try { rawBody = await req.clone().text(); } catch {}
+  console.log("[blog-topics-worker] request body:", rawBody);
 
   try {
     const body = await req.json().catch(() => ({}));
