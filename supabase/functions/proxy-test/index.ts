@@ -40,24 +40,45 @@ async function callRelay(url: string, opts: {
   headers?: Record<string, string>;
   body?: string | null;
 }) {
-  const r = await fetch(opts.proxyUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(opts.token ? { "x-proxy-token": opts.token } : {}),
-    },
-    body: JSON.stringify({
-      url,
-      method: opts.method ?? "GET",
-      headers: opts.headers ?? {},
-      body: opts.body ?? null,
-    }),
-  });
-  const txt = await r.text();
-  // Outer envelope from relay: {status, headers, body}
-  let env: { status?: number; headers?: Record<string, string>; body?: string } | null = null;
-  try { env = JSON.parse(txt); } catch { /* relay returned non-JSON */ }
-  return { relayStatus: r.status, env, raw: txt };
+  console.log("[proxy-test] relay URL:", opts.proxyUrl);
+  console.log("[proxy-test] target URL:", url);
+  console.log("[proxy-test] token present:", !!opts.token);
+  const t0 = Date.now();
+  const ctrl = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.error("[proxy-test] aborting after 20s timeout");
+    ctrl.abort();
+  }, 20_000);
+  try {
+    console.log("[proxy-test] fetch started");
+    const r = await fetch(opts.proxyUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(opts.token ? { "x-proxy-token": opts.token } : {}),
+      },
+      body: JSON.stringify({
+        url,
+        method: opts.method ?? "GET",
+        headers: opts.headers ?? {},
+        body: opts.body ?? null,
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timeoutId);
+    console.log(`[proxy-test] fetch status: ${r.status} (${Date.now() - t0}ms)`);
+    const txt = await r.text();
+    console.log(`[proxy-test] relay body length: ${txt.length}, preview: ${txt.slice(0, 200)}`);
+    let env: { status?: number; headers?: Record<string, string>; body?: string } | null = null;
+    try { env = JSON.parse(txt); } catch { console.warn("[proxy-test] relay returned non-JSON"); }
+    return { relayStatus: r.status, env, raw: txt };
+  } catch (e) {
+    clearTimeout(timeoutId);
+    const msg = (e as Error).message;
+    const name = (e as Error).name;
+    console.error(`[proxy-test] fetch error after ${Date.now() - t0}ms: name=${name} message=${msg}`);
+    throw e;
+  }
 }
 
 // Безопасный парсинг inner JSON из env.body.
