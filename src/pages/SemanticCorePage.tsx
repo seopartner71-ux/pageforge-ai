@@ -1070,8 +1070,8 @@ export default function SemanticCorePage() {
                         >Score</th>
                         <th
                           className="text-left px-3 py-2 whitespace-nowrap"
-                          title="Google Ads competition index (0–100) — конкуренция в контекстной рекламе (PPC), а НЕ SEO Keyword Difficulty. Реальный SEO KD требует отдельного платного запроса DataForSEO."
-                        >PPC конк.<span className="text-muted-foreground/60 ml-1">ⓘ</span></th>
+                          title="Это competition_index из Google Ads API (0-100) — конкуренция среди рекламодателей, не SEO сложность"
+                        >Конк. (Google Ads)<span className="text-muted-foreground/60 ml-1">ⓘ</span></th>
                         <th className="text-left px-3 py-2">Кластер</th>
                         <th className="text-center px-3 py-2 w-12">✓</th>
                       </tr>

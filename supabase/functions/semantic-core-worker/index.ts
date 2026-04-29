@@ -1837,6 +1837,10 @@ Deno.serve(async (req) => {
       console.error("[proxy config] read failed:", (e as Error).message);
     }
 
+    // Debug: AI key status. Note — this project uses Lovable AI Gateway,
+    // not OpenRouter. 402 from gateway = workspace AI credits exhausted.
+    console.log("[Lovable AI] key configured:", !!LOVABLE_API_KEY, "model:", AI_MODEL);
+
     // Run async; respond immediately so caller doesn't wait
     EdgeRuntime.waitUntil(
       runPipeline(jobId).catch(async (err) => {
