@@ -55,9 +55,9 @@ async function callExpandOnce(topic: string, seeds: string[]): Promise<string[]>
       { role: "user", content: buildExpandUserPrompt(topic, seeds) },
     ],
   };
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const resp = await fetch(AI_URL, {
     method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OR_HEADERS_EXTRA },
     body: JSON.stringify(body),
   });
   if (!resp.ok) {
