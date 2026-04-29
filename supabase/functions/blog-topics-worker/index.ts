@@ -47,8 +47,9 @@ const OPENROUTER_HEADERS_EXTRA = {
 };
 
 const MAX_TOPICS = 500;
-const MAX_SERP_QUERIES = 50;
-const MIN_FREQUENCY = 50;
+const MAX_SERP_QUERIES = 30;
+const MIN_FREQUENCY = 500;
+const RESULT_LIMIT = 30;
 
 // Google Ads / DataForSEO location codes (NOT Yandex Wordstat geo IDs).
 // Russian cities aren't standalone Google Ads geo-targets, so all RU regions
@@ -224,11 +225,15 @@ async function aiGenerateInfoQueries(topic: string): Promise<string[]> {
     "Ты эксперт по SEO для русскоязычного рынка. " +
     "Возвращай ТОЛЬКО валидный JSON массив строк без markdown.";
   const user =
-    `Сгенерируй 100 информационных запросов для блога по теме '${topic}'. ` +
-    `Только вопросные и информационные запросы 3-7 слов. ` +
-    `Начинаются с: как, что, почему, зачем, сколько, когда, где, какой, можно ли. ` +
-    `Без коммерческих слов (купить, цена, заказать). ` +
-    `Формат: JSON массив строк, например ["как выбрать X", "что такое Y"].`;
+    `Сгенерируй 120 ВЫСОКОЧАСТОТНЫХ информационных запросов для блога по теме '${topic}'. ` +
+    `Приоритет — "зонтичные" массовые темы, которые ищут тысячи людей в месяц: ` +
+    `общие термины (что такое X, виды X, типы X), ` +
+    `обзоры (X для начинающих, плюсы и минусы X, X или Y что лучше, рейтинг X), ` +
+    `гайды (как выбрать X, как сделать X своими руками, инструкция X), ` +
+    `сравнения и характеристики (отличия X от Y, размеры X, материалы X). ` +
+    `Длина 2-5 слов. Без узких лонг-тейлов и редких частных случаев. ` +
+    `Без коммерческих слов (купить, цена, заказать, недорого, в москве). ` +
+    `Формат: JSON массив строк, например ["что такое X", "как выбрать X"].`;
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
@@ -504,11 +509,15 @@ async function runJob(jobId: string) {
     candidates.sort((a, b) => b.freq - a.freq);
     console.log(`[runJob] candidates after MIN_FREQUENCY(${MIN_FREQUENCY})=${candidates.length}`);
 
-    await updateJob(jobId, { progress: 45, topic_count: candidates.length });
+    // Keep only top-N highest-frequency candidates for the final result
+    const topCandidates = candidates.slice(0, RESULT_LIMIT);
+    console.log(`[runJob] topCandidates (limit=${RESULT_LIMIT})=${topCandidates.length}`);
 
-    // ==== STEP 3: SERP competition for top-50 ====
+    await updateJob(jobId, { progress: 45, topic_count: topCandidates.length });
+
+    // ==== STEP 3: SERP competition for top candidates ====
     const serperKey = await getSerperKey();
-    const toCheck = candidates.slice(0, MAX_SERP_QUERIES);
+    const toCheck = topCandidates.slice(0, MAX_SERP_QUERIES);
     await updateJob(jobId, { status: "serp", serp_total: toCheck.length, serp_checked: 0 });
 
     const compResults = new Map<string, CompetitionResult>();
@@ -536,7 +545,7 @@ async function runJob(jobId: string) {
 
     // ==== STEP 4: build final topics ====
     await updateJob(jobId, { status: "saving", progress: 92 });
-    const rows = candidates.map((c) => {
+    const rows = topCandidates.map((c) => {
       const kd = kdMap.get(c.keyword) ?? null;
       const kdLevel = kdToLevel(kd);
       const serpComp = compResults.get(c.keyword) || null;
