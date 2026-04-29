@@ -1,4 +1,4 @@
-// deploy: v11 - fix DFS location_code (2643 RU) + lower MIN_FREQUENCY=50
+// deploy: v12 - DFS use location_name, drop bad autocomplete endpoint, sanitize keywords
 // blog-topics-worker — поиск тем для блога. Конкуренция определяется
 // в первую очередь по Keyword Difficulty (KD) от DataForSEO Labs,
 // SERP-проверка через Serper.dev оставлена как fallback / уточнение.
@@ -84,6 +84,26 @@ function dfsLocation(region: string): number {
 }
 function dfsLanguage(region: string): string {
   return DFS_LANGUAGE_CODES[region] ?? "ru";
+}
+const DFS_LOCATION_NAMES: Record<string, string> = {
+  "United States": "United States",
+  "United Kingdom": "United Kingdom",
+  "Germany": "Germany",
+  "France": "France",
+  "Spain": "Spain",
+};
+function dfsLocationName(region: string): string {
+  return DFS_LOCATION_NAMES[region] ?? "Russia";
+}
+
+// DataForSEO rejects keywords containing characters like ?, !, *, etc.
+// Allowed: letters (any unicode), digits, spaces, dash, apostrophe.
+function sanitizeKeyword(kw: string): string {
+  return kw
+    .replace(/[?!*"'`<>+\[\]{}()|\\\/.,:;@#$%^&=~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 function dfsAuth(): string {
   return "Basic " + btoa(`${DFS_LOGIN}:${DFS_PASSWORD}`);
@@ -250,8 +270,8 @@ async function dfsRelatedKeywords(
         method: "POST",
         headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
         body: JSON.stringify([{
-          keyword: topic,
-          location_code: dfsLocation(region),
+          keyword: sanitizeKeyword(topic),
+          location_name: dfsLocationName(region),
           language_code: dfsLanguage(region),
           limit: 200,
           include_seed_keyword: true,
@@ -266,7 +286,7 @@ async function dfsRelatedKeywords(
     const taskStatus = data?.tasks?.[0]?.status_code;
     const taskMsg = data?.tasks?.[0]?.status_message;
     const items = data?.tasks?.[0]?.result?.[0]?.items || [];
-    console.log(`[dfsRelatedKeywords] loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
+    console.log(`[dfsRelatedKeywords] loc_name="${dfsLocationName(region)}" lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
     const out: string[] = [];
     for (const it of items) {
       const kw = String(it?.keyword || "").trim().toLowerCase();
@@ -292,15 +312,17 @@ async function dfsRelatedKeywords(
 async function dfsAutocomplete(topic: string, region: string): Promise<string[]> {
   if (!dfsConfigured()) return [];
   try {
+    // Use DataForSEO Labs Google Autocomplete (correct endpoint)
     const resp = await proxyFetch(
-      "https://api.dataforseo.com/v3/keywords_data/google/keyword_suggestions/live",
+      "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_ideas/live",
       {
         method: "POST",
         headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
         body: JSON.stringify([{
-          keyword: topic,
-          location_code: dfsLocation(region),
+          keywords: [sanitizeKeyword(topic)],
+          location_name: dfsLocationName(region),
           language_code: dfsLanguage(region),
+          limit: 200,
         }]),
       },
     );
@@ -311,9 +333,9 @@ async function dfsAutocomplete(topic: string, region: string): Promise<string[]>
     const data = await resp.json();
     const taskStatus = data?.tasks?.[0]?.status_code;
     const taskMsg = data?.tasks?.[0]?.status_message;
-    const items = data?.tasks?.[0]?.result || [];
-    console.log(`[dfsAutocomplete] loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
-    return items.map((it: any) => String(it?.keyword || "").trim().toLowerCase()).filter(Boolean);
+    const items = data?.tasks?.[0]?.result?.[0]?.items || [];
+    console.log(`[dfsAutocomplete] loc_name="${dfsLocationName(region)}" lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
+    return items.map((it: any) => sanitizeKeyword(String(it?.keyword || ""))).filter(Boolean);
   } catch (e) {
     console.warn("[blog-topics] dfs autocomplete failed", e);
     return [];
@@ -335,8 +357,8 @@ async function dfsSearchVolume(keywords: string[], region: string): Promise<Map<
           method: "POST",
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
-            keywords: chunk,
-            location_code: dfsLocation(region),
+            keywords: chunk.map(sanitizeKeyword).filter(Boolean),
+            location_name: dfsLocationName(region),
             language_code: dfsLanguage(region),
           }]),
         },
@@ -349,7 +371,7 @@ async function dfsSearchVolume(keywords: string[], region: string): Promise<Map<
       const taskStatus = data?.tasks?.[0]?.status_code;
       const taskMsg = data?.tasks?.[0]?.status_message;
       const items = data?.tasks?.[0]?.result || [];
-      console.log(`[dfsSearchVolume] chunk=${chunk.length} loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
+      console.log(`[dfsSearchVolume] chunk=${chunk.length} loc_name="${dfsLocationName(region)}" lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
       for (const it of items) {
         const kw = String(it?.keyword || "").trim().toLowerCase();
         const vol = Number(it?.search_volume) || 0;
@@ -451,7 +473,7 @@ async function runJob(jobId: string) {
     for (const arr of [aiList, dfsRel, dfsAuto]) {
       for (const k of arr) {
         if (!k) continue;
-        const trimmed = k.trim();
+        const trimmed = sanitizeKeyword(k);
         if (trimmed.length < 5 || trimmed.length > 120) continue;
         if (/[a-zA-Z]/.test(trimmed)) continue; // только кириллица
         const wc = trimmed.split(/\s+/).filter(Boolean).length;
