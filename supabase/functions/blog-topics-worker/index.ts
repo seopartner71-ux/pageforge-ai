@@ -1,4 +1,4 @@
-// deploy: v10 - blog-topics-worker entry+pipeline diagnostics
+// deploy: v11 - fix DFS location_code (2643 RU) + lower MIN_FREQUENCY=50
 // blog-topics-worker — поиск тем для блога. Конкуренция определяется
 // в первую очередь по Keyword Difficulty (KD) от DataForSEO Labs,
 // SERP-проверка через Serper.dev оставлена как fallback / уточнение.
@@ -48,16 +48,42 @@ const OPENROUTER_HEADERS_EXTRA = {
 
 const MAX_TOPICS = 500;
 const MAX_SERP_QUERIES = 50;
-const MIN_FREQUENCY = 300;
+const MIN_FREQUENCY = 50;
 
-const DFS_REGION_CODES: Record<string, number> = {
-  "Россия": 21136, "Москва": 21156, "Санкт-Петербург": 21167,
-  "Екатеринбург": 21177, "Новосибирск": 21174, "Казань": 21170,
-  "Нижний Новгород": 21173, "Челябинск": 21175, "Самара": 21168,
-  "Уфа": 21178, "Ростов-на-Дону": 21166, "Краснодар": 21172,
+// Google Ads / DataForSEO location codes (NOT Yandex Wordstat geo IDs).
+// Russian cities aren't standalone Google Ads geo-targets, so all RU regions
+// fall back to country-level RU=2643. Intl regions use real country codes.
+const DFS_LOCATION_CODES: Record<string, number> = {
+  "Россия": 2643,
+  "Москва": 2643,
+  "Санкт-Петербург": 2643,
+  "Екатеринбург": 2643,
+  "Новосибирск": 2643,
+  "Казань": 2643,
+  "Нижний Новгород": 2643,
+  "Челябинск": 2643,
+  "Самара": 2643,
+  "Уфа": 2643,
+  "Ростов-на-Дону": 2643,
+  "Краснодар": 2643,
+  "United States": 2840,
+  "United Kingdom": 2826,
+  "Germany": 2276,
+  "France": 2250,
+  "Spain": 2724,
+};
+const DFS_LANGUAGE_CODES: Record<string, string> = {
+  "United States": "en",
+  "United Kingdom": "en",
+  "Germany": "de",
+  "France": "fr",
+  "Spain": "es",
 };
 function dfsLocation(region: string): number {
-  return DFS_REGION_CODES[region] ?? 21136;
+  return DFS_LOCATION_CODES[region] ?? 2643;
+}
+function dfsLanguage(region: string): string {
+  return DFS_LANGUAGE_CODES[region] ?? "ru";
 }
 function dfsAuth(): string {
   return "Basic " + btoa(`${DFS_LOGIN}:${DFS_PASSWORD}`);
@@ -226,15 +252,21 @@ async function dfsRelatedKeywords(
         body: JSON.stringify([{
           keyword: topic,
           location_code: dfsLocation(region),
-          language_code: "ru",
+          language_code: dfsLanguage(region),
           limit: 200,
           include_seed_keyword: true,
         }]),
       },
     );
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      console.warn(`[dfsRelatedKeywords] http=${resp.status}`);
+      return [];
+    }
     const data = await resp.json();
+    const taskStatus = data?.tasks?.[0]?.status_code;
+    const taskMsg = data?.tasks?.[0]?.status_message;
     const items = data?.tasks?.[0]?.result?.[0]?.items || [];
+    console.log(`[dfsRelatedKeywords] loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
     const out: string[] = [];
     for (const it of items) {
       const kw = String(it?.keyword || "").trim().toLowerCase();
@@ -268,13 +300,19 @@ async function dfsAutocomplete(topic: string, region: string): Promise<string[]>
         body: JSON.stringify([{
           keyword: topic,
           location_code: dfsLocation(region),
-          language_code: "ru",
+          language_code: dfsLanguage(region),
         }]),
       },
     );
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      console.warn(`[dfsAutocomplete] http=${resp.status}`);
+      return [];
+    }
     const data = await resp.json();
+    const taskStatus = data?.tasks?.[0]?.status_code;
+    const taskMsg = data?.tasks?.[0]?.status_message;
     const items = data?.tasks?.[0]?.result || [];
+    console.log(`[dfsAutocomplete] loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
     return items.map((it: any) => String(it?.keyword || "").trim().toLowerCase()).filter(Boolean);
   } catch (e) {
     console.warn("[blog-topics] dfs autocomplete failed", e);
@@ -299,13 +337,19 @@ async function dfsSearchVolume(keywords: string[], region: string): Promise<Map<
           body: JSON.stringify([{
             keywords: chunk,
             location_code: dfsLocation(region),
-            language_code: "ru",
+            language_code: dfsLanguage(region),
           }]),
         },
       );
-      if (!resp.ok) continue;
+      if (!resp.ok) {
+        console.warn(`[dfsSearchVolume] http=${resp.status}`);
+        continue;
+      }
       const data = await resp.json();
+      const taskStatus = data?.tasks?.[0]?.status_code;
+      const taskMsg = data?.tasks?.[0]?.status_message;
       const items = data?.tasks?.[0]?.result || [];
+      console.log(`[dfsSearchVolume] chunk=${chunk.length} loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
       for (const it of items) {
         const kw = String(it?.keyword || "").trim().toLowerCase();
         const vol = Number(it?.search_volume) || 0;
