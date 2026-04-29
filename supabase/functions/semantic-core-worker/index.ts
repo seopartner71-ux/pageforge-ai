@@ -337,12 +337,14 @@ async function aiExpandOnce(topic: string, seeds: string[], region: string): Pro
   }
 }
 
-function filterValidKeywords(arr: string[]): string[] {
+function filterValidKeywords(arr: string[], region = ""): string[] {
+  const intl = isIntlRegion(region);
   return arr
     .map((s) => String(s || "").trim().toLowerCase())
     .filter((s) => {
       if (s.length < 10) return false;            // отбрасываем слишком короткие
-      if (/[a-zA-Z]/.test(s)) return false;       // только кириллица
+      if (!intl && /[a-zA-Z]/.test(s)) return false;       // RU only: forbid latin
+      if (intl && /[а-яёА-ЯЁ]/.test(s)) return false;       // INTL: forbid cyrillic
       const words = s.split(/\s+/).filter(Boolean);
       if (words.length < 2) return false;         // минимум 2 слова — никаких "хризантемы"
       return true;
