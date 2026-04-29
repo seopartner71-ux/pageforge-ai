@@ -343,7 +343,7 @@ async function aiExpandOnce(topic: string, seeds: string[], region: string): Pro
     body: JSON.stringify({
       model: AI_MODEL,
       messages: [
-        { role: "system", content: EXPAND_SYSTEM },
+        { role: "system", content: expandSystemForRegion(region) },
         { role: "user", content: expandUserPrompt(topic, seeds, region) },
       ],
     }),
