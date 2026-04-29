@@ -252,15 +252,21 @@ async function dfsRelatedKeywords(
         body: JSON.stringify([{
           keyword: topic,
           location_code: dfsLocation(region),
-          language_code: "ru",
+          language_code: dfsLanguage(region),
           limit: 200,
           include_seed_keyword: true,
         }]),
       },
     );
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      console.warn(`[dfsRelatedKeywords] http=${resp.status}`);
+      return [];
+    }
     const data = await resp.json();
+    const taskStatus = data?.tasks?.[0]?.status_code;
+    const taskMsg = data?.tasks?.[0]?.status_message;
     const items = data?.tasks?.[0]?.result?.[0]?.items || [];
+    console.log(`[dfsRelatedKeywords] loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
     const out: string[] = [];
     for (const it of items) {
       const kw = String(it?.keyword || "").trim().toLowerCase();
@@ -294,13 +300,19 @@ async function dfsAutocomplete(topic: string, region: string): Promise<string[]>
         body: JSON.stringify([{
           keyword: topic,
           location_code: dfsLocation(region),
-          language_code: "ru",
+          language_code: dfsLanguage(region),
         }]),
       },
     );
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      console.warn(`[dfsAutocomplete] http=${resp.status}`);
+      return [];
+    }
     const data = await resp.json();
+    const taskStatus = data?.tasks?.[0]?.status_code;
+    const taskMsg = data?.tasks?.[0]?.status_message;
     const items = data?.tasks?.[0]?.result || [];
+    console.log(`[dfsAutocomplete] loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
     return items.map((it: any) => String(it?.keyword || "").trim().toLowerCase()).filter(Boolean);
   } catch (e) {
     console.warn("[blog-topics] dfs autocomplete failed", e);
@@ -325,13 +337,19 @@ async function dfsSearchVolume(keywords: string[], region: string): Promise<Map<
           body: JSON.stringify([{
             keywords: chunk,
             location_code: dfsLocation(region),
-            language_code: "ru",
+            language_code: dfsLanguage(region),
           }]),
         },
       );
-      if (!resp.ok) continue;
+      if (!resp.ok) {
+        console.warn(`[dfsSearchVolume] http=${resp.status}`);
+        continue;
+      }
       const data = await resp.json();
+      const taskStatus = data?.tasks?.[0]?.status_code;
+      const taskMsg = data?.tasks?.[0]?.status_message;
       const items = data?.tasks?.[0]?.result || [];
+      console.log(`[dfsSearchVolume] chunk=${chunk.length} loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
       for (const it of items) {
         const kw = String(it?.keyword || "").trim().toLowerCase();
         const vol = Number(it?.search_volume) || 0;
