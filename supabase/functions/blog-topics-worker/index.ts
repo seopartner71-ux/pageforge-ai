@@ -312,15 +312,17 @@ async function dfsRelatedKeywords(
 async function dfsAutocomplete(topic: string, region: string): Promise<string[]> {
   if (!dfsConfigured()) return [];
   try {
+    // Use DataForSEO Labs Google Autocomplete (correct endpoint)
     const resp = await proxyFetch(
-      "https://api.dataforseo.com/v3/keywords_data/google/keyword_suggestions/live",
+      "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_ideas/live",
       {
         method: "POST",
         headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
         body: JSON.stringify([{
-          keyword: topic,
-          location_code: dfsLocation(region),
+          keywords: [sanitizeKeyword(topic)],
+          location_name: dfsLocationName(region),
           language_code: dfsLanguage(region),
+          limit: 200,
         }]),
       },
     );
@@ -331,9 +333,9 @@ async function dfsAutocomplete(topic: string, region: string): Promise<string[]>
     const data = await resp.json();
     const taskStatus = data?.tasks?.[0]?.status_code;
     const taskMsg = data?.tasks?.[0]?.status_message;
-    const items = data?.tasks?.[0]?.result || [];
-    console.log(`[dfsAutocomplete] loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
-    return items.map((it: any) => String(it?.keyword || "").trim().toLowerCase()).filter(Boolean);
+    const items = data?.tasks?.[0]?.result?.[0]?.items || [];
+    console.log(`[dfsAutocomplete] loc_name="${dfsLocationName(region)}" lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
+    return items.map((it: any) => sanitizeKeyword(String(it?.keyword || ""))).filter(Boolean);
   } catch (e) {
     console.warn("[blog-topics] dfs autocomplete failed", e);
     return [];
@@ -355,8 +357,8 @@ async function dfsSearchVolume(keywords: string[], region: string): Promise<Map<
           method: "POST",
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
-            keywords: chunk,
-            location_code: dfsLocation(region),
+            keywords: chunk.map(sanitizeKeyword).filter(Boolean),
+            location_name: dfsLocationName(region),
             language_code: dfsLanguage(region),
           }]),
         },
@@ -369,7 +371,7 @@ async function dfsSearchVolume(keywords: string[], region: string): Promise<Map<
       const taskStatus = data?.tasks?.[0]?.status_code;
       const taskMsg = data?.tasks?.[0]?.status_message;
       const items = data?.tasks?.[0]?.result || [];
-      console.log(`[dfsSearchVolume] chunk=${chunk.length} loc=${dfsLocation(region)} lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
+      console.log(`[dfsSearchVolume] chunk=${chunk.length} loc_name="${dfsLocationName(region)}" lang=${dfsLanguage(region)} task_status=${taskStatus} msg="${taskMsg}" items=${items.length}`);
       for (const it of items) {
         const kw = String(it?.keyword || "").trim().toLowerCase();
         const vol = Number(it?.search_volume) || 0;
