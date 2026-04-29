@@ -1806,6 +1806,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Debug: log effective proxy config at request time
+    try {
+      const proxyConfig = await getProxyConfig();
+      console.log("[proxy config]", JSON.stringify({
+        enabled: proxyConfig.enabled,
+        url: proxyConfig.url ? "set" : "not set",
+        token: proxyConfig.token ? "set" : "not set",
+      }));
+    } catch (e) {
+      console.error("[proxy config] read failed:", (e as Error).message);
+    }
+
     // Run async; respond immediately so caller doesn't wait
     EdgeRuntime.waitUntil(
       runPipeline(jobId).catch(async (err) => {
