@@ -21,7 +21,7 @@ export function useFooterLinks() {
       .then(({ data }) => {
         if (!active) return;
         const value = data?.value;
-        if (Array.isArray(value)) setLinks(value as FooterLink[]);
+        if (Array.isArray(value)) setLinks(value as unknown as FooterLink[]);
         setLoading(false);
       });
     return () => { active = false; };

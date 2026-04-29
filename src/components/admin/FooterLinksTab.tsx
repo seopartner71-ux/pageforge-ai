@@ -20,7 +20,7 @@ export function FooterLinksTab() {
       .maybeSingle()
       .then(({ data }) => {
         const value = data?.value;
-        if (Array.isArray(value)) setLinks(value as FooterLink[]);
+        if (Array.isArray(value)) setLinks(value as unknown as FooterLink[]);
         setLoading(false);
       });
   }, []);
