@@ -1,4 +1,4 @@
-// deploy: v8 - openrouter ai
+// deploy: v9 - openrouter key from system_settings (key_name/key_value) + intl regions
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -137,10 +137,10 @@ async function getOpenRouterKey(): Promise<string> {
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data } = await sb
       .from("system_settings")
-      .select("value")
-      .eq("key", "openrouter_api_key")
+      .select("key_value")
+      .eq("key_name", "openrouter_api_key")
       .maybeSingle();
-    const key = String((data as any)?.value ?? "").trim();
+    const key = String((data as any)?.key_value ?? "").trim();
     _aiKeyCache = { key, ts: Date.now() };
     return key;
   } catch (e) {
@@ -201,6 +201,39 @@ const DFS_REGION_CODES: Record<string, number> = {
 };
 function dfsLocation(region: string): number {
   return DFS_REGION_CODES[region] ?? 21136;
+}
+
+// =====================================================================
+// INTERNATIONAL REGIONS (US/UK/DE/FR/ES) — Burzhunet semantic core.
+// DataForSEO supports these directly (no proxy/regional restriction).
+// =====================================================================
+interface IntlConfig {
+  location_code: number;
+  language_code: string;
+  language_name: string;     // human-readable for AI prompts
+  script: "latin" | "cyrillic";
+}
+const INTL_REGIONS: Record<string, IntlConfig> = {
+  "United States":  { location_code: 2840, language_code: "en", language_name: "English",  script: "latin" },
+  "United Kingdom": { location_code: 2826, language_code: "en", language_name: "English",  script: "latin" },
+  "Germany":        { location_code: 2276, language_code: "de", language_name: "German",   script: "latin" },
+  "France":         { location_code: 2250, language_code: "fr", language_name: "French",   script: "latin" },
+  "Spain":          { location_code: 2724, language_code: "es", language_name: "Spanish",  script: "latin" },
+};
+function isIntlRegion(region: string): boolean {
+  return Object.prototype.hasOwnProperty.call(INTL_REGIONS, region);
+}
+function intlConfig(region: string): IntlConfig | null {
+  return INTL_REGIONS[region] ?? null;
+}
+/** Language code for DataForSEO requests (ru by default, intl override). */
+function dfsLanguage(region: string): string {
+  return intlConfig(region)?.language_code ?? "ru";
+}
+/** Location code for DataForSEO when applicable. Returns null when caller
+ *  should omit `location_code` (RU plan restriction). */
+function dfsLocationCodeIntl(region: string): number | null {
+  return intlConfig(region)?.location_code ?? null;
 }
 
 // DataForSEO does NOT support Russia/Belarus (political restriction since 2022).
@@ -266,7 +299,7 @@ function sleep(ms: number) {
 }
 
 // ============== STEP A: AI EXPANSION ==============
-const EXPAND_SYSTEM =
+const EXPAND_SYSTEM_RU =
   "Ты эксперт по SEO для русскоязычного рынка. Генерируй ТОЛЬКО русскоязычные поисковые запросы. " +
   "ЗАПРЕЩЕНО: английские слова, транслитерация. " +
   "Генерируй ТОЛЬКО запросы от 2 до 6 слов. " +
@@ -274,8 +307,33 @@ const EXPAND_SYSTEM =
   "Каждый запрос должен отражать реальное намерение пользователя (купить/как выбрать/доставка/цена и т.д.). " +
   "Возвращай ТОЛЬКО валидный JSON массив строк без пояснений и без markdown.";
 
+function expandSystemForRegion(region: string): string {
+  const cfg = intlConfig(region);
+  if (!cfg) return EXPAND_SYSTEM_RU;
+  return (
+    `You are an SEO expert for the ${region} market. ` +
+    `Generate ONLY ${cfg.language_name}-language search queries that real users type into Google in ${region}. ` +
+    `FORBIDDEN: Russian or non-${cfg.language_name} words, transliteration. ` +
+    `Each query must be 2-6 words and reflect a real user intent (buy/how to/price/review/etc). ` +
+    `Return ONLY a valid JSON array of strings, no markdown, no explanations.`
+  );
+}
+
 function expandUserPrompt(topic: string, seeds: string[], region: string) {
-  return `Тема: ${topic}\nДоп. ключи: ${seeds.join(", ") || "—"}\n\nСгенерируй 150-200 поисковых запросов по категориям:\n1. Основные (20-30): прямые запросы\n2. Коммерческие (40-50): купить, цена, заказать, недорого, доставка\n3. Информационные (30-40): как выбрать, отзывы, рейтинг, сравнение\n4. Вопросные (20-30): как, что, где, почему, сколько стоит\n5. Хвостовые (30-40): с уточнениями по бренду, городу, размеру\n6. LSI и синонимы (20-30): смежные понятия\nРегион: ${region}`;
+  const cfg = intlConfig(region);
+  if (!cfg) {
+    return `Тема: ${topic}\nДоп. ключи: ${seeds.join(", ") || "—"}\n\nСгенерируй 150-200 поисковых запросов по категориям:\n1. Основные (20-30): прямые запросы\n2. Коммерческие (40-50): купить, цена, заказать, недорого, доставка\n3. Информационные (30-40): как выбрать, отзывы, рейтинг, сравнение\n4. Вопросные (20-30): как, что, где, почему, сколько стоит\n5. Хвостовые (30-40): с уточнениями по бренду, городу, размеру\n6. LSI и синонимы (20-30): смежные понятия\nРегион: ${region}`;
+  }
+  return (
+    `Topic: ${topic}\nExtra seeds: ${seeds.join(", ") || "—"}\nRegion: ${region}\nLanguage: ${cfg.language_name}\n\n` +
+    `Generate 150-200 search queries in ${cfg.language_name} across these categories:\n` +
+    `1. Core (20-30): direct topical queries\n` +
+    `2. Commercial (40-50): buy, price, order, cheap, shipping, near me\n` +
+    `3. Informational (30-40): how to choose, reviews, rating, comparison\n` +
+    `4. Question (20-30): how, what, where, why, how much\n` +
+    `5. Long-tail (30-40): with brand/city/size qualifiers\n` +
+    `6. LSI / synonyms (20-30): related concepts`
+  );
 }
 
 async function aiExpandOnce(topic: string, seeds: string[], region: string): Promise<string[]> {
@@ -285,7 +343,7 @@ async function aiExpandOnce(topic: string, seeds: string[], region: string): Pro
     body: JSON.stringify({
       model: AI_MODEL,
       messages: [
-        { role: "system", content: EXPAND_SYSTEM },
+        { role: "system", content: expandSystemForRegion(region) },
         { role: "user", content: expandUserPrompt(topic, seeds, region) },
       ],
     }),
@@ -304,12 +362,14 @@ async function aiExpandOnce(topic: string, seeds: string[], region: string): Pro
   }
 }
 
-function filterValidKeywords(arr: string[]): string[] {
+function filterValidKeywords(arr: string[], region = ""): string[] {
+  const intl = isIntlRegion(region);
   return arr
     .map((s) => String(s || "").trim().toLowerCase())
     .filter((s) => {
       if (s.length < 10) return false;            // отбрасываем слишком короткие
-      if (/[a-zA-Z]/.test(s)) return false;       // только кириллица
+      if (!intl && /[a-zA-Z]/.test(s)) return false;       // RU only: forbid latin
+      if (intl && /[а-яёА-ЯЁ]/.test(s)) return false;       // INTL: forbid cyrillic
       const words = s.split(/\s+/).filter(Boolean);
       if (words.length < 2) return false;         // минимум 2 слова — никаких "хризантемы"
       return true;
@@ -404,21 +464,30 @@ function isRussianKeyword(keyword: string): boolean {
   return true;
 }
 
+/** Region-aware keyword filter.
+ *  - For Russian regions: existing isRussianKeyword logic (cyrillic + UA strip).
+ *  - For international regions: require Latin script and forbid Cyrillic. */
+function keepKeyword(kw: string, region: string): boolean {
+  if (isIntlRegion(region)) {
+    if (/[а-яёА-ЯЁ]/.test(kw)) return false;            // strip RU leakage
+    if (!/[a-zA-ZäöüÄÖÜßéèêàâçñáíóúÁÍÓÚñ]/.test(kw)) return false;
+    return true;
+  }
+  return isRussianKeyword(kw);
+}
+
 // Targeted AI follow-up: ask for keywords NOT already in the corpus.
 async function aiFollowupExpand(
   topic: string,
   existingKeywords: string[],
   desiredCount = 100,
+  region = "",
 ): Promise<string[]> {
   const sample = existingKeywords.slice(0, 50).join(", ");
-  const userPrompt =
-    `Тема: ${topic}.\n` +
-    `Уже собраны эти запросы (первые 50): ${sample}\n\n` +
-    `Добавь ${desiredCount} запросов которых НЕТ в этом списке:\n` +
-    `- Вопросные запросы (как, что, почему, где купить, сколько стоит)\n` +
-    `- Редкие длинные хвосты (4-6 слов)\n` +
-    `- Сезонные запросы если применимо\n\n` +
-    `Только русский язык. Только JSON массив строк.`;
+  const cfg = intlConfig(region);
+  const userPrompt = cfg
+    ? `Topic: ${topic}.\nAlready collected (first 50): ${sample}\n\nAdd ${desiredCount} more queries NOT in this list:\n- Question queries (how, what, why, where, how much)\n- Rare long-tails (4-6 words)\n- Seasonal queries if applicable\n\nOnly ${cfg.language_name}. Only a JSON array of strings.`
+    : `Тема: ${topic}.\nУже собраны эти запросы (первые 50): ${sample}\n\nДобавь ${desiredCount} запросов которых НЕТ в этом списке:\n- Вопросные запросы (как, что, почему, где купить, сколько стоит)\n- Редкие длинные хвосты (4-6 слов)\n- Сезонные запросы если применимо\n\nТолько русский язык. Только JSON массив строк.`;
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
@@ -426,7 +495,7 @@ async function aiFollowupExpand(
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
-          { role: "system", content: EXPAND_SYSTEM },
+          { role: "system", content: expandSystemForRegion(region) },
           { role: "user", content: userPrompt },
         ],
       }),
@@ -503,7 +572,8 @@ async function dfsAutocompleteSource(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             keywords: chunk,
-            language_code: "ru",
+            language_code: dfsLanguage(region),
+            ...(dfsLocationCodeIntl(region) != null ? { location_code: dfsLocationCodeIntl(region) } : {}),
           }]),
         },
       );
@@ -550,7 +620,9 @@ async function dfsKeywordSuggestions(
   if (!dfsConfigured()) return [];
   const merged = new Map<string, DfsKwData>();
   const keywordsList = [topic, ...seeds.slice(0, 19)].filter(Boolean);
-  console.log(`[DFS suggestions] region: ${region} → using keywords_for_keywords (location_code=2643), ${keywordsList.length} seeds`);
+  const dfsLang = dfsLanguage(region);
+  const dfsLoc = dfsLocationCodeIntl(region);
+  console.log(`[DFS suggestions] region: ${region} lang=${dfsLang} loc=${dfsLoc ?? "none"} → keywords_for_keywords, ${keywordsList.length} seeds`);
 
   // Primary: Keywords Data → Google Ads → keywords_for_keywords (accepts location_code on this plan)
   try {
@@ -561,7 +633,8 @@ async function dfsKeywordSuggestions(
         headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
         body: JSON.stringify([{
           keywords: keywordsList.slice(0, 20),
-          language_code: "ru",
+          language_code: dfsLang,
+          ...(dfsLoc != null ? { location_code: dfsLoc } : {}),
         }]),
       },
     );
@@ -590,7 +663,7 @@ async function dfsKeywordSuggestions(
         const kw = String(it?.keyword || "").trim().toLowerCase();
         const sv = Number(it?.search_volume ?? 0);
         if (!kw) continue;
-        if (!isRussianKeyword(kw)) continue;
+        if (!keepKeyword(kw, region)) continue;
         // Google Ads endpoint returns `competition_index` (0-100) — use as KD proxy.
         const kdRaw = it?.keyword_difficulty
           ?? it?.competition_index
@@ -629,7 +702,8 @@ async function dfsKeywordSuggestions(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             keyword: q,
-            language_code: "ru",
+            language_code: dfsLanguage(region),
+            ...(dfsLocationCodeIntl(region) != null ? { location_code: dfsLocationCodeIntl(region) } : {}),
             limit,
             order_by: ["keyword_info.search_volume,desc"],
             filters: [["keyword_info.search_volume", ">", 10]],
@@ -676,8 +750,8 @@ async function dfsKeywordSuggestions(
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
-            // Post-filter: Russian-only (no language field allowed in request)
-            if (!isRussianKeyword(kw)) continue;
+            // Post-filter: region-aware (Russian for RU, Latin for INTL)
+            if (!keepKeyword(kw, region)) continue;
             const kdRaw = it?.keyword_difficulty
               ?? it?.keyword_properties?.keyword_difficulty
               ?? it?.keyword_info?.keyword_difficulty
@@ -765,7 +839,8 @@ async function dfsKeywordsForSite(
           headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
           body: JSON.stringify([{
             target,
-            language_code: "ru",
+            language_code: dfsLanguage(region),
+            ...(dfsLocationCodeIntl(region) != null ? { location_code: dfsLocationCodeIntl(region) } : {}),
             limit: 500,
           }]),
         },
@@ -796,8 +871,8 @@ async function dfsKeywordsForSite(
           const kw = String(it?.keyword || "").trim().toLowerCase();
           const sv = Number(it?.keyword_info?.search_volume ?? 0);
           if (!kw) continue;
-          // Post-filter: Russian-only
-          if (!isRussianKeyword(kw)) continue;
+          // Post-filter: region-aware
+          if (!keepKeyword(kw, region)) continue;
           const kdRaw = it?.keyword_difficulty
             ?? it?.keyword_properties?.keyword_difficulty
             ?? it?.keyword_info?.keyword_difficulty
@@ -1297,7 +1372,8 @@ async function runPipeline(jobId: string) {
   }
 
   // RU/BY long-tail boost via AI (Wordstat is disabled — DNS blocked from edge).
-  if (isRu && (useSuggestions || useCompetitors)) {
+  // For international regions we skip this branch — aiExpandOnce handles it.
+  if (isRu && !isIntlRegion(region) && (useSuggestions || useCompetitors)) {
     sourcePromises.push(
       aiSuggestionsForRu(topic, seeds, region)
         .then((kws) => ({ source: "ai", keywords: kws }))
@@ -1331,13 +1407,13 @@ async function runPipeline(jobId: string) {
   for (const s of settled) {
     if (s.status !== "fulfilled") continue;
     const r = s.value;
-    const filtered = filterValidKeywords(r.keywords);
+    const filtered = filterValidKeywords(r.keywords, region);
     breakdown[r.source] = filtered.length;
     console.log(`[Source ${r.source}] raw=${r.keywords.length}, filtered=${filtered.length}, withVolumes=${r.withVolumes?.length ?? 0}`);
     if (r.withVolumes) {
       for (const v of r.withVolumes) {
         const kw = v.keyword.toLowerCase();
-        if (!filterValidKeywords([kw]).length) continue;
+        if (!filterValidKeywords([kw], region).length) continue;
         const prev = dfsVolumes.get(kw) || 0;
         if (v.search_volume > prev) dfsVolumes.set(kw, v.search_volume);
         if (v.keyword_difficulty != null) {
@@ -1369,24 +1445,24 @@ async function runPipeline(jobId: string) {
     console.log(`[Stop-words filter] applied=${userStopWords.length} dropped=${droppedStop} (${beforeStop} -> ${rawKeywords.length})`);
   }
 
-  // Global post-processing: drop non-Russian / Ukrainian-leaking keywords
+  // Global post-processing: drop non-region-language keywords
   const beforeRu = rawKeywords.length;
-  rawKeywords = rawKeywords.filter(isRussianKeyword);
+  rawKeywords = rawKeywords.filter((kw) => keepKeyword(kw, region));
   const droppedRu = beforeRu - rawKeywords.length;
-  if (droppedRu > 0) console.log(`[Russian filter] dropped ${droppedRu} non-Russian keywords (${beforeRu} -> ${rawKeywords.length})`);
+  if (droppedRu > 0) console.log(`[Region filter] dropped ${droppedRu} off-language keywords (${beforeRu} -> ${rawKeywords.length})`);
 
   // Followup AI enrichment if DFS is available and AI source is enabled,
   // OR fallback if total too small.
   if (dfsAvailable && useAi && rawKeywords.length > 0) {
-    const extra = await aiFollowupExpand(topic, rawKeywords, 100);
-    const filteredExtra = filterValidKeywords(extra);
+    const extra = await aiFollowupExpand(topic, rawKeywords, 100, region);
+    const filteredExtra = filterValidKeywords(extra, region);
     const before = rawKeywords.length;
     rawKeywords = Array.from(new Set([...rawKeywords, ...filteredExtra]));
     breakdown.ai += rawKeywords.length - before;
   }
   if (rawKeywords.length < 100) {
-    const fallback = await aiFollowupExpand(topic, rawKeywords, 300);
-    const filteredFb = filterValidKeywords(fallback);
+    const fallback = await aiFollowupExpand(topic, rawKeywords, 300, region);
+    const filteredFb = filterValidKeywords(fallback, region);
     const before = rawKeywords.length;
     rawKeywords = Array.from(new Set([...rawKeywords, ...filteredFb]));
     breakdown.ai += rawKeywords.length - before;
@@ -1416,7 +1492,7 @@ async function runPipeline(jobId: string) {
   // We store BOTH zero and non-zero answers — a real zero from Topvisor is more truthful
   // than a fake mock number or a misleading Ukrainian DFS volume.
   const topvisorMap = new Map<string, { ws: number; exact: number }>();
-  if (isRussianRegion(region)) {
+  if (isRussianRegion(region) && !isIntlRegion(region)) {
     const regionId = topvisorRegionId(region);
     console.log(`[Topvisor enrich] region="${region}" regionId=${regionId} keywords=${rawKeywords.length}`);
     const tvVols = await topvisorVolumes(rawKeywords, regionId);

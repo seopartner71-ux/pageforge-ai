@@ -1,4 +1,4 @@
-// deploy: v8 - openrouter everywhere
+// deploy: v9 - openrouter key from system_settings (key_name/key_value) + intl regions
 // blog-topics-worker — поиск тем для блога. Конкуренция определяется
 // в первую очередь по Keyword Difficulty (KD) от DataForSEO Labs,
 // SERP-проверка через Serper.dev оставлена как fallback / уточнение.
@@ -28,11 +28,16 @@ async function getOpenRouterKey(): Promise<string> {
   if (_aiKeyCache && Date.now() - _aiKeyCache.ts < AI_KEY_TTL_MS) return _aiKeyCache.key;
   try {
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const { data } = await sb.from("system_settings").select("value").eq("key", "openrouter_api_key").maybeSingle();
-    const key = String((data as any)?.value ?? "").trim();
+    const { data } = await sb
+      .from("system_settings")
+      .select("key_value")
+      .eq("key_name", "openrouter_api_key")
+      .maybeSingle();
+    const key = String((data as any)?.key_value ?? "").trim();
     _aiKeyCache = { key, ts: Date.now() };
     return key;
-  } catch {
+  } catch (e) {
+    console.warn("[OpenRouter] system_settings read failed:", (e as Error).message);
     return "";
   }
 }
