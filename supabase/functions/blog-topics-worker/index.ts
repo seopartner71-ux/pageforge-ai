@@ -1,4 +1,4 @@
-// deploy: v2 - blog topics correct worker
+// deploy: v8 - openrouter everywhere
 // blog-topics-worker — поиск тем для блога. Конкуренция определяется
 // в первую очередь по Keyword Difficulty (KD) от DataForSEO Labs,
 // SERP-проверка через Serper.dev оставлена как fallback / уточнение.
@@ -12,13 +12,34 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const OPENROUTER_API_KEY_ENV = Deno.env.get("OPENROUTER_API_KEY") ?? "";
 const SERPER_KEY_ENV = Deno.env.get("SERPER_API_KEY") ?? "";
 const DFS_LOGIN = Deno.env.get("DATAFORSEO_LOGIN") ?? "";
 const DFS_PASSWORD = Deno.env.get("DATAFORSEO_PASSWORD") ?? "";
 
 const AI_MODEL = "google/gemini-2.5-flash";
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const AI_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+// OpenRouter key resolver: env first, then system_settings.openrouter_api_key
+let _aiKeyCache: { key: string; ts: number } | null = null;
+const AI_KEY_TTL_MS = 5 * 60 * 1000;
+async function getOpenRouterKey(): Promise<string> {
+  if (OPENROUTER_API_KEY_ENV) return OPENROUTER_API_KEY_ENV;
+  if (_aiKeyCache && Date.now() - _aiKeyCache.ts < AI_KEY_TTL_MS) return _aiKeyCache.key;
+  try {
+    const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const { data } = await sb.from("system_settings").select("value").eq("key", "openrouter_api_key").maybeSingle();
+    const key = String((data as any)?.value ?? "").trim();
+    _aiKeyCache = { key, ts: Date.now() };
+    return key;
+  } catch {
+    return "";
+  }
+}
+const OPENROUTER_HEADERS_EXTRA = {
+  "HTTP-Referer": "https://seo-modul.pro",
+  "X-Title": "SEO-Audit Blog Topics",
+};
 
 const MAX_TOPICS = 500;
 const MAX_SERP_QUERIES = 50;
@@ -146,7 +167,8 @@ function isInfoQuery(kw: string): boolean {
 
 // ============== STEP 1A: AI generation of info queries ==============
 async function aiGenerateInfoQueries(topic: string): Promise<string[]> {
-  if (!LOVABLE_API_KEY) return [];
+  const aiKey = await getOpenRouterKey();
+  if (!aiKey) return [];
   const sys =
     "Ты эксперт по SEO для русскоязычного рынка. " +
     "Возвращай ТОЛЬКО валидный JSON массив строк без markdown.";
@@ -159,7 +181,7 @@ async function aiGenerateInfoQueries(topic: string): Promise<string[]> {
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
