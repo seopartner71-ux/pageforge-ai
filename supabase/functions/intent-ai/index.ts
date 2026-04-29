@@ -17,8 +17,12 @@ Deno.serve(async (req) => {
     if (!OPENROUTER_API_KEY && SERVICE_ROLE) {
       try {
         const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
-        const { data } = await sb.from("system_settings").select("value").eq("key", "openrouter_api_key").maybeSingle();
-        OPENROUTER_API_KEY = String((data as any)?.value ?? "").trim();
+        const { data } = await sb
+          .from("system_settings")
+          .select("key_value")
+          .eq("key_name", "openrouter_api_key")
+          .maybeSingle();
+        OPENROUTER_API_KEY = String((data as any)?.key_value ?? "").trim();
       } catch {/* ignore */}
     }
     if (!OPENROUTER_API_KEY) {
