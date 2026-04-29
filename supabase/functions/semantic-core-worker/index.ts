@@ -281,7 +281,7 @@ function expandUserPrompt(topic: string, seeds: string[], region: string) {
 async function aiExpandOnce(topic: string, seeds: string[], region: string): Promise<string[]> {
   const resp = await fetch(AI_URL, {
     method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
     body: JSON.stringify({
       model: AI_MODEL,
       messages: [
@@ -352,7 +352,7 @@ async function aiSuggestionsForRu(
     try {
       const resp = await fetch(AI_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
         body: JSON.stringify({
           model: AI_MODEL,
           messages: [
@@ -422,7 +422,7 @@ async function aiFollowupExpand(
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
@@ -1146,7 +1146,7 @@ async function nameClustersBatch(
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
@@ -1184,7 +1184,7 @@ async function nameClusterSingle(keywords: string[]): Promise<string | null> {
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${await getOpenRouterKey()}`, "Content-Type": "application/json", ...OPENROUTER_HEADERS_EXTRA },
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
