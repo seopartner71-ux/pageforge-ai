@@ -505,11 +505,15 @@ async function runJob(jobId: string) {
     candidates.sort((a, b) => b.freq - a.freq);
     console.log(`[runJob] candidates after MIN_FREQUENCY(${MIN_FREQUENCY})=${candidates.length}`);
 
-    await updateJob(jobId, { progress: 45, topic_count: candidates.length });
+    // Keep only top-N highest-frequency candidates for the final result
+    const topCandidates = candidates.slice(0, RESULT_LIMIT);
+    console.log(`[runJob] topCandidates (limit=${RESULT_LIMIT})=${topCandidates.length}`);
 
-    // ==== STEP 3: SERP competition for top-50 ====
+    await updateJob(jobId, { progress: 45, topic_count: topCandidates.length });
+
+    // ==== STEP 3: SERP competition for top candidates ====
     const serperKey = await getSerperKey();
-    const toCheck = candidates.slice(0, MAX_SERP_QUERIES);
+    const toCheck = topCandidates.slice(0, MAX_SERP_QUERIES);
     await updateJob(jobId, { status: "serp", serp_total: toCheck.length, serp_checked: 0 });
 
     const compResults = new Map<string, CompetitionResult>();
@@ -537,7 +541,7 @@ async function runJob(jobId: string) {
 
     // ==== STEP 4: build final topics ====
     await updateJob(jobId, { status: "saving", progress: 92 });
-    const rows = candidates.map((c) => {
+    const rows = topCandidates.map((c) => {
       const kd = kdMap.get(c.keyword) ?? null;
       const kdLevel = kdToLevel(kd);
       const serpComp = compResults.get(c.keyword) || null;
