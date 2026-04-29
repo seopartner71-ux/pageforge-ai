@@ -437,6 +437,18 @@ function isRussianKeyword(keyword: string): boolean {
   return true;
 }
 
+/** Region-aware keyword filter.
+ *  - For Russian regions: existing isRussianKeyword logic (cyrillic + UA strip).
+ *  - For international regions: require Latin script and forbid Cyrillic. */
+function keepKeyword(kw: string, region: string): boolean {
+  if (isIntlRegion(region)) {
+    if (/[а-яёА-ЯЁ]/.test(kw)) return false;            // strip RU leakage
+    if (!/[a-zA-ZäöüÄÖÜßéèêàâçñáíóúÁÍÓÚñ]/.test(kw)) return false;
+    return true;
+  }
+  return isRussianKeyword(kw);
+}
+
 // Targeted AI follow-up: ask for keywords NOT already in the corpus.
 async function aiFollowupExpand(
   topic: string,
