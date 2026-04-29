@@ -917,7 +917,7 @@ export default function SemanticCorePage() {
                     <span className="text-base leading-none mt-0.5">ℹ️</span>
                     <span>
                       <strong>Данные частот:</strong> Яндекс Вордстат — реальные данные по России.{' '}
-                      <span className="opacity-80">KD недоступен для данных Яндекса (показатель есть только в DataForSEO).</span>
+                      <span className="opacity-80">Конкуренция в Google Ads недоступна для данных Яндекса.</span>
                     </span>
                   </div>
                 )}
@@ -932,11 +932,11 @@ export default function SemanticCorePage() {
                         ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                         : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/15'
                     }`}
-                    title="Score > 70 и KD < 40 — высокий приоритет, низкая конкуренция"
+                    title="Score > 70 и низкая конкуренция в Google Ads — приоритетные запросы"
                   >
                     <span className="text-sm font-medium">
                       🎯 <strong>{idealLabel(idealCount)}</strong>{' '}
-                      <span className="text-xs opacity-80 font-normal">(Score &gt; 70, KD &lt; 40)</span>
+                      <span className="text-xs opacity-80 font-normal">(Score &gt; 70, PPC конк. &lt; 40)</span>
                     </span>
                     <span className="text-xs opacity-80">
                       {idealOnly ? 'Сбросить фильтр' : 'Показать только их'}
@@ -1066,12 +1066,12 @@ export default function SemanticCorePage() {
                         <th
                           className="text-left px-3 py-2 cursor-pointer hover:text-primary"
                           onClick={() => toggleSort('score')}
-                          title="Score — приоритет запроса (частота × интент × специфичность). Не путать со сложностью (KD) — высокий Score + низкий KD = идеальный запрос для продвижения"
+                          title="Score — приоритет запроса (частота × интент × специфичность)."
                         >Score</th>
                         <th
                           className="text-left px-3 py-2 whitespace-nowrap"
-                          title="Keyword Difficulty — сложность попадания в топ-10 (0=легко, 100=невозможно)"
-                        >KD</th>
+                          title="Google Ads competition index (0–100) — конкуренция в контекстной рекламе (PPC), а НЕ SEO Keyword Difficulty. Реальный SEO KD требует отдельного платного запроса DataForSEO."
+                        >PPC конк.<span className="text-muted-foreground/60 ml-1">ⓘ</span></th>
                         <th className="text-left px-3 py-2">Кластер</th>
                         <th className="text-center px-3 py-2 w-12">✓</th>
                       </tr>
@@ -1187,7 +1187,7 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
               {typeBadge(c.type)}
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Средний KD:</span>
+              <span title="Средняя конкуренция в Google Ads (PPC), не SEO KD">Ср. PPC конк.:</span>
               <KdBadge kd={avgKd} />
             </div>
             <div className="space-y-1">
