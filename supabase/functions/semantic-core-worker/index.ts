@@ -481,16 +481,13 @@ async function aiFollowupExpand(
   topic: string,
   existingKeywords: string[],
   desiredCount = 100,
+  region = "",
 ): Promise<string[]> {
   const sample = existingKeywords.slice(0, 50).join(", ");
-  const userPrompt =
-    `Тема: ${topic}.\n` +
-    `Уже собраны эти запросы (первые 50): ${sample}\n\n` +
-    `Добавь ${desiredCount} запросов которых НЕТ в этом списке:\n` +
-    `- Вопросные запросы (как, что, почему, где купить, сколько стоит)\n` +
-    `- Редкие длинные хвосты (4-6 слов)\n` +
-    `- Сезонные запросы если применимо\n\n` +
-    `Только русский язык. Только JSON массив строк.`;
+  const cfg = intlConfig(region);
+  const userPrompt = cfg
+    ? `Topic: ${topic}.\nAlready collected (first 50): ${sample}\n\nAdd ${desiredCount} more queries NOT in this list:\n- Question queries (how, what, why, where, how much)\n- Rare long-tails (4-6 words)\n- Seasonal queries if applicable\n\nOnly ${cfg.language_name}. Only a JSON array of strings.`
+    : `Тема: ${topic}.\nУже собраны эти запросы (первые 50): ${sample}\n\nДобавь ${desiredCount} запросов которых НЕТ в этом списке:\n- Вопросные запросы (как, что, почему, где купить, сколько стоит)\n- Редкие длинные хвосты (4-6 слов)\n- Сезонные запросы если применимо\n\nТолько русский язык. Только JSON массив строк.`;
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
@@ -498,7 +495,7 @@ async function aiFollowupExpand(
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
-          { role: "system", content: EXPAND_SYSTEM },
+          { role: "system", content: expandSystemForRegion(region) },
           { role: "user", content: userPrompt },
         ],
       }),
