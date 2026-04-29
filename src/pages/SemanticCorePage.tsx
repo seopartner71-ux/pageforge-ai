@@ -86,10 +86,10 @@ function kdBucket(kd: number | null | undefined): KdBucket {
   return 'veryhard';
 }
 const KD_LABELS: Record<KdBucket, string> = {
-  easy: 'Легко',
-  medium: 'Средне',
-  hard: 'Сложно',
-  veryhard: 'Очень сложно',
+  easy: 'Низкая',
+  medium: 'Средняя',
+  hard: 'Высокая',
+  veryhard: 'Очень высокая',
   none: '—',
 };
 const KD_BADGE: Record<KdBucket, string> = {
@@ -105,7 +105,7 @@ function KdBadge({ kd }: { kd: number | null | undefined }) {
     return (
       <span
         className="inline-flex items-center px-1.5 text-xs text-muted-foreground/60 tabular-nums"
-        title="KD неизвестен"
+        title="Конкуренция в Google Ads неизвестна"
       >
         —
       </span>
@@ -114,7 +114,7 @@ function KdBadge({ kd }: { kd: number | null | undefined }) {
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium ${KD_BADGE[b]}`}
-      title={`KD = ${kd}`}
+      title={`Google Ads competition index = ${kd} (0–100). Это конкуренция в контекстной рекламе (PPC), а не SEO Keyword Difficulty.`}
     >
       <span>{KD_LABELS[b]}</span>
       <span className="tabular-nums opacity-80">{kd}</span>
