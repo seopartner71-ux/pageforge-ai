@@ -203,6 +203,39 @@ function dfsLocation(region: string): number {
   return DFS_REGION_CODES[region] ?? 21136;
 }
 
+// =====================================================================
+// INTERNATIONAL REGIONS (US/UK/DE/FR/ES) — Burzhunet semantic core.
+// DataForSEO supports these directly (no proxy/regional restriction).
+// =====================================================================
+interface IntlConfig {
+  location_code: number;
+  language_code: string;
+  language_name: string;     // human-readable for AI prompts
+  script: "latin" | "cyrillic";
+}
+const INTL_REGIONS: Record<string, IntlConfig> = {
+  "United States":  { location_code: 2840, language_code: "en", language_name: "English",  script: "latin" },
+  "United Kingdom": { location_code: 2826, language_code: "en", language_name: "English",  script: "latin" },
+  "Germany":        { location_code: 2276, language_code: "de", language_name: "German",   script: "latin" },
+  "France":         { location_code: 2250, language_code: "fr", language_name: "French",   script: "latin" },
+  "Spain":          { location_code: 2724, language_code: "es", language_name: "Spanish",  script: "latin" },
+};
+function isIntlRegion(region: string): boolean {
+  return Object.prototype.hasOwnProperty.call(INTL_REGIONS, region);
+}
+function intlConfig(region: string): IntlConfig | null {
+  return INTL_REGIONS[region] ?? null;
+}
+/** Language code for DataForSEO requests (ru by default, intl override). */
+function dfsLanguage(region: string): string {
+  return intlConfig(region)?.language_code ?? "ru";
+}
+/** Location code for DataForSEO when applicable. Returns null when caller
+ *  should omit `location_code` (RU plan restriction). */
+function dfsLocationCodeIntl(region: string): number | null {
+  return intlConfig(region)?.location_code ?? null;
+}
+
 // DataForSEO does NOT support Russia/Belarus (political restriction since 2022).
 // For these regions we route suggestions/competitors through Lovable AI expansion
 // and rely on Wordstat (when wordstat_api_key is configured) for real frequencies.
