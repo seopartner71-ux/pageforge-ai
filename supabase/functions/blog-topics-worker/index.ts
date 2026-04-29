@@ -114,13 +114,22 @@ function dfsConfigured(): boolean {
 }
 
 const INFO_MARKERS = [
+  // вопросительные
   "как ", "что ", "почему", "зачем", "сколько", "когда ",
   "где ", "какой ", "какая ", "какие ", "можно ли", "нужно ли",
-  "чем ", "стоит ли",
+  "чем ", "стоит ли", "кто ",
+  // обзорные / гайды (могут быть в любом месте фразы)
+  "виды ", "типы ", "обзор", "рейтинг", "сравнени", "отличи",
+  "плюсы", "минусы", "выбор ", "выбрать",
+  "своими руками", "инструкция", "пошагов", "руководство",
+  "ошибки", "причины", "признаки", "правила",
+  "размер", "характеристик", "материал",
+  "лучш", "топ ", "топ-",
 ];
 const COMMERCIAL_STOP = [
   "купить", "цена", "цены", "заказать", "стоимость", "недорого",
   "доставка", "магазин", "распродажа", "акция", "скидк",
+  " под ключ", "прайс",
 ];
 
 const STRONG_DOMAINS = [
@@ -214,7 +223,13 @@ function extractDomain(url: string): string {
 function isInfoQuery(kw: string): boolean {
   const lower = kw.toLowerCase();
   if (COMMERCIAL_STOP.some((s) => lower.includes(s))) return false;
-  return INFO_MARKERS.some((m) => lower.startsWith(m) || lower.includes(" " + m));
+  // Явный инфо-маркер где угодно во фразе
+  if (INFO_MARKERS.some((m) => lower.startsWith(m) || lower.includes(" " + m) || lower.includes(m))) return true;
+  // Мягкое правило: короткие 2–4-словные фразы без коммерческих слов
+  // тоже считаем инфо-кандидатами (они часто покрывают зонтичные темы).
+  const words = lower.split(/\s+/).filter(Boolean);
+  if (words.length >= 2 && words.length <= 4) return true;
+  return false;
 }
 
 // ============== STEP 1A: AI generation of info queries ==============
