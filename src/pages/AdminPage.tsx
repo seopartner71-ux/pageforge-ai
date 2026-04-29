@@ -22,8 +22,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 
 import { AdminOverviewTab } from '@/components/admin/AdminOverviewTab';
 import { CopilotChatsTab } from '@/components/admin/CopilotChatsTab';
 import { KnowledgeBaseTab } from '@/components/admin/KnowledgeBaseTab';
+import { FooterLinksTab } from '@/components/admin/FooterLinksTab';
 import { StatCard } from '@/components/dashboard/StatCard';
-import { LayoutDashboard, MessageSquare, BookOpen, UserCircle } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, BookOpen, UserCircle, Link2 } from 'lucide-react';
 import AccountPage from '@/pages/AccountPage';
 
 interface ApiSetting {
@@ -73,6 +74,7 @@ export default function AdminPage() {
             <TabsTrigger value="kb" className="gap-1.5"><BookOpen className="w-4 h-4" /> База знаний</TabsTrigger>
             <TabsTrigger value="system" className="gap-1.5"><ShieldCheck className="w-4 h-4" /> Системная проверка</TabsTrigger>
             <TabsTrigger value="api" className="gap-1.5"><Settings className="w-4 h-4" /> API ключи</TabsTrigger>
+            <TabsTrigger value="footer" className="gap-1.5"><Link2 className="w-4 h-4" /> Футер</TabsTrigger>
             <TabsTrigger value="account" className="gap-1.5"><UserCircle className="w-4 h-4" /> Личный кабинет</TabsTrigger>
           </TabsList>
 
@@ -84,6 +86,7 @@ export default function AdminPage() {
           <TabsContent value="copilot"><CopilotChatsTab /></TabsContent>
           <TabsContent value="kb"><KnowledgeBaseTab /></TabsContent>
           <TabsContent value="system"><SystemCheckTab /></TabsContent>
+          <TabsContent value="footer"><FooterLinksTab /></TabsContent>
           <TabsContent value="account"><AccountPage embedded /></TabsContent>
         </Tabs>
       </main>

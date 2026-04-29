@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useLang } from '@/contexts/LangContext';
 import { LangToggle } from '@/components/LangToggle';
 import { Button } from '@/components/ui/button';
+import { useFooterLinks } from '@/hooks/useFooterLinks';
 import {
   Zap, ArrowRight, BarChart3, Globe, FileText, Layers,
   Check, ChevronDown, ChevronUp
@@ -95,6 +96,7 @@ export default function LandingPage() {
   const { lang, tr } = useLang();
   const navigate = useNavigate();
   const l = tr.landing;
+  const { links: footerLinks } = useFooterLinks();
 
   const featureCards = [
     { icon: BarChart3, title: l.features.tfidf, desc: l.features.tfidfDesc },
@@ -302,14 +304,17 @@ export default function LandingPage() {
               <span>{l.footer.company}</span>
             </div>
             <div className="flex items-center gap-6">
-              <a
-                href="https://systemnoe-seo.ru/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-foreground transition-colors"
-              >
-                Системное SEO
-              </a>
+              {footerLinks.map((link, i) => (
+                <a
+                  key={i}
+                  href={link.url}
+                  target={link.newTab !== false ? '_blank' : undefined}
+                  rel={link.newTab !== false ? 'noopener noreferrer' : undefined}
+                  className="hover:text-foreground transition-colors"
+                >
+                  {link.label}
+                </a>
+              ))}
               <Link to="/privacy" className="hover:text-foreground transition-colors">{l.footer.privacy}</Link>
               <Link to="/terms" className="hover:text-foreground transition-colors">{l.footer.terms}</Link>
               <span>© {new Date().getFullYear()}</span>
