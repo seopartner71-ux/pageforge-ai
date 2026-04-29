@@ -1,4 +1,4 @@
-// deploy: v4 - proxy support
+// deploy: v5 - proxy for dataforseo
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
