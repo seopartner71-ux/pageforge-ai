@@ -272,28 +272,48 @@ function isInfoQuery(kw: string, region: string): boolean {
 }
 
 // ============== STEP 1A: AI generation of info queries ==============
-async function aiGenerateInfoQueries(topic: string): Promise<string[]> {
+async function aiGenerateInfoQueries(topic: string, region: string): Promise<string[]> {
   const aiKey = await getOpenRouterKey();
   if (!aiKey) return [];
-  const sys =
-    "Ты эксперт по SEO для русскоязычного рынка. " +
-    "Возвращай ТОЛЬКО валидный JSON массив строк без markdown.";
-  const user =
-    `Сгенерируй 200 ВЫСОКОЧАСТОТНЫХ информационных запросов для блога по теме '${topic}'. ` +
-    `ВАЖНО: включи не только прямые запросы по '${topic}', но и СМЕЖНЫЕ/РОДСТВЕННЫЕ темы из той же ниши, ` +
-    `которые могут интересовать ту же аудиторию. ` +
-    `Например, если тема "ремонт бассейна" — добавь: "обслуживание бассейна", "химия для бассейна", ` +
-    `"чистка бассейна", "оборудование для бассейна", "виды бассейнов", "гидроизоляция", "плитка для бассейна" и т.п. ` +
-    `Приоритет — "зонтичные" массовые темы, которые ищут тысячи людей в месяц: ` +
-    `общие термины (что такое X, виды X, типы X), ` +
-    `обзоры (X для начинающих, плюсы и минусы X, X или Y что лучше, рейтинг X), ` +
-    `гайды (как выбрать X, как сделать X своими руками, инструкция X), ` +
-    `сравнения и характеристики (отличия X от Y, размеры X, материалы X), ` +
-    `проблемы и решения (почему X, что делать если X, ошибки X). ` +
-    `Покрывай ВСЮ нишу вокруг '${topic}' — родительские категории, дочерние подтемы, сопутствующие товары/услуги. ` +
-    `Длина 2-5 слов. Без узких лонг-тейлов и редких частных случаев. ` +
-    `Без коммерческих слов (купить, цена, заказать, недорого, в москве). ` +
-    `Формат: JSON массив строк, например ["что такое X", "как выбрать X"].`;
+  const lang = regionHl(region);
+  const langName: Record<string, string> = {
+    en: "English", de: "German", fr: "French", es: "Spanish", ru: "Russian",
+  };
+  const targetLang = langName[lang] ?? "Russian";
+  let sys: string;
+  let user: string;
+  if (lang === "ru") {
+    sys =
+      "Ты эксперт по SEO для русскоязычного рынка. " +
+      "Возвращай ТОЛЬКО валидный JSON массив строк без markdown.";
+    user =
+      `Сгенерируй 200 ВЫСОКОЧАСТОТНЫХ информационных запросов для блога по теме '${topic}'. ` +
+      `ВАЖНО: включи не только прямые запросы по '${topic}', но и СМЕЖНЫЕ/РОДСТВЕННЫЕ темы из той же ниши. ` +
+      `Приоритет — "зонтичные" массовые темы: общие термины, обзоры, гайды, сравнения, проблемы и решения. ` +
+      `Длина 2-5 слов. Без узких лонг-тейлов. ` +
+      `Без коммерческих слов (купить, цена, заказать, недорого, в москве). ` +
+      `Формат: JSON массив строк, например ["что такое X", "как выбрать X"].`;
+  } else {
+    sys =
+      `You are an SEO expert for the ${targetLang} market. ` +
+      `Return ONLY a valid JSON array of strings without markdown. ` +
+      `ALL queries MUST be written in ${targetLang}.`;
+    user =
+      `Generate 200 HIGH-VOLUME informational blog search queries about '${topic}'. ` +
+      `IMPORTANT: include not only direct '${topic}' queries, but also RELATED/ADJACENT topics from the same niche ` +
+      `that the same audience would search for. ` +
+      `Prioritize "umbrella" mass-appeal topics that thousands of people search monthly: ` +
+      `general terms (what is X, types of X, kinds of X), ` +
+      `reviews (X for beginners, pros and cons of X, X vs Y, best X, top X), ` +
+      `guides (how to choose X, how to do X yourself, X step by step, DIY X), ` +
+      `comparisons and specs (X vs Y differences, X sizes, X materials), ` +
+      `problems and solutions (why X, what to do if X, X mistakes, X troubleshooting). ` +
+      `Cover the WHOLE niche around '${topic}'. ` +
+      `Length 2-5 words each. No narrow long-tail or rare edge cases. ` +
+      `No commercial words (buy, price, cheap, discount, near me, for sale). ` +
+      `ALL strings MUST be in ${targetLang}. ` +
+      `Format: JSON array of strings, e.g. ["what is X", "how to choose X"].`;
+  }
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
