@@ -471,12 +471,12 @@ interface CompetitionResult {
   strongCount: number;
   urls: string[];
 }
-async function serperSearch(keyword: string, apiKey: string): Promise<CompetitionResult | null> {
+async function serperSearch(keyword: string, apiKey: string, region: string = "Россия"): Promise<CompetitionResult | null> {
   try {
     const resp = await proxyFetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: keyword, gl: "ru", hl: "ru", num: 10 }),
+      body: JSON.stringify({ q: keyword, gl: regionGl(region), hl: regionHl(region), num: 10 }),
     });
     if (!resp.ok) return null;
     const data = await resp.json();
