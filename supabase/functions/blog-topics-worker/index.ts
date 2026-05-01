@@ -97,6 +97,24 @@ function dfsLocationName(region: string): string {
   return DFS_LOCATION_NAMES[region] ?? "Russia";
 }
 
+// Country code (ISO) for Serper gl/hl, derived from region
+const REGION_GL: Record<string, string> = {
+  "United States": "us",
+  "United Kingdom": "uk",
+  "Germany": "de",
+  "France": "fr",
+  "Spain": "es",
+};
+function regionGl(region: string): string {
+  return REGION_GL[region] ?? "ru";
+}
+function regionHl(region: string): string {
+  return dfsLanguage(region);
+}
+function isLatinRegion(region: string): boolean {
+  return dfsLanguage(region) !== "ru";
+}
+
 // DataForSEO rejects keywords containing characters like ?, !, *, etc.
 // Allowed: letters (any unicode), digits, spaces, dash, apostrophe.
 function sanitizeKeyword(kw: string): string {
@@ -113,7 +131,7 @@ function dfsConfigured(): boolean {
   return !!(DFS_LOGIN && DFS_PASSWORD);
 }
 
-const INFO_MARKERS = [
+const INFO_MARKERS_RU = [
   // вопросительные
   "как ", "что ", "почему", "зачем", "сколько", "когда ",
   "где ", "какой ", "какая ", "какие ", "можно ли", "нужно ли",
@@ -126,11 +144,32 @@ const INFO_MARKERS = [
   "размер", "характеристик", "материал",
   "лучш", "топ ", "топ-",
 ];
-const COMMERCIAL_STOP = [
+const COMMERCIAL_STOP_RU = [
   "купить", "цена", "цены", "заказать", "стоимость", "недорого",
   "доставка", "магазин", "распродажа", "акция", "скидк",
   " под ключ", "прайс",
 ];
+
+const INFO_MARKERS_EN = [
+  "how ", "what ", "why ", "when ", "where ", "which ", "who ",
+  "is ", "are ", "can ", "should ", "does ", "do ",
+  "guide", "tutorial", "tips", "ideas", "examples", "review",
+  "vs ", "versus", "best ", "top ", "types of", "kinds of",
+  "benefits", "pros and cons", "how to", "checklist",
+  "for beginners", "step by step", "diy",
+  "meaning", "definition", "explained",
+];
+const COMMERCIAL_STOP_EN = [
+  "buy", "price", "cost", "cheap", "discount", "sale",
+  "shop", "store", "near me", "for sale", "delivery",
+  "coupon", "promo",
+];
+function infoMarkers(region: string): string[] {
+  return isLatinRegion(region) ? INFO_MARKERS_EN : INFO_MARKERS_RU;
+}
+function commercialStop(region: string): string[] {
+  return isLatinRegion(region) ? COMMERCIAL_STOP_EN : COMMERCIAL_STOP_RU;
+}
 
 const STRONG_DOMAINS = [
   "wikipedia.org", "dzen.ru", "rbc.ru", "ria.ru",
@@ -220,11 +259,11 @@ function extractDomain(url: string): string {
     return "";
   }
 }
-function isInfoQuery(kw: string): boolean {
+function isInfoQuery(kw: string, region: string): boolean {
   const lower = kw.toLowerCase();
-  if (COMMERCIAL_STOP.some((s) => lower.includes(s))) return false;
+  if (commercialStop(region).some((s) => lower.includes(s))) return false;
   // Явный инфо-маркер где угодно во фразе
-  if (INFO_MARKERS.some((m) => lower.startsWith(m) || lower.includes(" " + m) || lower.includes(m))) return true;
+  if (infoMarkers(region).some((m) => lower.startsWith(m) || lower.includes(" " + m) || lower.includes(m))) return true;
   // Мягкое правило: короткие 2–4-словные фразы без коммерческих слов
   // тоже считаем инфо-кандидатами (они часто покрывают зонтичные темы).
   const words = lower.split(/\s+/).filter(Boolean);
@@ -233,28 +272,48 @@ function isInfoQuery(kw: string): boolean {
 }
 
 // ============== STEP 1A: AI generation of info queries ==============
-async function aiGenerateInfoQueries(topic: string): Promise<string[]> {
+async function aiGenerateInfoQueries(topic: string, region: string): Promise<string[]> {
   const aiKey = await getOpenRouterKey();
   if (!aiKey) return [];
-  const sys =
-    "Ты эксперт по SEO для русскоязычного рынка. " +
-    "Возвращай ТОЛЬКО валидный JSON массив строк без markdown.";
-  const user =
-    `Сгенерируй 200 ВЫСОКОЧАСТОТНЫХ информационных запросов для блога по теме '${topic}'. ` +
-    `ВАЖНО: включи не только прямые запросы по '${topic}', но и СМЕЖНЫЕ/РОДСТВЕННЫЕ темы из той же ниши, ` +
-    `которые могут интересовать ту же аудиторию. ` +
-    `Например, если тема "ремонт бассейна" — добавь: "обслуживание бассейна", "химия для бассейна", ` +
-    `"чистка бассейна", "оборудование для бассейна", "виды бассейнов", "гидроизоляция", "плитка для бассейна" и т.п. ` +
-    `Приоритет — "зонтичные" массовые темы, которые ищут тысячи людей в месяц: ` +
-    `общие термины (что такое X, виды X, типы X), ` +
-    `обзоры (X для начинающих, плюсы и минусы X, X или Y что лучше, рейтинг X), ` +
-    `гайды (как выбрать X, как сделать X своими руками, инструкция X), ` +
-    `сравнения и характеристики (отличия X от Y, размеры X, материалы X), ` +
-    `проблемы и решения (почему X, что делать если X, ошибки X). ` +
-    `Покрывай ВСЮ нишу вокруг '${topic}' — родительские категории, дочерние подтемы, сопутствующие товары/услуги. ` +
-    `Длина 2-5 слов. Без узких лонг-тейлов и редких частных случаев. ` +
-    `Без коммерческих слов (купить, цена, заказать, недорого, в москве). ` +
-    `Формат: JSON массив строк, например ["что такое X", "как выбрать X"].`;
+  const lang = regionHl(region);
+  const langName: Record<string, string> = {
+    en: "English", de: "German", fr: "French", es: "Spanish", ru: "Russian",
+  };
+  const targetLang = langName[lang] ?? "Russian";
+  let sys: string;
+  let user: string;
+  if (lang === "ru") {
+    sys =
+      "Ты эксперт по SEO для русскоязычного рынка. " +
+      "Возвращай ТОЛЬКО валидный JSON массив строк без markdown.";
+    user =
+      `Сгенерируй 200 ВЫСОКОЧАСТОТНЫХ информационных запросов для блога по теме '${topic}'. ` +
+      `ВАЖНО: включи не только прямые запросы по '${topic}', но и СМЕЖНЫЕ/РОДСТВЕННЫЕ темы из той же ниши. ` +
+      `Приоритет — "зонтичные" массовые темы: общие термины, обзоры, гайды, сравнения, проблемы и решения. ` +
+      `Длина 2-5 слов. Без узких лонг-тейлов. ` +
+      `Без коммерческих слов (купить, цена, заказать, недорого, в москве). ` +
+      `Формат: JSON массив строк, например ["что такое X", "как выбрать X"].`;
+  } else {
+    sys =
+      `You are an SEO expert for the ${targetLang} market. ` +
+      `Return ONLY a valid JSON array of strings without markdown. ` +
+      `ALL queries MUST be written in ${targetLang}.`;
+    user =
+      `Generate 200 HIGH-VOLUME informational blog search queries about '${topic}'. ` +
+      `IMPORTANT: include not only direct '${topic}' queries, but also RELATED/ADJACENT topics from the same niche ` +
+      `that the same audience would search for. ` +
+      `Prioritize "umbrella" mass-appeal topics that thousands of people search monthly: ` +
+      `general terms (what is X, types of X, kinds of X), ` +
+      `reviews (X for beginners, pros and cons of X, X vs Y, best X, top X), ` +
+      `guides (how to choose X, how to do X yourself, X step by step, DIY X), ` +
+      `comparisons and specs (X vs Y differences, X sizes, X materials), ` +
+      `problems and solutions (why X, what to do if X, X mistakes, X troubleshooting). ` +
+      `Cover the WHOLE niche around '${topic}'. ` +
+      `Length 2-5 words each. No narrow long-tail or rare edge cases. ` +
+      `No commercial words (buy, price, cheap, discount, near me, for sale). ` +
+      `ALL strings MUST be in ${targetLang}. ` +
+      `Format: JSON array of strings, e.g. ["what is X", "how to choose X"].`;
+  }
   try {
     const resp = await fetch(AI_URL, {
       method: "POST",
@@ -412,12 +471,12 @@ interface CompetitionResult {
   strongCount: number;
   urls: string[];
 }
-async function serperSearch(keyword: string, apiKey: string): Promise<CompetitionResult | null> {
+async function serperSearch(keyword: string, apiKey: string, region: string = "Россия"): Promise<CompetitionResult | null> {
   try {
     const resp = await proxyFetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: keyword, gl: "ru", hl: "ru", num: 10 }),
+      body: JSON.stringify({ q: keyword, gl: regionGl(region), hl: regionHl(region), num: 10 }),
     });
     if (!resp.ok) return null;
     const data = await resp.json();
@@ -486,18 +545,23 @@ async function runJob(jobId: string) {
     // call is routed through the proxy; if relay fails KD will be empty).
     const kdMap = new Map<string, number>();
     const [aiList, dfsRel, dfsAuto] = await Promise.all([
-      aiGenerateInfoQueries(topic),
+      aiGenerateInfoQueries(topic, region),
       dfsRelatedKeywords(topic, region, kdMap),
       dfsAutocomplete(topic, region),
     ]);
     console.log(`[runJob] sources: ai=${aiList.length} dfsRel=${dfsRel.length} dfsAuto=${dfsAuto.length} kdMap=${kdMap.size}`);
+    const latin = isLatinRegion(region);
     const merged = new Set<string>();
     for (const arr of [aiList, dfsRel, dfsAuto]) {
       for (const k of arr) {
         if (!k) continue;
         const trimmed = sanitizeKeyword(k);
         if (trimmed.length < 5 || trimmed.length > 120) continue;
-        if (/[a-zA-Z]/.test(trimmed)) continue; // только кириллица
+        if (latin) {
+          if (/[\u0400-\u04FF]/.test(trimmed)) continue; // drop Cyrillic
+        } else {
+          if (/[a-zA-Z]/.test(trimmed)) continue; // drop Latin
+        }
         const wc = trimmed.split(/\s+/).filter(Boolean).length;
         if (wc < 2 || wc > 8) continue;
         merged.add(trimmed);
@@ -505,7 +569,7 @@ async function runJob(jobId: string) {
       }
     }
     // оставляем только информационные
-    const infoOnly = Array.from(merged).filter(isInfoQuery);
+    const infoOnly = Array.from(merged).filter((kw) => isInfoQuery(kw, region));
     console.log(`[runJob] merged=${merged.size} infoOnly=${infoOnly.length}`);
     await updateJob(jobId, { progress: 20 });
 
@@ -549,7 +613,7 @@ async function runJob(jobId: string) {
       // батчи по 5 параллельно, между батчами 200мс
       for (let i = 0; i < needSerp.length; i += 5) {
         const batch = needSerp.slice(i, i + 5);
-        const res = await Promise.all(batch.map((c) => serperSearch(c.keyword, serperKey)));
+        const res = await Promise.all(batch.map((c) => serperSearch(c.keyword, serperKey, region)));
         for (let j = 0; j < batch.length; j++) {
           const r = res[j];
           if (r) compResults.set(batch[j].keyword, r);
@@ -646,13 +710,19 @@ Deno.serve(async (req) => {
           status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      let recheckRegion = "Россия";
+      try {
+        const { data: jobRow } = await sb()
+          .from("blog_topics_jobs").select("input_region").eq("id", topic.job_id).maybeSingle();
+        if (jobRow?.input_region) recheckRegion = String(jobRow.input_region);
+      } catch {}
       const apiKey = await getSerperKey();
       if (!apiKey) {
         return new Response(JSON.stringify({ error: "Serper не настроен" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const comp = await serperSearch(String(topic.keyword), apiKey);
+      const comp = await serperSearch(String(topic.keyword), apiKey, recheckRegion);
       if (!comp) {
         return new Response(JSON.stringify({ error: "SERP не получен" }), {
           status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
