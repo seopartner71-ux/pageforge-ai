@@ -710,13 +710,19 @@ Deno.serve(async (req) => {
           status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      let recheckRegion = "Россия";
+      try {
+        const { data: jobRow } = await sb()
+          .from("blog_topics_jobs").select("input_region").eq("id", topic.job_id).maybeSingle();
+        if (jobRow?.input_region) recheckRegion = String(jobRow.input_region);
+      } catch {}
       const apiKey = await getSerperKey();
       if (!apiKey) {
         return new Response(JSON.stringify({ error: "Serper не настроен" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const comp = await serperSearch(String(topic.keyword), apiKey);
+      const comp = await serperSearch(String(topic.keyword), apiKey, recheckRegion);
       if (!comp) {
         return new Response(JSON.stringify({ error: "SERP не получен" }), {
           status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
