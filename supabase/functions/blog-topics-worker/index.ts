@@ -97,6 +97,24 @@ function dfsLocationName(region: string): string {
   return DFS_LOCATION_NAMES[region] ?? "Russia";
 }
 
+// Country code (ISO) for Serper gl/hl, derived from region
+const REGION_GL: Record<string, string> = {
+  "United States": "us",
+  "United Kingdom": "uk",
+  "Germany": "de",
+  "France": "fr",
+  "Spain": "es",
+};
+function regionGl(region: string): string {
+  return REGION_GL[region] ?? "ru";
+}
+function regionHl(region: string): string {
+  return dfsLanguage(region);
+}
+function isLatinRegion(region: string): boolean {
+  return dfsLanguage(region) !== "ru";
+}
+
 // DataForSEO rejects keywords containing characters like ?, !, *, etc.
 // Allowed: letters (any unicode), digits, spaces, dash, apostrophe.
 function sanitizeKeyword(kw: string): string {
