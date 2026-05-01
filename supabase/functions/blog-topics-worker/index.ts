@@ -131,7 +131,7 @@ function dfsConfigured(): boolean {
   return !!(DFS_LOGIN && DFS_PASSWORD);
 }
 
-const INFO_MARKERS = [
+const INFO_MARKERS_RU = [
   // вопросительные
   "как ", "что ", "почему", "зачем", "сколько", "когда ",
   "где ", "какой ", "какая ", "какие ", "можно ли", "нужно ли",
@@ -144,11 +144,32 @@ const INFO_MARKERS = [
   "размер", "характеристик", "материал",
   "лучш", "топ ", "топ-",
 ];
-const COMMERCIAL_STOP = [
+const COMMERCIAL_STOP_RU = [
   "купить", "цена", "цены", "заказать", "стоимость", "недорого",
   "доставка", "магазин", "распродажа", "акция", "скидк",
   " под ключ", "прайс",
 ];
+
+const INFO_MARKERS_EN = [
+  "how ", "what ", "why ", "when ", "where ", "which ", "who ",
+  "is ", "are ", "can ", "should ", "does ", "do ",
+  "guide", "tutorial", "tips", "ideas", "examples", "review",
+  "vs ", "versus", "best ", "top ", "types of", "kinds of",
+  "benefits", "pros and cons", "how to", "checklist",
+  "for beginners", "step by step", "diy",
+  "meaning", "definition", "explained",
+];
+const COMMERCIAL_STOP_EN = [
+  "buy", "price", "cost", "cheap", "discount", "sale",
+  "shop", "store", "near me", "for sale", "delivery",
+  "coupon", "promo",
+];
+function infoMarkers(region: string): string[] {
+  return isLatinRegion(region) ? INFO_MARKERS_EN : INFO_MARKERS_RU;
+}
+function commercialStop(region: string): string[] {
+  return isLatinRegion(region) ? COMMERCIAL_STOP_EN : COMMERCIAL_STOP_RU;
+}
 
 const STRONG_DOMAINS = [
   "wikipedia.org", "dzen.ru", "rbc.ru", "ria.ru",
@@ -238,11 +259,11 @@ function extractDomain(url: string): string {
     return "";
   }
 }
-function isInfoQuery(kw: string): boolean {
+function isInfoQuery(kw: string, region: string): boolean {
   const lower = kw.toLowerCase();
-  if (COMMERCIAL_STOP.some((s) => lower.includes(s))) return false;
+  if (commercialStop(region).some((s) => lower.includes(s))) return false;
   // Явный инфо-маркер где угодно во фразе
-  if (INFO_MARKERS.some((m) => lower.startsWith(m) || lower.includes(" " + m) || lower.includes(m))) return true;
+  if (infoMarkers(region).some((m) => lower.startsWith(m) || lower.includes(" " + m) || lower.includes(m))) return true;
   // Мягкое правило: короткие 2–4-словные фразы без коммерческих слов
   // тоже считаем инфо-кандидатами (они часто покрывают зонтичные темы).
   const words = lower.split(/\s+/).filter(Boolean);
