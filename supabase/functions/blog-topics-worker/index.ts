@@ -545,18 +545,23 @@ async function runJob(jobId: string) {
     // call is routed through the proxy; if relay fails KD will be empty).
     const kdMap = new Map<string, number>();
     const [aiList, dfsRel, dfsAuto] = await Promise.all([
-      aiGenerateInfoQueries(topic),
+      aiGenerateInfoQueries(topic, region),
       dfsRelatedKeywords(topic, region, kdMap),
       dfsAutocomplete(topic, region),
     ]);
     console.log(`[runJob] sources: ai=${aiList.length} dfsRel=${dfsRel.length} dfsAuto=${dfsAuto.length} kdMap=${kdMap.size}`);
+    const latin = isLatinRegion(region);
     const merged = new Set<string>();
     for (const arr of [aiList, dfsRel, dfsAuto]) {
       for (const k of arr) {
         if (!k) continue;
         const trimmed = sanitizeKeyword(k);
         if (trimmed.length < 5 || trimmed.length > 120) continue;
-        if (/[a-zA-Z]/.test(trimmed)) continue; // только кириллица
+        if (latin) {
+          if (/[\u0400-\u04FF]/.test(trimmed)) continue; // drop Cyrillic
+        } else {
+          if (/[a-zA-Z]/.test(trimmed)) continue; // drop Latin
+        }
         const wc = trimmed.split(/\s+/).filter(Boolean).length;
         if (wc < 2 || wc > 8) continue;
         merged.add(trimmed);
@@ -564,7 +569,7 @@ async function runJob(jobId: string) {
       }
     }
     // оставляем только информационные
-    const infoOnly = Array.from(merged).filter(isInfoQuery);
+    const infoOnly = Array.from(merged).filter((kw) => isInfoQuery(kw, region));
     console.log(`[runJob] merged=${merged.size} infoOnly=${infoOnly.length}`);
     await updateJob(jobId, { progress: 20 });
 
@@ -608,7 +613,7 @@ async function runJob(jobId: string) {
       // батчи по 5 параллельно, между батчами 200мс
       for (let i = 0; i < needSerp.length; i += 5) {
         const batch = needSerp.slice(i, i + 5);
-        const res = await Promise.all(batch.map((c) => serperSearch(c.keyword, serperKey)));
+        const res = await Promise.all(batch.map((c) => serperSearch(c.keyword, serperKey, region)));
         for (let j = 0; j < batch.length; j++) {
           const r = res[j];
           if (r) compResults.set(batch[j].keyword, r);
