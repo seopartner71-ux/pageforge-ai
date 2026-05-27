@@ -38,6 +38,15 @@ async function fetchText(url: string): Promise<string | null> {
   catch { return null; }
 }
 
+/* Returns { status, text } — needed when status code matters (e.g. 404 detection) */
+async function fetchWithStatus(url: string): Promise<{ status: number; text: string } | null> {
+  try {
+    const r = await fetchWithTimeout(url, 10000);
+    const text = await r.text();
+    return { status: r.status, text };
+  } catch { return null; }
+}
+
 function extractDomain(url: string): string {
   try { return new URL(url).origin; } catch { return url; }
 }
@@ -48,18 +57,41 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
 
   // 1.1 robots.txt
   const robotsTxt = await fetchText(`${origin}/robots.txt`);
-  const bots = ["Google-Extended","GPTBot","ChatGPT-User","PerplexityBot","Perplexity-User","Googlebot","YandexBot","BingBot"];
-  for (const bot of bots) {
-    let blocked = false;
-    if (robotsTxt) {
-      const lines = robotsTxt.split("\n");
-      let agent = "";
-      for (const raw of lines) {
-        const line = raw.trim().toLowerCase();
-        if (line.startsWith("user-agent:")) agent = line.replace("user-agent:", "").trim();
-        if ((agent === bot.toLowerCase() || agent === "*") && line.startsWith("disallow:") && line.replace("disallow:", "").trim() === "/") blocked = true;
+  // Parse robots.txt into per-agent Disallow groups so specific bot sections override "*"
+  const agentGroups: Record<string, string[]> = {};
+  if (robotsTxt) {
+    const lines = robotsTxt.split("\n");
+    let currentAgents: string[] = [];
+    let lastWasAgent = false;
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      const lower = line.toLowerCase();
+      if (lower.startsWith("user-agent:")) {
+        const ua = lower.replace("user-agent:", "").trim();
+        if (!lastWasAgent) currentAgents = [];
+        currentAgents.push(ua);
+        lastWasAgent = true;
+        if (!agentGroups[ua]) agentGroups[ua] = [];
+      } else if (lower.startsWith("disallow:")) {
+        const path = lower.replace("disallow:", "").trim();
+        for (const a of currentAgents) agentGroups[a].push(path);
+        lastWasAgent = false;
+      } else {
+        lastWasAgent = false;
       }
     }
+  }
+  const isBlocked = (bot: string): boolean => {
+    const key = bot.toLowerCase();
+    // Specific bot section takes precedence over "*"
+    const rules = agentGroups[key] ?? agentGroups["*"];
+    if (!rules) return false;
+    return rules.includes("/");
+  };
+  const bots = ["Google-Extended","GPTBot","ChatGPT-User","PerplexityBot","Perplexity-User","Googlebot","YandexBot","BingBot"];
+  for (const bot of bots) {
+    const blocked = isBlocked(bot);
     items.push({
       id: `robots-${bot}`, label: `Проверка robots.txt — ${bot}`,
       criteria: `Файл не блокирует user-agent ${bot}. Бот должен иметь доступ к контенту сайта.`,
@@ -137,26 +169,33 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
     detail: hasVP ? "Viewport meta тег найден." : "Viewport meta тег отсутствует.",
   });
 
-  // TTFB
-  let ttfbMs = 0; let ttfbSt: "pass"|"warn"|"fail" = "pass";
-  try { const s = Date.now(); await fetchWithTimeout(url, 10000); ttfbMs = Date.now() - s; if (ttfbMs > 1500) ttfbSt = "fail"; else if (ttfbMs > 800) ttfbSt = "warn"; }
-  catch { ttfbSt = "fail"; ttfbMs = -1; }
+  // Response time from edge — NOT real TTFB (depends on edge geo), labelled honestly
+  let respMs = 0; let respSt: "pass"|"warn"|"fail" = "pass";
+  try { const s = Date.now(); await fetchWithTimeout(url, 10000); respMs = Date.now() - s; if (respMs > 3000) respSt = "fail"; else if (respMs > 1500) respSt = "warn"; }
+  catch { respSt = "fail"; respMs = -1; }
   items.push({
-    id: "ttfb", label: "Скорость ответа сервера (TTFB)",
-    criteria: "Время ответа сервера в идеале не превышает 200 мс.",
+    id: "ttfb", label: "Время ответа сервера",
+    criteria: "Время полного ответа сервера < 1500 мс при запросе из EU/US edge. Реальный TTFB измеряйте через PageSpeed Insights из вашего региона.",
     tools: "PageSpeed Insights, GTmetrix",
-    status: ttfbSt,
-    detail: ttfbMs > 0 ? `TTFB: ${ttfbMs}ms. ${ttfbMs <= 200 ? "Отлично." : ttfbMs <= 800 ? "Приемлемо." : "Медленно."}` : "Не удалось измерить.",
+    status: respSt,
+    detail: respMs > 0
+      ? `Полный ответ: ${respMs} мс (с edge-сервера). Это включает DNS + TLS + TTFB + загрузку HTML. Для точного TTFB используйте PageSpeed Insights.`
+      : "Не удалось измерить — сервер не ответил за 10 сек.",
   });
 
-  // 404
-  const t404 = await fetchText(`${origin}/___test_404___`);
+  // 404 — check actual HTTP status code (not just whether body was returned)
+  const t404 = await fetchWithStatus(`${origin}/___test_404_${Date.now()}___`);
+  const code = t404?.status ?? 0;
+  const correct404 = code === 404 || code === 410;
   items.push({
     id: "404", label: "Обработка ошибок 404",
-    criteria: "Несуществующие страницы корректно отдают код ответа 404 или 410.",
+    criteria: "Несуществующие страницы корректно отдают код ответа 404 или 410 (не 200 с soft-404).",
     tools: "Screaming Frog, GSC",
-    status: t404 !== null ? "pass" : "warn",
-    detail: t404 !== null ? "Сервер возвращает кастомную страницу 404." : "Не удалось проверить.",
+    status: correct404 ? "pass" : code === 200 ? "fail" : "warn",
+    detail: code === 0 ? "Не удалось получить ответ от сервера."
+      : correct404 ? `Сервер корректно возвращает ${code} для несуществующей страницы.`
+      : code === 200 ? "Soft-404: сервер вернул 200 для несуществующей страницы — Google расценит это как дубль контента."
+      : `Сервер вернул HTTP ${code} (ожидался 404 или 410).`,
   });
 
   // JS rendering
@@ -170,7 +209,7 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
     detail: hasSPA && bodyLen < 500 ? "SPA без SSR — контент минимален." : hasSPA ? "SPA с SSR — контент есть." : "Серверный рендеринг.",
   });
 
-  const score = Math.round((items.filter(i => i.status === "pass").length / items.length) * 100);
+  const score = weightedScore(items);
   return { id: "stage1", title: "Этап 1", subtitle: "Техническая доступность для ИИ", score, items };
 }
 
