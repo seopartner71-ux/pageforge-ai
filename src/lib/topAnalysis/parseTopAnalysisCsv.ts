@@ -63,7 +63,7 @@ export function parseTopAnalysisCsv(text: string): Promise<TopParseResult> {
               (row as any)[key] = String(value || '').trim();
             }
           }
-          // Если домен не задан — пробуем достать из URL
+          // Если домен не задан - пробуем достать из URL
           if (!row.domain && row.url) row.domain = normalizeDomain(row.url);
           else row.domain = normalizeDomain(row.domain);
 

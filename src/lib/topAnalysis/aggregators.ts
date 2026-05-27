@@ -1,4 +1,4 @@
-// Маркетплейсы и агрегаторы — выделяются красным и исключаются из основного анализа
+// Маркетплейсы и агрегаторы - выделяются красным и исключаются из основного анализа
 
 export const AGGREGATOR_DOMAINS = new Set<string>([
   // Универсальные маркетплейсы
@@ -74,6 +74,6 @@ export function isAggregator(domain: string): boolean {
   if (!domain) return false;
   const d = domain.toLowerCase().trim();
   if (AGGREGATOR_DOMAINS.has(d)) return true;
-  // частичное совпадение — на случай поддоменов (market.yandex.ru → yandex.market...)
+  // частичное совпадение - на случай поддоменов (market.yandex.ru → yandex.market...)
   return AGGREGATOR_KEYWORDS.some(k => d.includes(k));
 }

@@ -38,7 +38,7 @@ async function fetchText(url: string): Promise<string | null> {
   catch { return null; }
 }
 
-/* Returns { status, text } — needed when status code matters (e.g. 404 detection) */
+/* Returns { status, text } - needed when status code matters (e.g. 404 detection) */
 async function fetchWithStatus(url: string): Promise<{ status: number; text: string } | null> {
   try {
     const r = await fetchWithTimeout(url, 10000);
@@ -51,7 +51,7 @@ function extractDomain(url: string): string {
   try { return new URL(url).origin; } catch { return url; }
 }
 
-/* Weighted score: pass=1, warn=0.5, fail=0 — more honest than %pass-only */
+/* Weighted score: pass=1, warn=0.5, fail=0 - more honest than %pass-only */
 function weightedScore(items: CheckItem[]): number {
   if (!items.length) return 0;
   const sum = items.reduce((acc, i) => acc + (i.status === "pass" ? 1 : i.status === "warn" ? 0.5 : 0), 0);
@@ -109,11 +109,11 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
   for (const bot of bots) {
     const blocked = isBlocked(bot);
     items.push({
-      id: `robots-${bot}`, label: `Проверка robots.txt — ${bot}`,
+      id: `robots-${bot}`, label: `Проверка robots.txt - ${bot}`,
       criteria: `Файл не блокирует user-agent ${bot}. Бот должен иметь доступ к контенту сайта.`,
       tools: "Ручной просмотр, GSC",
       status: !robotsTxt ? "warn" : blocked ? "fail" : "pass",
-      detail: !robotsTxt ? `robots.txt не найден. Невозможно проверить доступ для ${bot}.` : blocked ? `${bot} заблокирован (Disallow: /).` : `${bot} не заблокирован — доступ открыт.`,
+      detail: !robotsTxt ? `robots.txt не найден. Невозможно проверить доступ для ${bot}.` : blocked ? `${bot} заблокирован (Disallow: /).` : `${bot} не заблокирован - доступ открыт.`,
     });
   }
 
@@ -138,7 +138,7 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
     criteria: 'Важные страницы не попадают в разделы с ошибками или статусом "Просканировано, не проиндексировано".',
     tools: "GSC",
     status: hasNoindex ? "fail" : hasCanonical ? "pass" : "warn",
-    detail: hasNoindex ? "noindex обнаружен — страница не будет проиндексирована." : hasCanonical ? "noindex нет, canonical присутствует." : "Canonical тег отсутствует.",
+    detail: hasNoindex ? "noindex обнаружен - страница не будет проиндексирована." : hasCanonical ? "noindex нет, canonical присутствует." : "Canonical тег отсутствует.",
   });
 
   // Bing Webmaster
@@ -185,7 +185,7 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
     detail: hasVP ? "Viewport meta тег найден." : "Viewport meta тег отсутствует.",
   });
 
-  // Response time from edge — NOT real TTFB (depends on edge geo), labelled honestly
+  // Response time from edge - NOT real TTFB (depends on edge geo), labelled honestly
   let respMs = 0; let respSt: "pass"|"warn"|"fail" = "pass";
   try { const s = Date.now(); await fetchWithTimeout(url, 10000); respMs = Date.now() - s; if (respMs > 3000) respSt = "fail"; else if (respMs > 1500) respSt = "warn"; }
   catch { respSt = "fail"; respMs = -1; }
@@ -196,10 +196,10 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
     status: respSt,
     detail: respMs > 0
       ? `Полный ответ: ${respMs} мс (с edge-сервера). Это включает DNS + TLS + TTFB + загрузку HTML. Для точного TTFB используйте PageSpeed Insights.`
-      : "Не удалось измерить — сервер не ответил за 10 сек.",
+      : "Не удалось измерить - сервер не ответил за 10 сек.",
   });
 
-  // 404 — check actual HTTP status code (not just whether body was returned)
+  // 404 - check actual HTTP status code (not just whether body was returned)
   const t404 = await fetchWithStatus(`${origin}/___test_404_${Date.now()}___`);
   const code = t404?.status ?? 0;
   const correct404 = code === 404 || code === 410;
@@ -210,7 +210,7 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
     status: correct404 ? "pass" : code === 200 ? "fail" : "warn",
     detail: code === 0 ? "Не удалось получить ответ от сервера."
       : correct404 ? `Сервер корректно возвращает ${code} для несуществующей страницы.`
-      : code === 200 ? "Soft-404: сервер вернул 200 для несуществующей страницы — Google расценит это как дубль контента."
+      : code === 200 ? "Soft-404: сервер вернул 200 для несуществующей страницы - Google расценит это как дубль контента."
       : `Сервер вернул HTTP ${code} (ожидался 404 или 410).`,
   });
 
@@ -222,7 +222,7 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
     criteria: "Google корректно видит и рендерит весь важный контент, особенно на SPA-сайтах.",
     tools: "GSC (Проверка URL)",
     status: hasSPA && bodyLen < 500 ? "fail" : hasSPA ? "warn" : "pass",
-    detail: hasSPA && bodyLen < 500 ? "SPA без SSR — контент минимален." : hasSPA ? "SPA с SSR — контент есть." : "Серверный рендеринг.",
+    detail: hasSPA && bodyLen < 500 ? "SPA без SSR - контент минимален." : hasSPA ? "SPA с SSR - контент есть." : "Серверный рендеринг.",
   });
 
   const score = weightedScore(items);
@@ -240,7 +240,7 @@ async function stage2(url: string, html: string, pageTitle: string): Promise<Sta
     criteria: "Проведена проверка цитируемости сайта по 5-10 ключевым запросам в AI Overview, YandexGPT, ChatGPT, Perplexity.",
     tools: "Google, Яндекс, ChatGPT",
     status: hasSD && hasMD ? "pass" : hasMD ? "warn" : "fail",
-    detail: hasSD && hasMD ? "Meta description + Schema.org — хорошие шансы попасть в AI-ответы." : hasMD ? "Есть meta description, но нет Schema.org." : "Нет meta description и структурированных данных.",
+    detail: hasSD && hasMD ? "Meta description + Schema.org - хорошие шансы попасть в AI-ответы." : hasMD ? "Есть meta description, но нет Schema.org." : "Нет meta description и структурированных данных.",
   });
 
   // Data extraction
@@ -293,7 +293,7 @@ function stage3(html: string, pageTitle: string): StageResult {
     criteria: "На странице ровно один тег H1, его содержание соответствует тегу <title>.",
     tools: "Ручной анализ кода",
     status: h1s.length === 1 ? (titleMatch ? "pass" : "warn") : "fail",
-    detail: h1s.length === 0 ? "H1 отсутствует." : h1s.length > 1 ? `${h1s.length} тегов H1 — должен быть один.` : titleMatch ? `H1: "${h1Text.slice(0,60)}" — соответствует title.` : `H1: "${h1Text.slice(0,60)}" — не соответствует title.`,
+    detail: h1s.length === 0 ? "H1 отсутствует." : h1s.length > 1 ? `${h1s.length} тегов H1 - должен быть один.` : titleMatch ? `H1: "${h1Text.slice(0,60)}" - соответствует title.` : `H1: "${h1Text.slice(0,60)}" - не соответствует title.`,
   });
 
   // Heading hierarchy
@@ -352,7 +352,7 @@ function stage3(html: string, pageTitle: string): StageResult {
     criteria: "Сущности в Schema.org связаны через @id для построения графа знаний.",
     tools: "Ручной анализ кода",
     status: hasAtId ? "pass" : "warn",
-    detail: hasAtId ? "Обнаружены @id связи в JSON-LD." : "Нет @id связей — рекомендуется связать Organization, WebPage, Author.",
+    detail: hasAtId ? "Обнаружены @id связи в JSON-LD." : "Нет @id связей - рекомендуется связать Organization, WebPage, Author.",
   });
 
   return { id: "stage3", title: "Этап 3", subtitle: "Анализ структуры и семантической вёрстки", score: weightedScore(items), items };
@@ -452,7 +452,7 @@ function stage5(html: string): StageResult {
   const hrefsAll = extractHrefs(html);
   let ownHost = "";
   try {
-    // origin is available via closure in stage5? It's not — derive from <link rel=canonical> or skip
+    // origin is available via closure in stage5? It's not - derive from <link rel=canonical> or skip
     const canonical = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)?.[1];
     if (canonical) ownHost = new URL(canonical).hostname.replace(/^www\./, "");
   } catch {}
@@ -516,7 +516,7 @@ function stage5(html: string): StageResult {
     criteria: "При поиске по бренду появляется корректная и полная Панель знаний.",
     tools: "Поиск Google",
     status: hasOrg && hasSameAs ? "pass" : "warn",
-    detail: hasOrg && hasSameAs ? "Organization + sameAs — хорошие сигналы." : "Нет sameAs связей. Добавьте ссылки на Wikipedia, соцсети, Wikidata.",
+    detail: hasOrg && hasSameAs ? "Organization + sameAs - хорошие сигналы." : "Нет sameAs связей. Добавьте ссылки на Wikipedia, соцсети, Wikidata.",
   });
 
   return { id: "stage5", title: "Этап 5", subtitle: "E-E-A-T и репутация бренда", score: weightedScore(items), items };
@@ -530,7 +530,7 @@ function generateRecommendations(stages: StageResult[]): { criticals: string[]; 
 
   const strategy: string[] = [];
   if (stages[0]?.items.some(i => i.id.startsWith("robots-") && i.status === "fail"))
-    strategy.push("Неделя 1: Исправить robots.txt — разблокировать AI-ботов.");
+    strategy.push("Неделя 1: Исправить robots.txt - разблокировать AI-ботов.");
   if (stages[2]?.items.some(i => i.id === "schema" && i.status !== "pass"))
     strategy.push("Неделя 1–2: Добавить Schema.org разметку (Organization, Product, FAQ, BreadcrumbList).");
   strategy.push("Неделя 2–3: Оптимизировать заголовки и семантические теги.");
@@ -538,7 +538,7 @@ function generateRecommendations(stages: StageResult[]): { criticals: string[]; 
     strategy.push("Неделя 3–4: Расширить контент по принципу «Ответ-прежде-всего».");
   strategy.push("Неделя 4–5: Добавить мультимодальный контент (видео, таблицы, инфографика).");
   if ((stages[4]?.score||0) < 70)
-    strategy.push("Месяц 2: Усилить E-E-A-T — авторские страницы, кейсы, внешние упоминания.");
+    strategy.push("Месяц 2: Усилить E-E-A-T - авторские страницы, кейсы, внешние упоминания.");
   strategy.push("Месяц 2+: Мониторинг AI-видимости в ChatGPT/Perplexity/AI Overview.");
   return { criticals, strategy };
 }

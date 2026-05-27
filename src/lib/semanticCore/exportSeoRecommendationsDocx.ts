@@ -69,7 +69,7 @@ function generateH1(keyword: string): string {
     return `${base}: пошаговая инструкция и советы`;
   }
   if (/\b(почему|зачем)/.test(lower)) {
-    return `${base} — разбираем причины и что делать`;
+    return `${base} - разбираем причины и что делать`;
   }
   if (/\b(что такое|что значит|значение|означает)/.test(lower)) {
     return `${base}: значение, особенности и примеры`;
@@ -87,7 +87,7 @@ function generateH1(keyword: string): string {
     return `${base}: классификация, фото и описание`;
   }
   if (/\b(обзор|сравнение|рейтинг|топ|лучш)/.test(lower)) {
-    return `${base} — подробный обзор и сравнение`;
+    return `${base} - подробный обзор и сравнение`;
   }
   if (/\b(отзыв)/.test(lower)) {
     return `${base}: реальные отзывы и опыт использования`;
@@ -96,7 +96,7 @@ function generateH1(keyword: string): string {
     return `${base}: пошаговое руководство своими руками`;
   }
   if (/\b(букет|цвет|роз|пион|тюльпан|хризантем|лили)/.test(lower)) {
-    // Числовой букет — особый шаблон
+    // Числовой букет - особый шаблон
     if (/\b\d{2,3}\b/.test(lower)) {
       return `${base}: сколько стоит и что означает`;
     }
@@ -218,11 +218,11 @@ export function exportSeoRecommendationsDocx(payload: SemanticCorePayload): numb
     spacing: { before: 200, after: 160 },
   }));
   const planSteps = [
-    'Начните с лёгких запросов (🟢) — быстрый результат',
+    'Начните с лёгких запросов (🟢) - быстрый результат',
     'Публикуйте 2-3 статьи в неделю',
     'Добавляйте внутренние ссылки между статьями одного кластера',
     'После первых позиций переходите к средним запросам (🟡)',
-    'Сложные запросы (🟠) — только после наработки ссылочной массы',
+    'Сложные запросы (🟠) - только после наработки ссылочной массы',
   ];
   for (const step of planSteps) {
     children.push(new Paragraph({
@@ -232,7 +232,7 @@ export function exportSeoRecommendationsDocx(payload: SemanticCorePayload): numb
     }));
   }
 
-  // Приоритетные статьи — топ-5 «лёгких» с готовым H1
+  // Приоритетные статьи - топ-5 «лёгких» с готовым H1
   const easyTop = sortedGolden.filter((k) => tierOf(k) === 'easy').slice(0, 5);
   if (easyTop.length > 0) {
     children.push(new Paragraph({

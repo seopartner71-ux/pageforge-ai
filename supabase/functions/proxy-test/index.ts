@@ -1,4 +1,4 @@
-// proxy-test — admin-only health check для relay-прокси.
+// proxy-test - admin-only health check для relay-прокси.
 // 1) читает proxy_url/proxy_token из system_settings (или env)
 // 2) делает тестовый запрос через relay к публичному IP-эху и к DataForSEO
 // 3) возвращает { ok, ip, country, dfsStatus, error }
@@ -23,7 +23,7 @@ function validateRelayUrl(rawUrl: string): string | null {
     const port = relay.port || (relay.protocol === "https:" ? "443" : relay.protocol === "http:" ? "80" : "");
     const isStandardHttpPort = port === "80" || port === "443";
     if (!isStandardHttpPort) {
-      return `Relay URL ${relay.origin} использует порт ${port}. Edge Function не может надёжно достучаться до нестандартных портов — поставьте relay за nginx на 443/HTTPS или 80/HTTP.`;
+      return `Relay URL ${relay.origin} использует порт ${port}. Edge Function не может надёжно достучаться до нестандартных портов - поставьте relay за nginx на 443/HTTPS или 80/HTTP.`;
     }
     return null;
   } catch {
@@ -94,7 +94,7 @@ async function callRelay(url: string, opts: {
 }
 
 // Безопасный парсинг inner JSON из env.body.
-// Возвращает { json, text } — json есть только если body валидный JSON.
+// Возвращает { json, text } - json есть только если body валидный JSON.
 function parseInnerBody(body: unknown): { json: any | null; text: string } {
   if (body == null) return { json: null, text: "" };
   const text = typeof body === "string" ? body : JSON.stringify(body);
@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
       ipError = (e as Error).message;
     }
 
-    // 2) Country lookup (бесплатный ipapi.co — через тот же прокси)
+    // 2) Country lookup (бесплатный ipapi.co - через тот же прокси)
     if (ip && !ipError) {
       try {
         const cRes = await callRelay(`https://ipapi.co/${ip}/json/`, {

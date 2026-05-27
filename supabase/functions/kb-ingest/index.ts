@@ -1,5 +1,5 @@
 // Knowledge Base ingest: принимает текст, режет на чанки и сохраняет в kb_chunks.
-// Парсинг PDF/DOCX делается на клиенте (pdfjs/mammoth) — сюда приходит уже текст.
+// Парсинг PDF/DOCX делается на клиенте (pdfjs/mammoth) - сюда приходит уже текст.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {

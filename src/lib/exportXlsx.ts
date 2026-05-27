@@ -51,12 +51,12 @@ export async function exportReportXlsx(opts: ExportXlsxOptions): Promise<void> {
 
   if (sheets.metrics) {
     const scoresData: any[][] = [
-      [isRu ? 'SEO АУДИТ — СВОДКА МЕТРИК' : 'SEO AUDIT — METRICS SUMMARY'],
+      [isRu ? 'SEO АУДИТ - СВОДКА МЕТРИК' : 'SEO AUDIT - METRICS SUMMARY'],
       [],
     ];
     if (cols.url) scoresData.push([isRu ? 'URL страницы' : 'Page URL', analysis.url]);
-    if (cols.region) scoresData.push([isRu ? 'Регион' : 'Region', analysis.region || '—']);
-    if (cols.pageType) scoresData.push([isRu ? 'Тип страницы' : 'Page Type', analysis.page_type || '—']);
+    if (cols.region) scoresData.push([isRu ? 'Регион' : 'Region', analysis.region || '-']);
+    if (cols.pageType) scoresData.push([isRu ? 'Тип страницы' : 'Page Type', analysis.page_type || '-']);
     if (cols.date) scoresData.push([isRu ? 'Дата анализа' : 'Analysis Date', new Date(analysis.created_at).toLocaleDateString()]);
     scoresData.push([], [isRu ? 'МЕТРИКА' : 'METRIC', isRu ? 'ЗНАЧЕНИЕ' : 'VALUE', isRu ? 'СТАТУС' : 'STATUS']);
     if (cols.seoHealth) scoresData.push(['SEO Health', `${scores.seoHealth || 0}%`, statusLabel(scores.seoHealth, isRu)]);
@@ -64,14 +64,14 @@ export async function exportReportXlsx(opts: ExportXlsxOptions): Promise<void> {
     if (cols.humanTouch) scoresData.push([isRu ? 'Человечность' : 'Human Touch', `${scores.humanTouch || 0}%`, statusLabel(scores.humanTouch, isRu)]);
     if (cols.sgeAdapt) scoresData.push([isRu ? 'SGE Адаптация' : 'SGE Adapt', `${scores.sgeAdapt || 0}%`, statusLabel(scores.sgeAdapt, isRu)]);
     scoresData.push([], [isRu ? 'ТЕХНИЧЕСКИЙ АУДИТ' : 'TECHNICAL AUDIT']);
-    if (cols.h1) scoresData.push(['H1', audit.h1Text || '—']);
-    if (cols.title) scoresData.push(['Title', audit.title || '—']);
-    if (cols.metaDescription) scoresData.push(['Meta Description', audit.metaDescription || '—']);
+    if (cols.h1) scoresData.push(['H1', audit.h1Text || '-']);
+    if (cols.title) scoresData.push(['Title', audit.title || '-']);
+    if (cols.metaDescription) scoresData.push(['Meta Description', audit.metaDescription || '-']);
     if (cols.jsonLd) scoresData.push(['JSON-LD', audit.hasJsonLd ? '✅' : '❌']);
     if (cols.openGraph) scoresData.push(['OpenGraph', audit.hasOg ? '✅' : '❌']);
-    if (cols.imageCount) scoresData.push([isRu ? 'Кол-во изображений' : 'Image Count', audit.imageCount ?? '—']);
-    if (cols.imagesWithoutAlt) scoresData.push([isRu ? 'Изображений без alt' : 'Images without alt', audit.imagesWithoutAlt ?? '—']);
-    if (cols.wordCount) scoresData.push([isRu ? 'Кол-во слов' : 'Word Count', tabData?.pageStats?.wordCount ?? '—']);
+    if (cols.imageCount) scoresData.push([isRu ? 'Кол-во изображений' : 'Image Count', audit.imageCount ?? '-']);
+    if (cols.imagesWithoutAlt) scoresData.push([isRu ? 'Изображений без alt' : 'Images without alt', audit.imagesWithoutAlt ?? '-']);
+    if (cols.wordCount) scoresData.push([isRu ? 'Кол-во слов' : 'Word Count', tabData?.pageStats?.wordCount ?? '-']);
 
     const wsScores = XLSX.utils.aoa_to_sheet(scoresData);
     wsScores['!cols'] = [{ wch: 30 }, { wch: 50 }, { wch: 15 }];
@@ -87,7 +87,7 @@ export async function exportReportXlsx(opts: ExportXlsxOptions): Promise<void> {
     if (cols.priority) header.push(isRu ? 'Приоритет' : 'Priority');
     qwRows.push(header);
     quickWins.forEach((qw: any, i: number) => {
-      const row: any[] = [i + 1, qw.task || qw.title || '—'];
+      const row: any[] = [i + 1, qw.task || qw.title || '-'];
       if (cols.priority) row.push((qw.priority || 'medium').toUpperCase());
       qwRows.push(row);
     });
@@ -118,8 +118,8 @@ export async function exportReportXlsx(opts: ExportXlsxOptions): Promise<void> {
     ];
     tfidf.slice(0, 50).forEach((t: any) => {
       const row: any[] = [t.term, typeof t.tfidf === 'number' ? t.tfidf.toFixed(4) : t.tfidf];
-      if (cols.competitorMedian) row.push(typeof t.competitorMedian === 'number' ? t.competitorMedian.toFixed(4) : (t.competitorMedian || '—'));
-      if (cols.status) row.push(t.status || '—');
+      if (cols.competitorMedian) row.push(typeof t.competitorMedian === 'number' ? t.competitorMedian.toFixed(4) : (t.competitorMedian || '-'));
+      if (cols.status) row.push(t.status || '-');
       tfidfRows.push(row);
     });
     const wsTfidf = XLSX.utils.aoa_to_sheet(tfidfRows);
@@ -141,7 +141,7 @@ export async function exportReportXlsx(opts: ExportXlsxOptions): Promise<void> {
 }
 
 function statusLabel(score: number | undefined, isRu: boolean): string {
-  if (score === undefined || score === null) return '—';
+  if (score === undefined || score === null) return '-';
   if (score >= 70) return isRu ? '✅ Хорошо' : '✅ Good';
   if (score >= 40) return isRu ? '⚠️ Средне' : '⚠️ Average';
   return isRu ? '❌ Плохо' : '❌ Poor';

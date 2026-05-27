@@ -1,5 +1,5 @@
 // deploy: v13 - DFS drop location field entirely, autocomplete via keywords_for_keywords
-// blog-topics-worker — поиск тем для блога. Конкуренция определяется
+// blog-topics-worker - поиск тем для блога. Конкуренция определяется
 // в первую очередь по Keyword Difficulty (KD) от DataForSEO Labs,
 // SERP-проверка через Serper.dev оставлена как fallback / уточнение.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -184,7 +184,7 @@ function sb() {
 }
 
 // =====================================================================
-// PROXY RELAY — see semantic-core-worker for full contract docs.
+// PROXY RELAY - see semantic-core-worker for full contract docs.
 // =====================================================================
 let __proxyCfgCache: { url: string; enabled: boolean; token: string; ts: number } | null = null;
 async function getProxyConfig(): Promise<{ url: string; enabled: boolean; token: string }> {
@@ -289,7 +289,7 @@ async function aiGenerateInfoQueries(topic: string, region: string): Promise<str
     user =
       `Сгенерируй 200 ВЫСОКОЧАСТОТНЫХ информационных запросов для блога по теме '${topic}'. ` +
       `ВАЖНО: включи не только прямые запросы по '${topic}', но и СМЕЖНЫЕ/РОДСТВЕННЫЕ темы из той же ниши. ` +
-      `Приоритет — "зонтичные" массовые темы: общие термины, обзоры, гайды, сравнения, проблемы и решения. ` +
+      `Приоритет - "зонтичные" массовые темы: общие термины, обзоры, гайды, сравнения, проблемы и решения. ` +
       `Длина 2-5 слов. Без узких лонг-тейлов. ` +
       `Без коммерческих слов (купить, цена, заказать, недорого, в москве). ` +
       `Формат: JSON массив строк, например ["что такое X", "как выбрать X"].`;
@@ -606,7 +606,7 @@ async function runJob(jobId: string) {
     await updateJob(jobId, { status: "serp", serp_total: toCheck.length, serp_checked: 0 });
 
     const compResults = new Map<string, CompetitionResult>();
-    // Skip SERP entirely for keywords where KD already gave us a level —
+    // Skip SERP entirely for keywords where KD already gave us a level -
     // saves Serper credits and is the new primary signal.
     const needSerp = toCheck.filter((c) => kdMap.get(c.keyword) == null);
     if (serperKey && needSerp.length) {

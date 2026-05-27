@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth — only signed-in admins should call this
+    // Auth - only signed-in admins should call this
     const auth = req.headers.get("Authorization") || "";
     const token = auth.replace(/^Bearer\s+/i, "");
     if (!token) return json(401, { error: "Unauthorized" });

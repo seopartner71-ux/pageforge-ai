@@ -28,7 +28,7 @@ interface Snapshot { date: string; items: PositionItem[] }
 
 async function fetchDataForSEOHistory(keyword: string, engine: "yandex" | "google", depth: number): Promise<Snapshot[]> {
   if (!DFS_LOGIN || !DFS_PASSWORD) return [];
-  // NOTE: yandex history endpoint doesn't exist on DFS — only google has /history.
+  // NOTE: yandex history endpoint doesn't exist on DFS - only google has /history.
   // For yandex we return [] and rely on accumulated own snapshots + current SERP.
   if (engine === "yandex") {
     console.log("[DFS] yandex history endpoint not available, skipping");
