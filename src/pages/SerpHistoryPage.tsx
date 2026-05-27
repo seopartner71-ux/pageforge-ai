@@ -247,10 +247,15 @@ export default function SerpHistoryPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <div className="container py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <BarChart3 className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-semibold">История SERP</h1>
+      <main className="container py-6 space-y-5">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <BarChart3 className="w-6 h-6 text-primary" />
+            История SERP
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Отслеживание изменений ТОП-10 Яндекса и Google по конкретным запросам с историей по дням.
+          </p>
         </div>
 
         <PageDescription
