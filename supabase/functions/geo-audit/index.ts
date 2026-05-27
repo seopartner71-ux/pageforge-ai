@@ -277,8 +277,7 @@ async function stage2(url: string, html: string, pageTitle: string): Promise<Sta
     detail: `${h2} H2, ${h3} H3, ${p} параграфов. ${chunks >= 5 ? "Хорошая структура для chunking." : "Недостаточно подзаголовков."}`,
   });
 
-  const score = Math.round((items.filter(i => i.status === "pass").length / items.length) * 100);
-  return { id: "stage2", title: "Этап 2", subtitle: "Прямая проверка в ИИ", score, items };
+  return { id: "stage2", title: "Этап 2", subtitle: "Прямая проверка в ИИ", score: weightedScore(items), items };
 }
 
 /* ─── Stage 3: Структура и семантика ─── */
@@ -356,8 +355,7 @@ function stage3(html: string, pageTitle: string): StageResult {
     detail: hasAtId ? "Обнаружены @id связи в JSON-LD." : "Нет @id связей — рекомендуется связать Organization, WebPage, Author.",
   });
 
-  const score = Math.round((items.filter(i => i.status === "pass").length / items.length) * 100);
-  return { id: "stage3", title: "Этап 3", subtitle: "Анализ структуры и семантической вёрстки", score, items };
+  return { id: "stage3", title: "Этап 3", subtitle: "Анализ структуры и семантической вёрстки", score: weightedScore(items), items };
 }
 
 /* ─── Stage 4: Контент и тематический авторитет ─── */
@@ -377,7 +375,8 @@ function stage4(html: string): StageResult {
   });
 
   // Topic clusters
-  const intLinks = (html.match(/<a[^>]+href=["'][^"']*["']/gi) || []).filter(l => !l.includes("http")).length;
+  const hrefs = extractHrefs(html);
+  const intLinks = hrefs.filter(h => h && !/^https?:\/\//i.test(h) && !h.startsWith("#") && !h.startsWith("mailto:") && !h.startsWith("tel:")).length;
   items.push({
     id: "clusters", label: "Тематические кластеры (Коконы)",
     criteria: "Контент организован в тематические хабы (Pillar + Child pages) с мощной внутренней перелинковкой.",
@@ -431,8 +430,7 @@ function stage4(html: string): StageResult {
     detail: firstP.length > 200 ? "Структура соответствует принципу перевёрнутой пирамиды." : "Рекомендуется вынести ключевые ответы в начало каждого раздела.",
   });
 
-  const score = Math.round((items.filter(i => i.status === "pass").length / items.length) * 100);
-  return { id: "stage4", title: "Этап 4", subtitle: "Контент и тематический авторитет", score, items };
+  return { id: "stage4", title: "Этап 4", subtitle: "Контент и тематический авторитет", score: weightedScore(items), items };
 }
 
 /* ─── Stage 5: E-E-A-T и репутация бренда ─── */
@@ -450,7 +448,23 @@ function stage5(html: string): StageResult {
     detail: `${[hasAuthor&&"автор",hasExp&&"маркеры опыта"].filter(Boolean).join(", ") || "Нет маркеров"}.`,
   });
 
-  const extLinks = (html.match(/<a[^>]+href=["']https?:\/\/[^"']+["']/gi)||[]).filter(l=>!/facebook|twitter|instagram/i.test(l)).length;
+  // External links: parse href, exclude same-origin and social sites
+  const hrefsAll = extractHrefs(html);
+  let ownHost = "";
+  try {
+    // origin is available via closure in stage5? It's not — derive from <link rel=canonical> or skip
+    const canonical = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)?.[1];
+    if (canonical) ownHost = new URL(canonical).hostname.replace(/^www\./, "");
+  } catch {}
+  const extLinks = hrefsAll.filter(h => {
+    if (!/^https?:\/\//i.test(h)) return false;
+    if (/facebook|twitter|x\.com|instagram|t\.me|vk\.com|youtube|tiktok|linkedin/i.test(h)) return false;
+    try {
+      const host = new URL(h).hostname.replace(/^www\./, "");
+      if (ownHost && host === ownHost) return false;
+    } catch {}
+    return true;
+  }).length;
   items.push({
     id: "authority", label: "Авторитетность и Доверие",
     criteria: "Ссылки на авторитетные внешние источники. Легко найти контакты, политики.",
@@ -505,8 +519,7 @@ function stage5(html: string): StageResult {
     detail: hasOrg && hasSameAs ? "Organization + sameAs — хорошие сигналы." : "Нет sameAs связей. Добавьте ссылки на Wikipedia, соцсети, Wikidata.",
   });
 
-  const score = Math.round((items.filter(i => i.status === "pass").length / items.length) * 100);
-  return { id: "stage5", title: "Этап 5", subtitle: "E-E-A-T и репутация бренда", score, items };
+  return { id: "stage5", title: "Этап 5", subtitle: "E-E-A-T и репутация бренда", score: weightedScore(items), items };
 }
 
 /* ─── Recommendations ─── */
