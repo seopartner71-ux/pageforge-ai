@@ -1,3 +1,20 @@
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle,
+  ShadingType,
+  PageBreak,
+} from "docx";
+import { saveAs } from "file-saver";
+
 type Strategy = "mobile" | "desktop";
 
 type AuditItem = {
