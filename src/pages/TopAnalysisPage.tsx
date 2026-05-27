@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AppHeader } from '@/components/AppHeader';
+import { PageDescription } from '@/components/PageDescription';
 import { TopAnalysisUpload } from '@/components/topAnalysis/TopAnalysisUpload';
 import { TopAnalysisFormatGuide } from '@/components/topAnalysis/TopAnalysisFormatGuide';
 import { TopAnalysisMetrics } from '@/components/topAnalysis/TopAnalysisMetrics';
@@ -220,6 +221,15 @@ export default function TopAnalysisPage() {
             </TabsTrigger>
           </TabsList>
         </Tabs>
+
+        <PageDescription
+          items={[
+            { label: 'Что это', text: 'Анализ выдачи ТОП-10/30 по списку запросов из CSV (Топвизор, Serpstat).' },
+            { label: 'Что проверяем', text: 'Кто чаще в топе, средние позиции, пересечения доменов, доля вашего сайта.' },
+            { label: 'Зачем', text: 'Понять реальных конкурентов по нише и оценить свою видимость.' },
+            { label: 'Результат', text: 'Матрица присутствия, графики, AI-комментарий и выгрузка в Excel.' },
+          ]}
+        />
 
         <TopAnalysisFormatGuide open={guideOpen} onOpenChange={setGuideOpen} />
 
