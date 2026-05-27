@@ -20,7 +20,7 @@ const GROUPS: Group[] = [
     label: 'Аудиты',
     description: 'Глубокая SEO-диагностика страницы и сайта',
     tools: [
-      { label: 'SEO-анализ', path: '/dashboard', icon: Search, desc: 'TF-IDF, конкуренты ТОП-10, технический on-page' },
+      { label: 'On-page страницы', path: '/dashboard', icon: Search, desc: 'TF-IDF, конкуренты ТОП-10, технический on-page' },
       { label: 'GEO Audit', path: '/geo-audit', icon: Sparkles, desc: '41 фактор готовности к AI-поиску (ChatGPT, AI Overviews)' },
       { label: 'Коммерческие факторы', path: '/eeat-audit', icon: Target, desc: 'E-E-A-T и коммерческие сигналы доверия' },
       { label: 'Микроразметка', path: '/schema-audit', icon: Code2, desc: 'Schema.org, OpenGraph, валидация JSON-LD' },
