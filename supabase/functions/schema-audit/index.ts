@@ -789,7 +789,7 @@ function extractPageData(html: string, content: string) {
 
   const ogSite = html.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i);
   const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const titleClean = titleTag?.[1]?.split(/[|-\-–]/)[0]?.trim() || null;
+  const titleClean = titleTag?.[1]?.split(/[|\-–]/)[0]?.trim() || null;
   const h1 = extractH1(html);
   // Try to grab @type/name from any inline JSON-LD as Schema.org source
   let schemaName: string | null = null;
