@@ -298,6 +298,20 @@ export default function DashboardPage() {
               </h1>
               <p className="text-sm text-muted-foreground mt-3 whitespace-pre-line leading-relaxed">{tr.taglineDesc}</p>
             </div>
+            <div className="text-sm text-muted-foreground leading-relaxed space-y-3 text-left bg-card/40 border border-border/60 rounded-lg p-5 mb-6">
+              <p>
+                <span className="text-foreground font-medium">Что это.</span> Комплексный SEO-аудит страницы по методологии 2026: программный разбор HTML, сравнение с ТОП-10 выдачи, оценка контента, структуры, технических факторов и сигналов E-E-A-T.
+              </p>
+              <p>
+                <span className="text-foreground font-medium">Что проверяем.</span> Title, Description, заголовки H1-H6, структура контента, ключевые слова и LSI, TF-IDF против конкурентов, внутренняя и внешняя перелинковка, Schema.org разметка, скорость загрузки, мобильная адаптация, изображения и alt-теги, индексация.
+              </p>
+              <p>
+                <span className="text-foreground font-medium">Зачем.</span> Чтобы увидеть, чего не хватает вашей странице для выхода в ТОП: какие темы раскрывают конкуренты, какие сущности и ключи упускаете, какие технические ошибки мешают ранжированию.
+              </p>
+              <p>
+                <span className="text-foreground font-medium">Результат.</span> Подробный отчёт с оценкой по модулям, конкурентный анализ ТОП-10, список задач по приоритетам P1/P2/P3, готовый план внедрения и выгрузка в Excel, PDF или Google Docs.
+              </p>
+            </div>
             <AnalysisForm
               onStartAnalysis={handleStartAnalysis}
               loading={loading}
