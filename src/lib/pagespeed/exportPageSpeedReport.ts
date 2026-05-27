@@ -398,7 +398,7 @@ export function openPageSpeedReportPrint(opts: {
 const BORDER = { style: BorderStyle.SINGLE, size: 4, color: "D1D5DB" };
 const CELL_BORDERS = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER };
 
-function p(text: string, opts: { bold?: boolean; size?: number; color?: string; align?: AlignmentType } = {}) {
+function p(text: string, opts: { bold?: boolean; size?: number; color?: string; align?: (typeof AlignmentType)[keyof typeof AlignmentType] } = {}) {
   return new Paragraph({
     alignment: opts.align,
     children: [
