@@ -318,7 +318,7 @@ export function exportSeoRecommendationsDocx(payload: SemanticCorePayload): numb
     `Золотых запросов: ${sortedGolden.length}`,
     `Лёгких: ${tierCounts.easy} | Средних: ${tierCounts.medium} | Сложных: ${tierCounts.hard}`,
     `Кластеров: ${payload.clusters.length}`,
-    `Источник частот: Яндекс Wordstat`,
+    `Источник частот: DataForSEO (Google Ads / Yandex базы)`,
   ];
   for (const s of stats) {
     children.push(new Paragraph({

@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getFrequencies, isWordstatRealMode } from '@/services/wordstatService';
 import {
   classifyIntentByKeyword, INTENT_BADGE, INTENT_WEIGHT, REGION_GROUPS,
   type IntentKind, type SemanticCluster, type SemanticCorePayload, type SemanticKeyword,
@@ -259,7 +258,6 @@ export default function SemanticCorePage() {
   const [sortKey, setSortKey] = useState<'score' | 'wsFrequency' | 'exactFrequency' | 'keyword'>('score');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-  const [wordstatReal, setWordstatReal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [jobId, setJobId] = useState<string | null>(null);
@@ -280,10 +278,6 @@ export default function SemanticCorePage() {
       window.localStorage.setItem('semanticCore_howItWorks_expanded', howItWorksOpen ? '1' : '0');
     }
   }, [howItWorksOpen]);
-
-  useEffect(() => {
-    isWordstatRealMode().then(setWordstatReal);
-  }, [running]);
 
   // Detect whether DataForSEO secrets are configured (best-effort via test endpoint).
   // Falls back silently if user is not admin — we just show the warning badge.
@@ -551,14 +545,14 @@ export default function SemanticCorePage() {
     if (!keywords.length) return;
     exportSemanticCoreXlsx({
       topic, seedKeywords: seeds, region, searchEngine: engine,
-      keywords, clusters, wordstatMode: wordstatReal ? 'real' : 'mock',
+      keywords, clusters, wordstatMode: 'real',
       generatedAt: new Date().toISOString(),
     });
   };
 
   const buildPayload = () => ({
     topic, seedKeywords: seeds, region, searchEngine: engine,
-    keywords, clusters, wordstatMode: (wordstatReal ? 'real' : 'mock') as 'real' | 'mock',
+    keywords, clusters, wordstatMode: 'real' as 'real' | 'mock',
     generatedAt: new Date().toISOString(),
   });
 

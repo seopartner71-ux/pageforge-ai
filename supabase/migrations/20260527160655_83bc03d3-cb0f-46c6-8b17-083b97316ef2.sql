@@ -1,0 +1,1 @@
+DELETE FROM public.system_settings WHERE key_name = 'wordstat_api_key';
