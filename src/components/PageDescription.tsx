@@ -1,11 +1,24 @@
-import { Info, CheckSquare, Target, FileBarChart, LucideIcon } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import {
+  Info, CheckSquare, Target, FileBarChart, LucideIcon,
+  BookOpen, ChevronDown, ExternalLink,
+} from 'lucide-react';
 
 type Item = { label: string; text: string };
+type Source = { label: string; url: string };
 
 const ICONS: LucideIcon[] = [Info, CheckSquare, Target, FileBarChart];
 
 interface PageDescriptionProps {
   items: Item[];
+  /** Развёрнутая справка с описанием методологии. */
+  help?: {
+    title?: string;
+    /** Текст или JSX. Для простых случаев — массив абзацев. */
+    content: ReactNode | string[];
+    /** Ссылки на официальные источники (Google / Yandex / W3C / schema.org и т.д.). */
+    sources?: Source[];
+  };
   className?: string;
 }
 
@@ -14,7 +27,10 @@ interface PageDescriptionProps {
  * 4 секции (Что это / Что проверяем / Зачем / Результат) в виде сетки
  * с иконкой и подписью.
  */
-export function PageDescription({ items, className = '' }: PageDescriptionProps) {
+export function PageDescription({ items, help, className = '' }: PageDescriptionProps) {
+  const [open, setOpen] = useState(false);
+  const paragraphs = Array.isArray(help?.content) ? help?.content : null;
+
   return (
     <section
       className={
@@ -45,6 +61,62 @@ export function PageDescription({ items, className = '' }: PageDescriptionProps)
           );
         })}
       </div>
+
+      {help && (
+        <div className="mt-5 pt-5 border-t border-border/60">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+            aria-expanded={open}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>{help.title ?? 'Подробнее о проверке'}</span>
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {open && (
+            <div className="mt-4 space-y-3 animate-fade-in">
+              {paragraphs ? (
+                paragraphs.map((p, i) => (
+                  <p key={i} className="text-sm text-foreground/80 leading-relaxed">
+                    {p}
+                  </p>
+                ))
+              ) : (
+                <div className="text-sm text-foreground/80 leading-relaxed space-y-3">
+                  {help.content}
+                </div>
+              )}
+
+              {help.sources && help.sources.length > 0 && (
+                <div className="pt-2">
+                  <div className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-2">
+                    Источники
+                  </div>
+                  <ul className="space-y-1.5">
+                    {help.sources.map((s, i) => (
+                      <li key={i}>
+                        <a
+                          href={s.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          {s.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
