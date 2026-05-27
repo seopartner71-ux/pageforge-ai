@@ -392,3 +392,271 @@ export function openPageSpeedReportPrint(opts: {
   w.document.write(html);
   w.document.close();
 }
+
+// ============= DOCX export =============
+
+const BORDER = { style: BorderStyle.SINGLE, size: 4, color: "D1D5DB" };
+const CELL_BORDERS = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER };
+
+function p(text: string, opts: { bold?: boolean; size?: number; color?: string; align?: AlignmentType } = {}) {
+  return new Paragraph({
+    alignment: opts.align,
+    children: [
+      new TextRun({
+        text,
+        bold: opts.bold,
+        size: opts.size ?? 22,
+        color: opts.color,
+        font: "Calibri",
+      }),
+    ],
+  });
+}
+
+function heading(text: string, level: (typeof HeadingLevel)[keyof typeof HeadingLevel]) {
+  return new Paragraph({
+    heading: level,
+    spacing: { before: 240, after: 120 },
+    children: [new TextRun({ text, bold: true, font: "Calibri" })],
+  });
+}
+
+function cell(text: string, opts: { bold?: boolean; bg?: string; width?: number; color?: string } = {}) {
+  return new TableCell({
+    borders: CELL_BORDERS,
+    width: opts.width ? { size: opts.width, type: WidthType.DXA } : undefined,
+    shading: opts.bg ? { fill: opts.bg, type: ShadingType.CLEAR, color: "auto" } : undefined,
+    margins: { top: 80, bottom: 80, left: 120, right: 120 },
+    children: [
+      new Paragraph({
+        children: [new TextRun({ text, bold: opts.bold, color: opts.color, font: "Calibri", size: 20 })],
+      }),
+    ],
+  });
+}
+
+function scoreHex(score: number) {
+  if (score >= 90) return "10B981";
+  if (score >= 50) return "F59E0B";
+  return "EF4444";
+}
+
+function sevHex(s: AuditItem["severity"]) {
+  if (s === "critical") return "EF4444";
+  if (s === "warning") return "F59E0B";
+  return "3B82F6";
+}
+
+function strategyBlock(label: string, data: PageSpeedMetrics): Paragraph[] | (Paragraph | Table)[] {
+  const blocks: (Paragraph | Table)[] = [];
+
+  blocks.push(heading(label, HeadingLevel.HEADING_1));
+
+  // Score row
+  blocks.push(
+    new Paragraph({
+      spacing: { after: 120 },
+      children: [
+        new TextRun({ text: "Performance Score: ", bold: true, font: "Calibri", size: 24 }),
+        new TextRun({ text: String(data.score), bold: true, color: scoreHex(data.score), font: "Calibri", size: 36 }),
+        new TextRun({ text: "  / 100  ·  " + scoreLabel(data.score), color: "6B7280", font: "Calibri", size: 20 }),
+      ],
+    }),
+  );
+
+  // Metrics table
+  const metrics: Array<[string, string, string]> = [
+    ["LCP", data.lcp?.display ?? "—", "Largest Contentful Paint"],
+    ["TBT", data.tbt?.display ?? "—", "Total Blocking Time"],
+    ["CLS", data.cls?.display ?? "—", "Cumulative Layout Shift"],
+    ["FCP", data.fcp?.display ?? "—", "First Contentful Paint"],
+    ["Speed Index", data.speedIndex?.display ?? "—", "Скорость отображения"],
+  ];
+
+  blocks.push(heading("Core Web Vitals", HeadingLevel.HEADING_2));
+  blocks.push(
+    new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: [2000, 2000, 5360],
+      rows: [
+        new TableRow({
+          tableHeader: true,
+          children: [
+            cell("Метрика", { bold: true, bg: "F3F4F6", width: 2000 }),
+            cell("Значение", { bold: true, bg: "F3F4F6", width: 2000 }),
+            cell("Описание", { bold: true, bg: "F3F4F6", width: 5360 }),
+          ],
+        }),
+        ...metrics.map(
+          ([m, v, d]) =>
+            new TableRow({
+              children: [cell(m, { bold: true, width: 2000 }), cell(v, { width: 2000 }), cell(d, { width: 5360, color: "6B7280" })],
+            }),
+        ),
+      ],
+    }),
+  );
+
+  // Top-3
+  const top3 = [...data.opportunities, ...data.diagnostics, ...data.failed]
+    .map((it) => ({ it, w: (it.savingsMs ?? 0) + { critical: 3, warning: 2, info: 1 }[it.severity] * 50 }))
+    .filter((x) => x.w > 0)
+    .sort((a, b) => b.w - a.w)
+    .slice(0, 3)
+    .map((x) => x.it);
+
+  if (top3.length) {
+    blocks.push(heading("Топ-3 приоритета", HeadingLevel.HEADING_2));
+    top3.forEach((it, i) => {
+      blocks.push(
+        new Paragraph({
+          spacing: { before: 80, after: 40 },
+          children: [
+            new TextRun({ text: `${i + 1}. `, bold: true, font: "Calibri", size: 22, color: sevHex(it.severity) }),
+            new TextRun({ text: it.title, bold: true, font: "Calibri", size: 22 }),
+            it.savingsMs && it.savingsMs > 0
+              ? new TextRun({ text: `  · экономия ~${Math.round(it.savingsMs)} мс`, color: "6B7280", font: "Calibri", size: 20 })
+              : it.displayValue
+                ? new TextRun({ text: `  · ${it.displayValue}`, color: "6B7280", font: "Calibri", size: 20 })
+                : new TextRun({ text: "" }),
+          ],
+        }),
+      );
+    });
+  }
+
+  // Audit groups
+  const groups: Array<[string, AuditItem[]]> = [
+    ["Возможности ускорения", data.opportunities],
+    ["Диагностика", data.diagnostics],
+    ["Прочие найденные проблемы", data.failed],
+  ];
+
+  for (const [title, items] of groups) {
+    if (!items.length) continue;
+    blocks.push(heading(`${title} (${items.length})`, HeadingLevel.HEADING_2));
+    for (const it of items) {
+      blocks.push(
+        new Paragraph({
+          spacing: { before: 120, after: 40 },
+          children: [
+            new TextRun({ text: `[${sevLabel(it.severity)}] `, bold: true, color: sevHex(it.severity), font: "Calibri", size: 20 }),
+            new TextRun({ text: it.title, bold: true, font: "Calibri", size: 22 }),
+            it.displayValue ? new TextRun({ text: `  · ${it.displayValue}`, color: "4B5563", font: "Calibri", size: 20 }) : new TextRun({ text: "" }),
+            it.savingsMs && it.savingsMs > 0
+              ? new TextRun({ text: `  · экономия ~${Math.round(it.savingsMs)} мс`, color: "4B5563", font: "Calibri", size: 20 })
+              : new TextRun({ text: "" }),
+          ],
+        }),
+      );
+      const desc = cleanDescription(it.description);
+      if (desc) blocks.push(p(desc, { color: "4B5563", size: 20 }));
+    }
+  }
+
+  return blocks;
+}
+
+export async function downloadPageSpeedReportDocx(opts: {
+  url: string;
+  results: PageSpeedResults;
+  checkedAt?: string | null;
+}): Promise<void> {
+  const { url, results, checkedAt } = opts;
+  const date = checkedAt ? new Date(checkedAt) : new Date();
+  const dateStr = date.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const children: (Paragraph | Table)[] = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 80 },
+      children: [new TextRun({ text: "PageSpeed Insights · отчёт", color: "6B7280", font: "Calibri", size: 20 })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 120 },
+      children: [new TextRun({ text: "Аудит скорости загрузки", bold: true, font: "Calibri", size: 40 })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 60 },
+      children: [new TextRun({ text: url, font: "Calibri", size: 22, color: "2563EB" })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 400 },
+      children: [new TextRun({ text: `Дата проверки: ${dateStr}`, font: "Calibri", size: 20, color: "6B7280" })],
+    }),
+  ];
+
+  if (results.mobile) {
+    children.push(...(strategyBlock("Мобильная версия", results.mobile) as (Paragraph | Table)[]));
+  }
+  if (results.desktop) {
+    if (results.mobile) children.push(new Paragraph({ children: [new PageBreak()] }));
+    children.push(...(strategyBlock("Десктоп версия", results.desktop) as (Paragraph | Table)[]));
+  }
+
+  children.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 400 },
+      children: [
+        new TextRun({
+          text: "Отчёт сгенерирован на основе данных Google PageSpeed Insights · Lighthouse",
+          color: "9CA3AF",
+          font: "Calibri",
+          size: 18,
+          italics: true,
+        }),
+      ],
+    }),
+  );
+
+  const doc = new Document({
+    styles: {
+      default: { document: { run: { font: "Calibri", size: 22 } } },
+      paragraphStyles: [
+        {
+          id: "Heading1",
+          name: "Heading 1",
+          basedOn: "Normal",
+          next: "Normal",
+          quickFormat: true,
+          run: { size: 32, bold: true, color: "0F172A", font: "Calibri" },
+          paragraph: { spacing: { before: 360, after: 180 }, outlineLevel: 0 },
+        },
+        {
+          id: "Heading2",
+          name: "Heading 2",
+          basedOn: "Normal",
+          next: "Normal",
+          quickFormat: true,
+          run: { size: 26, bold: true, color: "1E3A8A", font: "Calibri" },
+          paragraph: { spacing: { before: 240, after: 120 }, outlineLevel: 1 },
+        },
+      ],
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            size: { width: 12240, height: 15840 },
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+          },
+        },
+        children,
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const safeUrl = url.replace(/^https?:\/\//, "").replace(/[^\w.-]+/g, "_").slice(0, 60);
+  saveAs(blob, `pagespeed_${safeUrl}_${date.toISOString().slice(0, 10)}.docx`);
+}
