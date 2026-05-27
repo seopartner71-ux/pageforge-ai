@@ -108,10 +108,20 @@ export default function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const projectId = data.projectId || projects[0]?.id;
+    let projectId = data.projectId || projects[0]?.id;
     if (!projectId) {
-      toast({ title: 'Сначала создайте проект', variant: 'destructive' });
-      return;
+      // Авто-создание дефолтного проекта, чтобы не блокировать пользователя
+      const { data: created, error: createErr } = await supabase
+        .from('projects')
+        .insert({ name: 'Мои проверки', domain: '', user_id: user.id })
+        .select('id, name, domain')
+        .single();
+      if (createErr || !created) {
+        toast({ title: createErr?.message || 'Не удалось инициализировать рабочее пространство', variant: 'destructive' });
+        return;
+      }
+      projectId = created.id;
+      setProjects(prev => [{ id: created.id, name: created.name, domain: created.domain || '' }, ...prev]);
     }
 
     // Batch mode
@@ -270,7 +280,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (projects.length === 0 || showNewProject) {
+  if (showNewProject) {
     return (
       <div className="min-h-screen">
         <AppHeader />
