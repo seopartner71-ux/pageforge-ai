@@ -1,35 +1,61 @@
-## План реализации "мозгов" PageForge AI
+# План: перенос «Технический аудит»
 
-### Этап 1: Секреты и БД
-- Добавить секрет `SERPER_API_KEY` (для поиска конкурентов)
-- Использовать существующий `OPENROUTER_API_KEY` для AI-анализа (через модель `openai/gpt-4o` на OpenRouter)
-- Jina Reader — бесплатный, ключ не нужен
+Переносим функционал из проекта Analytics Start как отдельную страницу `/technical-audit` (новый пункт меню), с подключением внешнего краулер-воркера.
 
-### Этап 2: Edge Function `seo-analyze` (переписать существующую)
-Полный пайплайн в одной функции:
+## 1. База данных (новая миграция)
 
-**Шаг 1 — Поиск конкурентов:**
-- Если `competitor_urls` не переданы → Serper.dev API: ТОП-10 по ключевому слову
+Создаём независимые от чужой схемы (`team_members`, `is_project_member`) таблицы, привязанные к `auth.uid()`:
 
-**Шаг 2 — Парсинг контента:**
-- Jina Reader (`https://r.jina.ai/URL`) → Markdown целевой страницы + конкурентов
+- `crawl_jobs` — задания краулера (id, user_id, domain, status, progress, started_at, finished_at, error_message, options jsonb)
+- `crawl_pages` — найденные страницы (job_id, url, status_code, depth, title, description, h1, canonical, is_indexed, load_time_ms, word_count)
+- `crawl_issues` — найденные проблемы (job_id, page_url, type, code, severity, message, details jsonb)
+- `crawl_stats` — сводная статистика (job_id, total_pages, total_issues, critical_count, warning_count, info_count, avg_load_time_ms, score)
+- `audit_checks` + `audit_url_errors` — пользовательский чек-лист (упрощённый: без `team_members`/`assigned_to`)
+- RPC `claim_next_crawl_job()` — атомарно берёт следующий `pending` для воркера
+- GRANT + RLS: владелец видит/правит свои; admin видит всё; service_role полный доступ
 
-**Шаг 3 — Лингвистический модуль (TypeScript):**
-- TF-IDF: плотность ключевых слов vs медиана конкурентов → статусы Переспам/ОК/Дефицит
-- Закон Ципфа: частотное распределение → данные для Recharts
-- N-граммы: биграммы + триграммы с фильтрацией стоп-слов
-- Технический аудит: H1, alt-теги, JSON-LD, OpenGraph
+## 2. Edge-функции
 
-**Шаг 4 — AI-аналитика:**
-- OpenRouter (GPT-4o): missing entities, GEO Score, SGE-готовность, Golden Blueprint
+- `crawler-callback` — публичная, защищена `CRAWLER_SECRET` (header `x-crawler-secret`). Actions: `claim_job`, `update_job`, `add_pages`, `add_issues`, `save_stats`.
+- `start-audit` — стартует job (создаёт `crawl_jobs` со status=`pending`, домен из формы)
+- `stop-audit` — помечает job отменённым
+- `audit-insights` — AI-вердикт через Lovable AI Gateway (`google/gemini-2.5-flash`)
+- `download-audit-pdf` — PDF из последнего завершённого аудита (опционально, можно вторым этапом)
 
-**Шаг 5 — Сохранение:**
-- Результаты в `analysis_results` (scores, tab_data, quick_wins, modules)
-- Обновление статуса анализа
+## 3. Frontend
 
-### Этап 3: Обновление фронтенда
-- Progress modal с этапами
-- Перенаправление на страницу результатов
+- Новая страница `src/pages/TechnicalAuditPage.tsx` — обёртка над переносимой логикой, в едином стиле приложения (как PageSpeedPage). Ввод домена в шапке, кнопки «Запустить аудит» / «Остановить».
+- Компонент `src/components/audit/TechnicalAuditView.tsx` — основное тело (адаптация `TechnicalAuditTab.tsx` ~1460 строк): секции `SECTIONS`, описания `CHECK_INFO`, раскрываемые блоки, индикатор прогресса, скачивание PDF/HTML.
+- `src/components/audit/CrawlerStatusIndicator.tsx` — индикатор «онлайн/оффлайн» с проверкой `crawler-health`.
+- `src/components/audit/AuditInsightsBlock.tsx` — блок AI-выводов.
+- Удаляем зависимости от `useSourceTasks`, `CreateTaskFromSourceButton`, `team_members`, `integrations`, `project_messages`, `site_health` — они не нужны для standalone-режима.
+- Маршрут в `src/App.tsx`, пункт меню «Технический аудит» (иконка `ClipboardCheck`) в `AppSidebar.tsx`.
 
-### Приоритет
-Начинаем с парсинга + TF-IDF (база сервиса), затем AI-модуль.
+## 4. Внешний краулер
+
+Без работающего воркера фича не работает. Краулер — Node/Python-сервис (вне Lovable), который:
+
+1. Раз в N секунд POST на `https://<project>.functions.supabase.co/crawler-callback` с `action:"claim_job"` и `x-crawler-secret`.
+2. Получив `job`, ходит по сайту (sitemap.xml, fetch HTML, парсит), отправляет страницы и issues батчами через `add_pages`/`add_issues`.
+3. По завершении `save_stats` + `update_job` с `status:"completed"`.
+
+Действия:
+- Через `add_secret` запрошу у вас новый секрет `CRAWLER_SECRET` (любая случайная строка — её же надо вписать в воркер).
+- Сразу после переноса дам готовую инструкцию + Callback URL + минимальный Node.js-скрипт воркера, который можно развернуть на любом VPS / Render / Railway.
+
+## 5. Что делаем сейчас (порядок)
+
+1. Миграция БД (таблицы + RPC + RLS + GRANT).
+2. 4 edge-функции (`crawler-callback`, `start-audit`, `stop-audit`, `audit-insights`).
+3. Запрос секрета `CRAWLER_SECRET`.
+4. Frontend (страница, компоненты, роут, меню).
+5. PDF (`download-audit-pdf`) — отдельной итерацией после того как убедимся, что краулер пишет данные.
+6. Инструкция по запуску воркера + готовый код.
+
+## Технические детали
+
+- AI: используем существующий `OPENROUTER_API_KEY` либо `LOVABLE_API_KEY` (Lovable AI Gateway) — без новых ключей.
+- Все таблицы — отдельный namespace `crawl_*`, не конфликтуют с существующими (`analyses`, `link_audits`, `schema_audits`).
+- `projects` не требуется: аудит привязан к `user_id` напрямую, домен передаётся в job.
+- i18n: добавляем секцию `technicalAudit` в `src/i18n.ts` (RU/EN).
+- Дизайн строго через семантические токены (`bg-background`, `text-foreground`, `border-border`), без хардкода цветов.
