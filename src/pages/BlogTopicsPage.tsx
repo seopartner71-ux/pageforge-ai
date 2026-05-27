@@ -186,6 +186,15 @@ export default function BlogTopicsPage() {
           )}
         </div>
 
+        <PageDescription
+          items={[
+            { label: 'Что это', text: 'Генерация информационных тем для блога с оценкой конкуренции.' },
+            { label: 'Что проверяем', text: 'Релевантность темы нише, сложность ТОП-10 Google, потенциальный спрос.' },
+            { label: 'Зачем', text: 'Получить готовый контент-план с приоритетами и не писать вслепую.' },
+            { label: 'Результат', text: 'Список тем по уровню конкуренции и выгрузка контент-плана в .docx.' },
+          ]}
+        />
+
         {/* Form */}
         <Card className="p-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
