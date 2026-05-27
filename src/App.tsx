@@ -25,6 +25,7 @@ const SharedReportPage = lazy(() => import('./pages/SharedReportPage.tsx'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage.tsx'));
 const TermsPage = lazy(() => import('./pages/TermsPage.tsx'));
 const LinkAuditPage = lazy(() => import('./pages/LinkAuditPage.tsx'));
+const LinkProfilePage = lazy(() => import('./pages/LinkProfilePage.tsx'));
 const CompetitorsPage = lazy(() => import('./pages/CompetitorsPage.tsx'));
 const TopAnalysisPage = lazy(() => import('./pages/TopAnalysisPage.tsx'));
 const IntentPage = lazy(() => import('./pages/IntentPage.tsx'));
@@ -125,6 +126,7 @@ const App = () => (
                   <Route path="/geo-audit" element={<GeoAuditPage />} />
                   <Route path="/eeat-audit" element={<EeatAuditPage />} />
                   <Route path="/link-audit" element={<LinkAuditPage />} />
+                  <Route path="/link-profile" element={<LinkProfilePage />} />
                   <Route path="/competitors" element={<CompetitorsPage />} />
                   <Route path="/top-analysis" element={<TopAnalysisPage />} />
                   <Route path="/intent" element={<IntentPage />} />
