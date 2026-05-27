@@ -252,7 +252,7 @@ function AuditSection({ section, issues }: { section: SectionDef; issues: any[] 
 }
 
 export function TechnicalAuditView({ domain }: { domain: string }) {
-  const [scanStatus, setScanStatus] = useState<'idle' | 'pending' | 'running' | 'done' | 'error'>('idle');
+  const [scanStatus, setScanStatus] = useState<'idle' | 'pending' | 'running' | 'done' | 'completed' | 'error'>('idle');
   const [scanProgress, setScanProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
