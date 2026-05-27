@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import {
   Play, CheckCircle2, AlertTriangle, XCircle, Loader2, Target, Zap, Clock,
-  FileDown,
+  FileDown, Sparkles,
 } from 'lucide-react';
 import { exportGeoAuditDocx } from '@/lib/exportGeoAuditDocx';
 
@@ -141,15 +141,17 @@ export default function GeoAuditPage() {
     <div className="min-h-screen bg-background">
       <AppHeader />
 
-      <main className="container max-w-[1200px] py-10 space-y-10">
-        {/* Hero */}
-        <div className="text-center space-y-3">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-            GEO Audit v2.0 - Полный чек-лист AI Optimization
+      <main className="container py-6 space-y-5">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-primary" />
+            GEO Audit
           </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Полный чек-лист готовности страницы к AI-поиску: ChatGPT, Perplexity, AI Overviews, Яндекс Нейро.
+          </p>
         </div>
         <PageDescription
-          className="max-w-4xl mx-auto"
           items={[
             { label: 'Что это', text: 'GEO (Generative Engine Optimization) — аудит готовности страницы попадать в ответы AI-поиска: ChatGPT, Perplexity, Google AI Overviews, Яндекс Нейро, Gemini.' },
             { label: 'Что проверяем', text: '41 фактор по 5 направлениям: техническая доступность для AI-ботов (robots.txt, llms.txt, рендеринг, скорость), прямая видимость в ИИ-системах, семантическая структура (Schema.org, заголовки, FAQ), качество контента под цитирование, сигналы E-E-A-T.' },

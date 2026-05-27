@@ -810,12 +810,14 @@ export default function SchemaAuditPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <main className="container max-w-[1200px] py-10 space-y-8">
-        {/* Hero */}
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">Микроразметка</h1>
-          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-            Найдём JSON-LD, Microdata и RDFa, проверим на ошибки и сгенерируем готовый код
+      <main className="container py-6 space-y-5">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <Code2 className="w-6 h-6 text-primary" />
+            Микроразметка
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Найдём JSON-LD, Microdata и RDFa, проверим на ошибки и сгенерируем готовый код.
           </p>
         </div>
 
