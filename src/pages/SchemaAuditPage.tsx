@@ -818,6 +818,15 @@ export default function SchemaAuditPage() {
           </p>
         </div>
 
+        <PageDescription
+          items={[
+            { label: 'Что это', text: 'Аудит структурированных данных страницы или всего сайта.' },
+            { label: 'Что проверяем', text: 'JSON-LD, Microdata, RDFa, корректность типов и обязательные поля Schema.org.' },
+            { label: 'Зачем', text: 'Получить расширенные сниппеты в Google и Яндексе и повысить CTR.' },
+            { label: 'Результат', text: 'Отчёт по ошибкам, готовый исправленный код и ТЗ для разработчика в .docx.' },
+          ]}
+        />
+
         {/* Mode toggle */}
         <div className="max-w-2xl mx-auto flex items-center justify-center gap-1 rounded-lg border border-border/60 bg-card p-1">
           <button
