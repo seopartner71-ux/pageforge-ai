@@ -27,7 +27,7 @@ const GROUPS: Group[] = [
     label: 'Главное',
     items: [
       { label: 'Все инструменты', path: '/tools', icon: LayoutGrid },
-      { label: 'SEO-анализ', path: '/dashboard', icon: Search },
+      { label: 'On-page страницы', path: '/dashboard', icon: Search },
     ],
   },
   {
