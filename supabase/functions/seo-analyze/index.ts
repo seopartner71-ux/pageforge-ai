@@ -247,8 +247,9 @@ function calculateTFIDF(targetWords: string[], competitorWordArrays: string[][])
   const results: any[] = [];
   for (const term of allTerms) {
     const df = docFreq[term] || 0;
-    // IDF = log(totalDocs / df) — classic formula; smooth to avoid log(0)
-    const idf = df > 0 ? Math.log10(totalDocs / df) : Math.log10(totalDocs + 1);
+    // Smoothed IDF: log((N+1)/(df+1)) + 1 — works well even with few competitors,
+    // avoids zero values when term appears in every doc.
+    const idf = Math.log((totalDocs + 1) / (df + 1)) + 1;
     const userTf = targetTf[term] || 0;
     const userTfidf = userTf * idf;
 
