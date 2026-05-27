@@ -15,7 +15,7 @@ import {
 import {
   LayoutGrid, Search, Sparkles, Link2, Users, BarChart3, Target,
   Code2, History as HistoryIcon, Zap, Smartphone, Network, FileText,
-  PenSquare, User, Settings, Bot,
+  PenSquare, User, Settings, Bot, ShieldAlert,
 } from 'lucide-react';
 import { useAdminRole } from '@/hooks/useAdminRole';
 
@@ -34,6 +34,7 @@ const PREFETCH: Record<string, () => Promise<unknown>> = {
   '/link-profile': () => import('@/pages/LinkProfilePage'),
   '/pagespeed': () => import('@/pages/PageSpeedPage'),
   '/responsive': () => import('@/pages/ResponsivePage'),
+  '/technical-audit': () => import('@/pages/TechnicalAuditPage'),
   '/serp-history': () => import('@/pages/SerpHistoryPage'),
   '/competitors': () => import('@/pages/CompetitorsPage'),
   '/top-analysis': () => import('@/pages/TopAnalysisPage'),
@@ -74,6 +75,7 @@ const GROUPS: Group[] = [
   {
     label: 'Технические проверки',
     items: [
+      { label: 'Технический аудит', path: '/technical-audit', icon: ShieldAlert },
       { label: 'PageSpeed', path: '/pagespeed', icon: Zap },
       { label: 'Адаптивность', path: '/responsive', icon: Smartphone },
       { label: 'История SERP', path: '/serp-history', icon: HistoryIcon },
