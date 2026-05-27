@@ -51,6 +51,22 @@ function extractDomain(url: string): string {
   try { return new URL(url).origin; } catch { return url; }
 }
 
+/* Weighted score: pass=1, warn=0.5, fail=0 — more honest than %pass-only */
+function weightedScore(items: CheckItem[]): number {
+  if (!items.length) return 0;
+  const sum = items.reduce((acc, i) => acc + (i.status === "pass" ? 1 : i.status === "warn" ? 0.5 : 0), 0);
+  return Math.round((sum / items.length) * 100);
+}
+
+/* Parse href values from <a> tags reliably */
+function extractHrefs(html: string): string[] {
+  const out: string[] = [];
+  const rx = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi;
+  let m;
+  while ((m = rx.exec(html)) !== null) out.push(m[1]);
+  return out;
+}
+
 /* ─── Stage 1: Техническая доступность для ИИ ─── */
 async function stage1(url: string, html: string, origin: string): Promise<StageResult> {
   const items: CheckItem[] = [];
