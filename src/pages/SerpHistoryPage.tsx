@@ -609,7 +609,7 @@ export default function SerpHistoryPage() {
             )}
           </DialogContent>
         </Dialog>
-      </div>
+      </main>
     </div>
   );
 }
