@@ -372,49 +372,6 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
         />
       </div>
 
-      {/* Integrations */}
-      <div className="glass-card p-6 space-y-5">
-        <div className="flex items-center gap-2">
-          <span className="text-xs tracking-widest text-muted-foreground font-semibold">⚡ {tr.integrations.title}</span>
-        </div>
-
-        <div className="flex items-center justify-between py-2">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-accent" />
-            <span className="text-sm text-foreground">{tr.integrations.gsc}</span>
-          </div>
-          <button className="px-4 py-1.5 rounded-lg border border-border/50 text-xs font-medium text-foreground hover:bg-secondary transition-colors">
-            {tr.integrations.loadCsv}
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between py-2">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-accent" />
-            <span className="text-sm text-foreground">{tr.integrations.yandex}</span>
-          </div>
-          <button className="px-4 py-1.5 rounded-lg border border-border/50 text-xs font-medium text-foreground hover:bg-secondary transition-colors">
-            {tr.integrations.loadCsv}
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between py-2">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-accent" />
-            <span className="text-sm text-foreground">{tr.integrations.speed}</span>
-          </div>
-          <Switch checked={speedEnabled} onCheckedChange={setSpeedEnabled} />
-        </div>
-
-        <div className="flex items-center justify-between py-2">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-accent" />
-            <span className="text-sm text-foreground">{tr.integrations.semantics}</span>
-          </div>
-          <Switch checked={semanticsEnabled} onCheckedChange={setSemanticsEnabled} />
-        </div>
-      </div>
-
       {/* Credits info */}
       {credits !== null && credits !== undefined && (
         <div className={`glass-card p-4 flex items-center justify-between ${!hasEnoughCredits ? 'border border-destructive/30' : ''}`}>
