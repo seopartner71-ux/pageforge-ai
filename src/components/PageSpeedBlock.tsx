@@ -391,7 +391,13 @@ function formatCheckedAt(iso: string): string {
   }
 }
 
-export function PageSpeedBlock({ siteUrl }: { siteUrl?: string | null }) {
+export function PageSpeedBlock({
+  siteUrl,
+  onResults,
+}: {
+  siteUrl?: string | null;
+  onResults?: (data: { results: Results; checkedAt: string | null }) => void;
+}) {
   const [loading, setLoading] = useState<"both" | null>(null);
   const [results, setResults] = useState<Results>({});
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
@@ -404,16 +410,20 @@ export function PageSpeedBlock({ siteUrl }: { siteUrl?: string | null }) {
     if (!url) {
       setResults({});
       setCheckedAt(null);
+      onResults?.({ results: {}, checkedAt: null });
       return;
     }
     const cached = loadCache(url);
     if (cached) {
       setResults(cached.results);
       setCheckedAt(cached.checkedAt);
+      onResults?.({ results: cached.results, checkedAt: cached.checkedAt });
     } else {
       setResults({});
       setCheckedAt(null);
+      onResults?.({ results: {}, checkedAt: null });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   const handleCheck = async () => {
@@ -440,6 +450,7 @@ export function PageSpeedBlock({ siteUrl }: { siteUrl?: string | null }) {
         const now = new Date().toISOString();
         setCheckedAt(now);
         saveCache(url, next);
+        onResults?.({ results: next, checkedAt: now });
         toast.success("Данные PageSpeed получены");
       }
     } catch (e: any) {
