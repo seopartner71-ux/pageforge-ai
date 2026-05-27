@@ -22,6 +22,37 @@ import { useAdminRole } from '@/hooks/useAdminRole';
 type Item = { label: string; path: string; icon: any };
 type Group = { label: string; items: Item[] };
 
+// Префетч чанков: при наведении на пункт меню начинаем грузить код страницы,
+// чтобы при клике переход был мгновенным.
+const PREFETCH: Record<string, () => Promise<unknown>> = {
+  '/tools': () => import('@/pages/ToolsHubPage'),
+  '/dashboard': () => import('@/pages/DashboardPage'),
+  '/geo-audit': () => import('@/pages/GeoAuditPage'),
+  '/eeat-audit': () => import('@/pages/EeatAuditPage'),
+  '/schema-audit': () => import('@/pages/SchemaAuditPage'),
+  '/link-audit': () => import('@/pages/LinkAuditPage'),
+  '/link-profile': () => import('@/pages/LinkProfilePage'),
+  '/pagespeed': () => import('@/pages/PageSpeedPage'),
+  '/responsive': () => import('@/pages/ResponsivePage'),
+  '/serp-history': () => import('@/pages/SerpHistoryPage'),
+  '/competitors': () => import('@/pages/CompetitorsPage'),
+  '/top-analysis': () => import('@/pages/TopAnalysisPage'),
+  '/semantic-core': () => import('@/pages/SemanticCorePage'),
+  '/blog-topics': () => import('@/pages/BlogTopicsPage'),
+  '/intent': () => import('@/pages/IntentPage'),
+  '/history': () => import('@/pages/HistoryPage'),
+  '/account': () => import('@/pages/AccountPage'),
+  '/admin': () => import('@/pages/AdminPage'),
+};
+const prefetched = new Set<string>();
+function prefetch(path: string) {
+  if (prefetched.has(path)) return;
+  const fn = PREFETCH[path];
+  if (!fn) return;
+  prefetched.add(path);
+  fn().catch(() => prefetched.delete(path));
+}
+
 const GROUPS: Group[] = [
   {
     label: 'Главное',
