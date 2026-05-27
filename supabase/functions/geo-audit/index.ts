@@ -38,8 +38,33 @@ async function fetchText(url: string): Promise<string | null> {
   catch { return null; }
 }
 
+/* Returns { status, text } — needed when status code matters (e.g. 404 detection) */
+async function fetchWithStatus(url: string): Promise<{ status: number; text: string } | null> {
+  try {
+    const r = await fetchWithTimeout(url, 10000);
+    const text = await r.text();
+    return { status: r.status, text };
+  } catch { return null; }
+}
+
 function extractDomain(url: string): string {
   try { return new URL(url).origin; } catch { return url; }
+}
+
+/* Weighted score: pass=1, warn=0.5, fail=0 — more honest than %pass-only */
+function weightedScore(items: CheckItem[]): number {
+  if (!items.length) return 0;
+  const sum = items.reduce((acc, i) => acc + (i.status === "pass" ? 1 : i.status === "warn" ? 0.5 : 0), 0);
+  return Math.round((sum / items.length) * 100);
+}
+
+/* Parse href values from <a> tags reliably */
+function extractHrefs(html: string): string[] {
+  const out: string[] = [];
+  const rx = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi;
+  let m;
+  while ((m = rx.exec(html)) !== null) out.push(m[1]);
+  return out;
 }
 
 /* ─── Stage 1: Техническая доступность для ИИ ─── */
@@ -48,18 +73,41 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
 
   // 1.1 robots.txt
   const robotsTxt = await fetchText(`${origin}/robots.txt`);
-  const bots = ["Google-Extended","GPTBot","ChatGPT-User","PerplexityBot","Perplexity-User","Googlebot","YandexBot","BingBot"];
-  for (const bot of bots) {
-    let blocked = false;
-    if (robotsTxt) {
-      const lines = robotsTxt.split("\n");
-      let agent = "";
-      for (const raw of lines) {
-        const line = raw.trim().toLowerCase();
-        if (line.startsWith("user-agent:")) agent = line.replace("user-agent:", "").trim();
-        if ((agent === bot.toLowerCase() || agent === "*") && line.startsWith("disallow:") && line.replace("disallow:", "").trim() === "/") blocked = true;
+  // Parse robots.txt into per-agent Disallow groups so specific bot sections override "*"
+  const agentGroups: Record<string, string[]> = {};
+  if (robotsTxt) {
+    const lines = robotsTxt.split("\n");
+    let currentAgents: string[] = [];
+    let lastWasAgent = false;
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      const lower = line.toLowerCase();
+      if (lower.startsWith("user-agent:")) {
+        const ua = lower.replace("user-agent:", "").trim();
+        if (!lastWasAgent) currentAgents = [];
+        currentAgents.push(ua);
+        lastWasAgent = true;
+        if (!agentGroups[ua]) agentGroups[ua] = [];
+      } else if (lower.startsWith("disallow:")) {
+        const path = lower.replace("disallow:", "").trim();
+        for (const a of currentAgents) agentGroups[a].push(path);
+        lastWasAgent = false;
+      } else {
+        lastWasAgent = false;
       }
     }
+  }
+  const isBlocked = (bot: string): boolean => {
+    const key = bot.toLowerCase();
+    // Specific bot section takes precedence over "*"
+    const rules = agentGroups[key] ?? agentGroups["*"];
+    if (!rules) return false;
+    return rules.includes("/");
+  };
+  const bots = ["Google-Extended","GPTBot","ChatGPT-User","PerplexityBot","Perplexity-User","Googlebot","YandexBot","BingBot"];
+  for (const bot of bots) {
+    const blocked = isBlocked(bot);
     items.push({
       id: `robots-${bot}`, label: `Проверка robots.txt — ${bot}`,
       criteria: `Файл не блокирует user-agent ${bot}. Бот должен иметь доступ к контенту сайта.`,
@@ -137,26 +185,33 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
     detail: hasVP ? "Viewport meta тег найден." : "Viewport meta тег отсутствует.",
   });
 
-  // TTFB
-  let ttfbMs = 0; let ttfbSt: "pass"|"warn"|"fail" = "pass";
-  try { const s = Date.now(); await fetchWithTimeout(url, 10000); ttfbMs = Date.now() - s; if (ttfbMs > 1500) ttfbSt = "fail"; else if (ttfbMs > 800) ttfbSt = "warn"; }
-  catch { ttfbSt = "fail"; ttfbMs = -1; }
+  // Response time from edge — NOT real TTFB (depends on edge geo), labelled honestly
+  let respMs = 0; let respSt: "pass"|"warn"|"fail" = "pass";
+  try { const s = Date.now(); await fetchWithTimeout(url, 10000); respMs = Date.now() - s; if (respMs > 3000) respSt = "fail"; else if (respMs > 1500) respSt = "warn"; }
+  catch { respSt = "fail"; respMs = -1; }
   items.push({
-    id: "ttfb", label: "Скорость ответа сервера (TTFB)",
-    criteria: "Время ответа сервера в идеале не превышает 200 мс.",
+    id: "ttfb", label: "Время ответа сервера",
+    criteria: "Время полного ответа сервера < 1500 мс при запросе из EU/US edge. Реальный TTFB измеряйте через PageSpeed Insights из вашего региона.",
     tools: "PageSpeed Insights, GTmetrix",
-    status: ttfbSt,
-    detail: ttfbMs > 0 ? `TTFB: ${ttfbMs}ms. ${ttfbMs <= 200 ? "Отлично." : ttfbMs <= 800 ? "Приемлемо." : "Медленно."}` : "Не удалось измерить.",
+    status: respSt,
+    detail: respMs > 0
+      ? `Полный ответ: ${respMs} мс (с edge-сервера). Это включает DNS + TLS + TTFB + загрузку HTML. Для точного TTFB используйте PageSpeed Insights.`
+      : "Не удалось измерить — сервер не ответил за 10 сек.",
   });
 
-  // 404
-  const t404 = await fetchText(`${origin}/___test_404___`);
+  // 404 — check actual HTTP status code (not just whether body was returned)
+  const t404 = await fetchWithStatus(`${origin}/___test_404_${Date.now()}___`);
+  const code = t404?.status ?? 0;
+  const correct404 = code === 404 || code === 410;
   items.push({
     id: "404", label: "Обработка ошибок 404",
-    criteria: "Несуществующие страницы корректно отдают код ответа 404 или 410.",
+    criteria: "Несуществующие страницы корректно отдают код ответа 404 или 410 (не 200 с soft-404).",
     tools: "Screaming Frog, GSC",
-    status: t404 !== null ? "pass" : "warn",
-    detail: t404 !== null ? "Сервер возвращает кастомную страницу 404." : "Не удалось проверить.",
+    status: correct404 ? "pass" : code === 200 ? "fail" : "warn",
+    detail: code === 0 ? "Не удалось получить ответ от сервера."
+      : correct404 ? `Сервер корректно возвращает ${code} для несуществующей страницы.`
+      : code === 200 ? "Soft-404: сервер вернул 200 для несуществующей страницы — Google расценит это как дубль контента."
+      : `Сервер вернул HTTP ${code} (ожидался 404 или 410).`,
   });
 
   // JS rendering
@@ -170,7 +225,7 @@ async function stage1(url: string, html: string, origin: string): Promise<StageR
     detail: hasSPA && bodyLen < 500 ? "SPA без SSR — контент минимален." : hasSPA ? "SPA с SSR — контент есть." : "Серверный рендеринг.",
   });
 
-  const score = Math.round((items.filter(i => i.status === "pass").length / items.length) * 100);
+  const score = weightedScore(items);
   return { id: "stage1", title: "Этап 1", subtitle: "Техническая доступность для ИИ", score, items };
 }
 
@@ -222,8 +277,7 @@ async function stage2(url: string, html: string, pageTitle: string): Promise<Sta
     detail: `${h2} H2, ${h3} H3, ${p} параграфов. ${chunks >= 5 ? "Хорошая структура для chunking." : "Недостаточно подзаголовков."}`,
   });
 
-  const score = Math.round((items.filter(i => i.status === "pass").length / items.length) * 100);
-  return { id: "stage2", title: "Этап 2", subtitle: "Прямая проверка в ИИ", score, items };
+  return { id: "stage2", title: "Этап 2", subtitle: "Прямая проверка в ИИ", score: weightedScore(items), items };
 }
 
 /* ─── Stage 3: Структура и семантика ─── */
@@ -301,8 +355,7 @@ function stage3(html: string, pageTitle: string): StageResult {
     detail: hasAtId ? "Обнаружены @id связи в JSON-LD." : "Нет @id связей — рекомендуется связать Organization, WebPage, Author.",
   });
 
-  const score = Math.round((items.filter(i => i.status === "pass").length / items.length) * 100);
-  return { id: "stage3", title: "Этап 3", subtitle: "Анализ структуры и семантической вёрстки", score, items };
+  return { id: "stage3", title: "Этап 3", subtitle: "Анализ структуры и семантической вёрстки", score: weightedScore(items), items };
 }
 
 /* ─── Stage 4: Контент и тематический авторитет ─── */
@@ -322,7 +375,8 @@ function stage4(html: string): StageResult {
   });
 
   // Topic clusters
-  const intLinks = (html.match(/<a[^>]+href=["'][^"']*["']/gi) || []).filter(l => !l.includes("http")).length;
+  const hrefs = extractHrefs(html);
+  const intLinks = hrefs.filter(h => h && !/^https?:\/\//i.test(h) && !h.startsWith("#") && !h.startsWith("mailto:") && !h.startsWith("tel:")).length;
   items.push({
     id: "clusters", label: "Тематические кластеры (Коконы)",
     criteria: "Контент организован в тематические хабы (Pillar + Child pages) с мощной внутренней перелинковкой.",
@@ -376,8 +430,7 @@ function stage4(html: string): StageResult {
     detail: firstP.length > 200 ? "Структура соответствует принципу перевёрнутой пирамиды." : "Рекомендуется вынести ключевые ответы в начало каждого раздела.",
   });
 
-  const score = Math.round((items.filter(i => i.status === "pass").length / items.length) * 100);
-  return { id: "stage4", title: "Этап 4", subtitle: "Контент и тематический авторитет", score, items };
+  return { id: "stage4", title: "Этап 4", subtitle: "Контент и тематический авторитет", score: weightedScore(items), items };
 }
 
 /* ─── Stage 5: E-E-A-T и репутация бренда ─── */
@@ -395,7 +448,23 @@ function stage5(html: string): StageResult {
     detail: `${[hasAuthor&&"автор",hasExp&&"маркеры опыта"].filter(Boolean).join(", ") || "Нет маркеров"}.`,
   });
 
-  const extLinks = (html.match(/<a[^>]+href=["']https?:\/\/[^"']+["']/gi)||[]).filter(l=>!/facebook|twitter|instagram/i.test(l)).length;
+  // External links: parse href, exclude same-origin and social sites
+  const hrefsAll = extractHrefs(html);
+  let ownHost = "";
+  try {
+    // origin is available via closure in stage5? It's not — derive from <link rel=canonical> or skip
+    const canonical = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)?.[1];
+    if (canonical) ownHost = new URL(canonical).hostname.replace(/^www\./, "");
+  } catch {}
+  const extLinks = hrefsAll.filter(h => {
+    if (!/^https?:\/\//i.test(h)) return false;
+    if (/facebook|twitter|x\.com|instagram|t\.me|vk\.com|youtube|tiktok|linkedin/i.test(h)) return false;
+    try {
+      const host = new URL(h).hostname.replace(/^www\./, "");
+      if (ownHost && host === ownHost) return false;
+    } catch {}
+    return true;
+  }).length;
   items.push({
     id: "authority", label: "Авторитетность и Доверие",
     criteria: "Ссылки на авторитетные внешние источники. Легко найти контакты, политики.",
@@ -450,8 +519,7 @@ function stage5(html: string): StageResult {
     detail: hasOrg && hasSameAs ? "Organization + sameAs — хорошие сигналы." : "Нет sameAs связей. Добавьте ссылки на Wikipedia, соцсети, Wikidata.",
   });
 
-  const score = Math.round((items.filter(i => i.status === "pass").length / items.length) * 100);
-  return { id: "stage5", title: "Этап 5", subtitle: "E-E-A-T и репутация бренда", score, items };
+  return { id: "stage5", title: "Этап 5", subtitle: "E-E-A-T и репутация бренда", score: weightedScore(items), items };
 }
 
 /* ─── Recommendations ─── */
