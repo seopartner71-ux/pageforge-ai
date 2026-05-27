@@ -37,6 +37,7 @@ const GROUPS: Group[] = [
       { label: 'Коммерческие факторы', path: '/eeat-audit', icon: Target },
       { label: 'Микроразметка', path: '/schema-audit', icon: Code2 },
       { label: 'Ссылочный аудит', path: '/link-audit', icon: Link2 },
+      { label: 'Ссылочный профиль', path: '/link-profile', icon: Link2 },
     ],
   },
   {
