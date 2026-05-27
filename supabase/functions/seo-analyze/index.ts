@@ -1546,8 +1546,62 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
       wordCount: compWordArrays[i]?.length || 0,
     }));
 
+    // ── Deterministic SEO Health score (computed from programmatic audit, not AI) ──
+    // Weighted checklist — total = 100. AI's "seoHealth" replaced with this objective value.
+    const computeSeoHealth = (): number => {
+      let score = 0;
+      // H1 (15)
+      if (audit.h1Count === 1) score += 15;
+      else if (audit.h1Count === 0) score += 0;
+      else score += 5; // multiple H1s
+      // Meta title (15) — present + reasonable length
+      if (audit.metaTitle) {
+        const len = audit.metaTitle.length;
+        score += len >= 30 && len <= 70 ? 15 : 8;
+      }
+      // Meta description (10)
+      if (audit.metaDesc) {
+        const len = audit.metaDesc.length;
+        score += len >= 70 && len <= 200 ? 10 : 5;
+      }
+      // Canonical (8)
+      if (audit.canonical) score += 8;
+      // OpenGraph (12 = 4+4+4)
+      if (audit.hasOgTitle) score += 4;
+      if (audit.hasOgDesc) score += 4;
+      if (audit.hasOgImage) score += 4;
+      // JSON-LD (10)
+      if (audit.hasJsonLd) score += 10;
+      // Images alt ratio (10)
+      if (audit.totalImages > 0) {
+        const altRatio = 1 - (audit.imagesWithoutAlt / audit.totalImages);
+        score += Math.round(altRatio * 10);
+      } else {
+        score += 5; // no images — neutral
+      }
+      // Word count vs competitors (10)
+      const medianWords = medianFn(compWordCounts);
+      if (medianWords > 0) {
+        const ratio = targetWordCount / medianWords;
+        if (ratio >= 0.8 && ratio <= 1.5) score += 10;
+        else if (ratio >= 0.5) score += 6;
+        else score += 2;
+      } else if (targetWordCount >= 300) score += 7;
+      // Heading structure (10)
+      if (targetH2Count >= 2) score += 5;
+      if (targetH3Count >= 1) score += 5;
+      return Math.min(100, Math.max(0, score));
+    };
+    const deterministicSeoHealth = computeSeoHealth();
+
+    const aiScores = aiParsed.scores || {};
     const finalResult = {
-      scores: aiParsed.scores || { seoHealth: 50, llmFriendly: 50, humanTouch: 50, sgeAdapt: 50 },
+      scores: {
+        seoHealth: deterministicSeoHealth, // computed, not AI
+        llmFriendly: typeof aiScores.llmFriendly === 'number' ? aiScores.llmFriendly : 50,
+        humanTouch: typeof aiScores.humanTouch === 'number' ? aiScores.humanTouch : 50,
+        sgeAdapt: typeof aiScores.sgeAdapt === 'number' ? aiScores.sgeAdapt : 50,
+      },
       quick_wins: aiParsed.quickWins || [],
       tab_data: {
         aiReport: aiParsed.aiReport || {},
