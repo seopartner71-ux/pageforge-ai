@@ -9,7 +9,9 @@ import {
 } from '@/components/ui/table';
 import {
   Play, CheckCircle2, AlertTriangle, XCircle, Loader2, Target, Zap, Clock,
+  FileDown,
 } from 'lucide-react';
+import { exportGeoAuditDocx } from '@/lib/exportGeoAuditDocx';
 
 /* ─── Types ─── */
 interface CheckItem {
@@ -219,6 +221,16 @@ export default function GeoAuditPage() {
                    result.geoScore >= 60 ? 'Есть потенциал для улучшения.' :
                    'Требуется серьёзная доработка.'}
                 </p>
+                <div className="mt-3">
+                  <Button
+                    onClick={() => exportGeoAuditDocx({ url: url.trim(), ...result })}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <FileDown className="w-4 h-4" /> Скачать отчёт Word
+                  </Button>
+                </div>
                 <div className="flex items-center gap-4 mt-4 justify-center md:justify-start text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" />{passCount} пройдено</span>
                   <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-yellow-500" />{warnCount} внимание</span>
