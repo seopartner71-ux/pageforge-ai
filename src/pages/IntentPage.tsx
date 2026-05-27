@@ -148,6 +148,18 @@ export default function IntentPage() {
             { label: 'Зачем', text: 'Подобрать правильный тип страницы под запрос и не тратить силы зря.' },
             { label: 'Результат', text: 'Распределение интентов, рекомендации по контенту и выгрузка в Excel.' },
           ]}
+          help={{
+            content: [
+              'Поисковый интент — намерение пользователя за запросом. Классическая классификация Андрея Бродера (2002, Compaq): Navigational (ищет конкретный сайт), Informational (хочет узнать), Transactional (хочет совершить действие). Google расширил её в Search Quality Rater Guidelines до 4 типов: Know, Do, Website, Visit-in-person.',
+              'Главный принцип Google: соответствие интенту — это первое, что оценивается. Страница, не отвечающая на тип запроса (например, статья по транзакционному запросу), не попадёт в ТОП, даже при идеальной on-page оптимизации. Алгоритм определяет интент по типу страниц, которые сам показывает в ТОП-10.',
+              'Метод определения интента: анализ форматов в ТОП-10 живой выдачи. Если в ТОПе карточки товаров — запрос коммерческий, нужна категория или товар. Статьи и Википедия — информационный, нужен лонгрид. Карты/локальные сниппеты — Visit-in-person, нужна страница филиала с адресом. Это самый надёжный способ — алгоритм сам показывает, что считает правильным ответом.',
+            ],
+            sources: [
+              { label: 'Google Search Quality Rater Guidelines (PDF) — раздел User Intent', url: 'https://services.google.com/fh/files/misc/hsw-sqrg.pdf' },
+              { label: 'Andrei Broder — A taxonomy of web search (2002)', url: 'https://dl.acm.org/doi/10.1145/792550.792552' },
+              { label: 'Google — Helpful Content (people-first)', url: 'https://developers.google.com/search/docs/fundamentals/creating-helpful-content' },
+            ],
+          }}
         />
 
         {/* Форма */}

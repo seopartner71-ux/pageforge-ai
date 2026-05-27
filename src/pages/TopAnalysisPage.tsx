@@ -229,6 +229,18 @@ export default function TopAnalysisPage() {
             { label: 'Зачем', text: 'Понять реальных конкурентов по нише и оценить свою видимость.' },
             { label: 'Результат', text: 'Матрица присутствия, графики, AI-комментарий и выгрузка в Excel.' },
           ]}
+          help={{
+            content: [
+              'Анализ ТОП-10/30 — стандартная методология оценки конкурентного окружения в SERP. Google и Яндекс показывают примерно 10 органических результатов на первой странице — попадание в ТОП-10 даёт ~95% органического трафика по запросу (исследования AWR, Sistrix, 2023).',
+              'Распределение CTR по позициям (данные AWR, Backlinko 2023, Sistrix 2024): #1 — 27–32%, #2 — 15–18%, #3 — 10–11%, #4–10 — суммарно 22–25%, ТОП-30 — менее 1% совокупно. Поэтому смысл бороться имеют именно позиции 1–10.',
+              'Матрица присутствия показывает, какие домены доминируют в нише: если 3–4 сайта системно занимают 60%+ ТОП-10 — это лидеры рынка и одновременно эталон для бенчмаркинга контента, ссылок и UX. Методология применяется в Sistrix Visibility Index, Semrush Position Tracking, Serpstat Domain Comparison.',
+            ],
+            sources: [
+              { label: 'Google Search Quality — How Search ranks results', url: 'https://www.google.com/search/howsearchworks/how-search-works/ranking-results/' },
+              { label: 'Sistrix — Why almost no one clicks past #1', url: 'https://www.sistrix.com/blog/why-almost-no-one-clicks-the-no-1-search-result/' },
+              { label: 'Backlinko — Google CTR Stats 2023', url: 'https://backlinko.com/google-ctr-stats' },
+            ],
+          }}
         />
 
         <TopAnalysisFormatGuide open={guideOpen} onOpenChange={setGuideOpen} />

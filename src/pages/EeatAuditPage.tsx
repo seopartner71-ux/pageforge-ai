@@ -123,6 +123,19 @@ export default function EeatAuditPage() {
             { label: 'Зачем', text: 'Коммерческие факторы и E-E-A-T напрямую влияют на позиции в поиске, доверие пользователей и конверсию. Аудит показывает, чего не хватает сайту, чтобы поисковики и клиенты считали бизнес надёжным.' },
             { label: 'Результат', text: 'Подробный отчёт в Word с балльной оценкой, расшифровкой по каждому пункту и приоритетными рекомендациями. 3 фазы: планирование, сбор контента, детальная оценка.' },
           ]}
+          help={{
+            content: [
+              'E-E-A-T (Experience, Expertise, Authoritativeness, Trustworthiness) — концепция оценки качества контента из официальных Search Quality Rater Guidelines Google. В декабре 2022 Google добавил первое "E" (Experience — личный опыт) к существующему E-A-T. Trust (доверие) — центральный, наиболее важный фактор.',
+              'E-E-A-T напрямую критичен для YMYL-сайтов (Your Money or Your Life): финансы, медицина, юридические услуги, безопасность, госуслуги. Для таких тематик низкая оценка экспертизы автора и доверия к сайту приводит к потере позиций после Core Updates (подтверждено Google в марте 2024).',
+              'Коммерческие факторы — методология Яндекса (с 2011 года, патенты RU 2491635, RU 2733481): полнота реквизитов, разные способы оплаты и доставки, контакты в шапке/подвале, страницы «О компании», «Гарантии», «Сертификаты», «Команда», работающий поиск, реальные отзывы, корзина и оформление заказа. Прямо влияют на ранжирование коммерческих запросов.',
+            ],
+            sources: [
+              { label: 'Google Search Quality Rater Guidelines (PDF)', url: 'https://services.google.com/fh/files/misc/hsw-sqrg.pdf' },
+              { label: 'Google — Creating helpful, reliable, people-first content', url: 'https://developers.google.com/search/docs/fundamentals/creating-helpful-content' },
+              { label: 'Google — What is E-E-A-T (Search Central Blog)', url: 'https://developers.google.com/search/blog/2022/12/google-raters-guidelines-e-e-a-t' },
+              { label: 'Яндекс — Коммерческие факторы (Вебмастер)', url: 'https://yandex.ru/support/webmaster/yandex-indexing/recommendations.html' },
+            ],
+          }}
         />
 
         {/* URL input */}

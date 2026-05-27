@@ -826,6 +826,20 @@ export default function SchemaAuditPage() {
             { label: 'Зачем', text: 'Получить расширенные сниппеты в Google и Яндексе и повысить CTR.' },
             { label: 'Результат', text: 'Отчёт по ошибкам, готовый исправленный код и ТЗ для разработчика в .docx.' },
           ]}
+          help={{
+            content: [
+              'Schema.org — открытая инициатива Google, Microsoft, Yahoo и Yandex (2011 год) по стандартизации словаря структурированных данных. Google официально рекомендует формат JSON-LD как предпочтительный (вкладывается в <head>, не смешивается с HTML, проще поддерживать).',
+              'Расширенные результаты (rich results) в Google формируются только при наличии корректной валидной разметки: AggregateRating, Product, Article, FAQ, HowTo, BreadcrumbList, Organization, LocalBusiness, Recipe, Event и др. Каждый тип имеет обязательные поля — без них сниппет не появится. Проверка ведётся через Rich Results Test и Schema Markup Validator.',
+              'Яндекс поддерживает Schema.org, микроданные и форматы OpenGraph для расширенных сниппетов, отзывов, видео, рецептов, товаров. Корректная разметка увеличивает CTR в выдаче в среднем на 20–30% (исследования Search Engine Land, 2023).',
+            ],
+            sources: [
+              { label: 'Schema.org — официальный словарь', url: 'https://schema.org/docs/full.html' },
+              { label: 'Google — Introduction to structured data', url: 'https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data' },
+              { label: 'Google Rich Results Test', url: 'https://search.google.com/test/rich-results' },
+              { label: 'Schema Markup Validator', url: 'https://validator.schema.org/' },
+              { label: 'Яндекс — Семантическая разметка', url: 'https://yandex.ru/support/webmaster/schema-org/intro-schema-org.html' },
+            ],
+          }}
         />
 
         {/* Mode toggle */}

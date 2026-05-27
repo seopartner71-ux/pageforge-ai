@@ -260,6 +260,19 @@ export default function SerpHistoryPage() {
             { label: 'Зачем', text: 'Реагировать на просадки и видеть, какие сайты растут в нише.' },
             { label: 'Результат', text: 'Таймлайн изменений ТОП-10, графики динамики и история по каждому домену.' },
           ]}
+          help={{
+            content: [
+              'Мониторинг позиций — базовый процесс контроля SEO-результатов. Google и Яндекс ежедневно проводят микро-корректировки выдачи плюс несколько крупных Core Updates в год (Google публикует их в Search Status Dashboard). Без отслеживания истории SERP невозможно отличить системное снижение от случайных колебаний.',
+              'Официальные источники данных по позициям: Google Search Console (отчёт «Эффективность» — клики, показы, CTR, средняя позиция за период до 16 месяцев) и Яндекс.Вебмастер (раздел «Поисковые запросы» с фактическими показами в Яндексе). Сторонние парсеры SERP (наш инструмент) дополняют их данными о ТОП-10 конкретно по нужным запросам и регионам в любой день.',
+              'Резкое массовое изменение позиций (±5 и более у многих запросов одновременно) обычно связано с алгоритмическими апдейтами. Google официально подтверждает их в Search Status Dashboard и Twitter @googlesearchc. Это нормально и не всегда требует действий — нужно дождаться завершения раскатки (1–3 недели) и проанализировать характер изменений.',
+            ],
+            sources: [
+              { label: 'Google Search Status Dashboard (история апдейтов)', url: 'https://status.search.google.com/products/rGHU1u87FJnkP6W2GwMi/history' },
+              { label: 'Google Search Console — Performance report', url: 'https://support.google.com/webmasters/answer/7042828' },
+              { label: 'Google — Ranking Systems Guide', url: 'https://developers.google.com/search/docs/appearance/ranking-systems-guide' },
+              { label: 'Яндекс.Вебмастер — Поисковые запросы', url: 'https://yandex.ru/support/webmaster/searchqueries/popular-queries.html' },
+            ],
+          }}
         />
 
         {/* INPUT PANEL */}
