@@ -142,24 +142,28 @@ export default function EeatAuditPage() {
         />
 
         {/* URL input */}
-        <div className="flex gap-3 max-w-xl mx-auto">
-          <Input
-            value={url}
-            onChange={e => setUrl(e.target.value)}
-            placeholder="https://example.com"
-            className="h-11 text-sm bg-card border-border/60"
-            disabled={isBusy}
-            onKeyDown={e => e.key === 'Enter' && phase === 'idle' && startPlan()}
-          />
-          <Button
-            onClick={startPlan}
-            disabled={isBusy || !url.trim()}
-            className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2 shrink-0"
+        <Card className="p-5">
+          <form
+            onSubmit={(e) => { e.preventDefault(); if (phase === 'idle') startPlan(); }}
+            className="flex flex-col sm:flex-row gap-3"
           >
-            {phase === 'planning' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            {phase === 'planning' ? 'Поиск страниц...' : 'Запустить аудит'}
-          </Button>
-        </div>
+            <Input
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder="example.com или https://example.com/page"
+              className="flex-1"
+              disabled={isBusy}
+            />
+            <Button
+              type="submit"
+              disabled={isBusy || !url.trim()}
+              className="gap-2"
+            >
+              {phase === 'planning' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {phase === 'planning' ? 'Поиск страниц...' : 'Запустить аудит'}
+            </Button>
+          </form>
+        </Card>
 
         {/* PHASE 1: plan */}
         {plan && phase !== 'idle' && phase !== 'planning' && (

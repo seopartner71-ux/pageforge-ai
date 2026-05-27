@@ -3,6 +3,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { PageDescription } from '@/components/PageDescription';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -864,16 +865,24 @@ export default function SchemaAuditPage() {
 
         {/* Single page input */}
         {auditMode === 'single' && (
-        <div className="rounded-xl border border-border/60 bg-card p-6 max-w-2xl mx-auto space-y-3">
-          <Input
-            ref={inputRef}
-            value={url}
-            onChange={e => setUrl(e.target.value)}
-            placeholder="https://example.com/page"
-            className="h-11 text-sm"
-            onKeyDown={e => e.key === 'Enter' && handleRun()}
-            disabled={running}
-          />
+        <Card className="p-5 space-y-3">
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleRun(); }}
+            className="flex flex-col sm:flex-row gap-3"
+          >
+            <Input
+              ref={inputRef}
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder="example.com или https://example.com/page"
+              className="flex-1"
+              disabled={running}
+            />
+            <Button type="submit" disabled={running || !url.trim()} className="gap-2">
+              {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {running ? 'Анализ...' : (manualMode ? 'Анализировать HTML' : 'Проверить микроразметку')}
+            </Button>
+          </form>
           <div className="flex items-center justify-between rounded-md border border-border/40 px-3 py-2">
             <Label htmlFor="manual-mode" className="text-xs text-muted-foreground cursor-pointer">
               Вставить HTML вручную (для сайтов с защитой от ботов)
@@ -889,14 +898,10 @@ export default function SchemaAuditPage() {
               disabled={running}
             />
           )}
-          <Button onClick={handleRun} disabled={running || !url.trim()} className="w-full h-11 gap-2">
-            {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            {running ? 'Анализ...' : (manualMode ? 'Анализировать HTML' : 'Проверить микроразметку')}
-          </Button>
           <p className="text-xs text-muted-foreground text-center">
             Анализируем JSON-LD, Microdata и RDFa • Стоимость: 2 кредита
           </p>
-        </div>
+        </Card>
         )}
 
         {/* Multi-page input */}
