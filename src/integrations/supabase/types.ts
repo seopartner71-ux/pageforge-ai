@@ -532,6 +532,57 @@ export type Database = {
           },
         ]
       }
+      link_profile: {
+        Row: {
+          acceptor_url: string
+          anchor: string
+          cost: number
+          created_at: string
+          donor_url: string
+          id: string
+          last_checked_at: string | null
+          last_error: string | null
+          last_status_code: number | null
+          placed_at: string | null
+          status: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          acceptor_url: string
+          anchor?: string
+          cost?: number
+          created_at?: string
+          donor_url: string
+          id?: string
+          last_checked_at?: string | null
+          last_error?: string | null
+          last_status_code?: number | null
+          placed_at?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          acceptor_url?: string
+          anchor?: string
+          cost?: number
+          created_at?: string
+          donor_url?: string
+          id?: string
+          last_checked_at?: string | null
+          last_error?: string | null
+          last_status_code?: number | null
+          placed_at?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
