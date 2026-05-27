@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Zap, FileDown } from 'lucide-react';
-import { openPageSpeedReportPrint, type PageSpeedResults } from '@/lib/pagespeed/exportPageSpeedReport';
+import { downloadPageSpeedReportDocx, type PageSpeedResults } from '@/lib/pagespeed/exportPageSpeedReport';
 
 export default function PageSpeedPage() {
   const [input, setInput] = useState('');
@@ -24,7 +24,7 @@ export default function PageSpeedPage() {
   const hasResults = !!(results.mobile || results.desktop);
   const handleExport = () => {
     if (!siteUrl || !hasResults) return;
-    openPageSpeedReportPrint({ url: siteUrl, results, checkedAt });
+    void downloadPageSpeedReportDocx({ url: siteUrl, results, checkedAt });
   };
 
   return (
@@ -44,7 +44,7 @@ export default function PageSpeedPage() {
           {hasResults && (
             <Button onClick={handleExport} variant="outline" size="sm" className="gap-2">
               <FileDown className="w-4 h-4" />
-              Отчёт для клиента (PDF)
+              Отчёт для клиента (Word)
             </Button>
           )}
         </div>
