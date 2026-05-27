@@ -20,6 +20,7 @@ const AccountPage = lazy(() => import('./pages/AccountPage.tsx'));
 const ReportRouterPage = lazy(() => import('./pages/ReportRouterPage.tsx'));
 const AdminPage = lazy(() => import('./pages/AdminPage.tsx'));
 const GeoAuditPage = lazy(() => import('./pages/GeoAuditPage.tsx'));
+const EeatAuditPage = lazy(() => import('./pages/EeatAuditPage.tsx'));
 const SharedReportPage = lazy(() => import('./pages/SharedReportPage.tsx'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage.tsx'));
 const TermsPage = lazy(() => import('./pages/TermsPage.tsx'));
@@ -118,6 +119,7 @@ const App = () => (
                 
                 <Route path="/admin" element={<AdminGate><AdminPage /></AdminGate>} />
                 <Route path="/geo-audit" element={<AuthGate><GeoAuditPage /></AuthGate>} />
+                <Route path="/eeat-audit" element={<AuthGate><EeatAuditPage /></AuthGate>} />
                 <Route path="/link-audit" element={<AuthGate><LinkAuditPage /></AuthGate>} />
                 <Route path="/competitors" element={<AuthGate><CompetitorsPage /></AuthGate>} />
                 <Route path="/top-analysis" element={<AuthGate><TopAnalysisPage /></AuthGate>} />

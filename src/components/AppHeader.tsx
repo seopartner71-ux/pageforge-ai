@@ -34,6 +34,7 @@ export function AppHeader() {
   const navItems = [
     { label: tr.nav.analysis, path: '/dashboard' },
     { label: 'GEO Audit', path: '/geo-audit' },
+    { label: 'Коммерческие факторы', path: '/eeat-audit' },
     { label: 'Ссылочный аудит', path: '/link-audit' },
     { label: 'Конкуренты', path: '/competitors' },
     { label: 'Анализ топа', path: '/top-analysis' },
