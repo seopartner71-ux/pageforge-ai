@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { AppHeader } from '@/components/AppHeader';
+import { PageDescription } from '@/components/PageDescription';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -146,21 +147,16 @@ export default function GeoAuditPage() {
           <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
             GEO Audit v2.0 - Полный чек-лист AI Optimization
           </h1>
-          <div className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed space-y-3 text-left bg-card/40 border border-border/60 rounded-lg p-5">
-            <p>
-              <span className="text-foreground font-medium">Что это.</span> GEO (Generative Engine Optimization) - аудит готовности страницы попадать в ответы AI-поиска: ChatGPT, Perplexity, Google AI Overviews, Яндекс Нейро, Gemini.
-            </p>
-            <p>
-              <span className="text-foreground font-medium">Что проверяем.</span> 41 фактор по 5 направлениям: техническая доступность для AI-ботов (robots.txt, llms.txt, рендеринг, скорость), прямая видимость страницы в ИИ-системах, семантическая структура (Schema.org, заголовки, FAQ), качество контента под цитирование (факты, цифры, источники), сигналы E-E-A-T (автор, экспертиза, доверие).
-            </p>
-            <p>
-              <span className="text-foreground font-medium">Зачем.</span> Классическое SEO больше не покрывает весь трафик: пользователи получают ответы прямо в AI-ассистентах. Аудит показывает, попадёт ли ваша страница в эти ответы и что нужно поправить, чтобы её цитировали.
-            </p>
-            <p>
-              <span className="text-foreground font-medium">Результат.</span> GEO Score 0-100, разбивка по этапам, конкретные находки и рекомендации, выгрузка отчёта в Word.
-            </p>
-          </div>
         </div>
+        <PageDescription
+          className="max-w-4xl mx-auto"
+          items={[
+            { label: 'Что это', text: 'GEO (Generative Engine Optimization) — аудит готовности страницы попадать в ответы AI-поиска: ChatGPT, Perplexity, Google AI Overviews, Яндекс Нейро, Gemini.' },
+            { label: 'Что проверяем', text: '41 фактор по 5 направлениям: техническая доступность для AI-ботов (robots.txt, llms.txt, рендеринг, скорость), прямая видимость в ИИ-системах, семантическая структура (Schema.org, заголовки, FAQ), качество контента под цитирование, сигналы E-E-A-T.' },
+            { label: 'Зачем', text: 'Классическое SEO больше не покрывает весь трафик: пользователи получают ответы прямо в AI-ассистентах. Аудит показывает, попадёт ли ваша страница в эти ответы и что нужно поправить, чтобы её цитировали.' },
+            { label: 'Результат', text: 'GEO Score 0–100, разбивка по этапам, конкретные находки и рекомендации, выгрузка отчёта в Word.' },
+          ]}
+        />
 
         {/* Input */}
         <div className="flex gap-3 max-w-xl mx-auto">

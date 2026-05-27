@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AppHeader } from '@/components/AppHeader';
+import { PageDescription } from '@/components/PageDescription';
 import { CompetitorUpload } from '@/components/competitors/CompetitorUpload';
 import { CompetitorMetrics } from '@/components/competitors/CompetitorMetrics';
 import { CompetitorCharts } from '@/components/competitors/CompetitorCharts';
@@ -80,6 +81,15 @@ export default function CompetitorsPage() {
             )}
           </div>
         </div>
+
+        <PageDescription
+          items={[
+            { label: 'Что это', text: 'Сравнительный анализ позиций и видимости вашего сайта против конкурентов по общему семантическому ядру. Загружаете CSV из Serpstat или Топвизор — получаете сводную картину по доменам.' },
+            { label: 'Что проверяем', text: 'Пересечение запросов между сайтами, средние позиции, видимость, ТОП-10 / ТОП-30 каждого конкурента, упущенные ключи (где конкурент в ТОПе, а вы — нет), общие точки роста и уникальные сильные стороны.' },
+            { label: 'Зачем', text: 'Чтобы понять, кто реально борется за вашу аудиторию, по каким запросам вы отстаёте, какие темы у конкурентов работают, и куда направить силы — на расширение семантики или на улучшение существующих страниц.' },
+            { label: 'Результат', text: 'Сводные таблицы по доменам, матрица пересечения запросов, AI-комментарий по сильным и слабым сторонам каждого сайта, выгрузка отчёта в Excel.' },
+          ]}
+        />
 
         <CsvFormatGuide open={guideOpen} onOpenChange={setGuideOpen} />
 

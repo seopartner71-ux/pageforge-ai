@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AppHeader } from '@/components/AppHeader';
+import { PageDescription } from '@/components/PageDescription';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -189,20 +190,6 @@ export default function LinkAuditPage() {
             <p className="text-sm text-muted-foreground mt-1">
               Загрузите CSV-экспорты бэклинков из Ahrefs / SEO-инструментов и сравните до 4 сайтов.
             </p>
-            <div className="text-sm text-muted-foreground max-w-3xl leading-relaxed space-y-3 text-left bg-card/40 border border-border/60 rounded-lg p-5 mt-4">
-              <p>
-                <span className="text-foreground font-medium">Что это.</span> Аудит ссылочного профиля сайта: разбор бэклинков, оценка качества доноров, поиск токсичных ссылок и сравнение с конкурентами.
-              </p>
-              <p>
-                <span className="text-foreground font-medium">Что проверяем.</span> Объём и динамику ссылочной массы, типы ссылок (dofollow/nofollow), анкор-лист, распределение по доменам и зонам, авторитетность доноров (DR/UR), тематичность, признаки спама и пересечения с конкурентами.
-              </p>
-              <p>
-                <span className="text-foreground font-medium">Зачем.</span> Ссылочный профиль остаётся одним из ключевых факторов ранжирования. Аудит показывает, где вы отстаёте от ТОПа, какие доноры дают конкурентам преимущество и какие ссылки тянут сайт вниз.
-              </p>
-              <p>
-                <span className="text-foreground font-medium">Результат.</span> Сравнительные таблицы по 4 сайтам, выявление общих и уникальных доноров, список токсичных ссылок к отклонению, выгрузка отчёта в PDF и Excel.
-              </p>
-            </div>
           </div>
           <div className="flex gap-2 print:hidden items-center">
             {enabled && <SaveStatusBadge state={savingState} hasProject={hasProject} />}
@@ -222,6 +209,14 @@ export default function LinkAuditPage() {
             </Button>
           </div>
         </div>
+        <PageDescription
+          items={[
+            { label: 'Что это', text: 'Аудит ссылочного профиля сайта: разбор бэклинков, оценка качества доноров, поиск токсичных ссылок и сравнение с конкурентами.' },
+            { label: 'Что проверяем', text: 'Объём и динамику ссылочной массы, типы ссылок (dofollow/nofollow), анкор-лист, распределение по доменам и зонам, авторитетность доноров (DR/UR), тематичность, признаки спама и пересечения с конкурентами.' },
+            { label: 'Зачем', text: 'Ссылочный профиль остаётся одним из ключевых факторов ранжирования. Аудит показывает, где вы отстаёте от ТОПа, какие доноры дают конкурентам преимущество и какие ссылки тянут сайт вниз.' },
+            { label: 'Результат', text: 'Сравнительные таблицы по 4 сайтам, выявление общих и уникальных доноров, список токсичных ссылок к отклонению, выгрузка отчёта в PDF и Excel.' },
+          ]}
+        />
 
         {/* Mode switcher */}
         <div className="flex items-center gap-2 print:hidden">
