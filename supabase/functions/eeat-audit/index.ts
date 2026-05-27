@@ -153,6 +153,9 @@ ${PLAN_TARGETS.map(t => `- ${t}`).join("\n")}
 2. Для каждого целевого типа выбери НАИБОЛЕЕ подходящий URL из списка (если есть). Не выдумывай URL — только из списка.
 3. Пропускай страницы, нерелевантные типу сайта (корзина/каталог если это не магазин).
 4. Дополнительно отметь missing — целевые страницы, для которых URL НЕ найден (но они должны быть на сайте).
+5. КРИТИЧНО: НИКОГДА не подставляй URL главной страницы (${siteUrl}) под другими ярлыками. Если для типа страницы нет отдельного URL — добавь его в missing, а в pages не включай.
+6. Если на сайте всего одна страница (lend/одностраничник) — верни пустой массив pages, а все стандартные типы (Контакты, О компании и т.д.) перечисли в missing.
+7. Один URL может встречаться в pages только один раз (без дублей под разными ярлыками).
 
 Верни JSON:
 {
@@ -162,28 +165,41 @@ ${PLAN_TARGETS.map(t => `- ${t}`).join("\n")}
 }`;
   const res = await ai(sys, user);
 
-  // Verify each URL by fetching title+h1
+  // Verify each URL by fetching title+h1; drop duplicates and any that point to homepage
+  const homeUrlNorm = siteUrl.replace(/\/+$/, "");
+  const seen = new Set<string>([homeUrlNorm]);
+  const extraMissing: string[] = [];
   const pages: Array<{ label: string; url: string; title: string; h1: string }> = [];
   for (const p of (res.pages || []).slice(0, 25)) {
+    const u = String(p.url || "").trim().replace(/\/+$/, "");
+    if (!u) continue;
+    if (seen.has(u)) {
+      extraMissing.push(String(p.label));
+      continue;
+    }
+    seen.add(u);
     try {
-      const h = await rawFetch(p.url);
+      const h = await rawFetch(u);
       pages.push({
         label: String(p.label),
-        url: String(p.url),
+        url: u,
         title: extractTitle(h),
         h1: extractH1(h),
       });
     } catch {
-      pages.push({ label: p.label, url: p.url, title: "", h1: "" });
+      pages.push({ label: String(p.label), url: u, title: "", h1: "" });
     }
   }
   // Always include homepage
   pages.unshift({ label: "Главная", url: siteUrl, title: homeTitle, h1: homeH1 });
 
+  const missing = Array.isArray(res.missing) ? res.missing : [];
+  const mergedMissing = [...new Set([...missing, ...extraMissing])];
+
   return {
     siteType: res.siteType || "Сайт услуг / Корпоративный сайт",
     pages,
-    missing: Array.isArray(res.missing) ? res.missing : [],
+    missing: mergedMissing,
   };
 }
 
@@ -200,7 +216,11 @@ async function runCollect(pages: Array<{ label: string; url: string }>) {
       }
       const html = await rawFetch(p.url);
       if (!html) return { label: p.label, url: p.url, content: "", error: "Не удалось загрузить страницу" };
-      return { label: p.label, url: p.url, content: htmlToText(html).slice(0, 12000) };
+      const text = htmlToText(html);
+      if (text.length < 300) {
+        return { label: p.label, url: p.url, content: "", error: `Слишком мало контента (${text.length} симв.) - вероятно страница пустая, 404 или защищена от ботов` };
+      }
+      return { label: p.label, url: p.url, content: text.slice(0, 12000) };
     }));
     out.push(...results);
   }
