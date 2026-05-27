@@ -25,6 +25,7 @@ const GROUPS: Group[] = [
       { label: 'Коммерческие факторы', path: '/eeat-audit', icon: Target, desc: 'E-E-A-T и коммерческие сигналы доверия' },
       { label: 'Микроразметка', path: '/schema-audit', icon: Code2, desc: 'Schema.org, OpenGraph, валидация JSON-LD' },
       { label: 'Ссылочный аудит', path: '/link-audit', icon: Link2, desc: 'Внутренние и внешние ссылки, анкоры' },
+     { label: 'Ссылочный профиль', path: '/link-profile', icon: Link2, desc: 'Учёт размещённых ссылок: статус, бюджет, потери' },
     ],
   },
   {
