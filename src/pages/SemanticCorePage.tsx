@@ -596,6 +596,21 @@ export default function SemanticCorePage() {
             { label: 'Зачем', text: 'Получить готовое ядро с группировкой под страницы сайта без ручной работы.' },
             { label: 'Результат', text: 'Таблица запросов с частотами и интентом, кластеры и выгрузка в Excel.' },
           ]}
+          help={{
+            content: [
+              'Семантическое ядро (СЯ) — структурированный список поисковых запросов, по которым сайт планирует ранжироваться. Это фундамент SEO-стратегии: на основе СЯ строится структура сайта, контент-план, посадочные страницы. Без полного ядра невозможна корректная on-page оптимизация и группировка запросов по страницам.',
+              'Официальные источники частотности: Google Keyword Planner (требует аккаунт Ads, показывает диапазоны), Google Search Console (фактические показы по уже работающим запросам), Яндекс Wordstat (точная частота за месяц по регионам), Яндекс.Директ Прогноз бюджета. Сторонние сервисы (Serpstat, Ahrefs, Semrush, Keys.so) дают расширенные базы и автодополнения, но опираются на те же первоисточники + клик-стрим.',
+              'Кластеризация ядра по выдаче (SERP-based clustering) — стандарт индустрии с 2015 года: два запроса входят в один кластер, если их ТОП-10 пересекается на N URL (порог 3–7). Метод исключает субъективность ручной группировки и точно показывает, что Google/Яндекс считает «одной темой». Реализуется в Topvisor, Just-Magic, KeyAssort, Serpstat Clustering.',
+              'Учёт интента при сборке ядра — обязательное требование Google Quality Guidelines. Информационные и коммерческие запросы должны попадать на разные типы страниц (статья vs. карточка/категория), иначе страница не пройдёт по «соответствию интенту» и не выйдет в ТОП.',
+            ],
+            sources: [
+              { label: 'Google Keyword Planner — официальный сервис', url: 'https://ads.google.com/home/tools/keyword-planner/' },
+              { label: 'Google Search Console — Performance', url: 'https://support.google.com/webmasters/answer/7042828' },
+              { label: 'Яндекс Wordstat — официальная справка', url: 'https://yandex.ru/support/direct/keywords/wordstat.html' },
+              { label: 'Google Search Quality Rater Guidelines', url: 'https://services.google.com/fh/files/misc/hsw-sqrg.pdf' },
+              { label: 'Google — Keyword research basics (Search Central)', url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide#audience' },
+            ],
+          }}
         />
 
         {/* INPUT PANEL */}

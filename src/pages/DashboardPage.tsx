@@ -307,6 +307,20 @@ export default function DashboardPage() {
                 { label: 'Зачем', text: 'Чтобы увидеть, чего не хватает вашей странице для выхода в ТОП: какие темы раскрывают конкуренты, какие сущности и ключи упускаете, какие технические ошибки мешают ранжированию.' },
                 { label: 'Результат', text: 'Подробный отчёт с оценкой по модулям, конкурентный анализ ТОП-10, список задач P1/P2/P3, готовый план внедрения и выгрузка в Excel, PDF или Google Docs.' },
               ]}
+              help={{
+                content: [
+                  'On-page SEO — оптимизация элементов самой страницы, которые поисковые системы используют для понимания темы и качества контента. Базовые рекомендации зафиксированы в Google SEO Starter Guide: уникальный точный title (50–60 символов), описательный meta description (≤ 160 символов), один H1, логичная структура H2–H6, alt-атрибуты у изображений, читаемые URL.',
+                  'Сравнение с ТОП-10 — стандартная методология конкурентного контент-анализа: вычисление средней длины текста, количества заголовков, плотности тематических n-грамм. Используется TF-IDF (Term Frequency — Inverse Document Frequency, классический алгоритм информационного поиска, Spärck Jones, 1972) для выявления значимых терминов, которые есть у конкурентов и отсутствуют у вас.',
+                  'Google неоднократно подтверждал (John Mueller, Search Central Office Hours, 2021–2024): нет фиксированной "оптимальной" длины контента или плотности ключей. Алгоритм оценивает полноту раскрытия темы (topical authority), наличие сущностей (entities из Knowledge Graph) и качество подачи. Поэтому проверка сравнивает страницу с реальным ТОПом, а не с абстрактными нормативами.',
+                ],
+                sources: [
+                  { label: 'Google SEO Starter Guide', url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide' },
+                  { label: 'Google — How Search Works', url: 'https://www.google.com/search/howsearchworks/' },
+                  { label: 'Google — Helpful Content System', url: 'https://developers.google.com/search/updates/helpful-content-update' },
+                  { label: 'Stanford IR Book — TF-IDF', url: 'https://nlp.stanford.edu/IR-book/html/htmledition/tf-idf-weighting-1.html' },
+                  { label: 'Яндекс — Алгоритм Королёв (нейросети и смысл)', url: 'https://yandex.ru/company/technologies/korolev/' },
+                ],
+              }}
             />
             <AnalysisForm
               onStartAnalysis={handleStartAnalysis}

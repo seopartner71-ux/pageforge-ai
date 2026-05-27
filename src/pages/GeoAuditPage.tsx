@@ -156,6 +156,20 @@ export default function GeoAuditPage() {
             { label: 'Зачем', text: 'Классическое SEO больше не покрывает весь трафик: пользователи получают ответы прямо в AI-ассистентах. Аудит показывает, попадёт ли ваша страница в эти ответы и что нужно поправить, чтобы её цитировали.' },
             { label: 'Результат', text: 'GEO Score 0–100, разбивка по этапам, конкретные находки и рекомендации, выгрузка отчёта в Word.' },
           ]}
+          help={{
+            content: [
+              'GEO (Generative Engine Optimization) — оптимизация под генеративные поисковые системы: Google AI Overviews / AI Mode, ChatGPT Search, Perplexity, Microsoft Copilot, Яндекс Нейро. Термин введён в академической работе «GEO: Generative Engine Optimization» (Princeton, Georgia Tech, IIT Delhi, 2023, arXiv:2311.09735).',
+              'Ключевое отличие от классического SEO: AI-поисковики извлекают и цитируют фрагменты страниц, а не показывают список ссылок. Факторы цитирования: чёткая структура (H1–H3, списки, таблицы), наличие прямых ответов в первых абзацах, цитируемые данные и цифры, Schema.org разметка (Article, FAQ, HowTo), сигналы E-E-A-T автора и сайта.',
+              'llms.txt — предложенный стандарт (llmstxt.org, сентябрь 2024) для предоставления LLM-моделям структурированного описания сайта. AI-боты также используют robots.txt с директивами для GPTBot, Google-Extended, PerplexityBot, ClaudeBot — блокировка/разрешение их доступа напрямую влияет на цитируемость.',
+            ],
+            sources: [
+              { label: 'Google — AI Overviews and AI Mode', url: 'https://blog.google/products/search/ai-mode-general-availability/' },
+              { label: 'Princeton/GeorgiaTech — GEO research paper (arXiv)', url: 'https://arxiv.org/abs/2311.09735' },
+              { label: 'llms.txt — официальная спецификация', url: 'https://llmstxt.org/' },
+              { label: 'Google — Google-Extended user agent', url: 'https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers#google-extended' },
+              { label: 'OpenAI — GPTBot', url: 'https://platform.openai.com/docs/gptbot' },
+            ],
+          }}
         />
 
         {/* Input */}
