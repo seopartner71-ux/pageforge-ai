@@ -142,7 +142,13 @@ export function AppSidebar() {
                   return (
                     <SidebarMenuItem key={item.path}>
                       <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={item.label}>
-                        <NavLink to={item.path} className="flex items-center gap-2">
+                        <NavLink
+                          to={item.path}
+                          className="flex items-center gap-2"
+                          onMouseEnter={() => prefetch(item.path)}
+                          onFocus={() => prefetch(item.path)}
+                          onTouchStart={() => prefetch(item.path)}
+                        >
                           <Icon className="h-4 w-4 shrink-0" />
                           <span>{item.label}</span>
                         </NavLink>
@@ -163,7 +169,13 @@ export function AppSidebar() {
             return (
               <SidebarMenuItem key={item.path}>
                 <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={item.label}>
-                  <NavLink to={item.path} className="flex items-center gap-2">
+                  <NavLink
+                    to={item.path}
+                    className="flex items-center gap-2"
+                    onMouseEnter={() => prefetch(item.path)}
+                    onFocus={() => prefetch(item.path)}
+                    onTouchStart={() => prefetch(item.path)}
+                  >
                     <Icon className="h-4 w-4 shrink-0" />
                     <span>{item.label}</span>
                   </NavLink>
