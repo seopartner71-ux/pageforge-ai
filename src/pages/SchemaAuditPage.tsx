@@ -846,7 +846,7 @@ export default function SchemaAuditPage() {
         />
 
         {/* Mode toggle */}
-        <div className="max-w-2xl mx-auto flex items-center justify-center gap-1 rounded-lg border border-border/60 bg-card p-1">
+        <div className="flex items-center justify-center gap-1 rounded-lg border border-border/60 bg-card p-1">
           <button
             onClick={() => setAuditMode('single')}
             disabled={running}
@@ -906,7 +906,7 @@ export default function SchemaAuditPage() {
 
         {/* Multi-page input */}
         {auditMode === 'site' && (
-        <div className="rounded-xl border border-border/60 bg-card p-6 max-w-3xl mx-auto space-y-3">
+        <Card className="p-5 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">Добавьте до 5 ключевых страниц сайта — для каждой укажите тип</p>
             <Button size="sm" variant="outline" onClick={fetchSitemapPages} disabled={running || sitemapBusy} className="gap-2 h-8 text-xs">
@@ -957,7 +957,7 @@ export default function SchemaAuditPage() {
           <p className="text-xs text-muted-foreground text-center">
             Стоимость: 2 кредита за страницу • {pages.filter(p => p.url.trim()).length * 2} кредитов
           </p>
-        </div>
+        </Card>
         )}
 
         {/* Loading */}
