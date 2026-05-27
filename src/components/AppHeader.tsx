@@ -41,9 +41,15 @@ export function AppHeader() {
     { label: 'Интент', path: '/intent' },
     { label: 'Микроразметка', path: '/schema-audit' },
     { label: 'История SERP', path: '/serp-history' },
+  ];
+
+  const userMenuLabel = isAdmin ? '⚙ Админ' : tr.nav.account;
+  const userMenuActive = ['/history', '/account', '/admin'].includes(location.pathname);
+  const userMenuChildren = [
     { label: tr.nav.history, path: '/history' },
-    ...(isAdmin ? [] : [{ label: tr.nav.account, path: '/account' }]),
-    ...(isAdmin ? [{ label: '⚙ Админ', path: '/admin' }] : []),
+    ...(isAdmin
+      ? [{ label: '⚙ Админ-панель', path: '/admin' }]
+      : [{ label: tr.nav.account, path: '/account' }]),
   ];
 
   return (
@@ -115,6 +121,33 @@ export function AppHeader() {
               {item.label}
             </button>
           ))}
+
+          {/* User / Admin dropdown с подпунктом История */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={`px-3 py-1.5 text-[13px] rounded-md whitespace-nowrap transition-colors inline-flex items-center gap-1 ${
+                  userMenuActive
+                    ? 'font-medium text-foreground bg-secondary'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                }`}
+              >
+                {userMenuLabel}
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[180px]">
+              {userMenuChildren.map((c) => (
+                <DropdownMenuItem
+                  key={c.path}
+                  onClick={() => navigate(c.path)}
+                  className={location.pathname === c.path ? 'bg-secondary font-medium' : ''}
+                >
+                  {c.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </nav>
 
         {/* Right: Lang + Logout */}
