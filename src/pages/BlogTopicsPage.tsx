@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  Loader2, Search, Download, Sparkles, RefreshCw, Star, Filter,
+  Loader2, Search, Download, Sparkles, RefreshCw, Star, Filter, PenSquare,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -167,10 +167,13 @@ export default function BlogTopicsPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <main className="container py-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <main className="container py-6 space-y-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold">Темы для блога</h1>
+            <h1 className="text-2xl font-semibold flex items-center gap-2">
+              <PenSquare className="w-6 h-6 text-primary" />
+              Темы для блога
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Информационные темы с анализом конкуренции через топ-10 Google
             </p>

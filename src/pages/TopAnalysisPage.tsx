@@ -17,7 +17,7 @@ import { filterMarketplaces, getExcludedDomains } from '@/lib/topAnalysis/market
 import { ExcludedDomainsManager } from '@/components/topAnalysis/ExcludedDomainsManager';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download } from 'lucide-react';
+import { Download, BarChart3 } from 'lucide-react';
 import { useToolHistory } from '@/hooks/useToolHistory';
 import { SaveStatusBadge } from '@/components/SaveStatusBadge';
 
@@ -169,9 +169,12 @@ export default function TopAnalysisPage() {
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container py-6 space-y-5">
-        <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold">Анализ топа</h1>
+            <h1 className="text-2xl font-semibold flex items-center gap-2">
+              <BarChart3 className="w-6 h-6 text-primary" />
+              Анализ топа
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Загрузите отдельные CSV для Яндекса и Google — для каждой ПС своя матрица, графики, AI-анализ и Excel.
             </p>

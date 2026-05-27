@@ -10,7 +10,7 @@ import { AiInsights } from '@/components/competitors/AiInsights';
 import { CsvFormatGuide } from '@/components/competitors/CsvFormatGuide';
 import { CompetitorRow } from '@/lib/competitors/parseCompetitorsCsv';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, Users } from 'lucide-react';
 import { useToolHistory } from '@/hooks/useToolHistory';
 import { SaveStatusBadge } from '@/components/SaveStatusBadge';
 // exceljs+chart.js (~1MB) — динамический импорт при клике
@@ -59,9 +59,12 @@ export default function CompetitorsPage() {
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container py-6 space-y-5">
-        <div className="flex items-end justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold">Конкуренты</h1>
+            <h1 className="text-2xl font-semibold flex items-center gap-2">
+              <Users className="w-6 h-6 text-primary" />
+              Конкуренты
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Загрузите CSV-выгрузку из Serpstat / Топвизор и получите сравнительный анализ доменов.
             </p>
