@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,13 @@ export default function EeatAuditPage() {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [collected, setCollected] = useState<CollectedPage[]>([]);
   const [result, setResult] = useState<EeatAuditData | null>(null);
+  const resultRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (phase === 'done' && resultRef.current) {
+      resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [phase]);
 
   const isBusy = phase === 'planning' || phase === 'collecting' || phase === 'auditing';
 
