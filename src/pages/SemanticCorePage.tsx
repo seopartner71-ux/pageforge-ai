@@ -575,15 +575,14 @@ export default function SemanticCorePage() {
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <main className="container py-6 space-y-6">
-        {/* Header */}
+      <main className="container py-6 space-y-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Network className="w-5 h-5 text-primary" />
-              <h1 className="text-xl font-semibold">Семантическое ядро</h1>
-            </div>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-2xl font-semibold flex items-center gap-2">
+              <Network className="w-6 h-6 text-primary" />
+              Семантическое ядро
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
               AI-сборка ядра + кластеризация по интенту и пересечению выдачи
             </p>
           </div>

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Play, Loader2, FileDown, CheckCircle2, XCircle, MinusCircle, AlertTriangle } from 'lucide-react';
+import { Play, Loader2, FileDown, CheckCircle2, XCircle, MinusCircle, AlertTriangle, Target } from 'lucide-react';
 import { exportEeatAuditDocx, type EeatAuditData } from '@/lib/exportEeatAuditDocx';
 
 interface PlanPage { label: string; url: string; title: string; h1: string; }
@@ -109,14 +109,17 @@ export default function EeatAuditPage() {
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
-      <main className="container max-w-[1200px] py-10 space-y-8">
-        <div className="text-center space-y-3">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-            Аудит E-E-A-T и Коммерческих факторов
+      <main className="container py-6 space-y-5">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <Target className="w-6 h-6 text-primary" />
+            Коммерческие факторы и E-E-A-T
           </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Комплексная проверка сайта по сигналам качества Google и коммерческим факторам Яндекса.
+          </p>
         </div>
         <PageDescription
-          className="max-w-4xl mx-auto"
           items={[
             { label: 'Что это', text: 'Комплексная проверка сайта по сигналам E-E-A-T (Опыт, Экспертиза, Авторитетность, Доверие) и коммерческим факторам ранжирования Яндекса и Google.' },
             { label: 'Что проверяем', text: 'Ключевые сервисные страницы (Контакты, О компании, Доставка, Оплата, Гарантии, Сертификаты, Команда, Отзывы), полноту реквизитов и контактов, 76 пунктов базового чек-листа и 5–8 нишевых факторов под тематику сайта.' },
