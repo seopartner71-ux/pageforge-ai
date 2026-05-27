@@ -52,7 +52,7 @@ async function getProxyConfig(): Promise<{ url: string; enabled: boolean; token:
         else if (row.key_name === "proxy_token" && row.key_value) token = row.key_value;
       }
     }
-  } catch (_e) { /* ignore — fall back to env */ }
+  } catch (_e) { /* ignore - fall back to env */ }
   __proxyCfgCache = { url, enabled, token, ts: Date.now() };
   return __proxyCfgCache;
 }
@@ -96,7 +96,7 @@ async function proxyFetch(url: string, options: RequestInit = {}): Promise<Respo
       }),
     });
     if (!relayResp.ok) {
-      // Relay itself failed — surface as a synthetic Response with same status
+      // Relay itself failed - surface as a synthetic Response with same status
       const errText = await relayResp.text().catch(() => "");
       return new Response(errText || `Proxy relay error ${relayResp.status}`, {
         status: relayResp.status,
@@ -156,7 +156,7 @@ const OPENROUTER_HEADERS_EXTRA = {
 const MAX_KEYWORDS = 5000;
 const MAX_SERP_KEYWORDS = 80;
 
-// DataForSEO region mapping (location_code) — verified codes for Russia
+// DataForSEO region mapping (location_code) - verified codes for Russia
 const DFS_REGION_CODES: Record<string, number> = {
   "Россия": 21136,
   "Москва": 21156,
@@ -204,7 +204,7 @@ function dfsLocation(region: string): number {
 }
 
 // =====================================================================
-// INTERNATIONAL REGIONS (US/UK/DE/FR/ES) — Burzhunet semantic core.
+// INTERNATIONAL REGIONS (US/UK/DE/FR/ES) - Burzhunet semantic core.
 // DataForSEO supports these directly (no proxy/regional restriction).
 // =====================================================================
 interface IntlConfig {
@@ -322,10 +322,10 @@ function expandSystemForRegion(region: string): string {
 function expandUserPrompt(topic: string, seeds: string[], region: string) {
   const cfg = intlConfig(region);
   if (!cfg) {
-    return `Тема: ${topic}\nДоп. ключи: ${seeds.join(", ") || "—"}\n\nСгенерируй 150-200 поисковых запросов по категориям:\n1. Основные (20-30): прямые запросы\n2. Коммерческие (40-50): купить, цена, заказать, недорого, доставка\n3. Информационные (30-40): как выбрать, отзывы, рейтинг, сравнение\n4. Вопросные (20-30): как, что, где, почему, сколько стоит\n5. Хвостовые (30-40): с уточнениями по бренду, городу, размеру\n6. LSI и синонимы (20-30): смежные понятия\nРегион: ${region}`;
+    return `Тема: ${topic}\nДоп. ключи: ${seeds.join(", ") || "-"}\n\nСгенерируй 150-200 поисковых запросов по категориям:\n1. Основные (20-30): прямые запросы\n2. Коммерческие (40-50): купить, цена, заказать, недорого, доставка\n3. Информационные (30-40): как выбрать, отзывы, рейтинг, сравнение\n4. Вопросные (20-30): как, что, где, почему, сколько стоит\n5. Хвостовые (30-40): с уточнениями по бренду, городу, размеру\n6. LSI и синонимы (20-30): смежные понятия\nРегион: ${region}`;
   }
   return (
-    `Topic: ${topic}\nExtra seeds: ${seeds.join(", ") || "—"}\nRegion: ${region}\nLanguage: ${cfg.language_name}\n\n` +
+    `Topic: ${topic}\nExtra seeds: ${seeds.join(", ") || "-"}\nRegion: ${region}\nLanguage: ${cfg.language_name}\n\n` +
     `Generate 150-200 search queries in ${cfg.language_name} across these categories:\n` +
     `1. Core (20-30): direct topical queries\n` +
     `2. Commercial (40-50): buy, price, order, cheap, shipping, near me\n` +
@@ -371,7 +371,7 @@ function filterValidKeywords(arr: string[], region = ""): string[] {
       if (!intl && /[a-zA-Z]/.test(s)) return false;       // RU only: forbid latin
       if (intl && /[а-яёА-ЯЁ]/.test(s)) return false;       // INTL: forbid cyrillic
       const words = s.split(/\s+/).filter(Boolean);
-      if (words.length < 2) return false;         // минимум 2 слова — никаких "хризантемы"
+      if (words.length < 2) return false;         // минимум 2 слова - никаких "хризантемы"
       return true;
     });
 }
@@ -389,9 +389,9 @@ async function aiSuggestionsForRu(
     "ЗАПРЕЩЕНО: английские слова, транслитерация, украинские топонимы. " +
     "Генерируй ТОЛЬКО запросы от 2 до 6 слов. " +
     "НЕ генерируй однословные запросы (названия цветов, существительные без контекста типа 'хризантемы', 'пионы', 'ранункулюсы'). " +
-    "Каждый запрос должен отражать реальное намерение пользователя — такое, как его вводят пользователи в Яндекс/Google.";
+    "Каждый запрос должен отражать реальное намерение пользователя - такое, как его вводят пользователи в Яндекс/Google.";
   const user1 =
-    `Тема: ${topic}\nДоп. ключи: ${seeds.join(", ") || "—"}\nРегион: ${region}\n\n` +
+    `Тема: ${topic}\nДоп. ключи: ${seeds.join(", ") || "-"}\nРегион: ${region}\n\n` +
     `Сгенерируй 200 высокочастотных и среднечастотных поисковых запросов:\n` +
     `- прямые коммерческие (купить, цена, заказать, доставка, недорого)\n` +
     `- транзакционные (оформить, оплатить, в наличии)\n` +
@@ -559,7 +559,7 @@ async function dfsAutocompleteSource(
   ].map((s) => s.trim().toLowerCase()).filter((s) => s && s.length >= 2))).slice(0, 200);
 
   const merged = new Map<string, DfsKwData>();
-  // search_volume/live accepts up to 1000 keywords per task — split safely
+  // search_volume/live accepts up to 1000 keywords per task - split safely
   const chunkSize = 100;
   let logged = 0;
   for (let i = 0; i < candidates.length; i += chunkSize) {
@@ -664,7 +664,7 @@ async function dfsKeywordSuggestions(
         const sv = Number(it?.search_volume ?? 0);
         if (!kw) continue;
         if (!keepKeyword(kw, region)) continue;
-        // Google Ads endpoint returns `competition_index` (0-100) — use as KD proxy.
+        // Google Ads endpoint returns `competition_index` (0-100) - use as KD proxy.
         const kdRaw = it?.keyword_difficulty
           ?? it?.competition_index
           ?? it?.keyword_properties?.keyword_difficulty
@@ -688,7 +688,7 @@ async function dfsKeywordSuggestions(
     console.error(`[DFS suggestions/keywords_for_keywords] error:`, (e as Error).message);
   }
 
-  // Fallback: Labs keyword_suggestions (no location_code — was rejecting on this plan)
+  // Fallback: Labs keyword_suggestions (no location_code - was rejecting on this plan)
   const queries = [topic, ...seeds.slice(0, 5)];
   console.log(`[DFS suggestions] FALLBACK to Labs API (no location)`);
 
@@ -970,7 +970,7 @@ async function topvisorVolumes(
   regionId: number,
 ): Promise<({ ws: number; exact: number } | null)[]> {
   // Returns null when Topvisor gave no answer for that keyword (network/HTTP error).
-  // Returns { ws: 0, exact: 0 } when Topvisor explicitly reports zero — that is a REAL zero.
+  // Returns { ws: 0, exact: 0 } when Topvisor explicitly reports zero - that is a REAL zero.
   const out: ({ ws: number; exact: number } | null)[] = new Array(keywords.length);
   const token = TOPVISOR_KEY_ENV;
   const userId = TOPVISOR_USER_ID_ENV;
@@ -1029,7 +1029,7 @@ async function topvisorVolumes(
             else zeroCount++;
             out[start + i] = hit;
           } else {
-            // Topvisor didn't return this keyword at all — unknown, not a real zero.
+            // Topvisor didn't return this keyword at all - unknown, not a real zero.
             out[start + i] = null;
           }
         }
@@ -1050,7 +1050,7 @@ async function fetchFrequencies(
   jobId: string,
 ): Promise<{ ws: number; exact: number }[]> {
   // Topvisor enrichment for RU regions and DFS volumes for non-RU run upstream.
-  // Anything reaching here had NO real data — return real zeros, not fake mock numbers.
+  // Anything reaching here had NO real data - return real zeros, not fake mock numbers.
   // (Mock numbers like 21134/22218 are misleading and were causing wrong analysis.)
   const out: { ws: number; exact: number }[] = new Array(keywords.length);
   for (let i = 0; i < keywords.length; i++) out[i] = { ws: 0, exact: 0 };
@@ -1060,10 +1060,10 @@ async function fetchFrequencies(
 
 // ============== STEP C: INTENT ==============
 // Порядок проверки: от специфичного к общему.
-// 1) NAV — поиск конкретного сайта/раздела
-// 2) TRANSAC — явное намерение купить/заказать/оплатить
-// 3) COMMERCIAL — выбор/сравнение перед покупкой
-// 4) INFO — всё остальное (включая голые существительные без глаголов)
+// 1) NAV - поиск конкретного сайта/раздела
+// 2) TRANSAC - явное намерение купить/заказать/оплатить
+// 3) COMMERCIAL - выбор/сравнение перед покупкой
+// 4) INFO - всё остальное (включая голые существительные без глаголов)
 const NAV = [
   "официальный сайт", "сайт", "официальный",
   "личный кабинет", "войти", "вход",
@@ -1085,7 +1085,7 @@ function classifyIntent(kw: string): Intent {
   if (NAV.some((w) => k.includes(w))) return "nav";
   if (TRANSAC.some((w) => k.includes(w))) return "transac";
   if (COMMERCIAL.some((w) => k.includes(w))) return "commercial";
-  // По умолчанию — информационный (включая голые существительные,
+  // По умолчанию - информационный (включая голые существительные,
   // вопросы "как/что/почему/зачем/где найти", "обзор" и т.д.)
   return "info";
 }
@@ -1214,9 +1214,9 @@ async function nameClustersBatch(
     .join("\n");
   const intentHint =
     intentGroup === "commercial"
-      ? "Это КОММЕРЧЕСКИЕ запросы — название должно отражать коммерческое намерение (например: \"Купить цветы с доставкой\", \"Заказать торт онлайн\", \"Цена на ремонт квартиры\")."
+      ? "Это КОММЕРЧЕСКИЕ запросы - название должно отражать коммерческое намерение (например: \"Купить цветы с доставкой\", \"Заказать торт онлайн\", \"Цена на ремонт квартиры\")."
       : intentGroup === "informational"
-      ? "Это ИНФОРМАЦИОННЫЕ запросы — название должно отражать тему статьи или гайда (например: \"Уход за орхидеями\", \"Как выбрать ноутбук\", \"Что такое SEO\")."
+      ? "Это ИНФОРМАЦИОННЫЕ запросы - название должно отражать тему статьи или гайда (например: \"Уход за орхидеями\", \"Как выбрать ноутбук\", \"Что такое SEO\")."
       : "Дай нейтральное тематическое название.";
   try {
     const resp = await fetch(AI_URL, {
@@ -1251,7 +1251,7 @@ async function nameClustersBatch(
   }
 }
 
-// Retry naming for a single cluster with a simpler prompt — used as fallback
+// Retry naming for a single cluster with a simpler prompt - used as fallback
 // when the batch call returned the default "Кластер N" placeholder.
 async function nameClusterSingle(keywords: string[]): Promise<string | null> {
   if (!keywords.length) return null;
@@ -1333,7 +1333,7 @@ async function runPipeline(jobId: string) {
   console.log('[DataForSEO] Password configured:', !!Deno.env.get('DATAFORSEO_PASSWORD'));
   console.log('[DataForSEO] dfsAvailable:', dfsAvailable, '| enabledSources:', enabledSources);
   if (!dfsAvailable) {
-    console.warn("[DataForSEO] Credentials missing or invalid — falling back to AI-only expansion");
+    console.warn("[DataForSEO] Credentials missing or invalid - falling back to AI-only expansion");
   }
 
   // NOTE: Wordstat API is unreachable from Supabase Edge runtime (DNS blocked).
@@ -1371,8 +1371,8 @@ async function runPipeline(jobId: string) {
     );
   }
 
-  // RU/BY long-tail boost via AI (Wordstat is disabled — DNS blocked from edge).
-  // For international regions we skip this branch — aiExpandOnce handles it.
+  // RU/BY long-tail boost via AI (Wordstat is disabled - DNS blocked from edge).
+  // For international regions we skip this branch - aiExpandOnce handles it.
   if (isRu && !isIntlRegion(region) && (useSuggestions || useCompetitors)) {
     sourcePromises.push(
       aiSuggestionsForRu(topic, seeds, region)
@@ -1382,7 +1382,7 @@ async function runPipeline(jobId: string) {
   }
 
   if (useAi || !dfsAvailable) {
-    // AI source — when DFS unavailable we still rely on AI for the bulk
+    // AI source - when DFS unavailable we still rely on AI for the bulk
     sourcePromises.push(
       aiExpandOnce(topic, seeds, region)
         .then((kws) => ({ source: "ai", keywords: kws }))
@@ -1478,7 +1478,7 @@ async function runPipeline(jobId: string) {
     dataforseo_cost: Number(cost.total.toFixed(4)),
   });
 
-  // STEP B: frequencies — prefer DataForSEO real volumes, fall back to wordstat/mock
+  // STEP B: frequencies - prefer DataForSEO real volumes, fall back to wordstat/mock
   await updateJob(jobId, { status: "frequencies", progress: 40 });
   const dataSources: DataSource[] = new Array(rawKeywords.length);
   let realCount = 0;
@@ -1489,7 +1489,7 @@ async function runPipeline(jobId: string) {
 
   // For Russian regions: enrich ALL keywords via Topvisor (real Yandex Russian frequencies).
   // Topvisor data overrides DFS volumes (which are Ukrainian/non-RU and misleading for RU SEO).
-  // We store BOTH zero and non-zero answers — a real zero from Topvisor is more truthful
+  // We store BOTH zero and non-zero answers - a real zero from Topvisor is more truthful
   // than a fake mock number or a misleading Ukrainian DFS volume.
   const topvisorMap = new Map<string, { ws: number; exact: number }>();
   if (isRussianRegion(region) && !isIntlRegion(region)) {
@@ -1520,7 +1520,7 @@ async function runPipeline(jobId: string) {
     const tv = topvisorMap.get(kw);
     const dfsVol = dfsVolumes.get(kw);
     if (tv !== undefined) {
-      // Topvisor answered (even with 0) — trust it for RU regions.
+      // Topvisor answered (even with 0) - trust it for RU regions.
       const exact = tv.exact > 0 ? tv.exact : Math.floor(tv.ws * 0.3);
       freqs[i] = { ws: tv.ws, exact };
       dataSources[i] = "topvisor";
@@ -1556,7 +1556,7 @@ async function runPipeline(jobId: string) {
   const maxFreq = Math.max(1, ...freqs.map((f) => f.ws));
   const kws: Kw[] = rawKeywords.map((kw, i) => {
     const intent = classifyIntent(kw);
-    // For Russian regions DataForSEO often returns KD=0 (no real data) — treat 0 as null.
+    // For Russian regions DataForSEO often returns KD=0 (no real data) - treat 0 as null.
     let kd: number | null = dfsKd.has(kw) ? (dfsKd.get(kw) as number) : null;
     if (isRu && kd === 0) kd = null;
     return {
@@ -1595,7 +1595,7 @@ async function runPipeline(jobId: string) {
   // STEP F: clustering
   await updateJob(jobId, { status: "clustering", progress: 82 });
 
-  // Split keywords into intent groups — clustering runs SEPARATELY within each group
+  // Split keywords into intent groups - clustering runs SEPARATELY within each group
   // so commercial/transactional keywords are never mixed with informational ones.
   const isCommercial = (it: Intent) => it === "commercial" || it === "transac";
   const isInformational = (it: Intent) => it === "info" || it === "nav";
@@ -1667,7 +1667,7 @@ async function runPipeline(jobId: string) {
     }
   }
 
-  // Phase 3.5: CLEANUP — merge duplicate-named clusters & redistribute mismatched-intent keywords
+  // Phase 3.5: CLEANUP - merge duplicate-named clusters & redistribute mismatched-intent keywords
   const isCommercialIntent = (it: Intent) => it === "commercial" || it === "transac";
   const isInfoIntent = (it: Intent) => it === "info" || it === "nav";
 
@@ -1818,7 +1818,7 @@ async function runPipeline(jobId: string) {
     }
   }
 
-  // Cap at MAX_CLUSTERS — merge smallest clusters into nearest larger one
+  // Cap at MAX_CLUSTERS - merge smallest clusters into nearest larger one
   while (finalStates.length > MAX_CLUSTERS) {
     finalStates.sort((a, b) => a.keywords.length - b.keywords.length);
     const smallest = finalStates.shift()!;
@@ -1946,7 +1946,7 @@ Deno.serve(async (req) => {
       console.error("[proxy config] read failed:", (e as Error).message);
     }
 
-    // Debug: AI key status. Note — this project uses Lovable AI Gateway,
+    // Debug: AI key status. Note - this project uses Lovable AI Gateway,
     // not OpenRouter. 402 from gateway = workspace AI credits exhausted.
     const aiKey = await getOpenRouterKey();
     console.log("[OpenRouter] key configured:", !!aiKey, "source:", OPENROUTER_API_KEY_ENV ? "env" : (aiKey ? "system_settings" : "none"), "model:", AI_MODEL);

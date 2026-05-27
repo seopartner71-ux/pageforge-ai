@@ -30,7 +30,7 @@ export interface SiteAuditData {
 
 const TYPE_COLORS = ['#3B82F6', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#64748B'];
 
-// Universal column mapping — supports Ahrefs (EN), русские заголовки, generic
+// Universal column mapping - supports Ahrefs (EN), русские заголовки, generic
 const FIELD_MAP: Record<string, string[]> = {
   sourceDomain: ['домен источник', 'домен-источник', 'source domain', 'referring domain', 'domain', 'referring page domain'],
   sourceUrl: ['url источник', 'source url', 'referring page url', 'referring page', 'url', 'page url'],
@@ -71,7 +71,7 @@ function classifyType(raw: string, anchor: string, sourceDomain: string): string
   const t = (raw || '').toLowerCase().trim();
   if (t.includes('image') || t.includes('изобр') || t === 'img') return 'image';
   if (t.includes('redirect') || t.includes('редирект') || t.includes('301') || t.includes('302')) return 'redirect';
-  // Detect "безанкорные" — anchor is URL or empty
+  // Detect "безанкорные" - anchor is URL or empty
   const a = (anchor || '').trim();
   if (!a) return 'naked';
   if (/^https?:\/\//i.test(a) || a.includes(sourceDomain)) return 'naked';
@@ -155,7 +155,7 @@ export function parseCsvToBacklinks(text: string): BacklinkRow[] {
 
 /**
  * Автоопределение домена аудируемого сайта из CSV.
- * Берёт самый частый домен из "URL целевой", иначе — самый частый sourceDomain.
+ * Берёт самый частый домен из "URL целевой", иначе - самый частый sourceDomain.
  */
 export function detectSiteDomain(rows: BacklinkRow[]): string {
   if (!rows.length) return '';

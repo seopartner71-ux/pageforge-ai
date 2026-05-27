@@ -46,10 +46,10 @@ const statusLabel = (s: string) => s === 'pass' ? 'OK' : s === 'warn' ? 'Вни�
 const statusColor = (s: string) => s === 'pass' ? COLOR_PASS : s === 'warn' ? COLOR_WARN : COLOR_FAIL;
 const scoreColor = (n: number) => n >= 80 ? COLOR_PASS : n >= 60 ? COLOR_WARN : COLOR_FAIL;
 const scoreVerdict = (n: number) =>
-  n >= 85 ? 'Отлично — сайт хорошо оптимизирован для AI-поисковиков.' :
-  n >= 70 ? 'Хорошо — есть точки роста, но фундамент крепкий.' :
-  n >= 50 ? 'Удовлетворительно — требуется системная доработка.' :
-  'Критично — без срочных правок сайт почти невидим для AI.';
+  n >= 85 ? 'Отлично - сайт хорошо оптимизирован для AI-поисковиков.' :
+  n >= 70 ? 'Хорошо - есть точки роста, но фундамент крепкий.' :
+  n >= 50 ? 'Удовлетворительно - требуется системная доработка.' :
+  'Критично - без срочных правок сайт почти невидим для AI.';
 
 const border = (color: string) => ({ style: BorderStyle.SINGLE, size: 4, color });
 const cellBorders = {
@@ -102,7 +102,7 @@ function buildHeader(domain: string, date: string) {
       tabStops: [{ type: 'right' as any, position: 9000 }],
       border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: COLOR_ACCENT, space: 4 } },
       children: [
-        new TextRun({ text: `GEO Audit — ${domain}`, bold: true, size: 20, color: COLOR_ACCENT, font: 'Arial' }),
+        new TextRun({ text: `GEO Audit - ${domain}`, bold: true, size: 20, color: COLOR_ACCENT, font: 'Arial' }),
         new TextRun({ text: `\t${date}`, size: 20, color: COLOR_MUTED, font: 'Arial' }),
       ],
     })],
@@ -274,7 +274,7 @@ function buildRoadmap(audit: DocxGeoAudit): (Paragraph | Table)[] {
         children: [
           new TextRun({ text: `${i + 1}. `, bold: true, size: 22, color: COLOR_ACCENT, font: 'Arial' }),
           new TextRun({ text: period, bold: true, size: 22, color: COLOR_TEXT, font: 'Arial' }),
-          rest.length ? new TextRun({ text: ' — ', size: 22, color: COLOR_MUTED, font: 'Arial' }) : new TextRun({ text: '', font: 'Arial' }),
+          rest.length ? new TextRun({ text: ' - ', size: 22, color: COLOR_MUTED, font: 'Arial' }) : new TextRun({ text: '', font: 'Arial' }),
           rest.length ? new TextRun({ text: body, size: 22, color: COLOR_TEXT, font: 'Arial' }) : new TextRun({ text: '', font: 'Arial' }),
         ],
       }));
@@ -290,32 +290,32 @@ function buildMethodology(): Paragraph[] {
     h('Методология', HeadingLevel.HEADING_1, COLOR_ACCENT),
     p('Аудит выполнен по 5 этапам, всего ~35 точек проверки, охватывающих:', {}),
     new Paragraph({ numbering: { reference: 'bullets', level: 0 },
-      children: [new TextRun({ text: 'Этап 1 — Техническая доступность для ИИ: robots.txt, sitemap, CWV, мобильная адаптация, индексируемость.', size: 22, color: COLOR_TEXT, font: 'Arial' })] }),
+      children: [new TextRun({ text: 'Этап 1 - Техническая доступность для ИИ: robots.txt, sitemap, CWV, мобильная адаптация, индексируемость.', size: 22, color: COLOR_TEXT, font: 'Arial' })] }),
     new Paragraph({ numbering: { reference: 'bullets', level: 0 },
-      children: [new TextRun({ text: 'Этап 2 — Прямая проверка в ИИ: цитируемость в AI Overview / ChatGPT / Perplexity, корректность извлечения данных, chunking.', size: 22, color: COLOR_TEXT, font: 'Arial' })] }),
+      children: [new TextRun({ text: 'Этап 2 - Прямая проверка в ИИ: цитируемость в AI Overview / ChatGPT / Perplexity, корректность извлечения данных, chunking.', size: 22, color: COLOR_TEXT, font: 'Arial' })] }),
     new Paragraph({ numbering: { reference: 'bullets', level: 0 },
-      children: [new TextRun({ text: 'Этап 3 — Структура и семантика: H1/иерархия, семантические теги HTML5, Schema.org, связывание сущностей через @id.', size: 22, color: COLOR_TEXT, font: 'Arial' })] }),
+      children: [new TextRun({ text: 'Этап 3 - Структура и семантика: H1/иерархия, семантические теги HTML5, Schema.org, связывание сущностей через @id.', size: 22, color: COLOR_TEXT, font: 'Arial' })] }),
     new Paragraph({ numbering: { reference: 'bullets', level: 0 },
-      children: [new TextRun({ text: 'Этап 4 — Контент: подход «Ответ-прежде-всего», тематические кластеры, информационные пробелы, мультимодальность.', size: 22, color: COLOR_TEXT, font: 'Arial' })] }),
+      children: [new TextRun({ text: 'Этап 4 - Контент: подход «Ответ-прежде-всего», тематические кластеры, информационные пробелы, мультимодальность.', size: 22, color: COLOR_TEXT, font: 'Arial' })] }),
     new Paragraph({ numbering: { reference: 'bullets', level: 0 },
-      children: [new TextRun({ text: 'Этап 5 — E-E-A-T: опыт автора, авторитетность, упоминания бренда, FAQ/рейтинги, ссылочный профиль, GBP, панель знаний.', size: 22, color: COLOR_TEXT, font: 'Arial' })] }),
+      children: [new TextRun({ text: 'Этап 5 - E-E-A-T: опыт автора, авторитетность, упоминания бренда, FAQ/рейтинги, ссылочный профиль, GBP, панель знаний.', size: 22, color: COLOR_TEXT, font: 'Arial' })] }),
     p('', {}),
     p('Шкала статусов:', { bold: true }),
     new Paragraph({ children: [
       new TextRun({ text: '• OK', bold: true, color: COLOR_PASS, size: 22, font: 'Arial' }),
-      new TextRun({ text: ' — критерий выполнен полностью.', size: 22, color: COLOR_TEXT, font: 'Arial' }),
+      new TextRun({ text: ' - критерий выполнен полностью.', size: 22, color: COLOR_TEXT, font: 'Arial' }),
     ]}),
     new Paragraph({ children: [
       new TextRun({ text: '• Внимание', bold: true, color: COLOR_WARN, size: 22, font: 'Arial' }),
-      new TextRun({ text: ' — частичное соответствие, рекомендуется доработка.', size: 22, color: COLOR_TEXT, font: 'Arial' }),
+      new TextRun({ text: ' - частичное соответствие, рекомендуется доработка.', size: 22, color: COLOR_TEXT, font: 'Arial' }),
     ]}),
     new Paragraph({ children: [
       new TextRun({ text: '• Ошибка', bold: true, color: COLOR_FAIL, size: 22, font: 'Arial' }),
-      new TextRun({ text: ' — критическое нарушение, требует срочного исправления.', size: 22, color: COLOR_TEXT, font: 'Arial' }),
+      new TextRun({ text: ' - критическое нарушение, требует срочного исправления.', size: 22, color: COLOR_TEXT, font: 'Arial' }),
     ]}),
     p('', {}),
     p('Расчёт Score:', { bold: true }),
-    p('Score этапа = средневзвешенное по проверкам, где OK = 1.0, Внимание = 0.5, Ошибка = 0. Общий GEO Score — среднее по 5 этапам.', { color: COLOR_MUTED, italics: true, size: 20 }),
+    p('Score этапа = средневзвешенное по проверкам, где OK = 1.0, Внимание = 0.5, Ошибка = 0. Общий GEO Score - среднее по 5 этапам.', { color: COLOR_MUTED, italics: true, size: 20 }),
   ];
 }
 
@@ -334,7 +334,7 @@ export async function exportGeoAuditDocx(audit: DocxGeoAudit) {
 
   const doc = new Document({
     creator: 'SEO-Аудит',
-    title: `GEO Audit — ${domain}`,
+    title: `GEO Audit - ${domain}`,
     styles: {
       default: { document: { run: { font: 'Arial', size: 22 } } },
       paragraphStyles: [

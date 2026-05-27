@@ -80,13 +80,13 @@ function collectAllRemarks(data: AuditData): string {
 
   const title = getCurrentTitle(data);
   if (!title) remarks.push('🔴 Title отсутствует на странице');
-  else if (title.length < 30) remarks.push(`🟡 Title слишком короткий (${title.length} симв.) — рекомендуется 50-60`);
-  else if (title.length > 70) remarks.push(`🟡 Title слишком длинный (${title.length} симв.) — рекомендуется 50-60`);
+  else if (title.length < 30) remarks.push(`🟡 Title слишком короткий (${title.length} симв.) - рекомендуется 50-60`);
+  else if (title.length > 70) remarks.push(`🟡 Title слишком длинный (${title.length} симв.) - рекомендуется 50-60`);
 
   const desc = getCurrentDescription(data);
   if (!desc) remarks.push('🔴 Meta Description отсутствует');
-  else if (desc.length < 120) remarks.push(`🟡 Description слишком короткий (${desc.length} симв.) — рекомендуется 150-160`);
-  else if (desc.length > 170) remarks.push(`🟡 Description слишком длинный (${desc.length} симв.) — рекомендуется 150-160`);
+  else if (desc.length < 120) remarks.push(`🟡 Description слишком короткий (${desc.length} симв.) - рекомендуется 150-160`);
+  else if (desc.length > 170) remarks.push(`🟡 Description слишком длинный (${desc.length} симв.) - рекомендуется 150-160`);
 
   const h1 = getH1(data);
   if (!h1) remarks.push('🔴 H1 отсутствует на странице');
@@ -96,7 +96,7 @@ function collectAllRemarks(data: AuditData): string {
     hh.issues.forEach((iss: string) => remarks.push(`🟡 ${iss}`));
   }
 
-  if (audit.hasJsonLd === false) remarks.push('🟢 Schema.org разметка (JSON-LD) отсутствует — рекомендуется добавить');
+  if (audit.hasJsonLd === false) remarks.push('🟢 Schema.org разметка (JSON-LD) отсутствует - рекомендуется добавить');
   if (audit.hasOpenGraph === false || audit.hasOg === false) remarks.push('🟢 OpenGraph разметка отсутствует');
   if (!audit.canonical) remarks.push('🟡 Canonical не настроен');
   const robots = audit.robotsMeta || data.tabData?.metaDirectives?.metaRobots;
@@ -114,13 +114,13 @@ function collectAllRemarks(data: AuditData): string {
   if (internalLinksCount < 3) remarks.push(`🟡 Внутренних ссылок: ${internalLinksCount} (норма 3-5)`);
 
   const u = getUniqueness(data);
-  if (u !== null && u < 90) remarks.push(`🟡 Уникальность текста ${u}% — ниже нормы, требуется рерайт`);
+  if (u !== null && u < 90) remarks.push(`🟡 Уникальность текста ${u}% - ниже нормы, требуется рерайт`);
 
   if (scores.seoHealth !== undefined && scores.seoHealth < 50) {
-    remarks.push(`🔴 Общий SEO Health: ${scores.seoHealth}% — критически низкий`);
+    remarks.push(`🔴 Общий SEO Health: ${scores.seoHealth}% - критически низкий`);
   }
   if (scores.llmFriendly !== undefined && scores.llmFriendly < 50) {
-    remarks.push(`🟡 LLM-дружелюбность: ${scores.llmFriendly}% — контент плохо оптимизирован для ИИ`);
+    remarks.push(`🟡 LLM-дружелюбность: ${scores.llmFriendly}% - контент плохо оптимизирован для ИИ`);
   }
 
   const missingKw = tfidf.filter((t: any) => t.status === 'missing' || t.status === 'low' || t.status === 'gap').slice(0, 5);
@@ -225,7 +225,7 @@ function buildInternalLinksFact(data: AuditData): string {
 function buildInternalLinksRecs(data: AuditData): string {
   const count = getInternalLinksCount(data);
   if (count < 3) return 'Добавить внутреннюю перелинковку (минимум 3-5 ссылок)';
-  if (count > 50) return 'Избыточная перелинковка — оставить 15-30 релевантных';
+  if (count > 50) return 'Избыточная перелинковка - оставить 15-30 релевантных';
   return 'В норме';
 }
 
@@ -246,7 +246,7 @@ function buildContentComment(data: AuditData): string {
   if (wc) parts.push(`Слов: ${wc}`);
   if (data.scores?.seoHealth !== undefined) parts.push(`SEO: ${data.scores.seoHealth}%`);
   if (data.scores?.llmFriendly !== undefined) parts.push(`LLM: ${data.scores.llmFriendly}%`);
-  return parts.join(' | ') || '—';
+  return parts.join(' | ') || '-';
 }
 
 
@@ -309,7 +309,7 @@ export async function exportSeoAuditXlsx(data: AuditData): Promise<void> {
   ws.mergeCells('O1:P1');
   ws.mergeCells('Q1:R1');
 
-  // Style row 1 — orange except column S (navy)
+  // Style row 1 - orange except column S (navy)
   for (let c = 1; c <= 19; c++) {
     const cell = ws.getCell(1, c);
     const isS = c === 19;

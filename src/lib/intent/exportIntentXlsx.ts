@@ -40,7 +40,7 @@ export function exportIntentXlsx(matrix: IntentMatrix, queries: string[], city: 
   }
   const T = totals.n || 1;
   const tpct = (x: number) => Math.round((x / T) * 100) + '%';
-  stat.push(['Итого', tpct(totals.corp), tpct(totals.blog), tpct(totals.media), tpct(totals.video), tpct(totals.market), tpct(totals.other), '—']);
+  stat.push(['Итого', tpct(totals.corp), tpct(totals.blog), tpct(totals.media), tpct(totals.video), tpct(totals.market), tpct(totals.other), '-']);
 
   const ws2 = XLSX.utils.aoa_to_sheet(stat);
   ws2['!cols'] = [{ wch: 36 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 26 }];

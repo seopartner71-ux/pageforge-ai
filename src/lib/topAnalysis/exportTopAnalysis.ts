@@ -77,7 +77,7 @@ function applyPositionStyle(cell: ExcelJS.Cell, pos: number | undefined) {
   cell.alignment = { horizontal: 'center', vertical: 'middle' };
   cell.border = thinBorder;
   if (!pos) {
-    cell.value = '—';
+    cell.value = '-';
     cell.font = { ...ARIAL_10, color: { argb: MUTED_FG } };
     return;
   }
@@ -118,7 +118,7 @@ function buildInsights(
     out.push({
       priority: 'good',
       metric: 'Лидер ниши',
-      fact: `${leader.domain} — охват ${leader.coverage}/${totalQueries} запросов, средняя позиция ${leader.avgPos}`,
+      fact: `${leader.domain} - охват ${leader.coverage}/${totalQueries} запросов, средняя позиция ${leader.avgPos}`,
       recommendation: 'Изучите контентную модель и структуру лидера для бенчмарка.',
     });
   }
@@ -128,7 +128,7 @@ function buildInsights(
       priority: 'warning',
       metric: 'Концентрация в Топ-3',
       fact: `${top3Pool.map(d => `${d.domain} (${d.top3})`).join(', ')} удерживают большинство Топ-3 позиций`,
-      recommendation: 'Эти домены — основные конкуренты. Анализируйте их обратные ссылки и контент в первую очередь.',
+      recommendation: 'Эти домены - основные конкуренты. Анализируйте их обратные ссылки и контент в первую очередь.',
     });
   }
   if (myDomain) {
@@ -158,7 +158,7 @@ function buildInsights(
       priority: 'warning',
       metric: 'Узкие специалисты',
       fact: `${niche.length} доменов держат Топ-3 в 1–2 запросах`,
-      recommendation: 'Эти ниши слабо защищены — потенциал для быстрого захвата конкретных кластеров.',
+      recommendation: 'Эти ниши слабо защищены - потенциал для быстрого захвата конкретных кластеров.',
     });
   }
   return out;
@@ -188,7 +188,7 @@ async function addEngineSheets(
   const top10Domains = domains.slice(0, 10);
   const prefix = opts.sheetPrefix || '';
 
-  // ===== ЛИСТ 1 — Сводная =====
+  // ===== ЛИСТ 1 - Сводная =====
   const summary = wb.addWorksheet(`${prefix}Сводная`.slice(0, 31));
   summary.views = [{ showGridLines: false }];
 
@@ -365,7 +365,7 @@ async function addEngineSheets(
     });
   }
 
-  // ===== ЛИСТ 2 — Матрица =====
+  // ===== ЛИСТ 2 - Матрица =====
   const ws = wb.addWorksheet(`${prefix}Матрица`.slice(0, 31));
   ws.views = [{ showGridLines: false, state: 'frozen', xSplit: 1, ySplit: 1 }];
 
@@ -425,7 +425,7 @@ async function addEngineSheets(
   ws.getColumn(queries.length + 3).width = 10;
   ws.getColumn(queries.length + 4).width = 24;
 
-  // ===== ЛИСТ 3 — По запросам =====
+  // ===== ЛИСТ 3 - По запросам =====
   const ws2 = wb.addWorksheet(`${prefix}По запросам`.slice(0, 31));
   ws2.views = [{ showGridLines: false, state: 'frozen', ySplit: 1 }];
 
@@ -470,7 +470,7 @@ async function addEngineSheets(
   ws2.getColumn(4).width = 50;
   ws2.getColumn(5).width = 12;
 
-  // ===== ЛИСТ 4 — Анализ ниши (AI) =====
+  // ===== ЛИСТ 4 - Анализ ниши (AI) =====
   const ws4 = wb.addWorksheet(`${prefix}Анализ ниши`.slice(0, 31));
   ws4.views = [{ showGridLines: false, state: 'frozen', ySplit: 2 }];
   ws4.getColumn(1).width = 110;
@@ -540,7 +540,7 @@ export async function exportTopAnalysisXlsx(
 }
 
 // ============================================================
-// ОБЪЕДИНЁННЫЙ ЭКСПОРТ — Яндекс + Google + Сравнение
+// ОБЪЕДИНЁННЫЙ ЭКСПОРТ - Яндекс + Google + Сравнение
 // ============================================================
 
 export interface CombinedEngineData {
@@ -565,7 +565,7 @@ export async function exportCombinedTopAnalysisXlsx(
   wb.creator = 'PageForge';
   wb.created = new Date();
 
-  // ===== ЛИСТ 0 — Сравнение Яндекс vs Google =====
+  // ===== ЛИСТ 0 - Сравнение Яндекс vs Google =====
   const cmp = wb.addWorksheet('Сравнение Я vs G');
   cmp.views = [{ showGridLines: false, state: 'frozen', ySplit: 4 }];
 
@@ -672,8 +672,8 @@ export async function exportCombinedTopAnalysisXlsx(
     const r = cmp.getRow(headerRow + 2 + idx);
     const vals: any[] = [
       d.domain,
-      d.yCov || '—', d.yAvg || '—', d.yTop3,
-      d.gCov || '—', d.gAvg || '—', d.gTop3,
+      d.yCov || '-', d.yAvg || '-', d.yTop3,
+      d.gCov || '-', d.gAvg || '-', d.gTop3,
       d.verdict,
     ];
     vals.forEach((v, ci) => {

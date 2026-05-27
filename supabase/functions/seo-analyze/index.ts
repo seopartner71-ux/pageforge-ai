@@ -97,7 +97,7 @@ const BRAND_RE = /^[A-Z][a-z]{2,}/;   // Capitalized word (Apple, Sika, Nikon)
 const SPEC_RE = /^[A-Za-z0-9]+$/;     // Alphanumeric spec (4MATIC, VGA, WiFi, iPhone)
 
 function isLatinJunk(originalWord: string): boolean {
-  // Already lowercased in tokenize — we need original casing for brand detection
+  // Already lowercased in tokenize - we need original casing for brand detection
   // So this function works on the ORIGINAL (pre-lowercase) word
   const lower = originalWord.toLowerCase();
 
@@ -105,8 +105,8 @@ function isLatinJunk(originalWord: string): boolean {
   if (TECH_BLACKLIST.has(lower)) return true;
 
   // Check if the word is pure Latin
-  if (!/[a-zA-Z]/.test(originalWord)) return false; // Not Latin at all — keep
-  if (/[\u0400-\u04FF]/.test(originalWord)) return false; // Mixed cyr+lat — keep (brand in context)
+  if (!/[a-zA-Z]/.test(originalWord)) return false; // Not Latin at all - keep
+  if (/[\u0400-\u04FF]/.test(originalWord)) return false; // Mixed cyr+lat - keep (brand in context)
 
   // WHITELIST: uppercase abbreviations (SEO, API, GSC, DIN, ISO, VGA)
   if (UPPER_ABBR_RE.test(originalWord)) return false;
@@ -247,7 +247,7 @@ function calculateTFIDF(targetWords: string[], competitorWordArrays: string[][])
   const results: any[] = [];
   for (const term of allTerms) {
     const df = docFreq[term] || 0;
-    // Smoothed IDF: log((N+1)/(df+1)) + 1 — works well even with few competitors,
+    // Smoothed IDF: log((N+1)/(df+1)) + 1 - works well even with few competitors,
     // avoids zero values when term appears in every doc.
     const idf = Math.log((totalDocs + 1) / (df + 1)) + 1;
     const userTf = targetTf[term] || 0;
@@ -430,7 +430,7 @@ function parseHeadingHierarchy(html: string) {
   for (let i = 0; i < headings.length; i++) {
     const h = headings[i];
     if (h.level > prevLevel + 1 && prevLevel > 0) {
-      const msg = `H${h.level} после H${prevLevel} — пропуск уровня`;
+      const msg = `H${h.level} после H${prevLevel} - пропуск уровня`;
       h.issues.push(msg);
       issues.push(msg);
     }
@@ -709,7 +709,7 @@ function buildSnippetPreview(audit: any, url: string) {
   };
 }
 
-// ─── Technical Audit (HTML-based, hard logic — no AI guessing) ───
+// ─── Technical Audit (HTML-based, hard logic - no AI guessing) ───
 function technicalAudit(html: string, markdown: string) {
   // ── H1 tags: parse from HTML, filter hidden ones ──
   const h1Regex = /<h1[^>]*>([\s\S]*?)<\/h1>/gi;
@@ -1064,7 +1064,7 @@ Deno.serve(async (req) => {
       // Try to reconstruct a markdown-ish title line from <title> so downstream keyword extraction works
       const titleTag = rawHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim();
       targetContent = (titleTag ? `# ${titleTag}\n\n` : '') + stripped.slice(0, 50000);
-      console.log("SPA fallback active — using stripped HTML, length:", targetContent.length);
+      console.log("SPA fallback active - using stripped HTML, length:", targetContent.length);
     }
 
     await setStage(0, targetContent ? "done" : "error", `${((Date.now() - t0) / 1000).toFixed(1)}s`);
@@ -1086,7 +1086,7 @@ Deno.serve(async (req) => {
     }
     await setStage(1, "done", `${((Date.now() - tHtml) / 1000).toFixed(1)}s`);
 
-    // Helper: derive primary keyword for SERP — prefer <title>, then markdown H1, then hostname
+    // Helper: derive primary keyword for SERP - prefer <title>, then markdown H1, then hostname
     const deriveKeyword = (): string => {
       const metaTitle = rawHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim();
       if (metaTitle) return metaTitle.slice(0, 100);
@@ -1194,7 +1194,7 @@ Deno.serve(async (req) => {
 
     // ── Detect language for Latin filtering ──
     const isRU = isRussianContent(targetContent);
-    if (isRU) console.log("Detected RU content — Latin junk filter ACTIVE");
+    if (isRU) console.log("Detected RU content - Latin junk filter ACTIVE");
 
     // ── TF-IDF ──
     await setStage(si, "running");
@@ -1319,26 +1319,26 @@ Deno.serve(async (req) => {
     const spamTerms = tfidfResults.filter((t: any) => t.status === "Spam").slice(0, 10)
       .map((t: any) => `${t.term} (density:${t.density.toFixed(2)}%)`).join(", ");
 
-    // Build system prompt — different for cluster mode
+    // Build system prompt - different for cluster mode
     let systemPrompt: string;
     let userPrompt: string;
-    const regionContext = region ? `\n\nРЕГИОН АНАЛИЗА: ${region}. Проводи анализ с учётом локации "${region}". Проверь наличие локальных сущностей (адреса, телефоны с кодом города, упоминание районов) у конкурентов в этом регионе. GEO Score должен учитывать оптимизацию под этот регион (карта, локальные ключи, микроразметка LocalBusiness). Если у конкурентов есть локальная привязка, а у пользователя нет — помечай как критическую ошибку P1.\n` : '';
+    const regionContext = region ? `\n\nРЕГИОН АНАЛИЗА: ${region}. Проводи анализ с учётом локации "${region}". Проверь наличие локальных сущностей (адреса, телефоны с кодом города, упоминание районов) у конкурентов в этом регионе. GEO Score должен учитывать оптимизацию под этот регион (карта, локальные ключи, микроразметка LocalBusiness). Если у конкурентов есть локальная привязка, а у пользователя нет - помечай как критическую ошибку P1.\n` : '';
 
     if (clusterMode && clusterData) {
-      systemPrompt = `Ты — Senior SEO Architect по методологии "Доказательное SEO 2026", эксперт по тематическому проектированию (Topic Authority). Тебе дан основной запрос и список смежных фраз (семантический кластер).${regionContext}
+      systemPrompt = `Ты - Senior SEO Architect по методологии "Доказательное SEO 2026", эксперт по тематическому проектированию (Topic Authority). Тебе дан основной запрос и список смежных фраз (семантический кластер).${regionContext}
 
 ПРАВИЛА ДОКАЗАТЕЛЬНОГО SEO 2026 (ВЫСШИЙ ПРИОРИТЕТ):
 
-1. CONTENT EFFORT: Оцени, насколько сложно было создать контент. Ищи оригинальные исследования, таблицы, инструкции, экспертные цитаты. Если рерайт — требуй блок "Личный опыт".
+1. CONTENT EFFORT: Оцени, насколько сложно было создать контент. Ищи оригинальные исследования, таблицы, инструкции, экспертные цитаты. Если рерайт - требуй блок "Личный опыт".
 2. INFORMATION GAIN: Сравни сущности с ТОП-3 конкурентами. Найди минимум 3 факта/подтемы, которые конкуренты упустили.
 3. SEMANTIC CHUNKING: Один H1, строгая H2→H3. Каждый абзац = концентрированный ответ для Passage Indexing и AI Overviews.
-4. NAVBOOST: Первые 200 знаков = прямой ответ на интент. Удаляй "В современном мире", "Ни для кого не секрет" — P1 ошибка.
+4. NAVBOOST: Первые 200 знаков = прямой ответ на интент. Удаляй "В современном мире", "Ни для кого не секрет" - P1 ошибка.
 5. QBST: Проверяй Salient Terms (термины выраженности сущности). Без них Google считает текст поверхностным.
 
 Задачи:
 1. Проанализируй текст на «полноту раскрытия темы» с учётом Content Effort и Information Gain.
-2. Найди «информационные дыры» — подтемы из кластера, которые пользователь не упомянул.
-3. Сформируй «Semantic Map» — 5-7 обязательных H2 для E-E-A-T.
+2. Найди «информационные дыры» - подтемы из кластера, которые пользователь не упомянул.
+3. Сформируй «Semantic Map» - 5-7 обязательных H2 для E-E-A-T.
 4. Оцени «Topic Coverage Score» от 0 до 100%.
 
 Верни JSON:
@@ -1382,8 +1382,8 @@ Deno.serve(async (req) => {
 }
 P1 = Критично (техошибки, NavBoost нарушения, Content Effort = low, Missing Entities). P2 = Важно (структура, переспам, Semantic Chunking). P3 = Лидерство (таблицы, FAQ, GEO, Information Gain).
 Используй формулировки: "Согласно фактору Content Effort...", "Для Information Gain внедрите...". Минимум 8-15 задач.
-КРИТИЧНО: Программный парсер уже посчитал все теги. НИКОГДА не пересчитывай — доверяй ТОЛЬКО входным данным парсера.
-ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) — ЗАПРЕЩЁН. Все рекомендации — только на кириллице.
+КРИТИЧНО: Программный парсер уже посчитал все теги. НИКОГДА не пересчитывай - доверяй ТОЛЬКО входным данным парсера.
+ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) - ЗАПРЕЩЁН. Все рекомендации - только на кириллице.
 Будь конкретен. Пиши на русском.`;
 
       userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
@@ -1394,7 +1394,7 @@ P1 = Критично (техошибки, NavBoost нарушения, Content 
 ─── Missing Entities ───\n${missingTerms || "нет"}
 ─── Spam Terms ───\n${spamTerms || "нет"}
 ─── Topical Gaps ───\n${bigramGaps.slice(0, 10).map((g: any) => `"${g.text}" (${g.competitorCount} конк.)`).join(", ") || "нет"}
-─── Техаудит (ПРОГРАММНЫЙ ПАРСЕР — доверяй только этим данным, НЕ пересчитывай теги!) ───
+─── Техаудит (ПРОГРАММНЫЙ ПАРСЕР - доверяй только этим данным, НЕ пересчитывай теги!) ───
 H1 видимых: ${audit.h1Count}${audit.h1Tags.length ? `\nТексты H1: ${audit.h1Tags.map((t: string, i: number) => `#${i + 1}: "${t}"`).join(', ')}` : ''}${audit.h1Hidden.length ? `\nСкрытых H1: ${audit.h1Hidden.map((t: string) => `"${t}"`).join(', ')}` : ''}
 Изображений в body: ${audit.totalImages}, без alt: ${audit.imagesWithoutAlt}
 JSON-LD: ${audit.hasJsonLd ? "Есть" : "Нет"}, og:title: ${audit.hasOgTitle ? "Есть" : "Нет"}, og:description: ${audit.hasOgDesc ? "Есть" : "Нет"}, og:image: ${audit.hasOgImage ? "Есть" : "Нет"}
@@ -1402,7 +1402,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
 Проблемы: ${audit.issues.join("; ") || "нет"}
 Конкурентов: ${validCompContents.length}`;
     } else {
-      systemPrompt = `Ты — Senior SEO Architect, работающий по методологии "Доказательное SEO 2026".${regionContext} Данные:
+      systemPrompt = `Ты - Senior SEO Architect, работающий по методологии "Доказательное SEO 2026".${regionContext} Данные:
 1. Markdown страницы (до 15000 символов)
 2. TF-IDF: Missing Entities, Spam Terms
 3. Topical Gaps (N-gram сравнение с конкурентами)
@@ -1412,24 +1412,24 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
 
 1. CONTENT EFFORT (Уровень усилия):
    - Оцени сложность создания контента: наличие оригинальных исследований, сложных HTML-таблиц, пошаговых инструкций, экспертных цитат.
-   - Если текст похож на стандартный рерайт — требуй блок "Личный опыт" или "Технические нюансы".
+   - Если текст похож на стандартный рерайт - требуй блок "Личный опыт" или "Технические нюансы".
    - Добавь в implementationPlan: "Согласно фактору Content Effort, добавьте [конкретное действие]".
 
 2. INFORMATION GAIN (Добавочная ценность):
    - Сравни сущности (Entities) пользователя с ТОП конкурентами.
-   - Найди минимум 3 факта или подтемы, которые конкуренты упустили — внеси в aiReport.missingEntities и implementationPlan.
+   - Найди минимум 3 факта или подтемы, которые конкуренты упустили - внеси в aiReport.missingEntities и implementationPlan.
    - Без Information Gain оптимизация считается неуспешной.
 
 3. SEMANTIC CHUNKING (Архитектура):
    - Один H1. Строгая иерархия H2 → H3 без пропусков.
    - Каждый абзац под заголовком = "концентрированный ответ", пригодный для Passage Indexing и AI Overviews (SGE).
-   - Запрещены длинные вступления. Если найдены — P1 задача.
+   - Запрещены длинные вступления. Если найдены - P1 задача.
 
 4. NAVBOOST (Поведенческие):
    - Lede-абзац: первые 200 знаков ОБЯЗАНЫ содержать прямой ответ на главный интент.
-   - Фразы-паразиты ("В современном мире", "Ни для кого не секрет", "Как известно") — P1 ошибка, требуй замену на конкретные данные.
+   - Фразы-паразиты ("В современном мире", "Ни для кого не секрет", "Как известно") - P1 ошибка, требуй замену на конкретные данные.
 
-5. QBST — СЕМАНТИЧЕСКАЯ ПЛОТНОСТЬ:
+5. QBST - СЕМАНТИЧЕСКАЯ ПЛОТНОСТЬ:
    - Проверяй не просто ключи, а Salient Terms (термины выраженности сущности).
    - Пример: страница про "Солярий" ОБЯЗАНА содержать "фототип", "инсоляция", "эритемная лампа", "меланин". Без них Google сочтёт текст поверхностным.
    - Добавляй такие термины в missingEntities.
@@ -1448,7 +1448,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
     "missingEntities": ["<10 LSI-сущностей + Salient Terms, критичных для ниши, но отсутствующих>"],
     "geoScore": <0-100>,
     "sgeReadiness": "<оценка готовности к AI Overviews>",
-    "contentEffort": "<low|medium|high — оценка уровня усилия>",
+    "contentEffort": "<low|medium|high - оценка уровня усилия>",
     "informationGain": ["<3+ фактов/подтем, которых нет у конкурентов>"],
     "navboostIssues": ["<проблемы Lede-абзаца и фразы-паразиты>"]
   },
@@ -1472,8 +1472,8 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
 }
 P1 = Критично (техошибки, пустые Alt, Missing Entities, NavBoost нарушения, Content Effort = low). P2 = Важно для роста (структура, переспам, Semantic Chunking). P3 = Для лидерства (таблицы, FAQ, GEO, Information Gain).
 Будь хирургически точен в implementationPlan: пиши 'Замени А на Б', 'Добавь 3 картинки с Alt такими-то'. Избегай общих фраз. Минимум 8-15 задач.
-КРИТИЧНО: Программный парсер уже посчитал все теги (H1, img, JSON-LD, OG). НИКОГДА не пересчитывай их сам — доверяй ТОЛЬКО входным данным парсера.
-ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) — ЗАПРЕЩЁН. Все рекомендации — только на кириллице.
+КРИТИЧНО: Программный парсер уже посчитал все теги (H1, img, JSON-LD, OG). НИКОГДА не пересчитывай их сам - доверяй ТОЛЬКО входным данным парсера.
+ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) - ЗАПРЕЩЁН. Все рекомендации - только на кириллице.
 Будь конкретен. Пиши на русском.`;
 
       userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
@@ -1481,7 +1481,7 @@ P1 = Критично (техошибки, пустые Alt, Missing Entities, N
 ─── Missing Entities ───\n${missingTerms || "нет"}
 ─── Spam Terms ───\n${spamTerms || "нет"}
 ─── Topical Gaps (биграммы у конкурентов, нет у вас) ───\n${bigramGaps.slice(0, 10).map((g: any) => `"${g.text}" (${g.competitorCount} конк.)`).join(", ") || "нет"}
-─── Техаудит (ПРОГРАММНЫЙ ПАРСЕР — доверяй только этим данным, НЕ пересчитывай теги!) ───
+─── Техаудит (ПРОГРАММНЫЙ ПАРСЕР - доверяй только этим данным, НЕ пересчитывай теги!) ───
 H1 видимых: ${audit.h1Count}${audit.h1Tags.length ? `\nТексты H1: ${audit.h1Tags.map((t: string, i: number) => `#${i + 1}: "${t}"`).join(', ')}` : ''}${audit.h1Hidden.length ? `\nСкрытых H1: ${audit.h1Hidden.map((t: string) => `"${t}"`).join(', ')}` : ''}
 Изображений в body: ${audit.totalImages}, без alt: ${audit.imagesWithoutAlt}
 JSON-LD: ${audit.hasJsonLd ? "Есть" : "Нет"}, og:title: ${audit.hasOgTitle ? "Есть" : "Нет"}, og:description: ${audit.hasOgDesc ? "Есть" : "Нет"}, og:image: ${audit.hasOgImage ? "Есть" : "Нет"}
@@ -1547,14 +1547,14 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
     }));
 
     // ── Deterministic SEO Health score (computed from programmatic audit, not AI) ──
-    // Weighted checklist — total = 100. AI's "seoHealth" replaced with this objective value.
+    // Weighted checklist - total = 100. AI's "seoHealth" replaced with this objective value.
     const computeSeoHealth = (): number => {
       let score = 0;
       // H1 (15)
       if (audit.h1Count === 1) score += 15;
       else if (audit.h1Count === 0) score += 0;
       else score += 5; // multiple H1s
-      // Meta title (15) — present + reasonable length
+      // Meta title (15) - present + reasonable length
       if (audit.metaTitle) {
         const len = audit.metaTitle.length;
         score += len >= 30 && len <= 70 ? 15 : 8;
@@ -1577,7 +1577,7 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
         const altRatio = 1 - (audit.imagesWithoutAlt / audit.totalImages);
         score += Math.round(altRatio * 10);
       } else {
-        score += 5; // no images — neutral
+        score += 5; // no images - neutral
       }
       // Word count vs competitors (10)
       const medianWords = medianFn(compWordCounts);

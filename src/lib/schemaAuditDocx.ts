@@ -165,17 +165,17 @@ function buildAuditSections(audit: DocxAudit, today: Date): Paragraph[] | (Parag
   out.push(h1('1. Краткое резюме'));
   out.push(p(
     `На странице ${audit.url} обнаружено ${audit.found_schemas_count} схем микроразметки, из них ${crit.length} критических ошибок. ` +
-    `Текущий балл — ${audit.overall_score}/100. Для повышения видимости в поиске необходимо внедрить ${audit.generated_code.length} ` +
+    `Текущий балл - ${audit.overall_score}/100. Для повышения видимости в поиске необходимо внедрить ${audit.generated_code.length} ` +
     `блоков структурированных данных Schema.org с реальными данными компании.`
   ));
   out.push(p('Обнаружено на странице:', { bold: true, spacing: { before: 160 } }));
 
   const dataRows: Array<[string, string, string]> = [
-    ['Компания', pageData.companyName || '—', pageData.companyName ? 'Структурированные данные' : 'Не найдено'],
-    ['Телефон', pageData.phone || '—', pageData.phone ? 'Извлечено из страницы' : 'Не найдено'],
-    ['Email', pageData.email || '—', pageData.email ? 'Извлечено из страницы' : 'Не найдено'],
-    ['Адрес', pageData.address || '—', pageData.address ? 'Извлечено из страницы' : 'Не найдено'],
-    ['Описание', pageData.description || '—', pageData.description ? 'meta description / og' : 'Не найдено'],
+    ['Компания', pageData.companyName || '-', pageData.companyName ? 'Структурированные данные' : 'Не найдено'],
+    ['Телефон', pageData.phone || '-', pageData.phone ? 'Извлечено из страницы' : 'Не найдено'],
+    ['Email', pageData.email || '-', pageData.email ? 'Извлечено из страницы' : 'Не найдено'],
+    ['Адрес', pageData.address || '-', pageData.address ? 'Извлечено из страницы' : 'Не найдено'],
+    ['Описание', pageData.description || '-', pageData.description ? 'meta description / og' : 'Не найдено'],
     ['Тип страницы', ptLabel(audit.page_type), 'Авто-определение'],
   ];
   out.push(new Table({
@@ -207,7 +207,7 @@ function buildAuditSections(audit: DocxAudit, today: Date): Paragraph[] | (Parag
         { text: `${idx + 1}. ${i.schema}: `, bold: true, color: COLOR_RED },
         { text: i.problem, bold: true, color: COLOR_RED },
       ]));
-      out.push(p(`Решение: ${i.solution || '—'}`, { color: COLOR_RED }));
+      out.push(p(`Решение: ${i.solution || '-'}`, { color: COLOR_RED }));
       if (i.seoImpact) out.push(p(`SEO-эффект: ${i.seoImpact}`, { color: COLOR_RED, italics: true }));
     });
   }
@@ -221,7 +221,7 @@ function buildAuditSections(audit: DocxAudit, today: Date): Paragraph[] | (Parag
         { text: `${idx + 1}. ${i.schema}: `, bold: true, color: COLOR_ORANGE },
         { text: i.problem, bold: true, color: COLOR_ORANGE },
       ]));
-      out.push(p(`Решение: ${i.solution || '—'}`, { color: COLOR_ORANGE }));
+      out.push(p(`Решение: ${i.solution || '-'}`, { color: COLOR_ORANGE }));
     });
   }
 
@@ -244,7 +244,7 @@ function buildAuditSections(audit: DocxAudit, today: Date): Paragraph[] | (Parag
 
   audit.generated_code.forEach((block, idx) => {
     const action = /исправ/i.test(block.label) ? 'исправить' : 'добавить';
-    out.push(h3(`${idx + 1}. ${block.type} — ${action}`));
+    out.push(h3(`${idx + 1}. ${block.type} - ${action}`));
     out.push(runs([
       { text: 'Где разместить: ', bold: true },
       { text: placementHint(block.type) },
@@ -264,15 +264,15 @@ function buildAuditSections(audit: DocxAudit, today: Date): Paragraph[] | (Parag
   const warnBlocks = audit.generated_code.filter(b => priorityFromBlock(b.label) === 'ВАЖНО');
   const recBlocks = audit.generated_code.filter(b => priorityFromBlock(b.label) === 'РЕКОМЕНДУЕТСЯ');
 
-  out.push(h3(`Этап 1 — Критические (до ${fmt(addDays(today, 3))})`));
+  out.push(h3(`Этап 1 - Критические (до ${fmt(addDays(today, 3))})`));
   if (critBlocks.length === 0) out.push(p('☑ Критических исправлений не требуется', { color: COLOR_GREY }));
   else critBlocks.forEach(b => out.push(p(`☐ Добавить ${b.type} на ${placementHint(b.type)}`)));
 
-  out.push(h3(`Этап 2 — Важные (до ${fmt(addDays(today, 14))})`));
+  out.push(h3(`Этап 2 - Важные (до ${fmt(addDays(today, 14))})`));
   if (warnBlocks.length === 0) out.push(p('☑ Важных улучшений не требуется', { color: COLOR_GREY }));
   else warnBlocks.forEach(b => out.push(p(`☐ Добавить ${b.type}`)));
 
-  out.push(h3(`Этап 3 — Рекомендуемые (до ${fmt(addDays(today, 30))})`));
+  out.push(h3(`Этап 3 - Рекомендуемые (до ${fmt(addDays(today, 30))})`));
   if (recBlocks.length === 0) out.push(p('☑ Дополнительных схем не требуется', { color: COLOR_GREY }));
   else recBlocks.forEach(b => out.push(p(`☐ Рассмотреть ${b.type}`)));
 
@@ -443,7 +443,7 @@ export async function downloadCombinedAuditDocx(items: Array<{ type: string; aud
       heading: HeadingLevel.TITLE,
       spacing: { after: 200 },
       children: [new TextRun({
-        text: `Раздел ${idx + 1}. ${ptLabel(r.type)} — ${r.audit.url}`,
+        text: `Раздел ${idx + 1}. ${ptLabel(r.type)} - ${r.audit.url}`,
         font: FONT, size: 36, bold: true, color: COLOR_BLUE,
       })],
     }));

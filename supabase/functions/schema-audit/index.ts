@@ -216,12 +216,12 @@ function buildGeneratedCode(
   const logo = pageData?.logo || null;
   const description = pageData?.description || null;
 
-  // WebSite — only on homepage (or unknown/general)
+  // WebSite - only on homepage (or unknown/general)
   const wantsWebSite = pageType === "homepage" || pageType === "general" || pageType === "event_host" || pageType === "service";
   if (wantsWebSite && !schemas.find(s => s.type === "WebSite")) {
     blocks.push({
       type: "WebSite",
-      label: "WebSite — добавить",
+      label: "WebSite - добавить",
       reason: "Базовая схема, рекомендуется на всех страницах • ✓ Данные взяты со страницы",
       code: JSON.stringify({
         "@context": "https://schema.org",
@@ -255,13 +255,13 @@ function buildGeneratedCode(
     const dataSource = (email || phone || description) ? "✓ Данные взяты со страницы" : "⚠ Заполните контакты вручную";
     blocks.push({
       type: "Person",
-      label: "Person — добавить (личный бренд)",
+      label: "Person - добавить (личный бренд)",
       reason: `Подходит для ведущих, экспертов, фрилансеров • ${dataSource}`,
       code: JSON.stringify(person, null, 2),
     });
   }
 
-  // Organization (skip for personal brands — Person is more accurate)
+  // Organization (skip for personal brands - Person is more accurate)
   const wantsOrg = pageType !== "event_host" && pageType !== "category" && pageType !== "product" && pageType !== "article" && pageType !== "contacts";
   if (wantsOrg && !schemas.find(s => s.type === "Organization")) {
     const org: any = {
@@ -283,13 +283,13 @@ function buildGeneratedCode(
     const dataSource = (phone || email || logo || description) ? "✓ Данные взяты со страницы" : "⚠ Заполните вручную";
     blocks.push({
       type: "Organization",
-      label: "Organization — добавить",
+      label: "Organization - добавить",
       reason: `Базовая схема компании • ${dataSource}`,
       code: JSON.stringify(org, null, 2),
     });
   }
 
-  // BreadcrumbList from URL — for non-home pages
+  // BreadcrumbList from URL - for non-home pages
   if (pageType !== "homepage" && !schemas.find(s => s.type === "BreadcrumbList")) {
     try {
       const u = new URL(url);
@@ -303,7 +303,7 @@ function buildGeneratedCode(
         });
         blocks.push({
           type: "BreadcrumbList",
-          label: "BreadcrumbList — добавить (из URL)",
+          label: "BreadcrumbList - добавить (из URL)",
           reason: "Сгенерировано из структуры URL",
           code: JSON.stringify({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items }, null, 2),
         });
@@ -328,7 +328,7 @@ function buildGeneratedCode(
     }
     blocks.push({
       type: s.type,
-      label: `${s.type} — исправленная версия`,
+      label: `${s.type} - исправленная версия`,
       reason: "Добавлены обязательные поля",
       code: JSON.stringify(fixed, null, 2),
     });
@@ -337,7 +337,7 @@ function buildGeneratedCode(
   if (features.hasFaq && !schemas.find(s => s.type === "FAQPage")) {
     blocks.push({
       type: "FAQPage",
-      label: "FAQPage — добавить",
+      label: "FAQPage - добавить",
       reason: "На странице найден блок вопросов",
       code: JSON.stringify({
         "@context": "https://schema.org",
@@ -365,13 +365,13 @@ function buildGeneratedCode(
     if (pageData?.priceRange) svc.offers = { "@type": "Offer", priceCurrency: "RUB", price: pageData.priceRange.replace(/[^\d]/g, "") || "0" };
     blocks.push({
       type: "Service",
-      label: "Service — добавить",
+      label: "Service - добавить",
       reason: `Описание предоставляемой услуги • ${description ? "✓ Данные взяты со страницы" : "⚠ Уточните описание"}`,
       code: JSON.stringify(svc, null, 2),
     });
   }
 
-  // LocalBusiness — for any site with contacts OR personal brand sites
+  // LocalBusiness - for any site with contacts OR personal brand sites
   if ((features.hasAddress || pageType === "event_host" || pageType === "local_business" || pageType === "service" || pageType === "contacts" || pageType === "homepage") && !schemas.find(s => s.type === "LocalBusiness")) {
     const lb: any = {
       "@context": "https://schema.org",
@@ -391,8 +391,8 @@ function buildGeneratedCode(
     const dataSource = (address && (phone || email)) ? "✓ Данные взяты со страницы" : "⚠ Часть данных нужно уточнить";
     blocks.push({
       type: "LocalBusiness",
-      label: "LocalBusiness — добавить",
-      reason: `Локальный бизнес — повышает видимость в Картах • ${dataSource}`,
+      label: "LocalBusiness - добавить",
+      reason: `Локальный бизнес - повышает видимость в Картах • ${dataSource}`,
       code: JSON.stringify(lb, null, 2),
     });
   }
@@ -401,7 +401,7 @@ function buildGeneratedCode(
   if (pageType === "category" && !schemas.find(s => s.type === "ItemList")) {
     blocks.push({
       type: "ItemList",
-      label: "ItemList — добавить (страница категории)",
+      label: "ItemList - добавить (страница категории)",
       reason: "Перечень товаров категории • ⚠ Заполните позиции из каталога",
       code: JSON.stringify({
         "@context": "https://schema.org",
@@ -415,7 +415,7 @@ function buildGeneratedCode(
     });
     blocks.push({
       type: "CollectionPage",
-      label: "CollectionPage — рекомендуется",
+      label: "CollectionPage - рекомендуется",
       reason: "Помогает поисковикам понять, что это страница каталога",
       code: JSON.stringify({
         "@context": "https://schema.org",
@@ -447,7 +447,7 @@ function buildGeneratedCode(
     const dataSource = (description || pageData?.priceRange) ? "✓ Данные частично со страницы" : "⚠ Заполните данные товара вручную";
     blocks.push({
       type: "Product",
-      label: "Product — добавить (карточка товара)",
+      label: "Product - добавить (карточка товара)",
       reason: `Включает Offer + AggregateRating • ${dataSource}`,
       code: JSON.stringify(product, null, 2),
     });
@@ -472,7 +472,7 @@ function buildGeneratedCode(
     if (logo) article.image = logo;
     blocks.push({
       type: "Article",
-      label: "Article — добавить (статья / блог)",
+      label: "Article - добавить (статья / блог)",
       reason: "⚠ Укажите реального автора и дату публикации",
       code: JSON.stringify(article, null, 2),
     });
@@ -523,9 +523,9 @@ async function getAiRecommendations(
 ): Promise<any> {
   if (!OPENROUTER_API_KEY) return {};
   const sys = `Ты эксперт по Schema.org микроразметке. Анализируй HTML страницы и генерируй ПОЛНЫЙ набор микроразметки Schema.org для этой страницы.
-Используй РЕАЛЬНЫЕ данные из контента страницы — названия, цены, адреса, телефоны, описания.
+Используй РЕАЛЬНЫЕ данные из контента страницы - названия, цены, адреса, телефоны, описания.
 НЕ используй placeholder данные типа "Название компании" или "ул. Примерная".
-Если данных нет — поставь null или пропусти поле, но не выдумывай.
+Если данных нет - поставь null или пропусти поле, но не выдумывай.
 Отвечай ТОЛЬКО на русском языке. Возвращай ТОЛЬКО валидный JSON без markdown.`;
 
   const user = `URL: ${url}
@@ -567,7 +567,7 @@ async function getAiRecommendations(
 - Локальный бизнес (есть адрес + телефон) → LocalBusiness + Organization
 - Если есть FAQ-блок (вопрос/ответ) → ВСЕГДА добавь FAQPage
 
-НЕ предлагай: ImageObject, ListItem standalone, BreadcrumbList с одним элементом — они не дают SEO-ценности.`;
+НЕ предлагай: ImageObject, ListItem standalone, BreadcrumbList с одним элементом - они не дают SEO-ценности.`;
 
   try {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -691,7 +691,7 @@ async function fetchHtml(url: string): Promise<{ html: string; content: string; 
     } catch { /* ignore */ }
   }
 
-  // If still nothing usable AND we did detect a bot wall — flag it
+  // If still nothing usable AND we did detect a bot wall - flag it
   if (!html && !content) {
     return { html: "", content: "", title: "", botBlocked: true };
   }
@@ -708,7 +708,7 @@ function detectPageType(url: string, content: string): string {
   let pathname = "/";
   try { pathname = new URL(url).pathname; } catch { /* ignore */ }
 
-  // Personal brand / event host (check first — strong signal)
+  // Personal brand / event host (check first - strong signal)
   if (/(ведущий|ведущая|тамада|свадьб|корпоратив|мероприят|праздник|event host|wedding host)/i.test(c)) {
     return "event_host";
   }
@@ -789,7 +789,7 @@ function extractPageData(html: string, content: string) {
 
   const ogSite = html.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i);
   const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const titleClean = titleTag?.[1]?.split(/[|—\-–]/)[0]?.trim() || null;
+  const titleClean = titleTag?.[1]?.split(/[|-\-–]/)[0]?.trim() || null;
   const h1 = extractH1(html);
   // Try to grab @type/name from any inline JSON-LD as Schema.org source
   let schemaName: string | null = null;
@@ -849,7 +849,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const reqUrl = new URL(req.url);
-    // Lightweight sitemap discovery — no auth/credit needed (read-only fetch)
+    // Lightweight sitemap discovery - no auth/credit needed (read-only fetch)
     if (reqUrl.searchParams.get("action") === "sitemap") {
       const body = await req.json().catch(() => ({}));
       const target: string = (body?.url || "").trim();
@@ -879,7 +879,7 @@ Deno.serve(async (req: Request) => {
         }
         // Extract <loc>…</loc>
         const locs = Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/gi)).map(m => m[1].trim());
-        // If sitemap index — fetch first nested sitemap
+        // If sitemap index - fetch first nested sitemap
         let urls = locs.filter(l => !/sitemap.*\.xml$/i.test(l));
         if (urls.length === 0 && locs.length > 0) {
           const nested = locs[0];
@@ -1040,7 +1040,7 @@ Deno.serve(async (req: Request) => {
       // Fallback: ensure companyName exists even if not extracted
       if (!pageData.companyName) pageData.companyName = domainToCompanyName(url);
       const generated = buildGeneratedCode(url, validated, features, title, pageData, pageType);
-      // Rich Results — count BOTH validated schemas + recommended ones we can add
+      // Rich Results - count BOTH validated schemas + recommended ones we can add
       const RICH_TYPES = ["Product", "Article", "BlogPosting", "FAQPage", "BreadcrumbList", "LocalBusiness"];
       const richFromValidated = validated.filter(s => s.severity === "ok" && RICH_TYPES.includes(s.type)).length;
       const richFromGenerated = generated.filter(g => RICH_TYPES.includes(g.type)).length;
@@ -1056,7 +1056,7 @@ Deno.serve(async (req: Request) => {
           if (r?.problem && !issues.find(i => i.problem === r.problem)) {
             issues.push({
               severity: r.severity || "info",
-              schema: r.schema || "—",
+              schema: r.schema || "-",
               problem: r.problem,
               solution: r.solution || "",
               seoImpact: r.seoImpact,
@@ -1075,7 +1075,7 @@ Deno.serve(async (req: Request) => {
             : "⚠ Заполните вручную";
           generated.push({
             type: ms.type,
-            label: `${ms.type} — ${ms.priority === "critical" ? "критично" : "рекомендуется"}`,
+            label: `${ms.type} - ${ms.priority === "critical" ? "критично" : "рекомендуется"}`,
             reason: `${ms.reason || ""} • ${sourceLabel}`,
             code: JSON.stringify(ms.generatedCode, null, 2),
           });

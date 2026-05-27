@@ -55,14 +55,14 @@ function buildLocalInsights(sites: SitePayload[], summary: SummaryPayload[]): In
         priority: 'good',
         metric: 'Доменный рейтинг',
         fact: `DR вашего сайта ${me.avgDR} выше среднего по конкурентам ${avgDR.toFixed(1)}`,
-        recommendation: 'Ссылочный профиль конкурентоспособен — поддерживайте текущий темп прироста.',
+        recommendation: 'Ссылочный профиль конкурентоспособен - поддерживайте текущий темп прироста.',
       });
     } else {
       out.push({
         priority: 'warning',
         metric: 'Доменный рейтинг',
         fact: `DR ${me.avgDR} близок к среднему по конкурентам ${avgDR.toFixed(1)}`,
-        recommendation: 'Есть потенциал для роста — отрыв от лидера составляет ' + (leaderDR - me.avgDR).toFixed(1),
+        recommendation: 'Есть потенциал для роста - отрыв от лидера составляет ' + (leaderDR - me.avgDR).toFixed(1),
       });
     }
 
@@ -82,21 +82,21 @@ function buildLocalInsights(sites: SitePayload[], summary: SummaryPayload[]): In
       out.push({
         priority: 'critical',
         metric: 'Follow-ссылки',
-        fact: `Доля follow ${me.followPct}% — критически низкая`,
-        recommendation: 'Большинство ссылок не передают вес. Приоритет — получение follow-ссылок с тематических ресурсов.',
+        fact: `Доля follow ${me.followPct}% - критически низкая`,
+        recommendation: 'Большинство ссылок не передают вес. Приоритет - получение follow-ссылок с тематических ресурсов.',
       });
     } else if (me.followPct < 70) {
       out.push({
         priority: 'warning',
         metric: 'Follow-ссылки',
-        fact: `Доля follow ${me.followPct}% — в норме`,
+        fact: `Доля follow ${me.followPct}% - в норме`,
         recommendation: 'Есть потенциал для роста до 70%+.',
       });
     } else {
       out.push({
         priority: 'good',
         metric: 'Follow-ссылки',
-        fact: `Доля follow ${me.followPct}% — отличный показатель`,
+        fact: `Доля follow ${me.followPct}% - отличный показатель`,
         recommendation: 'Качественный ссылочный профиль.',
       });
     }
@@ -105,7 +105,7 @@ function buildLocalInsights(sites: SitePayload[], summary: SummaryPayload[]): In
       out.push({
         priority: 'warning',
         metric: 'Текстовые ссылки',
-        fact: `${me.textPct}% текстовых ссылок — мало анкорной массы`,
+        fact: `${me.textPct}% текстовых ссылок - мало анкорной массы`,
         recommendation: 'Увеличьте долю анкорных ссылок для передачи релевантности.',
       });
     }

@@ -40,10 +40,10 @@ async function getSetting(key: string): Promise<string> {
 }
 
 const EXPAND_SYSTEM_PROMPT =
-  "Ты эксперт по SEO для русскоязычного рынка. Твоя задача — расширить семантическое ядро по заданной теме. Генерируй ТОЛЬКО русскоязычные поисковые запросы, которые реальные пользователи вводят в Яндекс и Google.\nЗАПРЕЩЕНО: английские слова, транслитерация, технический жаргон.\nВозвращай ТОЛЬКО валидный JSON массив строк — никаких пояснений, никакого markdown, никаких ```json блоков.";
+  "Ты эксперт по SEO для русскоязычного рынка. Твоя задача - расширить семантическое ядро по заданной теме. Генерируй ТОЛЬКО русскоязычные поисковые запросы, которые реальные пользователи вводят в Яндекс и Google.\nЗАПРЕЩЕНО: английские слова, транслитерация, технический жаргон.\nВозвращай ТОЛЬКО валидный JSON массив строк - никаких пояснений, никакого markdown, никаких ```json блоков.";
 
 function buildExpandUserPrompt(topic: string, seeds: string[]): string {
-  return `Тема: ${topic}\nДополнительные ключи: ${seeds.join(", ") || "—"}\n\nСгенерируй 150-200 поисковых запросов на русском языке по следующим категориям:\n1. Основные запросы (20-30 штук): прямые запросы по теме\n2. Коммерческие запросы (30-40 штук): купить, цена, стоимость, заказать, недорого, со скидкой, доставка, интернет-магазин, официальный сайт\n3. Информационные запросы (30-40 штук): как выбрать, какой лучше, отзывы, рейтинг, сравнение, характеристики, плюсы и минусы\n4. Вопросные запросы (20-30 штук): как, что, где, почему, сколько стоит, можно ли, как правильно\n5. Хвостовые запросы (30-40 штук): с уточнениями по размеру, цвету, материалу, бренду, городу (москва, спб, екатеринбург)\n6. LSI и синонимы (20-30 штук): смежные понятия, альтернативные названия\n\nВсе запросы должны быть на русском языке.`;
+  return `Тема: ${topic}\nДополнительные ключи: ${seeds.join(", ") || "-"}\n\nСгенерируй 150-200 поисковых запросов на русском языке по следующим категориям:\n1. Основные запросы (20-30 штук): прямые запросы по теме\n2. Коммерческие запросы (30-40 штук): купить, цена, стоимость, заказать, недорого, со скидкой, доставка, интернет-магазин, официальный сайт\n3. Информационные запросы (30-40 штук): как выбрать, какой лучше, отзывы, рейтинг, сравнение, характеристики, плюсы и минусы\n4. Вопросные запросы (20-30 штук): как, что, где, почему, сколько стоит, можно ли, как правильно\n5. Хвостовые запросы (30-40 штук): с уточнениями по размеру, цвету, материалу, бренду, городу (москва, спб, екатеринбург)\n6. LSI и синонимы (20-30 штук): смежные понятия, альтернативные названия\n\nВсе запросы должны быть на русском языке.`;
 }
 
 async function callExpandOnce(topic: string, seeds: string[]): Promise<string[]> {
@@ -193,7 +193,7 @@ async function clusterWithAI(keywords: string[]): Promise<Map<string, string[]> 
         {
           role: "system",
           content:
-            "Ты эксперт по SEO. Сгруппируй список поисковых запросов по смысловым кластерам. Запросы об одном и том же — в одну группу. Возвращай ТОЛЬКО валидный JSON объект: { \"Название кластера\": [\"запрос1\", \"запрос2\"] }. Целевое количество кластеров: от 5 до 15. Не создавай кластер из одного запроса.",
+            "Ты эксперт по SEO. Сгруппируй список поисковых запросов по смысловым кластерам. Запросы об одном и том же - в одну группу. Возвращай ТОЛЬКО валидный JSON объект: { \"Название кластера\": [\"запрос1\", \"запрос2\"] }. Целевое количество кластеров: от 5 до 15. Не создавай кластер из одного запроса.",
         },
         { role: "user", content: `Сгруппируй эти запросы: ${batch.join(", ")}` },
       ],
@@ -333,7 +333,7 @@ Deno.serve(async (req) => {
       let presetNames: Record<string, string> = {};
 
       if (serpFailureRate > 0.5) {
-        console.warn(`[semantic-core] SERP failure rate ${(serpFailureRate * 100).toFixed(0)}% — falling back to AI clustering`);
+        console.warn(`[semantic-core] SERP failure rate ${(serpFailureRate * 100).toFixed(0)}% - falling back to AI clustering`);
         const aiGroups = await clusterWithAI(items.map((i) => i.keyword));
         if (aiGroups && aiGroups.size > 0) {
           method = "ai";
@@ -343,7 +343,7 @@ Deno.serve(async (req) => {
             if (n) presetNames[id] = n;
           }
         } else {
-          console.warn("[semantic-core] AI clustering failed — falling back to keyword similarity");
+          console.warn("[semantic-core] AI clustering failed - falling back to keyword similarity");
           method = "keywords";
           groups = clusterByKeywordSimilarity(items.map((i) => i.keyword));
         }
@@ -352,7 +352,7 @@ Deno.serve(async (req) => {
         // If SERP produced too many singletons, also fall back
         const singletonRatio = Array.from(groups.values()).filter((g) => g.length === 1).length / Math.max(1, groups.size);
         if (groups.size / items.length > 0.5 && singletonRatio > 0.7) {
-          console.warn("[semantic-core] SERP clustering produced too many singletons — trying AI");
+          console.warn("[semantic-core] SERP clustering produced too many singletons - trying AI");
           const aiGroups = await clusterWithAI(items.map((i) => i.keyword));
           if (aiGroups && aiGroups.size > 0 && aiGroups.size < items.length * 0.5) {
             method = "ai";

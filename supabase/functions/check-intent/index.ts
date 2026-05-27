@@ -54,7 +54,7 @@ function detectSiteType(url: string, _title: string, _snippet: string): SiteType
   const ugc = ["otzovik","irecommend","tripadvisor","yell.ru","tutu.ru/otzyvy"];
   if (ugc.some((u) => domain.includes(u))) return "UGC";
 
-  // Корп. сайт — по URL паттернам (проверяем ДО блога, т.к. /catalog/ важнее)
+  // Корп. сайт - по URL паттернам (проверяем ДО блога, т.к. /catalog/ важнее)
   const corpPatterns = ["/product-category/","/catalog/","/category/","/categories/","/tovar/","/tovary/","/product/","/products/","/uslugi/","/services/","/service/","/shop/","/store/","/magazin/","/market/","/price/","/prices/","/contacts/","/contact/","/about/","/o-nas/","/o-kompanii/","/cart/","/checkout/","/brands/","/proizvoditeli/","/collection/","/kollektsii/"];
   if (corpPatterns.some((p) => path.includes(p))) return "Корп. сайт";
 
