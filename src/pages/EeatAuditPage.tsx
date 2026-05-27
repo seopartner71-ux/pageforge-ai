@@ -253,13 +253,13 @@ export default function EeatAuditPage() {
 
         {/* PHASE 3: result */}
         {result && phase === 'done' && (
-          <Card className="p-6 space-y-6 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between flex-wrap gap-3">
+          <Card ref={resultRef} className="p-6 space-y-6 animate-in fade-in duration-500 scroll-mt-20">
+            <div className="sticky top-2 z-20 -mx-6 -mt-6 px-6 py-3 mb-2 bg-card/95 backdrop-blur border-b border-border/60 flex items-center justify-between flex-wrap gap-3 rounded-t-lg">
               <div>
                 <h2 className="text-base font-semibold text-foreground">Результаты аудита</h2>
                 <p className="text-xs text-muted-foreground">Ниша: {result.niche}</p>
               </div>
-              <Button onClick={() => exportEeatAuditDocx(result)} variant="outline" size="sm" className="gap-2">
+              <Button onClick={() => exportEeatAuditDocx(result)} size="sm" className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">
                 <FileDown className="w-4 h-4" /> Скачать отчёт Word
               </Button>
             </div>
