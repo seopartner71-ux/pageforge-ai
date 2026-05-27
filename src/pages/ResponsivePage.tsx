@@ -4,7 +4,8 @@ import { PageDescription } from '@/components/PageDescription';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Smartphone, Tablet, Monitor, ExternalLink, RefreshCw } from 'lucide-react';
+import { Smartphone, Tablet, Monitor, ExternalLink, RefreshCw, FileDown } from 'lucide-react';
+import { downloadResponsiveReportDocx } from '@/lib/responsive/exportResponsiveReport';
 
 const DEVICES = [
   { id: 'mobile', label: 'iPhone 14', width: 390, height: 780, icon: Smartphone },
@@ -46,10 +47,21 @@ export default function ResponsivePage() {
             </p>
           </div>
           {siteUrl && (
-            <Button onClick={() => setReloadKey((k) => k + 1)} variant="outline" size="sm" className="gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Обновить
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setReloadKey((k) => k + 1)} variant="outline" size="sm" className="gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Обновить
+              </Button>
+              <Button
+                onClick={() => downloadResponsiveReportDocx({ url: siteUrl, checkedAt: new Date().toISOString() })}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <FileDown className="w-4 h-4" />
+                Отчёт для клиента (Word)
+              </Button>
+            </div>
           )}
         </div>
 
