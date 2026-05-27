@@ -42,6 +42,7 @@ export function AppHeader() {
     { label: 'Микроразметка', path: '/schema-audit' },
     { label: 'История SERP', path: '/serp-history' },
     { label: 'PageSpeed', path: '/pagespeed' },
+    { label: 'Адаптивность', path: '/responsive' },
   ];
 
   const userMenuLabel = isAdmin ? '⚙ Админ' : tr.nav.account;
