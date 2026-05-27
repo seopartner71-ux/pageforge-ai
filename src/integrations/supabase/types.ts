@@ -123,6 +123,103 @@ export type Database = {
           },
         ]
       }
+      audit_checks: {
+        Row: {
+          audit_date: string
+          check_name: string
+          check_number: string
+          check_type: string
+          comment: string | null
+          created_at: string
+          difficulty: string
+          external_url: string | null
+          id: string
+          importance: string
+          job_id: string | null
+          result: string
+          section: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audit_date?: string
+          check_name: string
+          check_number: string
+          check_type?: string
+          comment?: string | null
+          created_at?: string
+          difficulty?: string
+          external_url?: string | null
+          id?: string
+          importance?: string
+          job_id?: string | null
+          result?: string
+          section?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audit_date?: string
+          check_name?: string
+          check_number?: string
+          check_type?: string
+          comment?: string | null
+          created_at?: string
+          difficulty?: string
+          external_url?: string | null
+          id?: string
+          importance?: string
+          job_id?: string | null
+          result?: string
+          section?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_checks_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "crawl_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_url_errors: {
+        Row: {
+          audit_check_id: string
+          created_at: string
+          error_detail: string | null
+          id: string
+          url: string
+        }
+        Insert: {
+          audit_check_id: string
+          created_at?: string
+          error_detail?: string | null
+          id?: string
+          url?: string
+        }
+        Update: {
+          audit_check_id?: string
+          created_at?: string
+          error_detail?: string | null
+          id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_url_errors_audit_check_id_fkey"
+            columns: ["audit_check_id"]
+            isOneToOne: false
+            referencedRelation: "audit_checks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_topics: {
         Row: {
           blog_score: number
@@ -315,6 +412,192 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      crawl_issues: {
+        Row: {
+          code: string
+          created_at: string
+          details: Json | null
+          id: string
+          job_id: string
+          message: string | null
+          page_url: string | null
+          severity: string
+          type: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          job_id: string
+          message?: string | null
+          page_url?: string | null
+          severity?: string
+          type?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          job_id?: string
+          message?: string | null
+          page_url?: string | null
+          severity?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crawl_issues_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "crawl_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crawl_jobs: {
+        Row: {
+          created_at: string
+          domain: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          options: Json
+          progress: number
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          options?: Json
+          progress?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          options?: Json
+          progress?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      crawl_pages: {
+        Row: {
+          canonical: string | null
+          created_at: string
+          depth: number | null
+          description: string | null
+          h1: string | null
+          id: string
+          is_indexed: boolean | null
+          job_id: string
+          load_time_ms: number | null
+          status_code: number | null
+          title: string | null
+          url: string
+          word_count: number | null
+        }
+        Insert: {
+          canonical?: string | null
+          created_at?: string
+          depth?: number | null
+          description?: string | null
+          h1?: string | null
+          id?: string
+          is_indexed?: boolean | null
+          job_id: string
+          load_time_ms?: number | null
+          status_code?: number | null
+          title?: string | null
+          url: string
+          word_count?: number | null
+        }
+        Update: {
+          canonical?: string | null
+          created_at?: string
+          depth?: number | null
+          description?: string | null
+          h1?: string | null
+          id?: string
+          is_indexed?: boolean | null
+          job_id?: string
+          load_time_ms?: number | null
+          status_code?: number | null
+          title?: string | null
+          url?: string
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crawl_pages_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "crawl_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crawl_stats: {
+        Row: {
+          avg_load_time_ms: number
+          critical_count: number
+          info_count: number
+          job_id: string
+          score: number
+          total_issues: number
+          total_pages: number
+          updated_at: string
+          warning_count: number
+        }
+        Insert: {
+          avg_load_time_ms?: number
+          critical_count?: number
+          info_count?: number
+          job_id: string
+          score?: number
+          total_issues?: number
+          total_pages?: number
+          updated_at?: string
+          warning_count?: number
+        }
+        Update: {
+          avg_load_time_ms?: number
+          critical_count?: number
+          info_count?: number
+          job_id?: string
+          score?: number
+          total_issues?: number
+          total_pages?: number
+          updated_at?: string
+          warning_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crawl_stats_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "crawl_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       intent_checks: {
         Row: {
@@ -1167,6 +1450,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_next_crawl_job: {
+        Args: never
+        Returns: {
+          domain: string
+          id: string
+          options: Json
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
