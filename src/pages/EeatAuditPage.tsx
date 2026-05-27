@@ -113,9 +113,20 @@ export default function EeatAuditPage() {
           <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
             Аудит E-E-A-T и Коммерческих факторов
           </h1>
-          <p className="text-sm text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            3 фазы: планирование страниц → сбор контента → детальная оценка по 76 пунктам базового чек-листа и нишевым E-E-A-T факторам. Финальный отчёт в Word.
-          </p>
+          <div className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed space-y-3 text-left bg-card/40 border border-border/60 rounded-lg p-5">
+            <p>
+              <span className="text-foreground font-medium">Что это.</span> Комплексная проверка сайта по сигналам E-E-A-T (Опыт, Экспертиза, Авторитетность, Доверие) и коммерческим факторам ранжирования Яндекса и Google.
+            </p>
+            <p>
+              <span className="text-foreground font-medium">Что проверяем.</span> Наличие и качество ключевых сервисных страниц (Контакты, О компании, Доставка, Оплата, Гарантии, Сертификаты, Команда, Отзывы, Портфолио и др.), полноту реквизитов, контактных данных, способов связи, информации о компании и людях, а также 76 пунктов базового чек-листа плюс 5-8 нишевых факторов под конкретную тематику сайта.
+            </p>
+            <p>
+              <span className="text-foreground font-medium">Зачем.</span> Коммерческие факторы и E-E-A-T напрямую влияют на позиции в поиске, доверие пользователей и конверсию. Аудит показывает, чего не хватает сайту, чтобы поисковики и клиенты считали бизнес надёжным.
+            </p>
+            <p>
+              <span className="text-foreground font-medium">Как работает.</span> 3 фазы: планирование страниц, сбор контента, детальная оценка. На выходе - подробный отчёт в Word с балльной оценкой, расшифровкой по каждому пункту и приоритетными рекомендациями.
+            </p>
+          </div>
         </div>
 
         {/* URL input */}
