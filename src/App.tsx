@@ -34,6 +34,8 @@ const SchemaAuditPage = lazy(() => import('./pages/SchemaAuditPage.tsx'));
 const SerpHistoryPage = lazy(() => import('./pages/SerpHistoryPage.tsx'));
 const PageSpeedPage = lazy(() => import('./pages/PageSpeedPage.tsx'));
 const ResponsivePage = lazy(() => import('./pages/ResponsivePage.tsx'));
+const ToolsHubPage = lazy(() => import('./pages/ToolsHubPage.tsx'));
+const AppLayout = lazy(() => import('./components/AppLayout.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
 
 const queryClient = new QueryClient();
@@ -114,24 +116,28 @@ const App = () => (
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
                 <Route path="/terms" element={<TermsPage />} />
-                <Route path="/dashboard" element={<AuthGate><DashboardPage /></AuthGate>} />
-                <Route path="/history" element={<AuthGate><HistoryPage /></AuthGate>} />
-                <Route path="/report/:id" element={<AuthGate><ReportRouterPage /></AuthGate>} />
-                <Route path="/account" element={<AuthGate><AccountPage /></AuthGate>} />
-                
-                <Route path="/admin" element={<AdminGate><AdminPage /></AdminGate>} />
-                <Route path="/geo-audit" element={<AuthGate><GeoAuditPage /></AuthGate>} />
-                <Route path="/eeat-audit" element={<AuthGate><EeatAuditPage /></AuthGate>} />
-                <Route path="/link-audit" element={<AuthGate><LinkAuditPage /></AuthGate>} />
-                <Route path="/competitors" element={<AuthGate><CompetitorsPage /></AuthGate>} />
-                <Route path="/top-analysis" element={<AuthGate><TopAnalysisPage /></AuthGate>} />
-                <Route path="/intent" element={<AuthGate><IntentPage /></AuthGate>} />
-                <Route path="/semantic-core" element={<AuthGate><SemanticCorePage /></AuthGate>} />
-                <Route path="/blog-topics" element={<AuthGate><BlogTopicsPage /></AuthGate>} />
-                <Route path="/schema-audit" element={<AuthGate><SchemaAuditPage /></AuthGate>} />
-                <Route path="/serp-history" element={<AuthGate><SerpHistoryPage /></AuthGate>} />
-                <Route path="/pagespeed" element={<AuthGate><PageSpeedPage /></AuthGate>} />
-                <Route path="/responsive" element={<AuthGate><ResponsivePage /></AuthGate>} />
+                <Route element={<AuthGate><AppLayout /></AuthGate>}>
+                  <Route path="/tools" element={<ToolsHubPage />} />
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/history" element={<HistoryPage />} />
+                  <Route path="/report/:id" element={<ReportRouterPage />} />
+                  <Route path="/account" element={<AccountPage />} />
+                  <Route path="/geo-audit" element={<GeoAuditPage />} />
+                  <Route path="/eeat-audit" element={<EeatAuditPage />} />
+                  <Route path="/link-audit" element={<LinkAuditPage />} />
+                  <Route path="/competitors" element={<CompetitorsPage />} />
+                  <Route path="/top-analysis" element={<TopAnalysisPage />} />
+                  <Route path="/intent" element={<IntentPage />} />
+                  <Route path="/semantic-core" element={<SemanticCorePage />} />
+                  <Route path="/blog-topics" element={<BlogTopicsPage />} />
+                  <Route path="/schema-audit" element={<SchemaAuditPage />} />
+                  <Route path="/serp-history" element={<SerpHistoryPage />} />
+                  <Route path="/pagespeed" element={<PageSpeedPage />} />
+                  <Route path="/responsive" element={<ResponsivePage />} />
+                </Route>
+                <Route element={<AdminGate><AppLayout /></AdminGate>}>
+                  <Route path="/admin" element={<AdminPage />} />
+                </Route>
                 <Route path="/shared/:token" element={<SharedReportPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
