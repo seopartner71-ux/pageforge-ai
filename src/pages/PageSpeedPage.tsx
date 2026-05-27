@@ -5,11 +5,14 @@ import { PageSpeedBlock } from '@/components/PageSpeedBlock';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Zap } from 'lucide-react';
+import { Zap, FileDown } from 'lucide-react';
+import { openPageSpeedReportPrint, type PageSpeedResults } from '@/lib/pagespeed/exportPageSpeedReport';
 
 export default function PageSpeedPage() {
   const [input, setInput] = useState('');
   const [siteUrl, setSiteUrl] = useState<string | null>(null);
+  const [results, setResults] = useState<PageSpeedResults>({});
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,18 +21,32 @@ export default function PageSpeedPage() {
     setSiteUrl(v);
   };
 
+  const hasResults = !!(results.mobile || results.desktop);
+  const handleExport = () => {
+    if (!siteUrl || !hasResults) return;
+    openPageSpeedReportPrint({ url: siteUrl, results, checkedAt });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container py-6 space-y-5">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Zap className="w-6 h-6 text-primary" />
-            PageSpeed Insights
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Проверка скорости загрузки и Core Web Vitals по данным Google Lighthouse
-          </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-semibold flex items-center gap-2">
+              <Zap className="w-6 h-6 text-primary" />
+              PageSpeed Insights
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Проверка скорости загрузки и Core Web Vitals по данным Google Lighthouse
+            </p>
+          </div>
+          {hasResults && (
+            <Button onClick={handleExport} variant="outline" size="sm" className="gap-2">
+              <FileDown className="w-4 h-4" />
+              Отчёт для клиента (PDF)
+            </Button>
+          )}
         </div>
 
         <PageDescription
@@ -55,7 +72,16 @@ export default function PageSpeedPage() {
           </form>
         </Card>
 
-        {siteUrl && <PageSpeedBlock key={siteUrl} siteUrl={siteUrl} />}
+        {siteUrl && (
+          <PageSpeedBlock
+            key={siteUrl}
+            siteUrl={siteUrl}
+            onResults={({ results, checkedAt }) => {
+              setResults(results);
+              setCheckedAt(checkedAt);
+            }}
+          />
+        )}
       </main>
     </div>
   );
