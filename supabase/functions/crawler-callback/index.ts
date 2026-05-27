@@ -104,6 +104,58 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // The external crawler also sends per-page deep analysis (mixed content, SSL,
+    // analytics, structured data). Our schema doesn't persist all extras yet —
+    // accept the payload, store any returned issues, and ack so the crawler
+    // does not error.
+    if (action === "analyze_page") {
+      const issues = (body.issues || []) as any[];
+      if (Array.isArray(issues) && issues.length > 0) {
+        const rows = issues.map((i) => ({
+          job_id,
+          page_url: i.page_url ?? body.url ?? null,
+          type: i.type ?? "onpage",
+          code: i.code ?? "analyze",
+          severity: i.severity ?? "info",
+          message: i.message ?? null,
+          details: i.details ?? {},
+        }));
+        await supabase.from("crawl_issues").insert(rows);
+      }
+      return json({ ok: true });
+    }
+
+    // Aliases used by the legacy Python worker
+    if (action === "complete_job") {
+      await supabase.from("crawl_jobs").update({
+        status: "completed",
+        progress: 100,
+        finished_at: new Date().toISOString(),
+      }).eq("id", job_id);
+      if (body.stats) {
+        await supabase.from("crawl_stats").upsert({
+          job_id,
+          total_pages: body.stats.total_pages ?? 0,
+          total_issues: body.stats.total_issues ?? 0,
+          critical_count: body.stats.critical_count ?? 0,
+          warning_count: body.stats.warning_count ?? 0,
+          info_count: body.stats.info_count ?? 0,
+          avg_load_time_ms: body.stats.avg_load_time_ms ?? 0,
+          score: body.stats.score ?? 0,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "job_id" });
+      }
+      return json({ ok: true });
+    }
+
+    if (action === "update_progress") {
+      await supabase.from("crawl_jobs").update({
+        progress: body.progress ?? 0,
+        status: "running",
+      }).eq("id", job_id);
+      return json({ ok: true });
+    }
+
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";

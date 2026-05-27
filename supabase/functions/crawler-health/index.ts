@@ -11,10 +11,7 @@ const corsHeaders = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const base = Deno.env.get("CRAWLER_BASE_URL");
-  if (!base) {
-    return json({ online: false, error: "CRAWLER_BASE_URL not configured", latency_ms: 0 });
-  }
+  const base = Deno.env.get("CRAWLER_BASE_URL") || "http://155.212.221.64:8000";
 
   const started = Date.now();
   const paths = ["/health", "/", "/docs"];
