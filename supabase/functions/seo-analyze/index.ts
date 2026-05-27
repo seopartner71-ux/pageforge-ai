@@ -247,8 +247,9 @@ function calculateTFIDF(targetWords: string[], competitorWordArrays: string[][])
   const results: any[] = [];
   for (const term of allTerms) {
     const df = docFreq[term] || 0;
-    // IDF = log(totalDocs / df) — classic formula; smooth to avoid log(0)
-    const idf = df > 0 ? Math.log10(totalDocs / df) : Math.log10(totalDocs + 1);
+    // Smoothed IDF: log((N+1)/(df+1)) + 1 — works well even with few competitors,
+    // avoids zero values when term appears in every doc.
+    const idf = Math.log((totalDocs + 1) / (df + 1)) + 1;
     const userTf = targetTf[term] || 0;
     const userTfidf = userTf * idf;
 
@@ -1042,24 +1043,40 @@ Deno.serve(async (req) => {
 
     await supabase.from("analyses").update({ status: "running", progress: stages }).eq("id", analysisId);
 
-    // ── Stage 0: Content Fetch ──
+    // ── Stage 0: Content Fetch (markdown + raw HTML in parallel) ──
     await setStage(0, "running");
     console.log("Fetching:", url);
     const t0 = Date.now();
-    const targetContent = await fetchPage(url);
+    const [jinaContent, rawHtml] = await Promise.all([fetchPage(url), fetchRawHtml(url)]);
     perfTiming.fetch_ms = Date.now() - t0;
+
+    // SPA / JS-heavy fallback: if Jina Reader returned nothing but raw HTML exists,
+    // strip tags to plain text so the analysis can proceed.
+    let targetContent = jinaContent;
+    if (!targetContent && rawHtml) {
+      const stripped = rawHtml
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      // Try to reconstruct a markdown-ish title line from <title> so downstream keyword extraction works
+      const titleTag = rawHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim();
+      targetContent = (titleTag ? `# ${titleTag}\n\n` : '') + stripped.slice(0, 50000);
+      console.log("SPA fallback active — using stripped HTML, length:", targetContent.length);
+    }
+
     await setStage(0, targetContent ? "done" : "error", `${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
     if (!targetContent) {
       await supabase.from("analyses").update({ status: "failed" }).eq("id", analysisId);
-      return new Response(JSON.stringify({ error: "Failed to fetch page content" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Failed to fetch page content (Jina + raw HTML both empty)" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── Stage 1: HTML Parse (Images & Anchors) ──
     await setStage(1, "running");
     const tHtml = Date.now();
-    console.log("Fetching raw HTML:", url);
-    const rawHtml = await fetchRawHtml(url);
     let imagesData: any[] = [];
     let anchorsData: any[] = [];
     if (rawHtml) {
@@ -1068,6 +1085,17 @@ Deno.serve(async (req) => {
       console.log(`Parsed ${imagesData.length} images, ${anchorsData.length} anchors`);
     }
     await setStage(1, "done", `${((Date.now() - tHtml) / 1000).toFixed(1)}s`);
+
+    // Helper: derive primary keyword for SERP — prefer <title>, then markdown H1, then hostname
+    const deriveKeyword = (): string => {
+      const metaTitle = rawHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim();
+      if (metaTitle) return metaTitle.slice(0, 100);
+      const h1Match = rawHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]?.replace(/<[^>]+>/g, '').trim();
+      if (h1Match) return h1Match.slice(0, 100);
+      const mdTitle = targetContent.match(/^#\s+(.+)$/m)?.[1]?.trim();
+      if (mdTitle) return mdTitle.slice(0, 100);
+      try { return new URL(url).hostname; } catch { return url; }
+    };
 
     // Use a dynamic stage index counter since cluster mode adds an extra stage
     let si = 2;
@@ -1080,8 +1108,7 @@ Deno.serve(async (req) => {
       await setStage(si, "running");
       const tCluster = Date.now();
       if (SERPER_KEY) {
-        const titleMatch = targetContent.match(/^#\s+(.+)$/m);
-        const keyword = titleMatch?.[1]?.slice(0, 100) || url;
+        const keyword = deriveKeyword();
         console.log("Cluster SERP keyword:", keyword);
         const cluster = await findClusterData(keyword, SERPER_KEY, region);
         const semanticCluster = [...new Set([...cluster.relatedSearches, ...cluster.peopleAlsoAsk])].slice(0, 30);
@@ -1105,8 +1132,7 @@ Deno.serve(async (req) => {
     const t1 = Date.now();
 
     if (competitorUrls.length === 0 && SERPER_KEY) {
-      const titleMatch = targetContent.match(/^#\s+(.+)$/m);
-      const keyword = titleMatch?.[1]?.slice(0, 100) || url;
+      const keyword = deriveKeyword();
       console.log("SERP keyword:", keyword);
       competitorUrls = await findCompetitors(keyword, SERPER_KEY, region);
       try { competitorUrls = competitorUrls.filter(u => !u.includes(new URL(url).hostname)); } catch {}
@@ -1117,7 +1143,20 @@ Deno.serve(async (req) => {
     // ── Competitor Fetch (markdown + raw HTML in parallel) ──
     await setStage(si, "running");
     const t2 = Date.now();
-    const fetchUrls = competitorUrls.slice(0, 10);
+    // Dedup competitor URLs by hostname to prevent the same site appearing twice
+    // (which would double-weight it in TF-IDF / medians)
+    const seenHosts = new Set<string>();
+    try { seenHosts.add(new URL(url).hostname.replace(/^www\./, '')); } catch {}
+    const fetchUrls: string[] = [];
+    for (const u of competitorUrls) {
+      try {
+        const host = new URL(u).hostname.replace(/^www\./, '');
+        if (seenHosts.has(host)) continue;
+        seenHosts.add(host);
+        fetchUrls.push(u);
+      } catch {}
+      if (fetchUrls.length >= 10) break;
+    }
     console.log(`Fetching ${fetchUrls.length} competitors in parallel (markdown + HTML)...`);
     const compContents: string[] = [];
     const compRawHtmls: string[] = [];
@@ -1507,8 +1546,62 @@ Meta title: ${audit.metaTitle ? `"${audit.metaTitle}"` : "Нет"}, Meta desc: $
       wordCount: compWordArrays[i]?.length || 0,
     }));
 
+    // ── Deterministic SEO Health score (computed from programmatic audit, not AI) ──
+    // Weighted checklist — total = 100. AI's "seoHealth" replaced with this objective value.
+    const computeSeoHealth = (): number => {
+      let score = 0;
+      // H1 (15)
+      if (audit.h1Count === 1) score += 15;
+      else if (audit.h1Count === 0) score += 0;
+      else score += 5; // multiple H1s
+      // Meta title (15) — present + reasonable length
+      if (audit.metaTitle) {
+        const len = audit.metaTitle.length;
+        score += len >= 30 && len <= 70 ? 15 : 8;
+      }
+      // Meta description (10)
+      if (audit.metaDesc) {
+        const len = audit.metaDesc.length;
+        score += len >= 70 && len <= 200 ? 10 : 5;
+      }
+      // Canonical (8)
+      if (audit.canonical) score += 8;
+      // OpenGraph (12 = 4+4+4)
+      if (audit.hasOgTitle) score += 4;
+      if (audit.hasOgDesc) score += 4;
+      if (audit.hasOgImage) score += 4;
+      // JSON-LD (10)
+      if (audit.hasJsonLd) score += 10;
+      // Images alt ratio (10)
+      if (audit.totalImages > 0) {
+        const altRatio = 1 - (audit.imagesWithoutAlt / audit.totalImages);
+        score += Math.round(altRatio * 10);
+      } else {
+        score += 5; // no images — neutral
+      }
+      // Word count vs competitors (10)
+      const medianWords = medianFn(compWordCounts);
+      if (medianWords > 0) {
+        const ratio = targetWordCount / medianWords;
+        if (ratio >= 0.8 && ratio <= 1.5) score += 10;
+        else if (ratio >= 0.5) score += 6;
+        else score += 2;
+      } else if (targetWordCount >= 300) score += 7;
+      // Heading structure (10)
+      if (targetH2Count >= 2) score += 5;
+      if (targetH3Count >= 1) score += 5;
+      return Math.min(100, Math.max(0, score));
+    };
+    const deterministicSeoHealth = computeSeoHealth();
+
+    const aiScores = aiParsed.scores || {};
     const finalResult = {
-      scores: aiParsed.scores || { seoHealth: 50, llmFriendly: 50, humanTouch: 50, sgeAdapt: 50 },
+      scores: {
+        seoHealth: deterministicSeoHealth, // computed, not AI
+        llmFriendly: typeof aiScores.llmFriendly === 'number' ? aiScores.llmFriendly : 50,
+        humanTouch: typeof aiScores.humanTouch === 'number' ? aiScores.humanTouch : 50,
+        sgeAdapt: typeof aiScores.sgeAdapt === 'number' ? aiScores.sgeAdapt : 50,
+      },
       quick_wins: aiParsed.quickWins || [],
       tab_data: {
         aiReport: aiParsed.aiReport || {},

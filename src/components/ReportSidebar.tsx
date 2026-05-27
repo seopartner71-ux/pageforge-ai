@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, TrendingUp, Sparkles, ArrowUpRight } from 'lucide-react';
-import {
-  AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip,
-} from 'recharts';
+import { CheckCircle2, Circle, Sparkles } from 'lucide-react';
 
 interface ModuleStatusItem {
   name: string;
@@ -33,16 +30,6 @@ export function ReportSidebar({ modules, quickWins, modulesTitle, readyLabel, qu
       return next;
     });
   };
-
-  const currentScore = scores?.seoHealth || 50;
-  const forecastData = Array.from({ length: 7 }, (_, i) => {
-    const month = i * 15;
-    const growth = Math.min(currentScore + (100 - currentScore) * (1 - Math.exp(-i * 0.4)), 98);
-    return {
-      day: `${month}д`,
-      score: Math.round(i === 0 ? currentScore : growth),
-    };
-  });
 
   return (
     <div className="space-y-4">
@@ -105,40 +92,6 @@ export function ReportSidebar({ modules, quickWins, modulesTitle, readyLabel, qu
           </div>
         </div>
       )}
-
-      {/* 90-day forecast */}
-      <div className="report-soft-panel p-4">
-        <div className="mb-3 flex items-center gap-1.5">
-          <TrendingUp className="h-3.5 w-3.5 text-primary" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground">Прогноз на 90 дней</span>
-        </div>
-        <div className="h-32 rounded-lg border border-border/60 bg-secondary/20 p-1.5">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={forecastData}>
-              <XAxis dataKey="day" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 9 }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 9 }} axisLine={false} tickLine={false} width={24} />
-              <Tooltip
-                contentStyle={{
-                  background: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                  color: 'hsl(var(--foreground))',
-                  fontSize: 11,
-                }}
-                formatter={(value: number) => [`${value}`, 'Score']}
-              />
-              <Area type="monotone" dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.1} strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="mt-3 flex items-center justify-between text-[12px]">
-          <span className="text-muted-foreground">Сейчас: <span className="font-semibold text-foreground">{currentScore}</span></span>
-          <span className="inline-flex items-center gap-0.5 font-semibold text-primary">
-            {forecastData[forecastData.length - 1]?.score}
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </span>
-        </div>
-      </div>
     </div>
   );
 }
