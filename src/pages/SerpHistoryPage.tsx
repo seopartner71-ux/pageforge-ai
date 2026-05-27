@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { AppHeader } from '@/components/AppHeader';
+import { PageDescription } from '@/components/PageDescription';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -251,6 +252,15 @@ export default function SerpHistoryPage() {
           <BarChart3 className="w-6 h-6 text-primary" />
           <h1 className="text-2xl font-semibold">История SERP</h1>
         </div>
+
+        <PageDescription
+          items={[
+            { label: 'Что это', text: 'Отслеживание изменений выдачи Яндекса и Google по конкретным запросам.' },
+            { label: 'Что проверяем', text: 'Кто входит и выходит из ТОПа, динамика позиций сайтов, новые конкуренты.' },
+            { label: 'Зачем', text: 'Реагировать на просадки и видеть, какие сайты растут в нише.' },
+            { label: 'Результат', text: 'Таймлайн изменений ТОП-10, графики динамики и история по каждому домену.' },
+          ]}
+        />
 
         {/* INPUT PANEL */}
         <Card className="p-5 space-y-4">

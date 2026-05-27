@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppHeader } from '@/components/AppHeader';
+import { PageDescription } from '@/components/PageDescription';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -184,6 +185,15 @@ export default function BlogTopicsPage() {
             </Button>
           )}
         </div>
+
+        <PageDescription
+          items={[
+            { label: 'Что это', text: 'Генерация информационных тем для блога с оценкой конкуренции.' },
+            { label: 'Что проверяем', text: 'Релевантность темы нише, сложность ТОП-10 Google, потенциальный спрос.' },
+            { label: 'Зачем', text: 'Получить готовый контент-план с приоритетами и не писать вслепую.' },
+            { label: 'Результат', text: 'Список тем по уровню конкуренции и выгрузка контент-плана в .docx.' },
+          ]}
+        />
 
         {/* Form */}
         <Card className="p-5 space-y-4">

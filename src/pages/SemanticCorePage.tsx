@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppHeader } from '@/components/AppHeader';
+import { PageDescription } from '@/components/PageDescription';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -587,6 +588,15 @@ export default function SemanticCorePage() {
             </p>
           </div>
         </div>
+
+        <PageDescription
+          items={[
+            { label: 'Что это', text: 'Автоматическая сборка семантического ядра по теме или seed-запросам.' },
+            { label: 'Что проверяем', text: 'Подсказки, частоты, интент, кластеры по пересечению выдачи в Яндексе/Google.' },
+            { label: 'Зачем', text: 'Получить готовое ядро с группировкой под страницы сайта без ручной работы.' },
+            { label: 'Результат', text: 'Таблица запросов с частотами и интентом, кластеры и выгрузка в Excel.' },
+          ]}
+        />
 
         {/* INPUT PANEL */}
         <Card className="p-5 space-y-4">

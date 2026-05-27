@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AppHeader } from '@/components/AppHeader';
+import { PageDescription } from '@/components/PageDescription';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -139,6 +140,15 @@ export default function IntentPage() {
             </p>
           </div>
         </div>
+
+        <PageDescription
+          items={[
+            { label: 'Что это', text: 'Классификация поисковых запросов по типу намерения пользователя.' },
+            { label: 'Что проверяем', text: 'Какие форматы (статьи, карточки, агрегаторы, видео) в топе по каждому запросу.' },
+            { label: 'Зачем', text: 'Подобрать правильный тип страницы под запрос и не тратить силы зря.' },
+            { label: 'Результат', text: 'Распределение интентов, рекомендации по контенту и выгрузка в Excel.' },
+          ]}
+        />
 
         {/* Форма */}
         <Card className="p-5 space-y-5">
