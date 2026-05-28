@@ -17,6 +17,7 @@ import {
   KeyRound, Package, BookOpen, Video, LinkIcon, Plus, Download, Trash2, ExternalLink, FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageDescription } from '@/components/PageDescription';
 
 type Kind = 'credential' | 'software' | 'memo' | 'video' | 'link';
 
@@ -158,9 +159,10 @@ export default function StaffHubPage() {
     <div className="p-6 md:p-8 max-w-7xl w-full mx-auto space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Центр помощи сотрудникам</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Help me</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Доступы, софт, памятки и обучающие материалы. Раздел виден только сотрудникам и админам.
+            Центр помощи сотрудникам - доступы, софт, памятки и обучающие материалы.
+            Раздел виден только сотрудникам и админам.
           </p>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
@@ -225,6 +227,27 @@ export default function StaffHubPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <PageDescription
+        items={[
+          {
+            label: 'Что это',
+            text: 'Внутренняя база знаний команды: единое место для доступов, дистрибутивов софта, памяток, видео и полезных ссылок.',
+          },
+          {
+            label: 'Что внутри',
+            text: 'Пять разделов: Доступы (логины/ключи), Софт (архивы и установщики), Памятки (регламенты и чек-листы), Видео и Ссылки на сервисы.',
+          },
+          {
+            label: 'Зачем',
+            text: 'Чтобы новые сотрудники быстро находили нужные инструменты и инструкции, а старые - не теряли время на поиск доступов и регламентов.',
+          },
+          {
+            label: 'Доступ',
+            text: 'Раздел закрыт: его видят только пользователи с ролью «Сотрудник» или «Админ». Файлы хранятся в защищённом приватном хранилище.',
+          },
+        ]}
+      />
 
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="flex-wrap h-auto">
