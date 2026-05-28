@@ -616,8 +616,6 @@ export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInpu
   const { domain, stats, issues, preparedBy = 'SEO-Аудит', periodMonths = 1 } = input;
   const results = analyzeChecks(issues || []);
   const errors = results.filter(r => r.hasError);
-  const totalPages = stats?.total_pages ?? 0;
-
   // Группировка чеков по разделам
   const section1 = results.filter(r => r.check.num.startsWith('1.'));
   const section2 = results.filter(r => r.check.num.startsWith('2.'));
