@@ -306,6 +306,10 @@ export default function AiVisibilityPage() {
             {running ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
             Запустить прогон
           </Button>
+          <Button variant="outline" onClick={handleExportDocx} disabled={!activeProjectId || results.length === 0 || exporting}>
+            {exporting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <FileDown className="w-4 h-4 mr-1" />}
+            Скачать отчёт Word
+          </Button>
         </Card>
 
         {activeProject ? (
