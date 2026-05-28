@@ -18,6 +18,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import { parseAliceXlsx, type AliceParsed, type AliceRow } from '@/lib/alice/parseAliceXlsx';
 import { exportAliceReportDocx } from '@/lib/alice/exportAliceReportDocx';
+import { AliceFormatGuide } from '@/components/alice/AliceFormatGuide';
 import { supabase } from '@/integrations/supabase/client';
 
 const PIE_COLORS = ['hsl(var(--primary))', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#6B7280'];
@@ -154,6 +155,7 @@ export default function AliceVisibilityPage() {
         />
 
         <Card className="p-4 space-y-3">
+          <AliceFormatGuide />
           <div className="grid md:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs">Название бренда</Label>
