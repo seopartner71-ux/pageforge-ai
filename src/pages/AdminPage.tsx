@@ -43,6 +43,15 @@ interface UserProfile {
   created_at: string;
 }
 
+type AppRole = 'user' | 'intern' | 'employee' | 'admin';
+const ROLE_LABELS: Record<AppRole, string> = {
+  user: 'Пользователь',
+  intern: 'Стажёр',
+  employee: 'Сотрудник',
+  admin: 'Админ',
+};
+const ROLE_ORDER: AppRole[] = ['user', 'intern', 'employee', 'admin'];
+
 export default function AdminPage() {
   const { isAdmin, loading: roleLoading } = useAdminRole();
   const navigate = useNavigate();
@@ -326,19 +335,59 @@ function UsersTab() {
   const [filterPlan, setFilterPlan] = useState<string>('all');
   const [filterActivity, setFilterActivity] = useState<string>('all');
   const [emailDialog, setEmailDialog] = useState<{ open: boolean; to: string; subject: string; body: string }>({ open: false, to: '', subject: '', body: '' });
+  const [rolesMap, setRolesMap] = useState<Record<string, AppRole>>({});
 
   useEffect(() => {
     const load = async () => {
-      const [usersRes, analysesRes] = await Promise.all([
+      const [usersRes, analysesRes, rolesRes] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('analyses').select('user_id, status, created_at'),
+        supabase.from('user_roles').select('user_id, role'),
       ]);
       if (usersRes.data) setUsers(usersRes.data as any);
       if (analysesRes.data) setAnalyses(analysesRes.data);
+      if (rolesRes.data) {
+        const map: Record<string, AppRole> = {};
+        const priority: Record<string, number> = { admin: 4, employee: 3, intern: 2, user: 1, moderator: 0 };
+        for (const r of rolesRes.data as any[]) {
+          const role = r.role as AppRole;
+          if (!map[r.user_id] || (priority[role] || 0) > (priority[map[r.user_id]] || 0)) {
+            map[r.user_id] = role;
+          }
+        }
+        setRolesMap(map);
+      }
       setLoading(false);
     };
     load();
   }, []);
+
+  const handleRoleChange = async (userId: string, newRole: AppRole) => {
+    const prev = rolesMap[userId] || 'user';
+    setRolesMap(m => ({ ...m, [userId]: newRole }));
+    // delete existing managed roles, then insert the new one (skip 'user' = no row)
+    const { error: delErr } = await supabase
+      .from('user_roles')
+      .delete()
+      .eq('user_id', userId)
+      .in('role', ['admin', 'employee', 'intern', 'user']);
+    if (delErr) {
+      setRolesMap(m => ({ ...m, [userId]: prev }));
+      toast({ title: 'Не удалось изменить роль', description: delErr.message, variant: 'destructive' });
+      return;
+    }
+    if (newRole !== 'user') {
+      const { error: insErr } = await supabase
+        .from('user_roles')
+        .insert({ user_id: userId, role: newRole });
+      if (insErr) {
+        setRolesMap(m => ({ ...m, [userId]: prev }));
+        toast({ title: 'Не удалось назначить роль', description: insErr.message, variant: 'destructive' });
+        return;
+      }
+    }
+    toast({ title: `Роль обновлена: ${ROLE_LABELS[newRole]}` });
+  };
 
   // Pre-compute analysis stats per user to avoid O(N*M) filtering on every render
   const analysisStats = useMemo(() => {
@@ -498,19 +547,21 @@ function UsersTab() {
                   <TableHead>Тариф</TableHead>
                   <TableHead className="text-center">Анализов</TableHead>
                   <TableHead className="text-center">Кредиты</TableHead>
+                  <TableHead className="text-center">Роль</TableHead>
                   <TableHead className="text-center">Статус</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {displayUsers.length === 0 && (
-                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Нет пользователей</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Нет пользователей</TableCell></TableRow>
                 )}
                 {displayUsers.map(u => {
                   const plan = getPlan(u.credits);
                   const isActive = isActiveRecently(u.user_id);
                   const lastAct = getLastActivity(u.user_id);
                   const count = getAnalysisCount(u.user_id);
+                  const currentRole: AppRole = rolesMap[u.user_id] || 'user';
 
                   return (
                     <TableRow key={u.id}>
@@ -547,6 +598,18 @@ function UsersTab() {
                             {u.credits}
                           </button>
                         )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Select value={currentRole} onValueChange={(v) => handleRoleChange(u.user_id, v as AppRole)}>
+                          <SelectTrigger className="h-7 w-[120px] text-xs mx-auto">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLE_ORDER.map(r => (
+                              <SelectItem key={r} value={r} className="text-xs">{ROLE_LABELS[r]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell className="text-center">
                         {isActive
