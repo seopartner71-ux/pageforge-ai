@@ -56,6 +56,19 @@ interface Check {
 const CHECKS: Check[] = [
   // ============ 1. Технические ошибки ============
   {
+    num: '1.1', title: 'Главное зеркало сайта (www / без www)', importance: 'высокая', complexity: 'низкая',
+    codes: [], priority: 'P1',
+    description: [
+      'У сайта должно быть выбрано одно главное зеркало - с www или без. Второй вариант должен 301-редиректом склеиваться с главным. Иначе поисковики видят два разных сайта-дубля, ссылочный вес и поведенческие факторы делятся пополам.',
+    ],
+    fix: [
+      'Выбрать главное зеркало (рекомендуется без www для коротких доменов).',
+      'Настроить 301-редирект второстепенного варианта на главное на уровне nginx/Apache.',
+      'Указать главное зеркало в Google Search Console и Яндекс.Вебмастер.',
+      'Проверить, что все внутренние ссылки ведут на главное зеркало.',
+    ],
+  },
+  {
     num: '1.2', title: 'Протокол HTTPS', importance: 'высокая', complexity: 'высокая',
     codes: ['no_https'], priority: 'P1',
     description: [
@@ -629,10 +642,8 @@ export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInpu
   // О документе
   children.push(...buildAbout());
 
-  // Сводка
-  children.push(h1('Сводка по аудиту'));
   // Оглавление
-  children.push(h2('Оглавление'));
+  children.push(h1('Оглавление'));
   const tocSections: Array<{ title: string; items: CheckResult[] }> = [
     { title: '1. Технические ошибки', items: section1 },
     ...(section2.length > 0 ? [{ title: '2. Ссылки и контент', items: section2 }] : []),
