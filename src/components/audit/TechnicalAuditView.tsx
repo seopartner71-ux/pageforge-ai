@@ -279,22 +279,53 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
     })();
   }, [domain]);
 
-  // Realtime
+  // Realtime + polling fallback (realtime publication may lag/miss events)
   useEffect(() => {
     if (!jobId) return;
+    let cancelled = false;
+    const applyRow = (row: any) => {
+      if (cancelled || !row) return;
+      setScanStatus(row.status);
+      setScanProgress(row.progress ?? 0);
+    };
     const ch = supabase
       .channel(`crawl-job-${jobId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'crawl_jobs', filter: `id=eq.${jobId}` },
         (payload: any) => {
           const row = payload.new;
-          setScanStatus(row.status);
-          setScanProgress(row.progress ?? 0);
+          applyRow(row);
           if (row.status === 'completed' || row.status === 'done') toast.success('Аудит завершён');
           if (row.status === 'error') toast.error('Ошибка аудита: ' + (row.error_message ?? ''));
         })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [jobId]);
+
+    // Poll every 3s while the job is not in a terminal state — covers the case
+    // when realtime events get lost.
+    const poll = setInterval(async () => {
+      const { data } = await supabase
+        .from('crawl_jobs')
+        .select('status, progress, error_message')
+        .eq('id', jobId)
+        .maybeSingle();
+      if (!data) return;
+      const prevStatus = scanStatus;
+      applyRow(data);
+      if ((data.status === 'completed' || data.status === 'done') &&
+          prevStatus !== 'completed' && prevStatus !== 'done') {
+        queryClient.invalidateQueries({ queryKey: ['crawl-stats', jobId] });
+        queryClient.invalidateQueries({ queryKey: ['crawl-issues-all', jobId] });
+      }
+      if (data.status === 'completed' || data.status === 'done' || data.status === 'error') {
+        clearInterval(poll);
+      }
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+      supabase.removeChannel(ch);
+    };
+  }, [jobId, queryClient]);
 
   const isDone = scanStatus === 'completed' || scanStatus === 'done';
 
