@@ -360,11 +360,24 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
     queryKey: ['crawl-issues-all', jobId],
     enabled: !!jobId && isDone,
     queryFn: async () => {
-      const { data } = await supabase
-        .from('crawl_issues')
-        .select('id, type, severity, code, message, page_url, details')
-        .eq('job_id', jobId!);
-      return (data ?? []) as any[];
+      // PostgREST возвращает максимум 1000 строк за запрос —
+      // у крупных аудитов issues могут исчисляться десятками тысяч,
+      // поэтому выгружаем порциями через .range().
+      const PAGE = 1000;
+      const all: any[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('crawl_issues')
+          .select('id, type, severity, code, message, page_url, details')
+          .eq('job_id', jobId!)
+          .order('id', { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        const batch = data ?? [];
+        all.push(...batch);
+        if (batch.length < PAGE) break;
+      }
+      return all;
     },
   });
 
