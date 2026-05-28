@@ -22,6 +22,16 @@ import {
 } from '@/components/ui/alert-dialog';
 
 type CheckInfo = { description: string; importance: 'Критическая' | 'Высокая' | 'Средняя' | 'Низкая' };
+
+function computeScore(stats: { total_pages?: number | null; critical_count?: number | null; warning_count?: number | null; score?: number | null } | null | undefined): number {
+  if (!stats) return 0;
+  if (typeof stats.score === 'number' && stats.score > 0) return stats.score;
+  const pages = Math.max(1, stats.total_pages ?? 0);
+  const critical = stats.critical_count ?? 0;
+  const warnings = stats.warning_count ?? 0;
+  const penalty = (critical * 2 + warnings * 0.5) / pages;
+  return Math.max(0, Math.min(100, Math.round(100 - penalty)));
+}
 const CHECK_INFO: Record<string, CheckInfo> = {
   no_https: { importance: 'Высокая', description: 'Сайт не использует HTTPS — фактор ранжирования и безопасности.' },
   no_robots_txt: { importance: 'Высокая', description: 'Нет robots.txt — нет управления индексацией.' },
@@ -505,7 +515,7 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
             { label: 'Критических', value: jobStats.critical_count, icon: AlertCircle, cls: 'bg-destructive/10 text-destructive' },
             { label: 'Предупреждений', value: jobStats.warning_count, icon: AlertTriangle, cls: 'bg-yellow-500/10 text-yellow-400' },
             { label: 'Средний TTFB', value: `${jobStats.avg_load_time_ms} мс`, icon: Info, cls: 'bg-blue-500/10 text-blue-400' },
-            { label: 'Оценка', value: `${jobStats.score}/100`, icon: CheckCircle2, cls: 'bg-emerald-500/10 text-emerald-400' },
+            { label: 'Оценка', value: `${computeScore(jobStats)}/100`, icon: CheckCircle2, cls: 'bg-emerald-500/10 text-emerald-400' },
           ].map((k) => {
             const Icon = k.icon;
             return (
