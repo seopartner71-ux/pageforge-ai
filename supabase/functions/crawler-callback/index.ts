@@ -36,6 +36,8 @@ Deno.serve(async (req) => {
     const job_id = body?.job_id as string;
     if (!action) return json({ error: "action is required" }, 400);
 
+    console.log(`[crawler-callback] action=${action} job_id=${job_id ?? "-"} keys=${Object.keys(body).join(",")}`);
+
     if (action === "claim_job") {
       const { data, error } = await supabase.rpc("claim_next_crawl_job");
       if (error) throw error;
