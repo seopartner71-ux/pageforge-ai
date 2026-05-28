@@ -505,7 +505,7 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
             { label: 'Критических', value: jobStats.critical_count, icon: AlertCircle, cls: 'bg-destructive/10 text-destructive' },
             { label: 'Предупреждений', value: jobStats.warning_count, icon: AlertTriangle, cls: 'bg-yellow-500/10 text-yellow-400' },
             { label: 'Средний TTFB', value: `${jobStats.avg_load_time_ms} мс`, icon: Info, cls: 'bg-blue-500/10 text-blue-400' },
-            { label: 'Оценка', value: `${jobStats.score}/100`, icon: CheckCircle2, cls: 'bg-emerald-500/10 text-emerald-400' },
+            { label: 'Оценка', value: `${computeScore(jobStats)}/100`, icon: CheckCircle2, cls: 'bg-emerald-500/10 text-emerald-400' },
           ].map((k) => {
             const Icon = k.icon;
             return (
