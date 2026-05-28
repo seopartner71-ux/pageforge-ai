@@ -78,8 +78,9 @@ const SECTIONS: SectionDef[] = [
     description: 'Внутренние и внешние ссылки', types: ['links'],
     checks: [
       { code: 'broken_link', label: 'Битые внутренние ссылки', severity: 'critical' },
-      { code: 'http_link', label: 'Ссылки с HTTP на HTTPS сайте', severity: 'warning' },
-      { code: 'external_link', label: 'Исходящие внешние ссылки', severity: 'info' },
+      { code: 'broken_external_link', label: 'Битые внешние ссылки', severity: 'critical' },
+      { code: 'http_link', label: 'Внутренние ссылки с HTTP вместо HTTPS', severity: 'warning' },
+      { code: 'external_link', label: 'Внешние ссылки', severity: 'info' },
     ],
   },
   {
@@ -156,9 +157,12 @@ function AuditSection({ section, issues }: { section: SectionDef; issues: any[] 
     if (aH !== bH) return aH ? -1 : 1;
     return (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9);
   });
-  const problemCount = rows.filter((r) => !!r.group).length;
-  const hasCritical = rows.some((r) => !!r.group && r.severity === 'critical');
-  const hasWarning = rows.some((r) => !!r.group && r.severity === 'warning');
+  const errorRows = rows.filter((r) => !!r.group && r.severity !== 'info');
+  const infoRows = rows.filter((r) => !!r.group && r.severity === 'info');
+  const problemCount = errorRows.length;
+  const infoCount = infoRows.length;
+  const hasCritical = errorRows.some((r) => r.severity === 'critical');
+  const hasWarning = errorRows.some((r) => r.severity === 'warning');
   const Icon = section.icon;
 
   return (
@@ -178,7 +182,7 @@ function AuditSection({ section, issues }: { section: SectionDef; issues: any[] 
           problemCount === 0 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
             : hasCritical ? 'bg-red-500/15 text-red-400 border-red-500/30'
             : 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30')}>
-          {problemCount === 0 ? 'Ошибок нет' : `Найдено: ${problemCount}`}
+          {problemCount === 0 ? (infoCount > 0 ? `Только инфо: ${infoCount}` : 'Ошибок нет') : `Найдено: ${problemCount}`}
         </Badge>
         {sectionOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
       </button>
