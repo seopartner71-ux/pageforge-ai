@@ -247,11 +247,11 @@ export async function exportAliceReportDocx(
 
         ...(sourceTypesChart ? [H1('5. Типизация источников'), chartImg(sourceTypesChart, 540, 240)] : []),
 
-        H1('5. Рекомендации'),
+        H1('6. Рекомендации'),
         ...recommendations(d),
 
         ...(geoPlan && geoPlan.trim() ? [
-          H1('6. GEO-стратегия (план 30/60/90 дней)'),
+          H1('7. GEO-стратегия (план 30/60/90 дней)'),
           P('Сгенерировано ИИ на основе данных аудита: какие запросы не приводят к упоминанию бренда, какие домены доминируют в выдаче Алисы.', { color: MUTED, italics: true }),
           ...geoPlanParagraphs(geoPlan),
         ] : []),
