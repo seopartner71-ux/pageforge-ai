@@ -48,6 +48,9 @@ const CHECK_INFO: Record<string, CheckInfo> = {
   duplicate_h1: { importance: 'Высокая', description: 'Дубли H1 между страницами.' },
   missing_alt: { importance: 'Средняя', description: 'Картинки без alt.' },
   broken_link: { importance: 'Высокая', description: 'Битые внутренние ссылки.' },
+  broken_external_link: { importance: 'Высокая', description: 'Битые внешние ссылки на другие сайты (4xx/5xx ответ).' },
+  http_link: { importance: 'Средняя', description: 'Внутренние ссылки используют HTTP вместо HTTPS.' },
+  external_link: { importance: 'Низкая', description: 'Исходящие ссылки на внешние сайты. Это не ошибка — информация для контроля внешних связей.' },
 };
 const IMPORTANCE_CLS: Record<string, string> = {
   'Критическая': 'text-red-400', 'Высокая': 'text-orange-400',
@@ -78,8 +81,9 @@ const SECTIONS: SectionDef[] = [
     description: 'Внутренние и внешние ссылки', types: ['links'],
     checks: [
       { code: 'broken_link', label: 'Битые внутренние ссылки', severity: 'critical' },
-      { code: 'http_link', label: 'Ссылки с HTTP на HTTPS сайте', severity: 'warning' },
-      { code: 'external_link', label: 'Исходящие внешние ссылки', severity: 'info' },
+      { code: 'broken_external_link', label: 'Битые внешние ссылки', severity: 'critical' },
+      { code: 'http_link', label: 'Внутренние ссылки с HTTP вместо HTTPS', severity: 'warning' },
+      { code: 'external_link', label: 'Внешние ссылки', severity: 'info' },
     ],
   },
   {
@@ -156,9 +160,12 @@ function AuditSection({ section, issues }: { section: SectionDef; issues: any[] 
     if (aH !== bH) return aH ? -1 : 1;
     return (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9);
   });
-  const problemCount = rows.filter((r) => !!r.group).length;
-  const hasCritical = rows.some((r) => !!r.group && r.severity === 'critical');
-  const hasWarning = rows.some((r) => !!r.group && r.severity === 'warning');
+  const errorRows = rows.filter((r) => !!r.group && r.severity !== 'info');
+  const infoRows = rows.filter((r) => !!r.group && r.severity === 'info');
+  const problemCount = errorRows.length;
+  const infoCount = infoRows.length;
+  const hasCritical = errorRows.some((r) => r.severity === 'critical');
+  const hasWarning = errorRows.some((r) => r.severity === 'warning');
   const Icon = section.icon;
 
   return (
@@ -178,7 +185,7 @@ function AuditSection({ section, issues }: { section: SectionDef; issues: any[] 
           problemCount === 0 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
             : hasCritical ? 'bg-red-500/15 text-red-400 border-red-500/30'
             : 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30')}>
-          {problemCount === 0 ? 'Ошибок нет' : `Найдено: ${problemCount}`}
+          {problemCount === 0 ? (infoCount > 0 ? `Только инфо: ${infoCount}` : 'Ошибок нет') : `Найдено: ${problemCount}`}
         </Badge>
         {sectionOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
       </button>
