@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
+import { BetaFeedbackBanner } from '@/components/BetaFeedbackBanner';
 
 function ContentFallback() {
   return (
@@ -20,6 +21,7 @@ export default function AppLayout() {
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
+          <BetaFeedbackBanner />
           <Suspense fallback={<ContentFallback />}>
             <Outlet />
           </Suspense>
