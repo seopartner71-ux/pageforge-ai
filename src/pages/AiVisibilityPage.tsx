@@ -482,10 +482,32 @@ export default function AiVisibilityPage() {
           </Button>
         </Card>
 
+        {runProgress && runProgress.total > 0 && (
+          <Card className="p-4 space-y-2 border-primary/40">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 font-medium">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                Сканирование: {runProgress.completed} / {runProgress.total}
+              </span>
+              <span className="text-muted-foreground">
+                {Math.round((runProgress.completed / runProgress.total) * 100)}%
+              </span>
+            </div>
+            <Progress value={(runProgress.completed / runProgress.total) * 100} />
+            {runProgress.current && (
+              <p className="text-xs text-muted-foreground truncate">→ {runProgress.current}</p>
+            )}
+          </Card>
+        )}
+
         {activeProject ? (
           <Tabs defaultValue="dashboard" className="space-y-4">
             <TabsList>
               <TabsTrigger value="dashboard">Дашборд</TabsTrigger>
+              <TabsTrigger value="mentions">Позиции</TabsTrigger>
+              <TabsTrigger value="prompts">Промпты</TabsTrigger>
+              <TabsTrigger value="sources">Источники</TabsTrigger>
+              <TabsTrigger value="strategy">GEO Стратегия</TabsTrigger>
               <TabsTrigger value="keywords">Запросы ({keywords.length})</TabsTrigger>
               <TabsTrigger value="results">Результаты ({results.length})</TabsTrigger>
             </TabsList>
@@ -522,6 +544,46 @@ export default function AiVisibilityPage() {
                   )}
                 </Card>
               </div>
+            </TabsContent>
+
+            <TabsContent value="mentions">
+              <MentionsPage projectId={activeProject.id} />
+            </TabsContent>
+            <TabsContent value="prompts">
+              <PromptsPage projectId={activeProject.id} />
+            </TabsContent>
+            <TabsContent value="sources">
+              <SourcesPage projectId={activeProject.id} />
+            </TabsContent>
+            <TabsContent value="strategy">
+              <Card className="p-5 space-y-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <h3 className="text-base font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      GEO Стратегия
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      AI-сгенерированный план действий на 30/60/90 дней на основе данных аудита.
+                    </p>
+                  </div>
+                  <Button onClick={generateGeoPlan} disabled={planLoading || results.length === 0}>
+                    {planLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                    {geoPlan ? 'Перегенерировать' : 'Сгенерировать GEO-план'}
+                  </Button>
+                </div>
+                {geoPlan ? (
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{geoPlan}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {results.length === 0
+                      ? 'Сначала запустите прогон, чтобы собрать данные для плана.'
+                      : 'Нажмите кнопку, чтобы AI составил персональный план роста видимости в LLM.'}
+                  </p>
+                )}
+              </Card>
             </TabsContent>
 
             <TabsContent value="keywords">
