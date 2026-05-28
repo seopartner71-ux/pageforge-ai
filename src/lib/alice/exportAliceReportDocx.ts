@@ -1,10 +1,11 @@
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
   Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType,
-  Header, Footer, PageNumber,
+  Header, Footer, PageNumber, ImageRun,
 } from 'docx';
 import { saveAs } from 'file-saver';
 import type { AliceParsed } from './parseAliceXlsx';
+import { renderHBarChartPng, renderDonutChartPng } from '../docx/charts';
 
 const ACCENT = '2E75B6';
 const TEXT = '1F2937';
@@ -163,6 +164,49 @@ export async function exportAliceReportDocx(
   const today = new Date();
   const dateStr = today.toLocaleDateString('ru-RU');
 
+  // === Charts ===
+  const topQueries = [...d.rows].sort((a, b) => b.frequency - a.frequency).slice(0, 10);
+  const queriesChart = topQueries.length
+    ? await renderHBarChartPng(
+        topQueries.map((r) => ({
+          label: r.query, value: r.frequency,
+          color: r.brandMentioned ? '#10B981' : '#9CA3AF',
+        })),
+        { title: 'Топ-10 запросов по частотности (зелёный — бренд упомянут)', width: 900 },
+      )
+    : null;
+
+  const topDomainsChart = d.topDomains.length
+    ? await renderHBarChartPng(
+        d.topDomains.slice(0, 12).map((dr) => ({
+          label: dr.domain, value: dr.count,
+          color: dr.isBrand ? '#10B981' : undefined,
+        })),
+        { title: 'Топ-цитируемые домены в ответах Алисы', width: 900 },
+      )
+    : null;
+
+  const sourceTypesChart = d.sourceTypes.length
+    ? await renderDonutChartPng(
+        d.sourceTypes.map((s) => ({ label: s.label, value: s.count })),
+        { title: 'Распределение типов источников', width: 720, height: 320 },
+      )
+    : null;
+
+  const visibilityDonut = await renderDonutChartPng(
+    [
+      { label: 'С упоминанием', value: d.totals.brandMentions, color: '#10B981' },
+      { label: 'Без упоминания', value: Math.max(0, d.totals.queries - d.totals.brandMentions), color: '#E5E7EB' },
+    ],
+    { title: 'Видимость бренда в Алисе', width: 720, height: 320 },
+  );
+
+  const chartImg = (data: Uint8Array, w: number, h: number) =>
+    new Paragraph({
+      alignment: AlignmentType.CENTER, spacing: { before: 120, after: 120 },
+      children: [new ImageRun({ type: 'png', data, transformation: { width: w, height: h }, altText: { title: 'chart', description: 'chart', name: 'chart' } })],
+    });
+
   const doc = new Document({
     creator: 'SEO-Аудит',
     styles: {
@@ -189,20 +233,25 @@ export async function exportAliceReportDocx(
 
         H1('2. Ключевые метрики'),
         metricsTable(d),
+        chartImg(visibilityDonut, 540, 240),
 
         H1('3. Топ-источники, на которые ссылается Алиса'),
         P('Чем чаще домен появляется в источниках Алисы по вашей семантике, тем выше его авторитет в нише. Ваш бренд выделен зелёным.', { color: MUTED, italics: true }),
+        ...(topDomainsChart ? [chartImg(topDomainsChart, 600, Math.min(420, 60 + d.topDomains.slice(0, 12).length * 22))] : []),
         new Paragraph({ spacing: { after: 80 }, children: [] }),
         domainsTable(d),
 
         H1('4. Детализация по запросам'),
+        ...(queriesChart ? [chartImg(queriesChart, 600, Math.min(420, 60 + topQueries.length * 22))] : []),
         queriesTable(d),
 
-        H1('5. Рекомендации'),
+        ...(sourceTypesChart ? [H1('5. Типизация источников'), chartImg(sourceTypesChart, 540, 240)] : []),
+
+        H1('6. Рекомендации'),
         ...recommendations(d),
 
         ...(geoPlan && geoPlan.trim() ? [
-          H1('6. GEO-стратегия (план 30/60/90 дней)'),
+          H1('7. GEO-стратегия (план 30/60/90 дней)'),
           P('Сгенерировано ИИ на основе данных аудита: какие запросы не приводят к упоминанию бренда, какие домены доминируют в выдаче Алисы.', { color: MUTED, italics: true }),
           ...geoPlanParagraphs(geoPlan),
         ] : []),
