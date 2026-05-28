@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllRows } from '@/lib/supabase/fetchAllRows';
 import { CrawlerStatusIndicator } from './CrawlerStatusIndicator';
 import { AuditInsightsBlock } from './AuditInsightsBlock';
 import { downloadTechnicalAuditDocx } from '@/lib/audit/exportTechnicalAuditDocx';
@@ -136,8 +137,14 @@ function pageWord(n: number) {
   return 'страниц';
 }
 
-function AuditSection({ section, issues }: { section: SectionDef; issues: any[] }) {
-  const [sectionOpen, setSectionOpen] = useState(true);
+type Priority = 'P1' | 'P2' | 'P3';
+const SEV_TO_PRIORITY: Record<string, Priority> = {
+  critical: 'P1', warning: 'P2', info: 'P3',
+};
+
+function AuditSection({
+  section, issues, priorities,
+}: { section: SectionDef; issues: any[]; priorities: Set<Priority> }) {
   const [rowOpen, setRowOpen] = useState<Record<string, boolean>>({});
   const sectionCodes = new Set(section.checks.map((c) => c.code));
   const sectionIssues = (issues ?? []).filter((i) => section.types.includes(i.type) || sectionCodes.has(i.code));
@@ -168,6 +175,22 @@ function AuditSection({ section, issues }: { section: SectionDef; issues: any[] 
   const hasWarning = errorRows.some((r) => r.severity === 'warning');
   const Icon = section.icon;
 
+  // Фильтр приоритетов: показываем только строки с найденными ошибками
+  // выбранных приоритетов; «зелёные» (без группы) показываем только если P3 включён.
+  const visibleRows = rows.filter((r) => {
+    if (!r.group) return priorities.has('P3'); // «Ошибок нет» считаем низкоприоритетным
+    const p = SEV_TO_PRIORITY[r.severity] ?? 'P3';
+    return priorities.has(p);
+  });
+
+  // Авто-сворачивание: если в секции нет проблем подходящих приоритетов - закрыта.
+  const hasMatchingProblems = errorRows.some((r) => priorities.has(SEV_TO_PRIORITY[r.severity] ?? 'P3'))
+    || (infoRows.length > 0 && priorities.has('P3'));
+  const [sectionOpen, setSectionOpen] = useState(hasMatchingProblems);
+  useEffect(() => { setSectionOpen(hasMatchingProblems); }, [hasMatchingProblems]);
+
+  if (visibleRows.length === 0) return null;
+
   return (
     <Card className="bg-card border-border overflow-hidden">
       <button type="button" onClick={() => setSectionOpen((v) => !v)}
@@ -191,7 +214,7 @@ function AuditSection({ section, issues }: { section: SectionDef; issues: any[] 
       </button>
       {sectionOpen && (
         <div className="border-t border-border divide-y divide-border">
-          {rows.map((r) => {
+          {visibleRows.map((r) => {
             const has = !!r.group;
             const items = r.group ? r.group.items : [];
             const uniqueUrls = Array.from(new Set(items.map((it) => it.url).filter(Boolean) as string[]));
