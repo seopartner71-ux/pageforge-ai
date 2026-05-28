@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Upload, FileDown, Mic, Loader2, ExternalLink, CheckCircle2, XCircle, Eye } from 'lucide-react';
+import { Upload, FileDown, Mic, Loader2, ExternalLink, CheckCircle2, XCircle, Eye, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Cell,
@@ -18,6 +18,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import { parseAliceXlsx, type AliceParsed, type AliceRow } from '@/lib/alice/parseAliceXlsx';
 import { exportAliceReportDocx } from '@/lib/alice/exportAliceReportDocx';
+import { supabase } from '@/integrations/supabase/client';
 
 const PIE_COLORS = ['hsl(var(--primary))', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#6B7280'];
 
@@ -28,11 +29,14 @@ export default function AliceVisibilityPage() {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [viewRow, setViewRow] = useState<AliceRow | null>(null);
+  const [geoPlan, setGeoPlan] = useState('');
+  const [planLoading, setPlanLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(file: File) {
     if (!domain.trim()) { toast.error('Укажите домен бренда'); return; }
     setLoading(true);
+    setGeoPlan('');
     try {
       const parsed = await parseAliceXlsx(file, brand.trim(), domain.trim());
       setData(parsed);
@@ -48,11 +52,76 @@ export default function AliceVisibilityPage() {
     if (!data) return;
     setExporting(true);
     try {
-      await exportAliceReportDocx(data, `alisa-${data.domain}-${new Date().toISOString().slice(0, 10)}.docx`);
+      await exportAliceReportDocx(
+        data,
+        `alisa-${data.domain}-${new Date().toISOString().slice(0, 10)}.docx`,
+        geoPlan || undefined,
+      );
       toast.success('Отчёт Word сформирован');
     } catch (e: any) {
       toast.error(e.message || 'Ошибка экспорта');
     } finally { setExporting(false); }
+  }
+
+  async function generateGeoPlan() {
+    if (!data) return;
+    setPlanLoading(true);
+    setGeoPlan('');
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) { toast.error('Требуется вход'); return; }
+
+      const compact = {
+        brand: data.brand,
+        domain: data.domain,
+        totals: data.totals,
+        topDomains: data.topDomains.slice(0, 20),
+        sourceTypes: data.sourceTypes,
+        noMentionQueries: data.rows.filter((r) => !r.brandMentioned).slice(0, 25)
+          .map((r) => ({ query: r.query, frequency: r.frequency, citedDomains: r.citedDomains.slice(0, 5) })),
+        mentionQueries: data.rows.filter((r) => r.brandMentioned).slice(0, 15)
+          .map((r) => ({ query: r.query, frequency: r.frequency })),
+      };
+
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-alice-geo-plan`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ brand: data.brand, domain: data.domain, language: 'ru', data: compact }),
+      });
+      if (!res.ok || !res.body) {
+        const t = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${t.slice(0, 200)}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      let acc = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6).trim();
+          if (!payload || payload === '[DONE]') continue;
+          try {
+            const json = JSON.parse(payload);
+            const delta = json.choices?.[0]?.delta?.content || '';
+            if (delta) { acc += delta; setGeoPlan(acc); }
+          } catch { /* ignore */ }
+        }
+      }
+      toast.success('GEO-план готов');
+    } catch (e: any) {
+      toast.error(e.message || 'Не удалось сгенерировать план');
+    } finally {
+      setPlanLoading(false);
+    }
   }
 
   const topQueriesChart = data
@@ -140,6 +209,7 @@ export default function AliceVisibilityPage() {
                 <TabsTrigger value="queries">Запросы ({data.rows.length})</TabsTrigger>
                 <TabsTrigger value="domains">Источники ({data.topDomains.length})</TabsTrigger>
                 <TabsTrigger value="types">Типы источников</TabsTrigger>
+                <TabsTrigger value="strategy">GEO Стратегия</TabsTrigger>
               </TabsList>
 
               <TabsContent value="dashboard" className="space-y-4">
@@ -260,6 +330,40 @@ export default function AliceVisibilityPage() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="strategy">
+                <Card className="p-4 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        GEO-стратегия для Яндекс Алисы
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ИИ-план на 30/60/90 дней на основе данных аудита. Включается в Word-отчёт после генерации.
+                      </p>
+                    </div>
+                    <Button size="sm" onClick={generateGeoPlan} disabled={planLoading}>
+                      {planLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                      {geoPlan ? 'Перегенерировать' : 'Сгенерировать план'}
+                    </Button>
+                  </div>
+                  {geoPlan ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none bg-muted/30 rounded p-4 border border-border">
+                      <ReactMarkdown>{geoPlan}</ReactMarkdown>
+                    </div>
+                  ) : !planLoading ? (
+                    <div className="text-sm text-muted-foreground py-8 text-center border border-dashed rounded">
+                      Нажмите «Сгенерировать план», чтобы получить пошаговую GEO-стратегию роста видимости в Алисе.
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground py-8 text-center">
+                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+                      Генерируем стратегию…
+                    </div>
+                  )}
                 </Card>
               </TabsContent>
             </Tabs>
