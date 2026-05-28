@@ -9,6 +9,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { PendingApprovalScreen } from '@/components/PendingApprovalScreen';
 import { useAdminRole } from '@/hooks/useAdminRole';
+import { useStaffRole } from '@/hooks/useStaffRole';
 
 const LandingPage = lazy(() => import('./pages/LandingPage.tsx'));
 const AuthPage = lazy(() => import('./pages/AuthPage.tsx'));
@@ -38,6 +39,7 @@ const ResponsivePage = lazy(() => import('./pages/ResponsivePage.tsx'));
 const TechnicalAuditPage = lazy(() => import('./pages/TechnicalAuditPage.tsx'));
 const YandexWebmasterPage = lazy(() => import('./pages/YandexWebmasterPage.tsx'));
 const ToolsHubPage = lazy(() => import('./pages/ToolsHubPage.tsx'));
+const StaffHubPage = lazy(() => import('./pages/StaffHubPage.tsx'));
 const AppLayout = lazy(() => import('./components/AppLayout.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
 
@@ -105,6 +107,17 @@ function AdminGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function StaffGate({ children }: { children: React.ReactNode }) {
+  const session = useAuthSession();
+  const { isStaff, loading } = useStaffRole();
+
+  if (session === undefined || loading) return <PageLoader />;
+  if (!session) return <AuthPage />;
+  if (!isStaff) return <Navigate to="/dashboard" replace />;
+
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -143,6 +156,9 @@ const App = () => (
                 </Route>
                 <Route element={<AdminGate><AppLayout /></AdminGate>}>
                   <Route path="/admin" element={<AdminPage />} />
+                </Route>
+                <Route element={<StaffGate><AppLayout /></StaffGate>}>
+                  <Route path="/staff-hub" element={<StaffHubPage />} />
                 </Route>
                 <Route path="/shared/:token" element={<SharedReportPage />} />
                 <Route path="*" element={<NotFound />} />

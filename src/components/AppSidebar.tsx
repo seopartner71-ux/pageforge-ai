@@ -15,9 +15,10 @@ import {
 import {
   LayoutGrid, Search, Sparkles, Link2, Users, BarChart3, Target,
   Code2, History as HistoryIcon, Zap, Smartphone, Network, FileText,
-  PenSquare, User, Settings, Bot, ShieldAlert, Gauge,
+  PenSquare, User, Settings, Bot, ShieldAlert, Gauge, LifeBuoy,
 } from 'lucide-react';
 import { useAdminRole } from '@/hooks/useAdminRole';
+import { useStaffRole } from '@/hooks/useStaffRole';
 
 type Item = { label: string; path: string; icon: any };
 type Group = { label: string; items: Item[] };
@@ -45,6 +46,7 @@ const PREFETCH: Record<string, () => Promise<unknown>> = {
   '/history': () => import('@/pages/HistoryPage'),
   '/account': () => import('@/pages/AccountPage'),
   '/admin': () => import('@/pages/AdminPage'),
+  '/staff-hub': () => import('@/pages/StaffHubPage'),
 };
 const prefetched = new Set<string>();
 function prefetch(path: string) {
@@ -106,11 +108,15 @@ export function AppSidebar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { isAdmin } = useAdminRole();
+  const { isStaff } = useStaffRole();
 
   const isActive = (path: string) => pathname === path;
 
   const bottomItems: Item[] = [
     { label: 'История', path: '/history', icon: HistoryIcon },
+    ...(isStaff
+      ? [{ label: 'Центр сотрудника', path: '/staff-hub', icon: LifeBuoy } as Item]
+      : []),
     ...(isAdmin
       ? [{ label: 'Админ-панель', path: '/admin', icon: Settings } as Item]
       : [{ label: 'Аккаунт', path: '/account', icon: User } as Item]),
