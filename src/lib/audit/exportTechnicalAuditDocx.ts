@@ -616,8 +616,6 @@ export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInpu
   const { domain, stats, issues, preparedBy = 'SEO-Аудит', periodMonths = 1 } = input;
   const results = analyzeChecks(issues || []);
   const errors = results.filter(r => r.hasError);
-  const totalPages = stats?.total_pages ?? 0;
-
   // Группировка чеков по разделам
   const section1 = results.filter(r => r.check.num.startsWith('1.'));
   const section2 = results.filter(r => r.check.num.startsWith('2.'));
@@ -633,17 +631,6 @@ export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInpu
 
   // Сводка
   children.push(h1('Сводка по аудиту'));
-  children.push(p(`Проверено страниц: ${totalPages}`));
-  children.push(p(`Всего проверок выполнено: ${results.length}`));
-  children.push(pRuns([
-    new TextRun({ text: 'Без ошибок: ', size: 22, font: 'Arial' }),
-    new TextRun({ text: String(results.length - errors.length), bold: true, color: COLOR_OK, size: 22, font: 'Arial' }),
-    new TextRun({ text: '   •   ', size: 22, font: 'Arial', color: COLOR_MUTED }),
-    new TextRun({ text: 'С ошибками: ', size: 22, font: 'Arial' }),
-    new TextRun({ text: String(errors.length), bold: true, color: COLOR_ERR, size: 22, font: 'Arial' }),
-  ]));
-  children.push(p(`Средний ответ сервера (TTFB): ${stats?.avg_load_time_ms ?? 0} мс`));
-
   // Оглавление
   children.push(h2('Оглавление'));
   const tocSections: Array<{ title: string; items: CheckResult[] }> = [
