@@ -1055,6 +1055,295 @@ export type Database = {
         }
         Relationships: []
       }
+      radar_analysis_runs: {
+        Row: {
+          completed_at: string | null
+          completed_prompts: number
+          created_at: string
+          current_model: string | null
+          current_prompt_text: string | null
+          error_message: string | null
+          id: string
+          project_id: string
+          started_at: string
+          status: string
+          total_prompts: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_prompts?: number
+          created_at?: string
+          current_model?: string | null
+          current_prompt_text?: string | null
+          error_message?: string | null
+          id?: string
+          project_id: string
+          started_at?: string
+          status?: string
+          total_prompts?: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_prompts?: number
+          created_at?: string
+          current_model?: string | null
+          current_prompt_text?: string | null
+          error_message?: string | null
+          id?: string
+          project_id?: string
+          started_at?: string
+          status?: string
+          total_prompts?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_analysis_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "radar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      radar_keywords: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_branded_query: boolean
+          keyword: string
+          last_checked_at: string | null
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_branded_query?: boolean
+          keyword: string
+          last_checked_at?: string | null
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_branded_query?: boolean
+          keyword?: string
+          last_checked_at?: string | null
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_keywords_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "radar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      radar_projects: {
+        Row: {
+          brand_name: string
+          created_at: string
+          data_nuggets: string[]
+          domain: string
+          id: string
+          language: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_name: string
+          created_at?: string
+          data_nuggets?: string[]
+          domain: string
+          id?: string
+          language?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_name?: string
+          created_at?: string
+          data_nuggets?: string[]
+          domain?: string
+          id?: string
+          language?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      radar_prompt_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          project_id: string
+          sort_order: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          project_id: string
+          sort_order?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+          sort_order?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_prompt_groups_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "radar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      radar_prompts: {
+        Row: {
+          created_at: string
+          group_id: string | null
+          id: string
+          project_id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          project_id: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          project_id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_prompts_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "radar_prompt_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radar_prompts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "radar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      radar_results: {
+        Row: {
+          ai_response_text: string | null
+          brand_mentioned: boolean
+          checked_at: string
+          competitor_domains: string[]
+          domain_linked: boolean
+          id: string
+          is_brand_found: boolean
+          is_branded_query: boolean
+          keyword_id: string | null
+          matched_snippets: string[]
+          model: string
+          prompt_id: string | null
+          run_id: string | null
+          sentiment: string | null
+          sources: Json
+          status: string
+          user_id: string
+        }
+        Insert: {
+          ai_response_text?: string | null
+          brand_mentioned?: boolean
+          checked_at?: string
+          competitor_domains?: string[]
+          domain_linked?: boolean
+          id?: string
+          is_brand_found?: boolean
+          is_branded_query?: boolean
+          keyword_id?: string | null
+          matched_snippets?: string[]
+          model: string
+          prompt_id?: string | null
+          run_id?: string | null
+          sentiment?: string | null
+          sources?: Json
+          status?: string
+          user_id: string
+        }
+        Update: {
+          ai_response_text?: string | null
+          brand_mentioned?: boolean
+          checked_at?: string
+          competitor_domains?: string[]
+          domain_linked?: boolean
+          id?: string
+          is_brand_found?: boolean
+          is_branded_query?: boolean
+          keyword_id?: string | null
+          matched_snippets?: string[]
+          model?: string
+          prompt_id?: string | null
+          run_id?: string | null
+          sentiment?: string | null
+          sources?: Json
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_results_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "radar_keywords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radar_results_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "radar_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radar_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "radar_analysis_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schema_audits: {
         Row: {
           ai_recommendations: Json
