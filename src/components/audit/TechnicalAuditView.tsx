@@ -33,11 +33,11 @@ function computeScore(stats: { total_pages?: number | null; critical_count?: num
   return Math.max(0, Math.min(100, Math.round(100 - penalty)));
 }
 const CHECK_INFO: Record<string, CheckInfo> = {
-  no_https: { importance: 'Высокая', description: 'Сайт не использует HTTPS — фактор ранжирования и безопасности.' },
-  no_robots_txt: { importance: 'Высокая', description: 'Нет robots.txt — нет управления индексацией.' },
+  no_https: { importance: 'Высокая', description: 'Сайт не использует HTTPS - фактор ранжирования и безопасности.' },
+  no_robots_txt: { importance: 'Высокая', description: 'Нет robots.txt - нет управления индексацией.' },
   robots_blocks_all: { importance: 'Критическая', description: 'robots.txt блокирует весь сайт.' },
-  no_sitemap: { importance: 'Высокая', description: 'Нет sitemap.xml — карта сайта помогает индексации.' },
-  slow_ttfb: { importance: 'Высокая', description: 'TTFB более 3 секунд — плохо влияет на ранжирование.' },
+  no_sitemap: { importance: 'Высокая', description: 'Нет sitemap.xml - карта сайта помогает индексации.' },
+  slow_ttfb: { importance: 'Высокая', description: 'TTFB более 3 секунд - плохо влияет на ранжирование.' },
   noindex_meta: { importance: 'Критическая', description: 'Страница закрыта от индексации тегом noindex.' },
   status_404: { importance: 'Высокая', description: 'Страницы с 404 ошибкой.' },
   status_500: { importance: 'Высокая', description: 'Ошибки 500 на сервере.' },
@@ -50,7 +50,7 @@ const CHECK_INFO: Record<string, CheckInfo> = {
   broken_link: { importance: 'Высокая', description: 'Битые внутренние ссылки.' },
   broken_external_link: { importance: 'Высокая', description: 'Битые внешние ссылки на другие сайты (4xx/5xx ответ).' },
   http_link: { importance: 'Средняя', description: 'Внутренние ссылки используют HTTP вместо HTTPS.' },
-  external_link: { importance: 'Низкая', description: 'Исходящие ссылки на внешние сайты. Это не ошибка — информация для контроля внешних связей.' },
+  external_link: { importance: 'Низкая', description: 'Исходящие ссылки на внешние сайты. Это не ошибка - информация для контроля внешних связей.' },
 };
 const IMPORTANCE_CLS: Record<string, string> = {
   'Критическая': 'text-red-400', 'Высокая': 'text-orange-400',
@@ -317,7 +317,7 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
         })
       .subscribe();
 
-    // Poll every 3s while the job is not in a terminal state — covers the case
+    // Poll every 3s while the job is not in a terminal state - covers the case
     // when realtime events get lost.
     const poll = setInterval(async () => {
       const { data } = await supabase
@@ -360,7 +360,7 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
     queryKey: ['crawl-issues-all', jobId],
     enabled: !!jobId && isDone,
     queryFn: async () => {
-      // PostgREST возвращает максимум 1000 строк за запрос —
+      // PostgREST возвращает максимум 1000 строк за запрос -
       // у крупных аудитов issues могут исчисляться десятками тысяч,
       // поэтому выгружаем порциями через .range().
       const PAGE = 1000;
@@ -405,7 +405,7 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
     setJobId(job.id);
     setScanStatus('pending');
     setScanProgress(0);
-    toast.success('Задание создано — ожидает запуска краулера');
+    toast.success('Задание создано - ожидает запуска краулера');
   };
 
   const handleStop = async () => {
@@ -516,7 +516,7 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
               <div className="text-[13px] font-semibold text-yellow-300">
                 {scanStatus === 'pending' ? 'Аудит в очереди' : 'Аудит идёт…'}
               </div>
-              <div className="text-[11px] text-muted-foreground">Краулер обходит страницы — не закрывайте вкладку</div>
+              <div className="text-[11px] text-muted-foreground">Краулер обходит страницы - не закрывайте вкладку</div>
             </div>
             <div className="flex items-center gap-3 flex-1">
               <Progress value={Math.min(scanProgress, 100)} className="h-2 flex-1" />

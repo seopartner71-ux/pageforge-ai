@@ -346,9 +346,9 @@ export function ContentMetricsTab({ data }: TabDataProps) {
   ];
 
   const issues: string[] = [];
-  if (cm.textToHtmlRatio < 10) issues.push(isRu ? 'Низкое соотношение текст/HTML (< 10%) — мало полезного контента' : 'Low text/HTML ratio (< 10%)');
+  if (cm.textToHtmlRatio < 10) issues.push(isRu ? 'Низкое соотношение текст/HTML (< 10%) - мало полезного контента' : 'Low text/HTML ratio (< 10%)');
   if (cm.paragraphs < 3) issues.push(isRu ? 'Мало параграфов (< 3)' : 'Few paragraphs (< 3)');
-  if (cm.tables === 0) issues.push(isRu ? 'Нет таблиц — таблицы повышают шанс попадания в SGE' : 'No tables — tables boost SGE inclusion');
+  if (cm.tables === 0) issues.push(isRu ? 'Нет таблиц - таблицы повышают шанс попадания в SGE' : 'No tables - tables boost SGE inclusion');
   if (cm.ulCount + cm.olCount === 0) issues.push(isRu ? 'Нет маркированных списков' : 'No bulleted lists');
   if (cm.mediaRatio < 1) issues.push(isRu ? 'Мало медиа: менее 1 изображения/видео на 1000 слов' : 'Low media ratio: less than 1 per 1000 words');
 
@@ -535,7 +535,7 @@ export function CompetitorComparisonTab({ data }: TabDataProps) {
                         status === 'bad' ? 'bg-destructive/20 text-destructive' :
                         'bg-secondary text-muted-foreground'
                       }`}>
-                        {status === 'good' ? '✅' : status === 'warning' ? '⚠️' : status === 'bad' ? '❌' : '—'}
+                        {status === 'good' ? '✅' : status === 'warning' ? '⚠️' : status === 'bad' ? '❌' : '-'}
                       </span>
                     </td>
                   </tr>

@@ -139,7 +139,7 @@ function SgeBlueprintCard() {
   );
 }
 
-/* Карточка тикета — пишет в notifications для админа (RLS позволяет insert своих) */
+/* Карточка тикета - пишет в notifications для админа (RLS позволяет insert своих) */
 function SupportTicketCard({ originalQuery }: { originalQuery: string }) {
   const [body, setBody] = useState(originalQuery ? `Вопрос: «${originalQuery}»\n\nКонтекст:\n` : '');
   const [sending, setSending] = useState(false);
@@ -198,7 +198,7 @@ function SupportTicketCard({ originalQuery }: { originalQuery: string }) {
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={4}
-          placeholder="Опишите вашу задачу или проблему — оператор ответит в течение рабочего дня."
+          placeholder="Опишите вашу задачу или проблему - оператор ответит в течение рабочего дня."
           className="w-full resize-none rounded-md border border-border/60 bg-background px-2.5 py-2 text-[12px] font-mono outline-none focus:border-primary/50"
         />
         <Button size="sm" onClick={submit} disabled={sending || !body.trim()} className="w-full h-8 text-xs">
@@ -216,7 +216,7 @@ function RegisterCtaCard() {
         <div className="text-base">🔒</div>
         <div className="flex-1 min-w-0">
           <div className="text-[12px] font-semibold text-foreground mb-1">
-            Полный экспертный разбор — после регистрации
+            Полный экспертный разбор - после регистрации
           </div>
           <div className="text-[11px] text-muted-foreground mb-2 leading-relaxed">
             Зарегистрируйтесь, чтобы получить развёрнутые ответы, доступ к ТФ-ИДФ, Предиктору ИИ-выдачи, Стелс-движку и пакетному анализу.
@@ -249,10 +249,10 @@ async function processUserMessage(
   userText: string,
   history: { role: 'user' | 'assistant'; content: string }[],
 ): Promise<{ text: string; card: CardPayload | null; kbSources: KbSource[]; intent: string }> {
-  // Явный вызов саппорта — без обращения к AI.
+  // Явный вызов саппорта - без обращения к AI.
   if (shouldForceSupport(userText)) {
     return {
-      text: '🛡 Понял, передаю обращение **техподдержке**. Опишите детали в форме ниже — оператор ответит в уведомлениях (🔔) и на email.',
+      text: '🛡 Понял, передаю обращение **техподдержке**. Опишите детали в форме ниже - оператор ответит в уведомлениях (🔔) и на email.',
       card: { name: 'render_support_ticket', args: { query: userText } },
       kbSources: [],
       intent: 'ACTION_FORCE_SUPPORT',
@@ -284,7 +284,7 @@ async function processUserMessage(
   } catch (e: any) {
     console.error('[copilot] AI error', e);
     return {
-      text: '⚠ Не удалось получить ответ от AI (' + (e?.message || 'ошибка сети') + '). Если вопрос срочный — создайте тикет:',
+      text: '⚠ Не удалось получить ответ от AI (' + (e?.message || 'ошибка сети') + '). Если вопрос срочный - создайте тикет:',
       card: { name: 'render_support_ticket', args: { query: userText } },
       kbSources: [],
       intent: 'ERROR',
@@ -323,7 +323,7 @@ export default function DataCopilotWidget() {
       id: 'init',
       role: 'assistant',
       text:
-        '👋 Я **Data Copilot** — строгий аналитический ассистент.\n\n' +
+        '👋 Я **Data Copilot** - строгий аналитический ассистент.\n\n' +
         'Помогу с:\n• 📊 TF-IDF / Закон Ципфа\n• 🤖 SGE Blueprint\n\n' +
         'Любой другой вопрос → передам в техподдержку. Без галлюцинаций.',
       ts: Date.now(),

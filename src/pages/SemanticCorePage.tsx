@@ -90,7 +90,7 @@ const KD_LABELS: Record<KdBucket, string> = {
   medium: 'Средняя',
   hard: 'Высокая',
   veryhard: 'Очень высокая',
-  none: '—',
+  none: '-',
 };
 const KD_BADGE: Record<KdBucket, string> = {
   easy: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
@@ -107,7 +107,7 @@ function KdBadge({ kd }: { kd: number | null | undefined }) {
         className="inline-flex items-center px-1.5 text-xs text-muted-foreground/60 tabular-nums"
         title="Конкуренция в Google Ads неизвестна"
       >
-        —
+        -
       </span>
     );
   }
@@ -158,10 +158,10 @@ function FreqDot({ source }: { source?: 'mock' | 'dataforseo' | 'topvisor' }) {
   );
 }
 
-// "Золотой" запрос — органический трафик через SEO-статьи (long-tail info).
+// "Золотой" запрос - органический трафик через SEO-статьи (long-tail info).
 // Условия (все обязательны):
-// 1. intent === 'info' (коммерческие убираем — там платная реклама давит)
-// 2. wsFrequency 1000-60000 (меньше — нет трафика, больше — монстры)
+// 1. intent === 'info' (коммерческие убираем - там платная реклама давит)
+// 2. wsFrequency 1000-60000 (меньше - нет трафика, больше - монстры)
 // 3. ≥3 слов в запросе (long-tail = ниже конкуренция)
 // 4. Без агрегаторов-монстров
 // 5. score > 60
@@ -196,7 +196,7 @@ export function goldenTier(k: SemanticKeyword): GoldenTier | null {
   if (ws >= 1000 && ws < 5000 && score > 70) return 'easy';
   if (ws >= 5000 && ws < 20000 && score > 65) return 'medium';
   if (ws >= 20000 && ws <= 60000 && score > 60) return 'hard';
-  // Попадает в golden, но между tier'ами — выбираем по частоте
+  // Попадает в golden, но между tier'ами - выбираем по частоте
   if (ws < 5000) return 'easy';
   if (ws < 20000) return 'medium';
   return 'hard';
@@ -209,9 +209,9 @@ const TIER_META: Record<GoldenTier, { label: string; emoji: string; star: string
 };
 
 function tierTooltip(tier: GoldenTier): string {
-  if (tier === 'easy')   return 'Легко взять топ — мало конкурентов';
-  if (tier === 'medium') return 'Средние усилия — нужна качественная статья';
-  return 'Сложно — нужна экспертная статья и время';
+  if (tier === 'easy')   return 'Легко взять топ - мало конкурентов';
+  if (tier === 'medium') return 'Средние усилия - нужна качественная статья';
+  return 'Сложно - нужна экспертная статья и время';
 }
 
 // Грамматически правильное склонение для «идеальный запрос»
@@ -225,7 +225,7 @@ function idealLabel(n: number): string {
   return `Найдено ${n} идеальных запросов`;
 }
 const GOLDEN_TOOLTIP =
-  'Информационные запросы для SEO-статей — пишите экспертный контент и получайте органический трафик';
+  'Информационные запросы для SEO-статей - пишите экспертный контент и получайте органический трафик';
 
 export default function SemanticCorePage() {
   const [topic, setTopic] = useState('');
@@ -281,7 +281,7 @@ export default function SemanticCorePage() {
   }, [howItWorksOpen]);
 
   // Detect whether DataForSEO secrets are configured (best-effort via test endpoint).
-  // Falls back silently if user is not admin — we just show the warning badge.
+  // Falls back silently if user is not admin - we just show the warning badge.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -291,7 +291,7 @@ export default function SemanticCorePage() {
         const conf = (data as any)?.configured;
         if (typeof conf === 'boolean') setDfsConfigured(conf);
       } catch {
-        // 403 for non-admins — silently leave as null
+        // 403 for non-admins - silently leave as null
       }
     })();
     return () => { cancelled = true; };
@@ -520,7 +520,7 @@ export default function SemanticCorePage() {
   );
 
   // Авто-сброс фильтра «только золотые», если в текущем ядре нет ни одного золотого
-  // запроса — чтобы пользователь не видел пустую таблицу.
+  // запроса - чтобы пользователь не видел пустую таблицу.
   useEffect(() => {
     if (goldenOnly && keywords.length > 0 && goldenCount === 0) {
       setGoldenOnly(false);
@@ -565,7 +565,7 @@ export default function SemanticCorePage() {
 
   const handleDownloadSeoRecommendations = () => {
     const n = exportSeoRecommendationsDocx(buildPayload());
-    if (n === 0) toast.error('Золотых запросов не найдено — рекомендации создавать не для чего');
+    if (n === 0) toast.error('Золотых запросов не найдено - рекомендации создавать не для чего');
     else toast.success('Рекомендации SEO скачаны');
   };
 
@@ -597,17 +597,17 @@ export default function SemanticCorePage() {
           ]}
           help={{
             content: [
-              'Семантическое ядро (СЯ) — структурированный список поисковых запросов, по которым сайт планирует ранжироваться. Это фундамент SEO-стратегии: на основе СЯ строится структура сайта, контент-план, посадочные страницы. Без полного ядра невозможна корректная on-page оптимизация и группировка запросов по страницам.',
+              'Семантическое ядро (СЯ) - структурированный список поисковых запросов, по которым сайт планирует ранжироваться. Это фундамент SEO-стратегии: на основе СЯ строится структура сайта, контент-план, посадочные страницы. Без полного ядра невозможна корректная on-page оптимизация и группировка запросов по страницам.',
               'Официальные источники частотности: Google Keyword Planner (требует аккаунт Ads, показывает диапазоны), Google Search Console (фактические показы по уже работающим запросам), Яндекс Wordstat (точная частота за месяц по регионам), Яндекс.Директ Прогноз бюджета. Сторонние сервисы (Serpstat, Ahrefs, Semrush, Keys.so) дают расширенные базы и автодополнения, но опираются на те же первоисточники + клик-стрим.',
-              'Кластеризация ядра по выдаче (SERP-based clustering) — стандарт индустрии с 2015 года: два запроса входят в один кластер, если их ТОП-10 пересекается на N URL (порог 3–7). Метод исключает субъективность ручной группировки и точно показывает, что Google/Яндекс считает «одной темой». Реализуется в Topvisor, Just-Magic, KeyAssort, Serpstat Clustering.',
-              'Учёт интента при сборке ядра — обязательное требование Google Quality Guidelines. Информационные и коммерческие запросы должны попадать на разные типы страниц (статья vs. карточка/категория), иначе страница не пройдёт по «соответствию интенту» и не выйдет в ТОП.',
+              'Кластеризация ядра по выдаче (SERP-based clustering) - стандарт индустрии с 2015 года: два запроса входят в один кластер, если их ТОП-10 пересекается на N URL (порог 3–7). Метод исключает субъективность ручной группировки и точно показывает, что Google/Яндекс считает «одной темой». Реализуется в Topvisor, Just-Magic, KeyAssort, Serpstat Clustering.',
+              'Учёт интента при сборке ядра - обязательное требование Google Quality Guidelines. Информационные и коммерческие запросы должны попадать на разные типы страниц (статья vs. карточка/категория), иначе страница не пройдёт по «соответствию интенту» и не выйдет в ТОП.',
             ],
             sources: [
-              { label: 'Google Keyword Planner — официальный сервис', url: 'https://ads.google.com/home/tools/keyword-planner/' },
-              { label: 'Google Search Console — Performance', url: 'https://support.google.com/webmasters/answer/7042828' },
-              { label: 'Яндекс Wordstat — официальная справка', url: 'https://yandex.ru/support/direct/keywords/wordstat.html' },
+              { label: 'Google Keyword Planner - официальный сервис', url: 'https://ads.google.com/home/tools/keyword-planner/' },
+              { label: 'Google Search Console - Performance', url: 'https://support.google.com/webmasters/answer/7042828' },
+              { label: 'Яндекс Wordstat - официальная справка', url: 'https://yandex.ru/support/direct/keywords/wordstat.html' },
               { label: 'Google Search Quality Rater Guidelines', url: 'https://services.google.com/fh/files/misc/hsw-sqrg.pdf' },
-              { label: 'Google — Keyword research basics (Search Central)', url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide#audience' },
+              { label: 'Google - Keyword research basics (Search Central)', url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide#audience' },
             ],
           }}
         />
@@ -770,8 +770,8 @@ export default function SemanticCorePage() {
                 <div className="flex flex-col md:flex-row md:items-stretch gap-3 md:gap-1">
                   {[
                     { n: 1, t: 'Источники', d: 'DataForSEO собирает реальные подсказки, базу ключей и ключи конкурентов. AI добавляет редкие хвосты и вопросы.' },
-                    { n: 2, t: 'Частоты', d: 'Реальные месячные объёмы поиска — DataForSEO. Для ключей AI используется оценка.' },
-                    { n: 3, t: 'Кластеры', d: 'Запросы с похожей выдачей в топе группируются — отдельно коммерческие и информационные.' },
+                    { n: 2, t: 'Частоты', d: 'Реальные месячные объёмы поиска - DataForSEO. Для ключей AI используется оценка.' },
+                    { n: 3, t: 'Кластеры', d: 'Запросы с похожей выдачей в топе группируются - отдельно коммерческие и информационные.' },
                     { n: 4, t: 'Результат', d: 'Таблица с частотами, скорингом и кластерами. Зелёный индикатор = реальные данные. Экспорт в XLSX.' },
                   ].map((s, i, arr) => (
                     <div key={s.n} className="flex md:flex-1 items-stretch gap-1">
@@ -872,7 +872,7 @@ export default function SemanticCorePage() {
             </div>
             <h2 className="text-lg font-semibold mb-2">Соберите семантическое ядро</h2>
             <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-              Введите тему — AI расширит список запросов, получит частоты и сгруппирует по смыслу
+              Введите тему - AI расширит список запросов, получит частоты и сгруппирует по смыслу
             </p>
             <Button variant="outline" onClick={() => textareaRef.current?.focus()}>
               Начать анализ
@@ -929,12 +929,12 @@ export default function SemanticCorePage() {
 
             {view === 'table' ? (
               <>
-                {/* Wordstat (RU) info banner — shown when KD is unavailable for the dataset */}
+                {/* Wordstat (RU) info banner - shown when KD is unavailable for the dataset */}
                 {keywords.length > 0 && keywords.every(k => k.keywordDifficulty == null) && (
                   <div className="w-full flex items-start gap-3 px-4 py-2.5 rounded-md border bg-blue-500/10 border-blue-500/30 text-blue-300 text-sm">
                     <span className="text-base leading-none mt-0.5">ℹ️</span>
                     <span>
-                      <strong>Данные частот:</strong> Яндекс Вордстат — реальные данные по России.{' '}
+                      <strong>Данные частот:</strong> Яндекс Вордстат - реальные данные по России.{' '}
                       <span className="opacity-80">Конкуренция в Google Ads недоступна для данных Яндекса.</span>
                     </span>
                   </div>
@@ -950,7 +950,7 @@ export default function SemanticCorePage() {
                         ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                         : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/15'
                     }`}
-                    title="Score > 70 и низкая конкуренция в Google Ads — приоритетные запросы"
+                    title="Score > 70 и низкая конкуренция в Google Ads - приоритетные запросы"
                   >
                     <span className="text-sm font-medium">
                       🎯 <strong>{idealLabel(idealCount)}</strong>{' '}
@@ -980,7 +980,7 @@ export default function SemanticCorePage() {
                         Найдено {goldenCount} золотых запросов
                       </span>
                        <span className="block text-xs text-amber-200/80 mt-0.5 font-normal leading-relaxed">
-                         Информационные запросы для SEO-статей — пишите экспертный
+                         Информационные запросы для SEO-статей - пишите экспертный
                          контент и получайте органический трафик
                        </span>
                     </span>
@@ -1084,11 +1084,11 @@ export default function SemanticCorePage() {
                         <th
                           className="text-left px-3 py-2 cursor-pointer hover:text-primary"
                           onClick={() => toggleSort('score')}
-                          title="Score — приоритет запроса (частота × интент × специфичность)."
+                          title="Score - приоритет запроса (частота × интент × специфичность)."
                         >Score</th>
                         <th
                           className="text-left px-3 py-2 whitespace-nowrap"
-                          title="Это competition_index из Google Ads API (0-100) — конкуренция среди рекламодателей, не SEO сложность"
+                          title="Это competition_index из Google Ads API (0-100) - конкуренция среди рекламодателей, не SEO сложность"
                         >Конк. (Google Ads)<span className="text-muted-foreground/60 ml-1">ⓘ</span></th>
                         <th className="text-left px-3 py-2">Кластер</th>
                         <th className="text-center px-3 py-2 w-12">✓</th>
@@ -1102,11 +1102,11 @@ export default function SemanticCorePage() {
                               const tier = goldenTier(k);
                               if (!tier) return <span>{k.keyword}</span>;
                               const meta = TIER_META[tier];
-                              const tip = `${meta.emoji} ${meta.label} — ${tierTooltip(tier)} (score ${k.score}, ${k.wsFrequency.toLocaleString('ru')}/мес)`;
+                              const tip = `${meta.emoji} ${meta.label} - ${tierTooltip(tier)} (score ${k.score}, ${k.wsFrequency.toLocaleString('ru')}/мес)`;
                               return (
                                 <>
                                   <span title={tip} className="inline-flex items-center gap-1 align-middle mr-1.5">
-                                    <Star className={`w-3.5 h-3.5 ${meta.star}`} aria-label={`Золотой запрос — ${meta.label}`} />
+                                    <Star className={`w-3.5 h-3.5 ${meta.star}`} aria-label={`Золотой запрос - ${meta.label}`} />
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${meta.badge}`}>
                                       {meta.emoji} {meta.label}
                                     </span>
@@ -1129,7 +1129,7 @@ export default function SemanticCorePage() {
                           <td className="px-3 py-2"><ScoreBar score={k.score} /></td>
                           <td className="px-3 py-2"><KdBadge kd={k.keywordDifficulty} /></td>
                           <td className="px-3 py-2 text-xs text-muted-foreground max-w-[200px] truncate" title={clusterMap.get(k.cluster)?.name}>
-                            {clusterMap.get(k.cluster)?.name || '—'}
+                            {clusterMap.get(k.cluster)?.name || '-'}
                           </td>
                           <td className="px-3 py-2 text-center">
                             <input
@@ -1217,7 +1217,7 @@ function ClusterGrid({ clusters, keywords }: { clusters: SemanticCluster[]; keyw
                       if (!tier) return null;
                       const meta = TIER_META[tier];
                       return (
-                        <span title={`${meta.emoji} ${meta.label} — ${tierTooltip(tier)}`} className="inline-flex shrink-0">
+                        <span title={`${meta.emoji} ${meta.label} - ${tierTooltip(tier)}`} className="inline-flex shrink-0">
                           <Star className={`w-3 h-3 ${meta.star}`} />
                         </span>
                       );

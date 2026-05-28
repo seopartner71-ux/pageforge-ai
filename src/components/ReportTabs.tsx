@@ -78,7 +78,7 @@ function SgeBlueprintSection({ audit, report, bp }: { audit: any; report: any; b
       label: isRu ? 'Прямые ответы (Definition Box)' : 'Direct Answers (Definition Box)',
       desc: isRu ? 'Первый абзац содержит чёткое определение или ответ на вопрос' : 'First paragraph contains a clear definition or direct answer',
       passed: !!report?.sgeReadiness || (report?.geoScore && report.geoScore >= 40),
-      advice: isRu ? 'Добавьте в первый абзац прямой ответ в формате: "[Тема] — это..."' : 'Add a direct answer in the first paragraph: "[Topic] is..."',
+      advice: isRu ? 'Добавьте в первый абзац прямой ответ в формате: "[Тема] - это..."' : 'Add a direct answer in the first paragraph: "[Topic] is..."',
     },
     {
       label: isRu ? 'FAQ-блок (People Also Ask)' : 'FAQ Block (People Also Ask)',
@@ -131,7 +131,7 @@ function SgeBlueprintSection({ audit, report, bp }: { audit: any; report: any; b
     <div className="glass-card p-5 border-l-2 border-primary/50">
       <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
         <Zap className="w-4 h-4 text-primary" />
-        {isRu ? 'SGE Blueprint — Детальный аудит' : 'SGE Blueprint — Detailed Audit'}
+        {isRu ? 'SGE Blueprint - Детальный аудит' : 'SGE Blueprint - Detailed Audit'}
       </h3>
       <p className="text-xs text-muted-foreground mb-4">
         {isRu
@@ -266,8 +266,8 @@ function AiReportTab({ data, scrollToSge, onSgeScrolled, onSwitchToForge }: TabD
           </h3>
           <div className="space-y-3">
             {[
-              { issue: `H1 тегов: ${audit.h1Count}`, impact: audit.h1Count !== 1 ? 'Высокое' : 'Нет', rec: audit.h1Count !== 1 ? 'Убедитесь, что на странице ровно 1 тег H1' : 'OK — ровно 1 H1', ok: audit.h1Count === 1 },
-              { issue: `Изображений без alt: ${audit.imagesWithoutAlt}`, impact: audit.imagesWithoutAlt > 0 ? 'Среднее' : 'Нет', rec: audit.imagesWithoutAlt > 0 ? 'Добавьте описательные alt-атрибуты' : 'OK — все с alt', ok: audit.imagesWithoutAlt === 0 },
+              { issue: `H1 тегов: ${audit.h1Count}`, impact: audit.h1Count !== 1 ? 'Высокое' : 'Нет', rec: audit.h1Count !== 1 ? 'Убедитесь, что на странице ровно 1 тег H1' : 'OK - ровно 1 H1', ok: audit.h1Count === 1 },
+              { issue: `Изображений без alt: ${audit.imagesWithoutAlt}`, impact: audit.imagesWithoutAlt > 0 ? 'Среднее' : 'Нет', rec: audit.imagesWithoutAlt > 0 ? 'Добавьте описательные alt-атрибуты' : 'OK - все с alt', ok: audit.imagesWithoutAlt === 0 },
               { issue: `JSON-LD: ${audit.hasJsonLd ? 'Есть' : 'Нет'}`, impact: !audit.hasJsonLd ? 'Высокое' : 'Нет', rec: !audit.hasJsonLd ? 'Добавьте структурированную разметку Schema.org' : 'OK', ok: audit.hasJsonLd },
               { issue: `OpenGraph: ${audit.hasOpenGraph ? 'Есть' : 'Нет'}`, impact: !audit.hasOpenGraph ? 'Среднее' : 'Нет', rec: !audit.hasOpenGraph ? 'Добавьте OG-теги для соцсетей' : 'OK', ok: audit.hasOpenGraph },
             ].map((row, i) => (
@@ -332,7 +332,7 @@ function AiReportTab({ data, scrollToSge, onSgeScrolled, onSwitchToForge }: TabD
         )}
       </div>
 
-      {/* SGE Blueprint — Detailed Checks */}
+      {/* SGE Blueprint - Detailed Checks */}
       <SgeBlueprintSection audit={audit} report={report} bp={bp} />
 
       {/* Missing Entities */}
@@ -682,7 +682,7 @@ function TfidfTab({ data }: TabDataProps) {
                     {anchorCount > 0 ? (
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-accent/20 text-accent">{anchorCount}</span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">-</span>
                     )}
                   </td>
                   <td className="py-2.5 px-3 text-center">
@@ -811,7 +811,7 @@ function ZipfTab({ data }: TabDataProps) {
       <div>
         <h2 className="text-lg font-bold text-foreground">Закон Ципфа</h2>
         <p className="text-sm text-muted-foreground">
-          Частота ∝ 1/Ранг. Где «Ваша страница» резко выпрыгивает над «Идеалом» — там переспам.
+          Частота ∝ 1/Ранг. Где «Ваша страница» резко выпрыгивает над «Идеалом» - там переспам.
         </p>
       </div>
 
@@ -827,14 +827,14 @@ function ZipfTab({ data }: TabDataProps) {
           <div className="flex flex-wrap gap-2">
             {spamWords.map((z: any, i: number) => (
               <span key={i} className="px-2.5 py-1 rounded text-xs bg-destructive/10 text-destructive border border-destructive/20">
-                «{z.word}» — +{z.deviation}%
+                «{z.word}» - +{z.deviation}%
               </span>
             ))}
           </div>
         </div>
       )}
 
-      {/* LineChart: Real vs Ideal — primary visualization */}
+      {/* LineChart: Real vs Ideal - primary visualization */}
       <div className="glass-card p-4 h-80">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={zipf.slice(0, 30)}>
@@ -856,7 +856,7 @@ function ZipfTab({ data }: TabDataProps) {
         </ResponsiveContainer>
       </div>
 
-      {/* Data table — only top 10 */}
+      {/* Data table - only top 10 */}
       <div className="space-y-2">
         {zipf.slice(0, 10).map((z: any, i: number) => {
           const isNormal = z.deviation >= -50 && z.deviation <= 100;
@@ -1092,7 +1092,7 @@ function SemanticMapTab({ data }: TabDataProps) {
         <EntityGraphLazy foundEntities={foundEntities} gapEntities={gapEntities} />
       )}
 
-      {/* Semantic Map — required sections */}
+      {/* Semantic Map - required sections */}
       {semanticMap.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">Обязательные разделы (Semantic Map)</h3>
@@ -1222,15 +1222,15 @@ function PageSpeedTab() {
       setData({
         mobile: {
           score: Math.round((categories.performance?.score || 0) * 100),
-          lcp: audits['largest-contentful-paint']?.displayValue || '—',
+          lcp: audits['largest-contentful-paint']?.displayValue || '-',
           lcpScore: audits['largest-contentful-paint']?.score || 0,
-          cls: audits['cumulative-layout-shift']?.displayValue || '—',
+          cls: audits['cumulative-layout-shift']?.displayValue || '-',
           clsScore: audits['cumulative-layout-shift']?.score || 0,
-          fcp: audits['first-contentful-paint']?.displayValue || '—',
+          fcp: audits['first-contentful-paint']?.displayValue || '-',
           fcpScore: audits['first-contentful-paint']?.score || 0,
-          si: audits['speed-index']?.displayValue || '—',
+          si: audits['speed-index']?.displayValue || '-',
           siScore: audits['speed-index']?.score || 0,
-          tbt: audits['total-blocking-time']?.displayValue || '—',
+          tbt: audits['total-blocking-time']?.displayValue || '-',
           tbtScore: audits['total-blocking-time']?.score || 0,
         },
       });
@@ -1324,7 +1324,7 @@ function StealthTab({ data }: TabDataProps) {
 
   const checks = [
     { label: "H1 тегов", value: `${audit.h1Count}`, ok: audit.h1Count === 1 },
-    { label: "H1 текст", value: audit.h1Text || "—", ok: !!audit.h1Text },
+    { label: "H1 текст", value: audit.h1Text || "-", ok: !!audit.h1Text },
     { label: "Изображений всего", value: `${audit.totalImages}`, ok: true },
     { label: "Без alt-атрибута", value: `${audit.imagesWithoutAlt}`, ok: audit.imagesWithoutAlt === 0 },
     { label: "JSON-LD разметка", value: audit.hasJsonLd ? "Да" : "Нет", ok: audit.hasJsonLd },
@@ -1333,7 +1333,7 @@ function StealthTab({ data }: TabDataProps) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-bold text-foreground">Stealth Engine — Технический аудит</h2>
+      <h2 className="text-lg font-bold text-foreground">Stealth Engine - Технический аудит</h2>
       <p className="text-sm text-muted-foreground">Проверка технических SEO-элементов.</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1566,7 +1566,7 @@ function calcLiveScores(text: string, tfidfData: any[], targetWordCount: number)
   const structScore = Math.min(h2Matches.length / 3, 1) * 30;
   const listScore = hasList ? 20 : 0;
   const tableScore = hasTable ? 20 : 0;
-  const defScore = (/—|это|представляет собой|является/i.test(text)) ? 15 : 0;
+  const defScore = (/-|это|представляет собой|является/i.test(text)) ? 15 : 0;
   const lenScore = wordCount > 500 ? 15 : (wordCount / 500) * 15;
   const llm = Math.min(100, Math.round(structScore + listScore + tableScore + defScore + lenScore));
 
@@ -1584,7 +1584,7 @@ function calcLiveScores(text: string, tfidfData: any[], targetWordCount: number)
   const human = Math.min(100, Math.round(varietyScore + clicheScore + naturalScore + richScore));
 
   // SGE Adaptation (direct answers, JSON-LD mention, FAQ, tables, lists)
-  const directAnswer = (/—|это|is a|are the/i.test(text)) ? 25 : 0;
+  const directAnswer = (/-|это|is a|are the/i.test(text)) ? 25 : 0;
   const faqScore = hasFAQ ? 25 : 0;
   const sgeTblScore = hasTable ? 20 : 0;
   const sgeListScore = hasList ? 15 : 0;
@@ -1856,7 +1856,7 @@ function AiOptimizer({ analysisId, tabData }: { analysisId?: string | null; tabD
           <Wand2 className="w-12 h-12 mx-auto text-primary" />
           <div>
             <h3 className="text-xl font-bold text-foreground">
-              {lang === 'ru' ? 'AI Forge — Генератор готового контента' : 'AI Forge — Ready Content Generator'}
+              {lang === 'ru' ? 'AI Forge - Генератор готового контента' : 'AI Forge - Ready Content Generator'}
             </h3>
             <p className="text-sm text-muted-foreground mt-3 max-w-lg mx-auto leading-relaxed">
               {lang === 'ru'
@@ -2268,7 +2268,7 @@ function VerificationTab({ data, analysisId, onReanalyze }: TabDataProps & { ana
               {metrics.map((m, i) => {
                 const diff = typeof m.median === 'number' && m.median > 0 ? m.before / m.median : null;
                 const statusColor = diff === null ? 'text-muted-foreground' : diff >= 0.8 ? 'text-green-500' : diff >= 0.5 ? 'text-yellow-500' : 'text-red-500';
-                const statusText = diff === null ? '—' : diff >= 0.8 ? '✓ OK' : diff >= 0.5 ? (isRu ? '⚠ Ниже' : '⚠ Below') : (isRu ? '✕ Критично' : '✕ Critical');
+                const statusText = diff === null ? '-' : diff >= 0.8 ? '✓ OK' : diff >= 0.5 ? (isRu ? '⚠ Ниже' : '⚠ Below') : (isRu ? '✕ Критично' : '✕ Critical');
                 return (
                   <tr key={i} className="border-b border-border/50">
                     <td className="py-3 px-4 text-foreground font-medium">{m.label}</td>
@@ -2341,9 +2341,9 @@ function ImplementationPlanTab({ data }: TabDataProps) {
     const tfidf: any[] = data?.tfidf || [];
     const bp = data?.blueprint;
     const sections = [
-      { label: 'Приоритет P1 — Критические правки', items: p1 },
-      { label: 'Приоритет P2 — Оптимизация контента', items: p2 },
-      { label: 'Приоритет P3 — Рекомендованные улучшения', items: p3 },
+      { label: 'Приоритет P1 - Критические правки', items: p1 },
+      { label: 'Приоритет P2 - Оптимизация контента', items: p2 },
+      { label: 'Приоритет P3 - Рекомендованные улучшения', items: p3 },
     ];
 
     const s = (k: string, v: string) => `${k}:${v}`;
@@ -2359,9 +2359,9 @@ function ImplementationPlanTab({ data }: TabDataProps) {
     if (bp) {
       html += `<h2 style="${font};font-size:16px;margin-top:20px;">Мета-теги и заголовок</h2>`;
       html += `<table border="1" cellpadding="8" cellspacing="0" style="${font};font-size:13px;border-collapse:collapse;width:100%;border-color:#ddd;">`;
-      html += `<tr style="background:#f5f5f5;"><td style="width:120px;${s('font-weight','bold')}">Title</td><td>${stripEmojis(bp.metaTitle || '—')}</td></tr>`;
-      html += `<tr><td style="${s('font-weight','bold')}">Description</td><td>${stripEmojis(bp.metaDescription || '—')}</td></tr>`;
-      html += `<tr style="background:#f5f5f5;"><td style="${s('font-weight','bold')}">H1</td><td>${stripEmojis(bp.h1 || '—')}</td></tr>`;
+      html += `<tr style="background:#f5f5f5;"><td style="width:120px;${s('font-weight','bold')}">Title</td><td>${stripEmojis(bp.metaTitle || '-')}</td></tr>`;
+      html += `<tr><td style="${s('font-weight','bold')}">Description</td><td>${stripEmojis(bp.metaDescription || '-')}</td></tr>`;
+      html += `<tr style="background:#f5f5f5;"><td style="${s('font-weight','bold')}">H1</td><td>${stripEmojis(bp.h1 || '-')}</td></tr>`;
       html += `</table>`;
     }
 
@@ -2374,8 +2374,8 @@ function ImplementationPlanTab({ data }: TabDataProps) {
       for (const item of sec.items) {
         html += `<tr>`;
         html += `<td><b>${stripEmojis(item.title || '')}</b>${item.where ? `<br/><span style="${gray};font-size:11px;">Где: ${stripEmojis(item.where)}</span>` : ''}</td>`;
-        html += `<td>${stripEmojis(item.action || '—')}</td>`;
-        html += `<td style="font-size:12px;${gray};">${stripEmojis(item.expectedResult || '—')}</td>`;
+        html += `<td>${stripEmojis(item.action || '-')}</td>`;
+        html += `<td style="font-size:12px;${gray};">${stripEmojis(item.expectedResult || '-')}</td>`;
         html += `</tr>`;
       }
       html += `</table>`;
@@ -2436,9 +2436,9 @@ function ImplementationPlanTab({ data }: TabDataProps) {
   if (!plan.length) return <p className="text-muted-foreground text-sm">Нет данных. Запустите анализ для генерации плана.</p>;
 
   const priorityConfig = {
-    P1: { label: 'P1 — Критично', color: 'bg-destructive/20 text-destructive', icon: '🔴', border: 'border-l-destructive' },
-    P2: { label: 'P2 — Важно', color: 'bg-amber-500/20 text-amber-400', icon: '🟡', border: 'border-l-amber-500' },
-    P3: { label: 'P3 — Рекомендовано', color: 'bg-emerald-500/20 text-emerald-400', icon: '🟢', border: 'border-l-emerald-500' },
+    P1: { label: 'P1 - Критично', color: 'bg-destructive/20 text-destructive', icon: '🔴', border: 'border-l-destructive' },
+    P2: { label: 'P2 - Важно', color: 'bg-amber-500/20 text-amber-400', icon: '🟡', border: 'border-l-amber-500' },
+    P3: { label: 'P3 - Рекомендовано', color: 'bg-emerald-500/20 text-emerald-400', icon: '🟢', border: 'border-l-emerald-500' },
   };
 
   const renderGroup = (items: any[], priority: 'P1' | 'P2' | 'P3') => {

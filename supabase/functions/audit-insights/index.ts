@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     });
 
     const summary = {
-      site: job?.domain || "—",
+      site: job?.domain || "-",
       total_pages: stats?.total_pages ?? 0,
       score: stats?.score ?? 0,
       critical: stats?.critical_count ?? 0,
@@ -69,10 +69,10 @@ Deno.serve(async (req) => {
       info: stats?.info_count ?? 0,
       avg_ttfb_ms: stats?.avg_load_time_ms ?? 0,
       top_issues: grouped.slice(0, 30)
-        .map((g) => `[${g.severity}] ${g.code} (${g.type}) — ${g.count} стр.`).join("\n"),
+        .map((g) => `[${g.severity}] ${g.code} (${g.type}) - ${g.count} стр.`).join("\n"),
     };
 
-    const prompt = `Ты — старший SEO-специалист. Проанализируй результаты технического аудита сайта и дай краткие выводы и рекомендации на русском.
+    const prompt = `Ты - старший SEO-специалист. Проанализируй результаты технического аудита сайта и дай краткие выводы и рекомендации на русском.
 
 Сайт: ${summary.site}
 Всего страниц: ${summary.total_pages}

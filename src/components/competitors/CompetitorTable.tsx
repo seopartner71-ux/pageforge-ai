@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 interface Props { rows: CompetitorRow[] }
 
-// Компактные заголовки — чтобы умещалось без горизонтального скролла
+// Компактные заголовки - чтобы умещалось без горизонтального скролла
 const SHORT_LABELS: Record<string, string> = {
   domain: 'Домен',
   top1: 'ТОП-1',
@@ -92,7 +92,7 @@ export function CompetitorTable({ rows }: Props) {
       <div className="p-4 border-b border-border">
         <h3 className="text-sm font-medium">Сравнительная таблица доменов</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Зелёный — лучшее значение в столбце, красный — худшее. Клик по заголовку — сортировка.
+          Зелёный - лучшее значение в столбце, красный - худшее. Клик по заголовку - сортировка.
         </p>
       </div>
       <div className="w-full">

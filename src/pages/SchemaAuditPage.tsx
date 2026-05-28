@@ -150,7 +150,7 @@ function CodeBlock({ block }: { block: GeneratedBlock }) {
         <div className="flex items-center gap-2">
           <FileCode className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-foreground">{block.label}</span>
-          <span className="text-xs text-muted-foreground">— {block.reason}</span>
+          <span className="text-xs text-muted-foreground">- {block.reason}</span>
         </div>
         <Button size="sm" variant="ghost" onClick={onCopy} className="h-7 gap-1.5 text-xs">
           <Copy className="w-3 h-3" /> {copied ? 'Скопировано' : 'Копировать'}
@@ -211,7 +211,7 @@ function pageTypeLabel(t: string): string {
     services: 'Услуги', contacts: 'Контакты', category: 'Категория',
     event_host: 'Личный бренд', service: 'Услуги', ecommerce: 'E-commerce',
   };
-  return map[t] || t || '—';
+  return map[t] || t || '-';
 }
 
 /* ─── Page types for multi-page audit ─── */
@@ -294,7 +294,7 @@ function buildTzMarkdown(audit: AuditRow): string {
   // ── Summary ──
   L.push('## 📋 Краткое резюме');
   L.push('');
-  const summary = `На сайте ${audit.domain} обнаружено ${audit.found_schemas_count} схем микроразметки, из них ${crit.length} критических ошибок. Текущий балл — ${audit.overall_score}/100. Для повышения видимости в поиске и получения расширенных сниппетов необходимо внедрить ${audit.generated_code.length} блоков структурированных данных Schema.org с реальными данными компании.`;
+  const summary = `На сайте ${audit.domain} обнаружено ${audit.found_schemas_count} схем микроразметки, из них ${crit.length} критических ошибок. Текущий балл - ${audit.overall_score}/100. Для повышения видимости в поиске и получения расширенных сниппетов необходимо внедрить ${audit.generated_code.length} блоков структурированных данных Schema.org с реальными данными компании.`;
   L.push(summary);
   L.push('');
   L.push('**Обнаружено на странице:**');
@@ -363,7 +363,7 @@ function buildTzMarkdown(audit: AuditRow): string {
     L.push('_Дополнительных рекомендаций нет._');
   } else {
     info.forEach(i => {
-      L.push(`- ${i.problem} → ${i.solution || '—'}`);
+      L.push(`- ${i.problem} → ${i.solution || '-'}`);
     });
   }
   L.push('');
@@ -383,7 +383,7 @@ function buildTzMarkdown(audit: AuditRow): string {
     const priority = priorityFromBlock(block.label);
     const ds = dataSourceFromReason(block.reason || '', block.code || '');
 
-    L.push(`### ${idx + 1}. ${block.type} — ${action}`);
+    L.push(`### ${idx + 1}. ${block.type} - ${action}`);
     L.push('');
     L.push(`**Где разместить:** ${placement}  `);
     L.push(`**Приоритет:** ${priority}  `);
@@ -398,11 +398,11 @@ function buildTzMarkdown(audit: AuditRow): string {
     if (ds.manualFields.length > 0) {
       L.push('⚠️ **Поля для заполнения вручную:**');
       ds.manualFields.forEach(f => {
-        L.push(`- \`"${f}"\` — укажите реальное значение для вашей компании`);
+        L.push(`- \`"${f}"\` - укажите реальное значение для вашей компании`);
       });
       L.push('');
     } else if (ds.label.includes('Требуют')) {
-      L.push('⚠️ **Внимание:** часть данных не была найдена автоматически — проверьте код перед публикацией и замените примерные значения на реальные данные компании.');
+      L.push('⚠️ **Внимание:** часть данных не была найдена автоматически - проверьте код перед публикацией и замените примерные значения на реальные данные компании.');
       L.push('');
     }
     L.push('---');
@@ -419,20 +419,20 @@ function buildTzMarkdown(audit: AuditRow): string {
   const warnTypes = audit.generated_code.filter(b => priorityFromBlock(b.label) === 'ВАЖНО');
   const recTypes = audit.generated_code.filter(b => priorityFromBlock(b.label) === 'РЕКОМЕНДУЕТСЯ');
 
-  L.push(`### Этап 1 — Критические исправления (до ${fmtDate(addDays(today, 3))})`);
+  L.push(`### Этап 1 - Критические исправления (до ${fmtDate(addDays(today, 3))})`);
   L.push('');
   if (critTypes.length === 0) {
     L.push('- [x] Критических исправлений не требуется');
   } else {
     critTypes.forEach(b => {
-      L.push(`- [ ] Добавить/исправить ${b.type} — ${placementHint(b.type)}`);
+      L.push(`- [ ] Добавить/исправить ${b.type} - ${placementHint(b.type)}`);
     });
     L.push('- [ ] Проверить каждую схему в Google Rich Results Test');
     L.push('- [ ] Проверить в Яндекс Вебмастер → Разметка');
   }
   L.push('');
 
-  L.push(`### Этап 2 — Важные улучшения (до ${fmtDate(addDays(today, 14))})`);
+  L.push(`### Этап 2 - Важные улучшения (до ${fmtDate(addDays(today, 14))})`);
   L.push('');
   if (warnTypes.length === 0) {
     L.push('- [x] Важных улучшений не требуется');
@@ -444,7 +444,7 @@ function buildTzMarkdown(audit: AuditRow): string {
   }
   L.push('');
 
-  L.push(`### Этап 3 — Рекомендуемые дополнения (до ${fmtDate(addDays(today, 30))})`);
+  L.push(`### Этап 3 - Рекомендуемые дополнения (до ${fmtDate(addDays(today, 30))})`);
   L.push('');
   if (recTypes.length === 0) {
     L.push('- [x] Дополнительных схем не требуется');
@@ -546,7 +546,7 @@ export default function SchemaAuditPage() {
   const fetchSitemapPages = async () => {
     const seed = (pages[0]?.url || url || '').trim();
     if (!seed) {
-      toast({ title: 'Укажите домен', description: 'Введите URL хотя бы в одну строку — мы найдём sitemap', variant: 'destructive' });
+      toast({ title: 'Укажите домен', description: 'Введите URL хотя бы в одну строку - мы найдём sitemap', variant: 'destructive' });
       return;
     }
     let target = seed;
@@ -660,7 +660,7 @@ export default function SchemaAuditPage() {
     const total = done.length;
     const avgScore = Math.round(done.reduce((s, r) => s + (r.audit!.overall_score || 0), 0) / total);
     const totalErrors = done.reduce((s, r) => s + (r.audit!.errors_count || 0), 0);
-    // Priority list — sort by score asc, take top 3 with their #1 missing schema
+    // Priority list - sort by score asc, take top 3 with their #1 missing schema
     const priorities = [...done]
       .sort((a, b) => (a.audit!.overall_score || 0) - (b.audit!.overall_score || 0))
       .slice(0, 3)
@@ -831,16 +831,16 @@ export default function SchemaAuditPage() {
           ]}
           help={{
             content: [
-              'Schema.org — открытая инициатива Google, Microsoft, Yahoo и Yandex (2011 год) по стандартизации словаря структурированных данных. Google официально рекомендует формат JSON-LD как предпочтительный (вкладывается в <head>, не смешивается с HTML, проще поддерживать).',
-              'Расширенные результаты (rich results) в Google формируются только при наличии корректной валидной разметки: AggregateRating, Product, Article, FAQ, HowTo, BreadcrumbList, Organization, LocalBusiness, Recipe, Event и др. Каждый тип имеет обязательные поля — без них сниппет не появится. Проверка ведётся через Rich Results Test и Schema Markup Validator.',
+              'Schema.org - открытая инициатива Google, Microsoft, Yahoo и Yandex (2011 год) по стандартизации словаря структурированных данных. Google официально рекомендует формат JSON-LD как предпочтительный (вкладывается в <head>, не смешивается с HTML, проще поддерживать).',
+              'Расширенные результаты (rich results) в Google формируются только при наличии корректной валидной разметки: AggregateRating, Product, Article, FAQ, HowTo, BreadcrumbList, Organization, LocalBusiness, Recipe, Event и др. Каждый тип имеет обязательные поля - без них сниппет не появится. Проверка ведётся через Rich Results Test и Schema Markup Validator.',
               'Яндекс поддерживает Schema.org, микроданные и форматы OpenGraph для расширенных сниппетов, отзывов, видео, рецептов, товаров. Корректная разметка увеличивает CTR в выдаче в среднем на 20–30% (исследования Search Engine Land, 2023).',
             ],
             sources: [
-              { label: 'Schema.org — официальный словарь', url: 'https://schema.org/docs/full.html' },
-              { label: 'Google — Introduction to structured data', url: 'https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data' },
+              { label: 'Schema.org - официальный словарь', url: 'https://schema.org/docs/full.html' },
+              { label: 'Google - Introduction to structured data', url: 'https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data' },
               { label: 'Google Rich Results Test', url: 'https://search.google.com/test/rich-results' },
               { label: 'Schema Markup Validator', url: 'https://validator.schema.org/' },
-              { label: 'Яндекс — Семантическая разметка', url: 'https://yandex.ru/support/webmaster/schema-org/intro-schema-org.html' },
+              { label: 'Яндекс - Семантическая разметка', url: 'https://yandex.ru/support/webmaster/schema-org/intro-schema-org.html' },
             ],
           }}
         />
@@ -908,7 +908,7 @@ export default function SchemaAuditPage() {
         {auditMode === 'site' && (
         <Card className="p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Добавьте до 5 ключевых страниц сайта — для каждой укажите тип</p>
+            <p className="text-xs text-muted-foreground">Добавьте до 5 ключевых страниц сайта - для каждой укажите тип</p>
             <Button size="sm" variant="outline" onClick={fetchSitemapPages} disabled={running || sitemapBusy} className="gap-2 h-8 text-xs">
               {sitemapBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
               Найти страницы автоматически
@@ -1068,7 +1068,7 @@ export default function SchemaAuditPage() {
                   📊 Обнаружено на странице
                 </h2>
                 <p className="text-[11px] text-muted-foreground -mt-1">
-                  ✅ — из meta/schema (надёжно) · ⚠️ — из текста (проверьте) · ❌ — не найдено
+                  ✅ - из meta/schema (надёжно) · ⚠️ - из текста (проверьте) · ❌ - не найдено
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                   {([
@@ -1087,8 +1087,8 @@ export default function SchemaAuditPage() {
                       : conf === 'high' ? 'text-foreground'
                       : 'text-amber-300';
                     const title = !val ? 'Не найдено'
-                      : conf === 'high' ? 'Высокая надёжность — из структурированных данных'
-                      : 'Низкая надёжность — извлечено из текста, проверьте';
+                      : conf === 'high' ? 'Высокая надёжность - из структурированных данных'
+                      : 'Низкая надёжность - извлечено из текста, проверьте';
                     return (
                     <div key={label} className="flex items-center justify-between gap-3 py-1 border-b border-border/30 last:border-0">
                       <span className="text-muted-foreground text-xs">{label}</span>
@@ -1241,7 +1241,7 @@ export default function SchemaAuditPage() {
                       {siteSummary.priorities.map((p, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <span className="text-muted-foreground shrink-0">{i + 1}.</span>
-                          <span className="text-foreground"><span className="font-medium">{p.label}</span> — {p.problem}</span>
+                          <span className="text-foreground"><span className="font-medium">{p.label}</span> - {p.problem}</span>
                         </li>
                       ))}
                     </ol>

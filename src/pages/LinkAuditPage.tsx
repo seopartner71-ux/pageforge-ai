@@ -16,7 +16,7 @@ import {
   parseCsvToBacklinks, analyzeSite, detectSiteDomain, SITE_COLORS,
   type SiteAuditData, type BacklinkRow,
 } from '@/lib/linkAudit';
-// exceljs+chart.js (~1MB) — грузим только при экспорте
+// exceljs+chart.js (~1MB) - грузим только при экспорте
 const exportLinkAuditXlsx = (...args: Parameters<typeof import('@/lib/exportLinkAuditXlsx').exportLinkAuditXlsx>) =>
   import('@/lib/exportLinkAuditXlsx').then(m => m.exportLinkAuditXlsx(...args));
 import { parseDomainSummaryCsv, type DomainSummaryRow } from '@/lib/domainSummary';
@@ -223,10 +223,10 @@ export default function LinkAuditPage() {
               'Яндекс с 2014 года заявлял об отключении ссылочного фактора в коммерческой выдаче Москвы (алгоритм АГС, Минусинск), однако ссылки продолжают учитываться: за искусственный ссылочный профиль накладывается фильтр Минусинск. Естественные ссылки с тематических авторитетных площадок остаются полезными.',
             ],
             sources: [
-              { label: 'Google — Link spam policy', url: 'https://developers.google.com/search/docs/essentials/spam-policies#link-spam' },
-              { label: 'Google Search Console — Disavow Tool', url: 'https://support.google.com/webmasters/answer/2648487' },
-              { label: 'Google — How Search Works (PageRank)', url: 'https://www.google.com/search/howsearchworks/how-search-works/ranking-results/' },
-              { label: 'Яндекс — Алгоритм Минусинск', url: 'https://yandex.ru/blog/webmaster/minusinsk-novyy-algoritm-opredeleniya-seo-ssylok' },
+              { label: 'Google - Link spam policy', url: 'https://developers.google.com/search/docs/essentials/spam-policies#link-spam' },
+              { label: 'Google Search Console - Disavow Tool', url: 'https://support.google.com/webmasters/answer/2648487' },
+              { label: 'Google - How Search Works (PageRank)', url: 'https://www.google.com/search/howsearchworks/how-search-works/ranking-results/' },
+              { label: 'Яндекс - Алгоритм Минусинск', url: 'https://yandex.ru/blog/webmaster/minusinsk-novyy-algoritm-opredeleniya-seo-ssylok' },
             ],
           }}
         />
@@ -254,7 +254,7 @@ export default function LinkAuditPage() {
 
         <CsvFormatGuide />
 
-        {/* Drop zones — separate mode */}
+        {/* Drop zones - separate mode */}
         {mode === 'separate' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
             {slots.map((slot, idx) => {
@@ -312,7 +312,7 @@ export default function LinkAuditPage() {
           </div>
         )}
 
-        {/* Drop zone — summary mode */}
+        {/* Drop zone - summary mode */}
         {mode === 'summary' && (
           <Card className="p-4 print:hidden">
             <div

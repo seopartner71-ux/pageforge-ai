@@ -84,13 +84,13 @@ export function CsvFormatGuide() {
               </p>
               <p className="font-medium">Обязательные колонки:</p>
               <ul className="space-y-1 list-disc pl-5">
-                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">Домен источник</code> — донор ссылки</li>
-                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">URL источник</code> — страница донора</li>
-                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">DR</code> — доменный рейтинг (число)</li>
-                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">Анкор</code> — текст ссылки</li>
-                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">Тип</code> — Текст / Изображение / Редирект</li>
-                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">Атрибуты</code> — follow / nofollow</li>
-                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">Статус ссылки</code> — Активная / Неактивная</li>
+                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">Домен источник</code> - донор ссылки</li>
+                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">URL источник</code> - страница донора</li>
+                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">DR</code> - доменный рейтинг (число)</li>
+                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">Анкор</code> - текст ссылки</li>
+                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">Тип</code> - Текст / Изображение / Редирект</li>
+                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">Атрибуты</code> - follow / nofollow</li>
+                <li><code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">Статус ссылки</code> - Активная / Неактивная</li>
               </ul>
               <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
                 <p>Разделитель: точка с запятой <code className="font-mono bg-muted px-1 rounded">;</code></p>

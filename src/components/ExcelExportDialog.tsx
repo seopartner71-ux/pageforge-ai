@@ -149,7 +149,7 @@ export function ExcelExportDialog({ open, onOpenChange, onExport, loading, hasTf
           {/* Metrics columns */}
           {config.sheets.metrics && (
             <div>
-              <p className="text-sm font-semibold mb-2">{isRu ? 'Колонки — Метрики' : 'Columns — Metrics'}</p>
+              <p className="text-sm font-semibold mb-2">{isRu ? 'Колонки - Метрики' : 'Columns - Metrics'}</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {metricsColumns.map(c => (
                   <div key={c.key} className="flex items-center gap-2">
@@ -168,7 +168,7 @@ export function ExcelExportDialog({ open, onOpenChange, onExport, loading, hasTf
           {/* Tasks columns */}
           {config.sheets.tasks && (
             <div>
-              <p className="text-sm font-semibold mb-2">{isRu ? 'Колонки — Задачи' : 'Columns — Tasks'}</p>
+              <p className="text-sm font-semibold mb-2">{isRu ? 'Колонки - Задачи' : 'Columns - Tasks'}</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {tasksColumns.map(c => (
                   <div key={c.key} className="flex items-center gap-2">
@@ -187,7 +187,7 @@ export function ExcelExportDialog({ open, onOpenChange, onExport, loading, hasTf
           {/* TF-IDF columns */}
           {config.sheets.tfidf && hasTfidf && (
             <div>
-              <p className="text-sm font-semibold mb-2">{isRu ? 'Колонки — TF-IDF' : 'Columns — TF-IDF'}</p>
+              <p className="text-sm font-semibold mb-2">{isRu ? 'Колонки - TF-IDF' : 'Columns - TF-IDF'}</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {tfidfColumns.map(c => (
                   <div key={c.key} className="flex items-center gap-2">

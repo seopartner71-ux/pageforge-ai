@@ -199,14 +199,14 @@ export default function BlogTopicsPage() {
           help={{
             content: [
               'Контент-план должен опираться на реальный спрос и интенты, а не на «мнение редактора». Google Helpful Content System (запущен в августе 2022, интегрирован в Core Ranking в марте 2024) понижает сайты, у которых много контента «для поисковиков» без реальной пользы. Каждая тема должна закрывать конкретный пользовательский вопрос.',
-              'Методология подбора тем: collect (Wordstat, Suggest, GSC), классификация по интенту (Know/Do), оценка сложности через анализ ТОП-10 (Domain Rating конкурентов, длина контента, количество ссылающихся доменов), отсев тем, где в выдаче доминируют классифайды и агрегаторы — конкурировать с Wikipedia, Habr или Wildberries малому блогу нерентабельно.',
-              'Topical Authority — концепция Google (упоминается в патентах и официальных Search Central Office Hours): сайт получает преимущество в нише, когда системно закрывает все подтемы вокруг основной. Поэтому контент-план строится не как набор случайных тем, а как кластерная структура: pillar-страница + поддерживающие статьи (hub-and-spoke).',
+              'Методология подбора тем: collect (Wordstat, Suggest, GSC), классификация по интенту (Know/Do), оценка сложности через анализ ТОП-10 (Domain Rating конкурентов, длина контента, количество ссылающихся доменов), отсев тем, где в выдаче доминируют классифайды и агрегаторы - конкурировать с Wikipedia, Habr или Wildberries малому блогу нерентабельно.',
+              'Topical Authority - концепция Google (упоминается в патентах и официальных Search Central Office Hours): сайт получает преимущество в нише, когда системно закрывает все подтемы вокруг основной. Поэтому контент-план строится не как набор случайных тем, а как кластерная структура: pillar-страница + поддерживающие статьи (hub-and-spoke).',
             ],
             sources: [
-              { label: 'Google — Helpful Content System', url: 'https://developers.google.com/search/updates/helpful-content-update' },
-              { label: 'Google — Creating helpful, reliable, people-first content', url: 'https://developers.google.com/search/docs/fundamentals/creating-helpful-content' },
-              { label: 'Google Trends — официальный сервис трендов запросов', url: 'https://trends.google.com/trends/' },
-              { label: 'Яндекс Wordstat — официальный сервис частотности', url: 'https://wordstat.yandex.ru/' },
+              { label: 'Google - Helpful Content System', url: 'https://developers.google.com/search/updates/helpful-content-update' },
+              { label: 'Google - Creating helpful, reliable, people-first content', url: 'https://developers.google.com/search/docs/fundamentals/creating-helpful-content' },
+              { label: 'Google Trends - официальный сервис трендов запросов', url: 'https://trends.google.com/trends/' },
+              { label: 'Яндекс Wordstat - официальный сервис частотности', url: 'https://wordstat.yandex.ru/' },
             ],
           }}
         />
@@ -354,7 +354,7 @@ export default function BlogTopicsPage() {
                       <td className="p-3 text-right tabular-nums">{t.ws_frequency.toLocaleString('ru-RU')}</td>
                       <td className="p-3"><CompetitionBadge level={t.competition_level} /></td>
                       <td className="p-3 text-center tabular-nums text-xs text-muted-foreground">
-                        {t.strong_count != null ? `${t.strong_count}/10` : '—'}
+                        {t.strong_count != null ? `${t.strong_count}/10` : '-'}
                       </td>
                       <td className="p-3 text-right tabular-nums font-medium">{t.blog_score}</td>
                       <td className="p-3 text-right tabular-nums text-emerald-400">~{t.traffic_potential.toLocaleString('ru-RU')}</td>

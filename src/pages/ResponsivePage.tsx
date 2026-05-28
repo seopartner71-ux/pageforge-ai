@@ -74,15 +74,15 @@ export default function ResponsivePage() {
           ]}
           help={{
             content: [
-              'С 2019 года Google использует mobile-first индексацию: для оценки и ранжирования используется именно мобильная версия страницы. С июля 2024 индексация полностью переведена на смартфон-краулер Googlebot Smartphone — десктопная версия больше не индексируется отдельно.',
+              'С 2019 года Google использует mobile-first индексацию: для оценки и ранжирования используется именно мобильная версия страницы. С июля 2024 индексация полностью переведена на смартфон-краулер Googlebot Smartphone - десктопная версия больше не индексируется отдельно.',
               'Критерии mobile-friendly (Google): корректный тег viewport (width=device-width, initial-scale=1), отсутствие горизонтальной прокрутки, читаемый шрифт ≥ 16 px, кликабельные элементы ≥ 48×48 CSS-пикселей с отступами ≥ 8 px, отсутствие Flash и других неподдерживаемых технологий. Те же требования у Яндекса в отчёте «Мобильные страницы».',
-              'Адаптивный дизайн (responsive web design, термин Ethan Marcotte, 2010) — официально рекомендуемая Google стратегия: одна HTML-страница и один URL для всех устройств, отдача разной вёрстки через CSS media queries. Это упрощает индексацию и не требует rel="alternate" / vary: user-agent.',
+              'Адаптивный дизайн (responsive web design, термин Ethan Marcotte, 2010) - официально рекомендуемая Google стратегия: одна HTML-страница и один URL для всех устройств, отдача разной вёрстки через CSS media queries. Это упрощает индексацию и не требует rel="alternate" / vary: user-agent.',
             ],
             sources: [
-              { label: 'Google Search Central — Mobile-first indexing', url: 'https://developers.google.com/search/docs/crawling-indexing/mobile/mobile-sites-mobile-first-indexing' },
-              { label: 'Google — Responsive Web Design', url: 'https://developers.google.com/search/mobile-sites/mobile-seo/responsive-design' },
-              { label: 'Google Material — Accessibility touch targets', url: 'https://m3.material.io/foundations/designing/structure#touch-targets' },
-              { label: 'Яндекс.Вебмастер — Адаптивность для мобильных', url: 'https://yandex.ru/support/webmaster/search-appearance/turbo.html' },
+              { label: 'Google Search Central - Mobile-first indexing', url: 'https://developers.google.com/search/docs/crawling-indexing/mobile/mobile-sites-mobile-first-indexing' },
+              { label: 'Google - Responsive Web Design', url: 'https://developers.google.com/search/mobile-sites/mobile-seo/responsive-design' },
+              { label: 'Google Material - Accessibility touch targets', url: 'https://m3.material.io/foundations/designing/structure#touch-targets' },
+              { label: 'Яндекс.Вебмастер - Адаптивность для мобильных', url: 'https://yandex.ru/support/webmaster/search-appearance/turbo.html' },
             ],
           }}
         />

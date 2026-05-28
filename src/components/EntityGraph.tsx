@@ -229,7 +229,7 @@ export function EntityGraph({ foundEntities, gapEntities, categories = {} }: Pro
           const icon = d.type === 'found' ? '✅' : '❌';
           const statusLabel = d.type === 'found'
             ? (isRu ? 'Найдена на странице' : 'Found on page')
-            : (isRu ? 'Отсутствует — добавьте!' : 'Missing — add it!');
+            : (isRu ? 'Отсутствует - добавьте!' : 'Missing - add it!');
           const statusColor = d.type === 'found' ? '#4ade80' : '#f87171';
           const catLabel = d.category && d.category !== 'default'
             ? `<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:10px">${isRu ? 'Категория' : 'Category'}: <span style="text-transform:capitalize;color:#cbd5e1">${d.category}</span></div>` : '';

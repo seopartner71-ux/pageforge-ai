@@ -58,15 +58,15 @@ export default function PageSpeedPage() {
           ]}
           help={{
             content: [
-              'Проверка основана на Google PageSpeed Insights и движке Lighthouse — открытом инструменте Google для аудита качества веб-страниц. Анализируются как лабораторные данные (эмулированная загрузка Moto G4 / медленный 4G), так и полевые данные реальных пользователей Chrome (CrUX).',
-              'Core Web Vitals — три ключевые метрики пользовательского опыта, которые Google официально учитывает в ранжировании: LCP (Largest Contentful Paint, рендер главного элемента ≤ 2,5 с), INP (Interaction to Next Paint, отклик на действия ≤ 200 мс) и CLS (Cumulative Layout Shift, визуальная стабильность ≤ 0,1). С марта 2024 INP заменил FID.',
-              'Performance Score — взвешенная сумма 6 метрик Lighthouse: FCP, LCP, TBT, CLS, Speed Index. Шкала: 0–49 красная (плохо), 50–89 жёлтая (средне), 90–100 зелёная (хорошо). Аудит выявляет конкретные ресурсы, тормозящие страницу: тяжёлый JS, неоптимизированные изображения, render-blocking CSS.',
+              'Проверка основана на Google PageSpeed Insights и движке Lighthouse - открытом инструменте Google для аудита качества веб-страниц. Анализируются как лабораторные данные (эмулированная загрузка Moto G4 / медленный 4G), так и полевые данные реальных пользователей Chrome (CrUX).',
+              'Core Web Vitals - три ключевые метрики пользовательского опыта, которые Google официально учитывает в ранжировании: LCP (Largest Contentful Paint, рендер главного элемента ≤ 2,5 с), INP (Interaction to Next Paint, отклик на действия ≤ 200 мс) и CLS (Cumulative Layout Shift, визуальная стабильность ≤ 0,1). С марта 2024 INP заменил FID.',
+              'Performance Score - взвешенная сумма 6 метрик Lighthouse: FCP, LCP, TBT, CLS, Speed Index. Шкала: 0–49 красная (плохо), 50–89 жёлтая (средне), 90–100 зелёная (хорошо). Аудит выявляет конкретные ресурсы, тормозящие страницу: тяжёлый JS, неоптимизированные изображения, render-blocking CSS.',
             ],
             sources: [
-              { label: 'Google web.dev — Core Web Vitals', url: 'https://web.dev/articles/vitals' },
-              { label: 'PageSpeed Insights API v5 — официальная документация', url: 'https://developers.google.com/speed/docs/insights/v5/about' },
+              { label: 'Google web.dev - Core Web Vitals', url: 'https://web.dev/articles/vitals' },
+              { label: 'PageSpeed Insights API v5 - официальная документация', url: 'https://developers.google.com/speed/docs/insights/v5/about' },
               { label: 'Lighthouse Performance Scoring', url: 'https://developer.chrome.com/docs/lighthouse/performance/performance-scoring' },
-              { label: 'Google Search Central — Page Experience', url: 'https://developers.google.com/search/docs/appearance/page-experience' },
+              { label: 'Google Search Central - Page Experience', url: 'https://developers.google.com/search/docs/appearance/page-experience' },
             ],
           }}
         />

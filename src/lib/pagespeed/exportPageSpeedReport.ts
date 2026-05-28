@@ -106,7 +106,7 @@ function renderMetric(label: string, value?: { display: string }, hint?: string)
   return `
     <div class="metric">
       <div class="metric-label">${esc(label)}</div>
-      <div class="metric-value">${esc(value?.display ?? "—")}</div>
+      <div class="metric-value">${esc(value?.display ?? "-")}</div>
       ${hint ? `<div class="metric-hint">${esc(hint)}</div>` : ""}
     </div>
   `;
@@ -159,7 +159,7 @@ function renderStrategy(label: string, data: PageSpeedMetrics): string {
         ${renderScoreCircle(data.score)}
         <div>
           <div class="score-title">Performance Score</div>
-          <div class="score-sub">Общая оценка скорости по данным Google Lighthouse. Шкала 0–100: 90+ — хорошо, 50–89 — средне, ниже 50 — плохо.</div>
+          <div class="score-sub">Общая оценка скорости по данным Google Lighthouse. Шкала 0–100: 90+ - хорошо, 50–89 - средне, ниже 50 - плохо.</div>
         </div>
       </div>
 
@@ -220,7 +220,7 @@ export function openPageSpeedReportPrint(opts: {
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<title>PageSpeed отчёт — ${esc(url)}</title>
+<title>PageSpeed отчёт - ${esc(url)}</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -466,11 +466,11 @@ function strategyBlock(label: string, data: PageSpeedMetrics): Paragraph[] | (Pa
 
   // Metrics table
   const metrics: Array<[string, string, string]> = [
-    ["LCP", data.lcp?.display ?? "—", "Largest Contentful Paint"],
-    ["TBT", data.tbt?.display ?? "—", "Total Blocking Time"],
-    ["CLS", data.cls?.display ?? "—", "Cumulative Layout Shift"],
-    ["FCP", data.fcp?.display ?? "—", "First Contentful Paint"],
-    ["Speed Index", data.speedIndex?.display ?? "—", "Скорость отображения"],
+    ["LCP", data.lcp?.display ?? "-", "Largest Contentful Paint"],
+    ["TBT", data.tbt?.display ?? "-", "Total Blocking Time"],
+    ["CLS", data.cls?.display ?? "-", "Cumulative Layout Shift"],
+    ["FCP", data.fcp?.display ?? "-", "First Contentful Paint"],
+    ["Speed Index", data.speedIndex?.display ?? "-", "Скорость отображения"],
   ];
 
   blocks.push(heading("Core Web Vitals", HeadingLevel.HEADING_2));

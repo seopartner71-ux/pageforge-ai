@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     }
 
     // The external crawler also sends per-page deep analysis (mixed content, SSL,
-    // analytics, structured data). Our schema doesn't persist all extras yet —
+    // analytics, structured data). Our schema doesn't persist all extras yet -
     // accept the payload, store any returned issues, and ack so the crawler
     // does not error.
     if (action === "analyze_page") {

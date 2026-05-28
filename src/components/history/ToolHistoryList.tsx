@@ -17,19 +17,19 @@ const META: Record<Kind, { route: string; icon: any; label: string; emptyHint: s
     route: '/link-audit',
     icon: LinkIcon,
     label: 'Ссылочные аудиты',
-    emptyHint: 'Загрузите CSV на странице «Ссылочный аудит» — он сохранится сюда автоматически.',
+    emptyHint: 'Загрузите CSV на странице «Ссылочный аудит» - он сохранится сюда автоматически.',
   },
   competitor_analyses: {
     route: '/competitors',
     icon: FileSpreadsheet,
     label: 'Анализы конкурентов',
-    emptyHint: 'Загрузите CSV на странице «Конкуренты» — он сохранится сюда автоматически.',
+    emptyHint: 'Загрузите CSV на странице «Конкуренты» - он сохранится сюда автоматически.',
   },
   top_analyses: {
     route: '/top-analysis',
     icon: BarChart3,
     label: 'Анализы топа',
-    emptyHint: 'Загрузите CSV на странице «Анализ топа» — он сохранится сюда автоматически.',
+    emptyHint: 'Загрузите CSV на странице «Анализ топа» - он сохранится сюда автоматически.',
   },
 };
 

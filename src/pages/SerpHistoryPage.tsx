@@ -267,15 +267,15 @@ export default function SerpHistoryPage() {
           ]}
           help={{
             content: [
-              'Мониторинг позиций — базовый процесс контроля SEO-результатов. Google и Яндекс ежедневно проводят микро-корректировки выдачи плюс несколько крупных Core Updates в год (Google публикует их в Search Status Dashboard). Без отслеживания истории SERP невозможно отличить системное снижение от случайных колебаний.',
-              'Официальные источники данных по позициям: Google Search Console (отчёт «Эффективность» — клики, показы, CTR, средняя позиция за период до 16 месяцев) и Яндекс.Вебмастер (раздел «Поисковые запросы» с фактическими показами в Яндексе). Сторонние парсеры SERP (наш инструмент) дополняют их данными о ТОП-10 конкретно по нужным запросам и регионам в любой день.',
-              'Резкое массовое изменение позиций (±5 и более у многих запросов одновременно) обычно связано с алгоритмическими апдейтами. Google официально подтверждает их в Search Status Dashboard и Twitter @googlesearchc. Это нормально и не всегда требует действий — нужно дождаться завершения раскатки (1–3 недели) и проанализировать характер изменений.',
+              'Мониторинг позиций - базовый процесс контроля SEO-результатов. Google и Яндекс ежедневно проводят микро-корректировки выдачи плюс несколько крупных Core Updates в год (Google публикует их в Search Status Dashboard). Без отслеживания истории SERP невозможно отличить системное снижение от случайных колебаний.',
+              'Официальные источники данных по позициям: Google Search Console (отчёт «Эффективность» - клики, показы, CTR, средняя позиция за период до 16 месяцев) и Яндекс.Вебмастер (раздел «Поисковые запросы» с фактическими показами в Яндексе). Сторонние парсеры SERP (наш инструмент) дополняют их данными о ТОП-10 конкретно по нужным запросам и регионам в любой день.',
+              'Резкое массовое изменение позиций (±5 и более у многих запросов одновременно) обычно связано с алгоритмическими апдейтами. Google официально подтверждает их в Search Status Dashboard и Twitter @googlesearchc. Это нормально и не всегда требует действий - нужно дождаться завершения раскатки (1–3 недели) и проанализировать характер изменений.',
             ],
             sources: [
               { label: 'Google Search Status Dashboard (история апдейтов)', url: 'https://status.search.google.com/products/rGHU1u87FJnkP6W2GwMi/history' },
-              { label: 'Google Search Console — Performance report', url: 'https://support.google.com/webmasters/answer/7042828' },
-              { label: 'Google — Ranking Systems Guide', url: 'https://developers.google.com/search/docs/appearance/ranking-systems-guide' },
-              { label: 'Яндекс.Вебмастер — Поисковые запросы', url: 'https://yandex.ru/support/webmaster/searchqueries/popular-queries.html' },
+              { label: 'Google Search Console - Performance report', url: 'https://support.google.com/webmasters/answer/7042828' },
+              { label: 'Google - Ranking Systems Guide', url: 'https://developers.google.com/search/docs/appearance/ranking-systems-guide' },
+              { label: 'Яндекс.Вебмастер - Поисковые запросы', url: 'https://yandex.ru/support/webmaster/searchqueries/popular-queries.html' },
             ],
           }}
         />
@@ -434,7 +434,7 @@ export default function SerpHistoryPage() {
               </div>
               {data.snapshots.length < 3 && (
                 <div className="text-xs text-muted-foreground italic">
-                  💡 Совет: запускайте анализ раз в месяц — через 3-4 месяца появится полная история выдачи для сравнения конкурентов.
+                  💡 Совет: запускайте анализ раз в месяц - через 3-4 месяца появится полная история выдачи для сравнения конкурентов.
                 </div>
               )}
             </Card>
@@ -508,7 +508,7 @@ export default function SerpHistoryPage() {
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground/40">—</span>
+                                <span className="text-muted-foreground/40">-</span>
                               )}
                             </td>
                           );
@@ -529,11 +529,11 @@ export default function SerpHistoryPage() {
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-secondary inline-block" /> Агрегатор / МП</span>
             </div>
 
-            {/* CURRENT TOP — always show details for today */}
+            {/* CURRENT TOP - always show details for today */}
             {data.current && data.current.length > 0 && (
               <Card className="overflow-hidden">
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-                  <div className="font-semibold">Текущий ТОП — {new Date().toLocaleDateString('ru-RU')}</div>
+                  <div className="font-semibold">Текущий ТОП - {new Date().toLocaleDateString('ru-RU')}</div>
                   <div className="text-xs text-muted-foreground">{data.engine === 'yandex' ? 'Яндекс' : 'Google'} · {data.region}</div>
                 </div>
                 <div className="overflow-x-auto">

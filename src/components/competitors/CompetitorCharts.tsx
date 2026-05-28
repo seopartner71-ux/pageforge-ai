@@ -38,7 +38,7 @@ export function CompetitorCharts({ rows }: Props) {
     'ТОП-10': r.top10,
   }));
 
-  // Radar — нормализация: каждое значение / max по столбцу
+  // Radar - нормализация: каждое значение / max по столбцу
   const radarKeys: { key: keyof CompetitorRow; label: string }[] = [
     { key: 'traffic', label: 'Трафик' },
     { key: 'visibility', label: 'Видимость' },

@@ -57,7 +57,7 @@
 
   :root.light,
   :root[data-theme="light"] {
-    /* Light theme — #F8F9FA bg, #FFFFFF cards, #1A1A2E text */
+    /* Light theme - #F8F9FA bg, #FFFFFF cards, #1A1A2E text */
     --background: 210 17% 98%;          /* #F8F9FA */
     --foreground: 240 28% 14%;          /* #1A1A2E */
 
