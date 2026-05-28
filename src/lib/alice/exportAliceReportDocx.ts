@@ -126,7 +126,40 @@ function recommendations(d: AliceParsed): Paragraph[] {
   }));
 }
 
-export async function exportAliceReportDocx(d: AliceParsed, filename = 'alisa-visibility-report.docx') {
+function geoPlanParagraphs(md: string): Paragraph[] {
+  const lines = md.split('\n');
+  const out: Paragraph[] = [];
+  for (const raw of lines) {
+    const line = raw.replace(/\*\*/g, '').replace(/—/g, '-');
+    if (!line.trim()) { out.push(new Paragraph({ spacing: { after: 60 }, children: [] })); continue; }
+    if (line.startsWith('## ')) { out.push(H2(line.slice(3).trim())); continue; }
+    if (line.startsWith('# ')) { out.push(H2(line.slice(2).trim())); continue; }
+    const m = line.match(/^\s*[-*]\s+(.*)/);
+    if (m) {
+      out.push(new Paragraph({
+        spacing: { after: 80 }, indent: { left: 360, hanging: 200 },
+        children: [new TextRun({ text: '• ', bold: true, color: ACCENT, size: 22 }), new TextRun({ text: m[1], size: 22 })],
+      }));
+      continue;
+    }
+    const num = line.match(/^\s*(\d+)\.\s+(.*)/);
+    if (num) {
+      out.push(new Paragraph({
+        spacing: { after: 80 }, indent: { left: 360, hanging: 200 },
+        children: [new TextRun({ text: `${num[1]}. `, bold: true, color: ACCENT, size: 22 }), new TextRun({ text: num[2], size: 22 })],
+      }));
+      continue;
+    }
+    out.push(P(line, { size: 22 }));
+  }
+  return out;
+}
+
+export async function exportAliceReportDocx(
+  d: AliceParsed,
+  filename = 'alisa-visibility-report.docx',
+  geoPlan?: string,
+) {
   const today = new Date();
   const dateStr = today.toLocaleDateString('ru-RU');
 
@@ -167,6 +200,12 @@ export async function exportAliceReportDocx(d: AliceParsed, filename = 'alisa-vi
 
         H1('5. Рекомендации'),
         ...recommendations(d),
+
+        ...(geoPlan && geoPlan.trim() ? [
+          H1('6. GEO-стратегия (план 30/60/90 дней)'),
+          P('Сгенерировано ИИ на основе данных аудита: какие запросы не приводят к упоминанию бренда, какие домены доминируют в выдаче Алисы.', { color: MUTED, italics: true }),
+          ...geoPlanParagraphs(geoPlan),
+        ] : []),
 
         new Paragraph({ spacing: { before: 480 }, alignment: AlignmentType.CENTER,
           children: [new TextRun({ text: '— Конец отчёта —', color: MUTED, size: 18 })] }),
