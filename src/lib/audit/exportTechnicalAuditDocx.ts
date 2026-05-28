@@ -181,7 +181,7 @@ const border = { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' };
 const borders = { top: border, bottom: border, left: border, right: border };
 const CONTENT_W = 9360;
 
-function cell(text: string | TextRun[], width: number, opts: { bold?: boolean; fill?: string; color?: string; align?: AlignmentType } = {}): TableCell {
+function cell(text: string | TextRun[], width: number, opts: { bold?: boolean; fill?: string; color?: string; align?: (typeof AlignmentType)[keyof typeof AlignmentType] } = {}): TableCell {
   const runs = typeof text === 'string'
     ? [new TextRun({ text: text || '-', bold: opts.bold, color: opts.color, size: 20, font: 'Arial' })]
     : text;
