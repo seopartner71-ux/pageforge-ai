@@ -1386,6 +1386,54 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_resources: {
+        Row: {
+          content: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          external_url: string | null
+          file_name: string | null
+          file_path: string | null
+          file_size: number | null
+          id: string
+          kind: string
+          mime_type: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          external_url?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          external_url?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_settings: {
         Row: {
           id: string
@@ -1499,6 +1547,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
       kb_search: {
         Args: { max_results?: number; q: string }
         Returns: {
