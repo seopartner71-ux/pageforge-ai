@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllRows } from '@/lib/supabase/fetchAllRows';
 import { CrawlerStatusIndicator } from './CrawlerStatusIndicator';
 import { AuditInsightsBlock } from './AuditInsightsBlock';
 import { downloadTechnicalAuditDocx } from '@/lib/audit/exportTechnicalAuditDocx';
@@ -136,8 +137,14 @@ function pageWord(n: number) {
   return 'страниц';
 }
 
-function AuditSection({ section, issues }: { section: SectionDef; issues: any[] }) {
-  const [sectionOpen, setSectionOpen] = useState(true);
+type Priority = 'P1' | 'P2' | 'P3';
+const SEV_TO_PRIORITY: Record<string, Priority> = {
+  critical: 'P1', warning: 'P2', info: 'P3',
+};
+
+function AuditSection({
+  section, issues, priorities,
+}: { section: SectionDef; issues: any[]; priorities: Set<Priority> }) {
   const [rowOpen, setRowOpen] = useState<Record<string, boolean>>({});
   const sectionCodes = new Set(section.checks.map((c) => c.code));
   const sectionIssues = (issues ?? []).filter((i) => section.types.includes(i.type) || sectionCodes.has(i.code));
@@ -168,6 +175,22 @@ function AuditSection({ section, issues }: { section: SectionDef; issues: any[] 
   const hasWarning = errorRows.some((r) => r.severity === 'warning');
   const Icon = section.icon;
 
+  // Фильтр приоритетов: показываем только строки с найденными ошибками
+  // выбранных приоритетов; «зелёные» (без группы) показываем только если P3 включён.
+  const visibleRows = rows.filter((r) => {
+    if (!r.group) return priorities.has('P3'); // «Ошибок нет» считаем низкоприоритетным
+    const p = SEV_TO_PRIORITY[r.severity] ?? 'P3';
+    return priorities.has(p);
+  });
+
+  // Авто-сворачивание: если в секции нет проблем подходящих приоритетов - закрыта.
+  const hasMatchingProblems = errorRows.some((r) => priorities.has(SEV_TO_PRIORITY[r.severity] ?? 'P3'))
+    || (infoRows.length > 0 && priorities.has('P3'));
+  const [sectionOpen, setSectionOpen] = useState(hasMatchingProblems);
+  useEffect(() => { setSectionOpen(hasMatchingProblems); }, [hasMatchingProblems]);
+
+  if (visibleRows.length === 0) return null;
+
   return (
     <Card className="bg-card border-border overflow-hidden">
       <button type="button" onClick={() => setSectionOpen((v) => !v)}
@@ -191,7 +214,7 @@ function AuditSection({ section, issues }: { section: SectionDef; issues: any[] 
       </button>
       {sectionOpen && (
         <div className="border-t border-border divide-y divide-border">
-          {rows.map((r) => {
+          {visibleRows.map((r) => {
             const has = !!r.group;
             const items = r.group ? r.group.items : [];
             const uniqueUrls = Array.from(new Set(items.map((it) => it.url).filter(Boolean) as string[]));
@@ -278,6 +301,13 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
   const [confirmStopOpen, setConfirmStopOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const queryClient = useQueryClient();
+  const [priorities, setPriorities] = useState<Set<Priority>>(new Set(['P1', 'P2', 'P3']));
+  const togglePriority = (p: Priority) => setPriorities((prev) => {
+    const next = new Set(prev);
+    if (next.has(p)) next.delete(p); else next.add(p);
+    if (next.size === 0) return new Set(['P1', 'P2', 'P3']); // нельзя выключить все
+    return next;
+  });
 
   // Restore latest job for this domain
   useEffect(() => {
@@ -359,26 +389,11 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
   const { data: jobIssues = [] } = useQuery({
     queryKey: ['crawl-issues-all', jobId],
     enabled: !!jobId && isDone,
-    queryFn: async () => {
-      // PostgREST возвращает максимум 1000 строк за запрос -
-      // у крупных аудитов issues могут исчисляться десятками тысяч,
-      // поэтому выгружаем порциями через .range().
-      const PAGE = 1000;
-      const all: any[] = [];
-      for (let from = 0; ; from += PAGE) {
-        const { data, error } = await supabase
-          .from('crawl_issues')
-          .select('id, type, severity, code, message, page_url, details')
-          .eq('job_id', jobId!)
-          .order('id', { ascending: true })
-          .range(from, from + PAGE - 1);
-        if (error) throw error;
-        const batch = data ?? [];
-        all.push(...batch);
-        if (batch.length < PAGE) break;
-      }
-      return all;
-    },
+    queryFn: () => fetchAllRows<any>('crawl_issues', {
+      select: 'id, type, severity, code, message, page_url, details',
+      filter: (q) => q.eq('job_id', jobId!),
+      orderColumn: 'id',
+    }),
   });
 
   const { data: scannedPages = 0 } = useQuery({
@@ -557,8 +572,34 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
 
       {isDone && (
         <div className="space-y-3">
+          <Card className="bg-card border-border p-3 flex items-center gap-3 flex-wrap">
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+              Приоритеты
+            </span>
+            {([
+              { key: 'P1' as Priority, label: 'P1 - критичные', cls: 'bg-red-500/15 text-red-400 border-red-500/30' },
+              { key: 'P2' as Priority, label: 'P2 - важные', cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
+              { key: 'P3' as Priority, label: 'P3 - инфо', cls: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
+            ]).map((p) => {
+              const active = priorities.has(p.key);
+              return (
+                <button key={p.key} type="button" onClick={() => togglePriority(p.key)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all',
+                    active ? p.cls : 'bg-muted/30 text-muted-foreground border-border opacity-60 hover:opacity-100',
+                  )}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full',
+                    active ? 'bg-current' : 'bg-muted-foreground')} />
+                  {p.label}
+                </button>
+              );
+            })}
+            <span className="text-[11px] text-muted-foreground ml-auto">
+              Секции без ошибок выбранных приоритетов скрыты
+            </span>
+          </Card>
           {SECTIONS.map((s) => (
-            <AuditSection key={s.id} section={s} issues={jobIssues} />
+            <AuditSection key={s.id} section={s} issues={jobIssues} priorities={priorities} />
           ))}
         </div>
       )}
