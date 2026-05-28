@@ -339,6 +339,16 @@ const COLOR_ERR = 'B91C1C';     // красный
 const COLOR_TEXT = '111827';
 const COLOR_MUTED = '6B7280';
 const COLOR_ACCENT = '1F2937';
+const COLOR_PRIORITY_HIGH = 'B91C1C';   // высокий — красный
+const COLOR_PRIORITY_MID  = 'D97706';   // средний — оранжевый
+const COLOR_PRIORITY_LOW  = '1F4E79';   // низкий — синий
+
+const PRIORITY_LABEL: Record<'P1' | 'P2' | 'P3', string> = {
+  P1: 'Высокий', P2: 'Средний', P3: 'Низкий',
+};
+const PRIORITY_COLOR: Record<'P1' | 'P2' | 'P3', string> = {
+  P1: COLOR_PRIORITY_HIGH, P2: COLOR_PRIORITY_MID, P3: COLOR_PRIORITY_LOW,
+};
 
 const border = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
 const borders = { top: border, bottom: border, left: border, right: border };
@@ -502,9 +512,21 @@ function buildAbout(): Paragraph[] {
     bullet('Результат проверки: «Ошибки не найдены» или «Ошибка обнаружена».'),
     p('Если в проверяемом пункте обнаружена ошибка, конкретное ТЗ по её устранению описано в разделе «Рекомендации по устранению ошибок».', { bold: true }),
     p('Приоритет рекомендаций:', { bold: true }),
-    bullet('Высокая (P1) — выполнить в первую очередь. Игнорирование ведёт к серьёзным проблемам с индексацией.'),
-    bullet('Средняя (P2) — необходимо для успешного продвижения, но не блокирует индексацию.'),
-    bullet('Низкая (P3) — не влияет напрямую на ранжирование, можно выполнить в плановом порядке.'),
+    pRuns([
+      new TextRun({ text: '● ', size: 22, font: 'Arial' }),
+      new TextRun({ text: 'Высокий', bold: true, size: 22, font: 'Arial', color: COLOR_PRIORITY_HIGH }),
+      new TextRun({ text: ' — выполнить в первую очередь. Игнорирование ведёт к серьёзным проблемам с индексацией.', size: 22, font: 'Arial' }),
+    ], { after: 80 }),
+    pRuns([
+      new TextRun({ text: '● ', size: 22, font: 'Arial' }),
+      new TextRun({ text: 'Средний', bold: true, size: 22, font: 'Arial', color: COLOR_PRIORITY_MID }),
+      new TextRun({ text: ' — необходимо для успешного продвижения, но не блокирует индексацию.', size: 22, font: 'Arial' }),
+    ], { after: 80 }),
+    pRuns([
+      new TextRun({ text: '● ', size: 22, font: 'Arial' }),
+      new TextRun({ text: 'Низкий', bold: true, size: 22, font: 'Arial', color: COLOR_PRIORITY_LOW }),
+      new TextRun({ text: ' — не влияет напрямую на ранжирование, можно выполнить в плановом порядке.', size: 22, font: 'Arial' }),
+    ], { after: 80 }),
   ];
 }
 
