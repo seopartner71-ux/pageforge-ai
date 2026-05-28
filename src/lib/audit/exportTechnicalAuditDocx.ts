@@ -571,9 +571,21 @@ function buildRecommendation(r: CheckResult, idx: number): Paragraph[] {
   const { check, affectedUrls, totalIssues } = r;
   const out: Paragraph[] = [];
 
-  out.push(h3(`${idx}. [${check.priority}] ${check.title}`));
-  out.push(p(`Приоритет: ${check.priority} • Важность: ${IMPORTANCE_LABEL[check.importance]} • Затронуто страниц: ${affectedUrls.length || totalIssues}`,
-    { italic: true, color: COLOR_MUTED, size: 20, after: 160 }));
+  out.push(new Paragraph({
+    heading: HeadingLevel.HEADING_3,
+    spacing: { before: 240, after: 120 },
+    children: [
+      new TextRun({ text: `${idx}. `, bold: true, size: 24, font: 'Arial', color: COLOR_ACCENT }),
+      new TextRun({ text: PRIORITY_LABEL[check.priority], bold: true, size: 24, font: 'Arial', color: PRIORITY_COLOR[check.priority] }),
+      new TextRun({ text: ` — ${check.title}`, bold: true, size: 24, font: 'Arial', color: COLOR_ACCENT }),
+    ],
+  }));
+  out.push(pRuns([
+    new TextRun({ text: 'Приоритет: ', italics: true, size: 20, font: 'Arial', color: COLOR_MUTED }),
+    new TextRun({ text: PRIORITY_LABEL[check.priority], bold: true, italics: true, size: 20, font: 'Arial', color: PRIORITY_COLOR[check.priority] }),
+    new TextRun({ text: ` • Важность: ${IMPORTANCE_LABEL[check.importance]} • Затронуто страниц: ${affectedUrls.length || totalIssues}`,
+      italics: true, size: 20, font: 'Arial', color: COLOR_MUTED }),
+  ], { after: 160 }));
 
   out.push(p('Что сделать:', { bold: true, after: 80 }));
   for (const step of check.fix) out.push(bullet(step));
