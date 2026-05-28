@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { PageDescription } from '@/components/PageDescription';
-import { Radar as RadarIcon, Plus, Play, Trash2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Radar as RadarIcon, Plus, Play, Trash2, Loader2, CheckCircle2, XCircle, FileDown } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import {
   RadarChart, Radar as RadarShape, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip,
 } from 'recharts';
+import { exportAiVisibilityDocx } from '@/lib/exportAiVisibilityDocx';
 
 type Project = { id: string; brand_name: string; domain: string; language: string };
 type Keyword = { id: string; keyword: string; last_checked_at: string | null };
@@ -190,6 +191,51 @@ export default function AiVisibilityPage() {
     return [...counter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
   }, [results]);
 
+  const [exporting, setExporting] = useState(false);
+  async function handleExportDocx() {
+    if (!activeProject || results.length === 0) {
+      toast.error('Нет данных для экспорта. Запустите прогон.');
+      return;
+    }
+    setExporting(true);
+    try {
+      const totalsByModel = new Map<string, { total: number; visible: number }>();
+      for (const r of results) {
+        const m = totalsByModel.get(r.model) || { total: 0, visible: 0 };
+        m.total++;
+        if (r.brand_mentioned || r.domain_linked) m.visible++;
+        totalsByModel.set(r.model, m);
+      }
+      const modelStats = Object.keys(MODEL_LABELS).map((k) => {
+        const v = totalsByModel.get(k) || { total: 0, visible: 0 };
+        return { model: k, total: v.total, visible: v.visible, som: v.total ? Math.round((v.visible / v.total) * 100) : 0 };
+      });
+      const rows = results.map((r) => ({
+        keyword: keywords.find((k) => k.id === r.keyword_id)?.keyword || '—',
+        model: r.model,
+        brand_mentioned: r.brand_mentioned,
+        domain_linked: r.domain_linked,
+        sentiment: r.sentiment,
+        competitor_domains: r.competitor_domains || [],
+        ai_response_text: r.ai_response_text,
+        checked_at: r.checked_at,
+      }));
+      await exportAiVisibilityDocx({
+        brandName: activeProject.brand_name,
+        domain: activeProject.domain,
+        language: activeProject.language,
+        modelStats,
+        topCompetitors,
+        rows,
+      });
+      toast.success('Отчёт Word сформирован');
+    } catch (e: any) {
+      toast.error(e.message || 'Не удалось сформировать отчёт');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
@@ -259,6 +305,10 @@ export default function AiVisibilityPage() {
           <Button onClick={runAnalysis} disabled={!activeProjectId || keywords.length === 0 || running}>
             {running ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
             Запустить прогон
+          </Button>
+          <Button variant="outline" onClick={handleExportDocx} disabled={!activeProjectId || results.length === 0 || exporting}>
+            {exporting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <FileDown className="w-4 h-4 mr-1" />}
+            Скачать отчёт Word
           </Button>
         </Card>
 
