@@ -220,6 +220,39 @@ export type Database = {
           },
         ]
       }
+      beta_feedback: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          message: string
+          page_url: string | null
+          status: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          message: string
+          page_url?: string | null
+          status?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          message?: string
+          page_url?: string | null
+          status?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       blog_topics: {
         Row: {
           blog_score: number
