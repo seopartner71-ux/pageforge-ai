@@ -14,7 +14,7 @@ interface PageDescriptionProps {
   /** Развёрнутая справка с описанием методологии. */
   help?: {
     title?: string;
-    /** Текст или JSX. Для простых случаев — массив абзацев. */
+    /** Текст или JSX. Для простых случаев - массив абзацев. */
     content: ReactNode | string[];
     /** Ссылки на официальные источники (Google / Yandex / W3C / schema.org и т.д.). */
     sources?: Source[];

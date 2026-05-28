@@ -77,7 +77,7 @@ export function QueriesTable({ rows }: Props) {
                         className="text-muted-foreground hover:text-primary truncate flex-1 inline-flex items-center gap-1 min-w-0"
                         title={d.url}
                       >
-                        <span className="truncate">{(d.url || '').replace(/^https?:\/\//, '') || '—'}</span>
+                        <span className="truncate">{(d.url || '').replace(/^https?:\/\//, '') || '-'}</span>
                         {d.url && <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-60" />}
                       </a>
                       <span className={`text-[10px] px-2 py-0.5 rounded font-medium tabular-nums shrink-0 ${posBadgeClass(d.position)}`}>

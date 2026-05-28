@@ -154,23 +154,23 @@ export default function GeoAuditPage() {
         </div>
         <PageDescription
           items={[
-            { label: 'Что это', text: 'GEO (Generative Engine Optimization) — аудит готовности страницы попадать в ответы AI-поиска: ChatGPT, Perplexity, Google AI Overviews, Яндекс Нейро, Gemini.' },
+            { label: 'Что это', text: 'GEO (Generative Engine Optimization) - аудит готовности страницы попадать в ответы AI-поиска: ChatGPT, Perplexity, Google AI Overviews, Яндекс Нейро, Gemini.' },
             { label: 'Что проверяем', text: '41 фактор по 5 направлениям: техническая доступность для AI-ботов (robots.txt, llms.txt, рендеринг, скорость), прямая видимость в ИИ-системах, семантическая структура (Schema.org, заголовки, FAQ), качество контента под цитирование, сигналы E-E-A-T.' },
             { label: 'Зачем', text: 'Классическое SEO больше не покрывает весь трафик: пользователи получают ответы прямо в AI-ассистентах. Аудит показывает, попадёт ли ваша страница в эти ответы и что нужно поправить, чтобы её цитировали.' },
             { label: 'Результат', text: 'GEO Score 0–100, разбивка по этапам, конкретные находки и рекомендации, выгрузка отчёта в Word.' },
           ]}
           help={{
             content: [
-              'GEO (Generative Engine Optimization) — оптимизация под генеративные поисковые системы: Google AI Overviews / AI Mode, ChatGPT Search, Perplexity, Microsoft Copilot, Яндекс Нейро. Термин введён в академической работе «GEO: Generative Engine Optimization» (Princeton, Georgia Tech, IIT Delhi, 2023, arXiv:2311.09735).',
+              'GEO (Generative Engine Optimization) - оптимизация под генеративные поисковые системы: Google AI Overviews / AI Mode, ChatGPT Search, Perplexity, Microsoft Copilot, Яндекс Нейро. Термин введён в академической работе «GEO: Generative Engine Optimization» (Princeton, Georgia Tech, IIT Delhi, 2023, arXiv:2311.09735).',
               'Ключевое отличие от классического SEO: AI-поисковики извлекают и цитируют фрагменты страниц, а не показывают список ссылок. Факторы цитирования: чёткая структура (H1–H3, списки, таблицы), наличие прямых ответов в первых абзацах, цитируемые данные и цифры, Schema.org разметка (Article, FAQ, HowTo), сигналы E-E-A-T автора и сайта.',
-              'llms.txt — предложенный стандарт (llmstxt.org, сентябрь 2024) для предоставления LLM-моделям структурированного описания сайта. AI-боты также используют robots.txt с директивами для GPTBot, Google-Extended, PerplexityBot, ClaudeBot — блокировка/разрешение их доступа напрямую влияет на цитируемость.',
+              'llms.txt - предложенный стандарт (llmstxt.org, сентябрь 2024) для предоставления LLM-моделям структурированного описания сайта. AI-боты также используют robots.txt с директивами для GPTBot, Google-Extended, PerplexityBot, ClaudeBot - блокировка/разрешение их доступа напрямую влияет на цитируемость.',
             ],
             sources: [
-              { label: 'Google — AI Overviews and AI Mode', url: 'https://blog.google/products/search/ai-mode-general-availability/' },
-              { label: 'Princeton/GeorgiaTech — GEO research paper (arXiv)', url: 'https://arxiv.org/abs/2311.09735' },
-              { label: 'llms.txt — официальная спецификация', url: 'https://llmstxt.org/' },
-              { label: 'Google — Google-Extended user agent', url: 'https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers#google-extended' },
-              { label: 'OpenAI — GPTBot', url: 'https://platform.openai.com/docs/gptbot' },
+              { label: 'Google - AI Overviews and AI Mode', url: 'https://blog.google/products/search/ai-mode-general-availability/' },
+              { label: 'Princeton/GeorgiaTech - GEO research paper (arXiv)', url: 'https://arxiv.org/abs/2311.09735' },
+              { label: 'llms.txt - официальная спецификация', url: 'https://llmstxt.org/' },
+              { label: 'Google - Google-Extended user agent', url: 'https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers#google-extended' },
+              { label: 'OpenAI - GPTBot', url: 'https://platform.openai.com/docs/gptbot' },
             ],
           }}
         />
@@ -353,7 +353,7 @@ export default function GeoAuditPage() {
               <div className="rounded-xl border border-primary/20 bg-card p-6 space-y-4">
                 <div className="flex items-center gap-2">
                   <Zap className="w-5 h-5 text-primary" />
-                  <h2 className="text-base font-semibold text-foreground">Стратегия улучшения — 30–60 дней</h2>
+                  <h2 className="text-base font-semibold text-foreground">Стратегия улучшения - 30–60 дней</h2>
                 </div>
                 <div className="space-y-3">
                   {result.strategy.map((s, i) => (

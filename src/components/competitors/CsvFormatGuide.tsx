@@ -79,7 +79,7 @@ export function CsvFormatGuide({ open, onOpenChange }: CsvFormatGuideProps) {
           <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
             <p>Разделитель: точка с запятой <code className="font-mono bg-muted px-1 rounded">;</code></p>
             <p>Кодировка: UTF-8</p>
-            <p>Первая строка — заголовки. Один домен = одна строка. Максимум 50 доменов.</p>
+            <p>Первая строка - заголовки. Один домен = одна строка. Максимум 50 доменов.</p>
             <p>Не удаляйте и не переименовывайте столбцы. Не используйте запятую как разделитель.</p>
           </div>
 

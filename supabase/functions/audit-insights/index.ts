@@ -12,19 +12,31 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     const { job_id } = await req.json();
     if (!job_id) return json({ error: "job_id is required" }, 400);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return json({ error: "AI API key not configured" }, 500);
+    let OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") ?? "";
+    if (!OPENROUTER_API_KEY && SERVICE_ROLE) {
+      try {
+        const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
+        const { data } = await sb
+          .from("system_settings")
+          .select("key_value")
+          .eq("key_name", "openrouter_api_key")
+          .maybeSingle();
+        OPENROUTER_API_KEY = String((data as any)?.key_value ?? "").trim();
+      } catch { /* ignore */ }
+    }
+    if (!OPENROUTER_API_KEY) return json({ error: "OPENROUTER_API_KEY не настроен" }, 500);
 
     const { data: job } = await supabase
       .from("crawl_jobs").select("domain").eq("id", job_id).maybeSingle();
@@ -49,7 +61,7 @@ Deno.serve(async (req) => {
     });
 
     const summary = {
-      site: job?.domain || "—",
+      site: job?.domain || "-",
       total_pages: stats?.total_pages ?? 0,
       score: stats?.score ?? 0,
       critical: stats?.critical_count ?? 0,
@@ -57,10 +69,10 @@ Deno.serve(async (req) => {
       info: stats?.info_count ?? 0,
       avg_ttfb_ms: stats?.avg_load_time_ms ?? 0,
       top_issues: grouped.slice(0, 30)
-        .map((g) => `[${g.severity}] ${g.code} (${g.type}) — ${g.count} стр.`).join("\n"),
+        .map((g) => `[${g.severity}] ${g.code} (${g.type}) - ${g.count} стр.`).join("\n"),
     };
 
-    const prompt = `Ты — старший SEO-специалист. Проанализируй результаты технического аудита сайта и дай краткие выводы и рекомендации на русском.
+    const prompt = `Ты - старший SEO-специалист. Проанализируй результаты технического аудита сайта и дай краткие выводы и рекомендации на русском.
 
 Сайт: ${summary.site}
 Всего страниц: ${summary.total_pages}
@@ -83,11 +95,13 @@ ${summary.top_issues || "Проблем не обнаружено"}
 }
 Дай 4-6 рекомендаций, сначала критичные. Без обёрток \`\`\`json.`;
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Audit Insights",
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",

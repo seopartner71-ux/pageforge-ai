@@ -199,7 +199,7 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
   const [search, setSearch] = useState('');
 
   const checks = useMemo(() => buildChecks(domain), [domain]);
-  const hasData = false; // заглушка — интеграция с API Я.Вебмастера появится позже
+  const hasData = false; // заглушка - интеграция с API Я.Вебмастера появится позже
 
   const bySection = (s: SectionType) => {
     let f = checks.filter((c) => c.section === s);
@@ -236,7 +236,7 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] text-muted-foreground">
               <span>Сайт: <span className="text-foreground font-medium">{domain}</span></span>
-              <span>Дата анализа: <span className="text-foreground">—</span></span>
+              <span>Дата анализа: <span className="text-foreground">-</span></span>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -279,7 +279,7 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
       {/* STATUS BANNER */}
       {!hasData ? (
         <div className="rounded-lg bg-muted/40 border border-border px-4 py-3 text-[13px] text-muted-foreground">
-          ℹ️ Данные из Яндекс.Вебмастера ещё не подключены. Показан полный каталог из {checks.length} проверок —
+          ℹ️ Данные из Яндекс.Вебмастера ещё не подключены. Показан полный каталог из {checks.length} проверок -
           подключение OAuth и автоматическая выгрузка появятся в следующей версии.
         </div>
       ) : fatalCount > 0 ? (
@@ -288,7 +288,7 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
         </div>
       ) : criticalCount > 0 ? (
         <div className="rounded-lg px-4 py-3 text-[13px] font-medium border" style={{ backgroundColor: 'hsl(var(--chart-4) / 0.1)', borderColor: 'hsl(var(--chart-4) / 0.2)', color: 'hsl(var(--chart-4))' }}>
-          ⚠️ Обнаружены критичные ошибки — требуют срочного исправления
+          ⚠️ Обнаружены критичные ошибки - требуют срочного исправления
         </div>
       ) : (
         <div className="rounded-lg px-4 py-3 text-[13px] font-medium border" style={{ backgroundColor: 'hsl(var(--chart-2) / 0.1)', borderColor: 'hsl(var(--chart-2) / 0.2)', color: 'hsl(var(--chart-2))' }}>
@@ -331,10 +331,10 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
       {/* DATA WIDGETS placeholder */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { title: '📊 Индексация', rows: [['Страниц в индексе', '—'], ['Всего страниц', '—'], ['Исключено', '—']] },
-          { title: '🔍 Поисковые запросы', rows: [['Всего показов', '—'], ['Средний CTR', '—'], ['Средняя позиция', '—']] },
-          { title: '🔗 Внешние ссылки', rows: [['Всего ссылок', '—'], ['Реферирующих доменов', '—']] },
-          { title: '🌐 Регион', rows: [['Регион сайта', '—'], ['Карточка в Я.Бизнес', '—']] },
+          { title: '📊 Индексация', rows: [['Страниц в индексе', '-'], ['Всего страниц', '-'], ['Исключено', '-']] },
+          { title: '🔍 Поисковые запросы', rows: [['Всего показов', '-'], ['Средний CTR', '-'], ['Средняя позиция', '-']] },
+          { title: '🔗 Внешние ссылки', rows: [['Всего ссылок', '-'], ['Реферирующих доменов', '-']] },
+          { title: '🌐 Регион', rows: [['Регион сайта', '-'], ['Карточка в Я.Бизнес', '-']] },
         ].map((w) => (
           <Card key={w.title} className="bg-card border-border p-4">
             <h4 className="text-[13px] font-semibold text-foreground mb-3 flex items-center gap-2">

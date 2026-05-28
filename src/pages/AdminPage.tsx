@@ -154,7 +154,7 @@ function DataForSeoCard() {
       <p className="text-xs text-muted-foreground">
         Реальные частоты и тысячи запросов для модуля «Семантическое ядро».
         Регистрация на <a className="text-primary hover:underline inline-flex items-center gap-0.5" href="https://dataforseo.com" target="_blank" rel="noreferrer">dataforseo.com <ExternalLink className="w-3 h-3" /></a>.
-        Login и Password — это API credentials (не от сайта). Хранятся в Supabase Secrets.
+        Login и Password - это API credentials (не от сайта). Хранятся в Supabase Secrets.
       </p>
       <div className="flex items-center gap-3 flex-wrap">
         <Button onClick={runTest} disabled={loading} variant="outline" size="sm" className="gap-1.5">
@@ -514,8 +514,8 @@ function UsersTab() {
 
                   return (
                     <TableRow key={u.id}>
-                      <TableCell className="text-sm font-medium truncate max-w-[200px]">{u.email || '—'}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{u.display_name || '—'}</TableCell>
+                      <TableCell className="text-sm font-medium truncate max-w-[200px]">{u.email || '-'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{u.display_name || '-'}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{new Date(u.created_at).toLocaleDateString('ru')}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {lastAct ? lastAct.toLocaleDateString('ru') : 'Нет'}

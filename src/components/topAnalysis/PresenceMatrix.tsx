@@ -10,7 +10,7 @@ interface Props { rows: TopRow[]; myDomain?: string }
 type SortKey = 'domain' | 'sum' | 'top' | string;
 
 function cellStyle(pos: number | undefined) {
-  if (!pos) return { className: 'text-muted-foreground', text: '—' };
+  if (!pos) return { className: 'text-muted-foreground', text: '-' };
   if (pos <= 3) return { className: 'bg-[#D1FAE5] text-[#065F46] font-bold dark:bg-emerald-500/20 dark:text-emerald-300', text: String(pos) };
   if (pos <= 10) return { className: 'bg-[#FEF3C7] text-[#92400E] dark:bg-amber-500/15 dark:text-amber-300', text: String(pos) };
   if (pos <= 20) return { className: 'bg-[#FEE2E2] text-[#991B1B] dark:bg-rose-500/15 dark:text-rose-300', text: String(pos) };
@@ -114,7 +114,7 @@ export function PresenceMatrix({ rows, myDomain }: Props) {
               ))}
               <th
                 onClick={() => toggleSort('sum')}
-                title="Сумма позиций — суммарное место домена по всем запросам (меньше = лучше)"
+                title="Сумма позиций - суммарное место домена по всем запросам (меньше = лучше)"
                 className={`${cellPad} font-semibold cursor-pointer hover:text-primary text-center border-r border-border bg-secondary align-bottom`}
               >
                 <span className="inline-flex items-center gap-1">
@@ -124,7 +124,7 @@ export function PresenceMatrix({ rows, myDomain }: Props) {
               </th>
               <th
                 onClick={() => toggleSort('top')}
-                title="Охват — в скольких запросах домен присутствует в топе (больше = лучше)"
+                title="Охват - в скольких запросах домен присутствует в топе (больше = лучше)"
                 className={`${cellPad} font-semibold cursor-pointer hover:text-primary text-center bg-secondary align-bottom`}
               >
                 <span className="inline-flex items-center gap-1">
@@ -148,7 +148,7 @@ export function PresenceMatrix({ rows, myDomain }: Props) {
                         ? 'bg-rose-500/5'
                         : idx % 2 ? 'bg-muted/20' : ''
                   }
-                  title={aggr ? 'Маркетплейс / агрегатор — не учитывается в основном анализе' : undefined}
+                  title={aggr ? 'Маркетплейс / агрегатор - не учитывается в основном анализе' : undefined}
                 >
                   <td className={`${cellPad} font-medium border-r border-border break-all`}>
                     <div className="flex items-center gap-1.5">
@@ -190,13 +190,13 @@ export function PresenceMatrix({ rows, myDomain }: Props) {
           <span className="w-3 h-3 rounded bg-[#FEE2E2] dark:bg-rose-500/15 inline-block" /> 11–20
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="text-muted-foreground">—</span> нет в топе
+          <span className="text-muted-foreground">-</span> нет в топе
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="w-3 h-3 rounded bg-rose-500/20 inline-block" />
           <span className="text-rose-500 dark:text-rose-400">маркетплейс/агрегатор</span> (исключён из AI-анализа)
         </span>
-        <span className="ml-auto">Σ — сумма позиций · ✓ — кол-во запросов с присутствием</span>
+        <span className="ml-auto">Σ - сумма позиций · ✓ - кол-во запросов с присутствием</span>
       </div>
     </Card>
   );

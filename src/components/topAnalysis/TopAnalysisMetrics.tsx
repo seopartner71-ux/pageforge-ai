@@ -18,8 +18,8 @@ export function TopAnalysisMetrics({ rows }: Props) {
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       <StatCard icon={Search} accent="blue"   label="Запросов в анализе" value={queries.size} hint={`${queriesAgg.length} с результатами`} />
       <StatCard icon={Globe}  accent="violet" label="Доменов в топе"     value={domains.length} hint="уникальные" />
-      <StatCard icon={Trophy} accent="amber"  label="Лидер топа"         value={leaderTop3?.domain || '—'} hint={`${leaderTop3?.top3 ?? 0} в топ-3`} />
-      <StatCard icon={Target} accent="green"  label="Средняя позиция лидера" value={leaderTop3 ? leaderTop3.avgPos : '—'} hint="по всем запросам" />
+      <StatCard icon={Trophy} accent="amber"  label="Лидер топа"         value={leaderTop3?.domain || '-'} hint={`${leaderTop3?.top3 ?? 0} в топ-3`} />
+      <StatCard icon={Target} accent="green"  label="Средняя позиция лидера" value={leaderTop3 ? leaderTop3.avgPos : '-'} hint="по всем запросам" />
     </div>
   );
 }

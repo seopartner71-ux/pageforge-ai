@@ -72,7 +72,7 @@ export function CopilotChatsTab() {
 
   const sessions: SessionGroup[] = useMemo(() => {
     const map = new Map<string, SessionGroup>();
-    // msgs отсортированы по убыванию — реверсируем порядок внутри сессии
+    // msgs отсортированы по убыванию - реверсируем порядок внутри сессии
     [...msgs].reverse().forEach((m) => {
       const prof = profiles[m.user_id];
       const email = prof?.email || prof?.display_name || m.user_id.slice(0, 8);

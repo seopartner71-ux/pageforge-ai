@@ -121,7 +121,7 @@ export function TopAnalysisCharts({ rows }: Props) {
       {/* 4. Пересечение */}
       <Card className="p-4">
         <h3 className="text-sm font-semibold mb-3">
-          Пересечение доменов (5+ запросов){intersections.length === 0 && <span className="ml-2 text-xs text-muted-foreground font-normal">— нет таких</span>}
+          Пересечение доменов (5+ запросов){intersections.length === 0 && <span className="ml-2 text-xs text-muted-foreground font-normal">- нет таких</span>}
         </h3>
         {intersections.length > 0 ? (
           <ResponsiveContainer width="100%" height={Math.max(280, intersections.length * 26)}>

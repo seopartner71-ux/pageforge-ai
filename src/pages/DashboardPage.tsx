@@ -319,16 +319,16 @@ export default function DashboardPage() {
               ]}
               help={{
                 content: [
-                  'On-page SEO — оптимизация элементов самой страницы, которые поисковые системы используют для понимания темы и качества контента. Базовые рекомендации зафиксированы в Google SEO Starter Guide: уникальный точный title (50–60 символов), описательный meta description (≤ 160 символов), один H1, логичная структура H2–H6, alt-атрибуты у изображений, читаемые URL.',
-                  'Сравнение с ТОП-10 — стандартная методология конкурентного контент-анализа: вычисление средней длины текста, количества заголовков, плотности тематических n-грамм. Используется TF-IDF (Term Frequency — Inverse Document Frequency, классический алгоритм информационного поиска, Spärck Jones, 1972) для выявления значимых терминов, которые есть у конкурентов и отсутствуют у вас.',
+                  'On-page SEO - оптимизация элементов самой страницы, которые поисковые системы используют для понимания темы и качества контента. Базовые рекомендации зафиксированы в Google SEO Starter Guide: уникальный точный title (50–60 символов), описательный meta description (≤ 160 символов), один H1, логичная структура H2–H6, alt-атрибуты у изображений, читаемые URL.',
+                  'Сравнение с ТОП-10 - стандартная методология конкурентного контент-анализа: вычисление средней длины текста, количества заголовков, плотности тематических n-грамм. Используется TF-IDF (Term Frequency - Inverse Document Frequency, классический алгоритм информационного поиска, Spärck Jones, 1972) для выявления значимых терминов, которые есть у конкурентов и отсутствуют у вас.',
                   'Google неоднократно подтверждал (John Mueller, Search Central Office Hours, 2021–2024): нет фиксированной "оптимальной" длины контента или плотности ключей. Алгоритм оценивает полноту раскрытия темы (topical authority), наличие сущностей (entities из Knowledge Graph) и качество подачи. Поэтому проверка сравнивает страницу с реальным ТОПом, а не с абстрактными нормативами.',
                 ],
                 sources: [
                   { label: 'Google SEO Starter Guide', url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide' },
-                  { label: 'Google — How Search Works', url: 'https://www.google.com/search/howsearchworks/' },
-                  { label: 'Google — Helpful Content System', url: 'https://developers.google.com/search/updates/helpful-content-update' },
-                  { label: 'Stanford IR Book — TF-IDF', url: 'https://nlp.stanford.edu/IR-book/html/htmledition/tf-idf-weighting-1.html' },
-                  { label: 'Яндекс — Алгоритм Королёв (нейросети и смысл)', url: 'https://yandex.ru/company/technologies/korolev/' },
+                  { label: 'Google - How Search Works', url: 'https://www.google.com/search/howsearchworks/' },
+                  { label: 'Google - Helpful Content System', url: 'https://developers.google.com/search/updates/helpful-content-update' },
+                  { label: 'Stanford IR Book - TF-IDF', url: 'https://nlp.stanford.edu/IR-book/html/htmledition/tf-idf-weighting-1.html' },
+                  { label: 'Яндекс - Алгоритм Королёв (нейросети и смысл)', url: 'https://yandex.ru/company/technologies/korolev/' },
                 ],
               }}
             />

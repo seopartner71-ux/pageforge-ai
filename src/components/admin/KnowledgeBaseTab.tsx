@@ -210,7 +210,7 @@ export function KnowledgeBaseTab() {
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
           ) : docs.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">База знаний пуста — загрузите первый документ</p>
+            <p className="text-sm text-muted-foreground text-center py-8">База знаний пуста - загрузите первый документ</p>
           ) : (
             <div className="space-y-2">
               {docs.map((d) => (

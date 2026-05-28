@@ -33,7 +33,7 @@ export default function TechnicalAuditPage() {
 
       <PageDescription
         items={[
-          { label: 'Что это', text: 'Глубокое техническое сканирование сайта внешним краулером — обход всех страниц с проверкой 30+ факторов на уровне HTTP, HTML, ссылок и инфраструктуры.' },
+          { label: 'Что это', text: 'Глубокое техническое сканирование сайта внешним краулером - обход всех страниц с проверкой 30+ факторов на уровне HTTP, HTML, ссылок и инфраструктуры.' },
           { label: 'Что проверяем', text: 'HTTPS и SSL, robots.txt, sitemap.xml, скорость ответа, индексируемость, статус-коды, title/description/H1, дубли, alt у картинок, битые ссылки, mixed content.' },
           { label: 'Зачем', text: 'Найти технические ошибки, которые мешают сайту попадать в выдачу и удерживать пользователей. Получить готовый план работ для разработчика и понятный отчёт для клиента.' },
           { label: 'Результат', text: 'Сводная оценка 0–100, список проблем по приоритетам (P1/P2/P3), затронутые URL по каждой проблеме и Word-документ с двумя разделами: отчёт для клиента и техническое задание для разработчика.' },
@@ -41,15 +41,15 @@ export default function TechnicalAuditPage() {
         help={{
           content: [
             'Краулер обходит сайт от главной страницы вглубь, читает sitemap.xml и собирает HTML каждой страницы. Для каждого URL фиксируется HTTP-статус, время ответа сервера (TTFB), содержимое <head>, заголовки, мета-теги, изображения, внутренние и внешние ссылки.',
-            'Проблемы группируются по типам и важности. Критические (P1) — это то, что блокирует индексацию (noindex на коммерческих страницах, 5xx ошибки, robots Disallow: /, отсутствие HTTPS). Предупреждения (P2) — дубли title/H1, отсутствующие meta description, alt у изображений, медленный TTFB. Информационные (P3) — внешние ссылки, рекомендации.',
+            'Проблемы группируются по типам и важности. Критические (P1) - это то, что блокирует индексацию (noindex на коммерческих страницах, 5xx ошибки, robots Disallow: /, отсутствие HTTPS). Предупреждения (P2) - дубли title/H1, отсутствующие meta description, alt у изображений, медленный TTFB. Информационные (P3) - внешние ссылки, рекомендации.',
             'Методология опирается на официальные руководства Google Search Central, Яндекс.Помощь для вебмастеров и стандарты W3C. Все проверки соответствуют требованиям современных поисковых систем (2024–2026).',
           ],
           sources: [
-            { label: 'Google Search Central — Технические основы SEO', url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide' },
-            { label: 'Яндекс.Помощь — Технические рекомендации', url: 'https://yandex.ru/support/webmaster/recommendations/site-quality.html' },
-            { label: 'web.dev — Lighthouse SEO', url: 'https://developer.chrome.com/docs/lighthouse/seo/' },
-            { label: 'Sitemaps.org — Протокол sitemap.xml', url: 'https://www.sitemaps.org/protocol.html' },
-            { label: 'robots.txt — официальная спецификация (RFC 9309)', url: 'https://www.rfc-editor.org/rfc/rfc9309' },
+            { label: 'Google Search Central - Технические основы SEO', url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide' },
+            { label: 'Яндекс.Помощь - Технические рекомендации', url: 'https://yandex.ru/support/webmaster/recommendations/site-quality.html' },
+            { label: 'web.dev - Lighthouse SEO', url: 'https://developer.chrome.com/docs/lighthouse/seo/' },
+            { label: 'Sitemaps.org - Протокол sitemap.xml', url: 'https://www.sitemaps.org/protocol.html' },
+            { label: 'robots.txt - официальная спецификация (RFC 9309)', url: 'https://www.rfc-editor.org/rfc/rfc9309' },
           ],
         }}
       />

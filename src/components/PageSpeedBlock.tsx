@@ -39,7 +39,7 @@ type Results = Partial<Record<Strategy, PageSpeedMetrics>>;
 function pickAudit(audits: any, key: string) {
   const a = audits?.[key];
   if (!a) return undefined;
-  return { display: a.displayValue ?? "—", numeric: a.numericValue };
+  return { display: a.displayValue ?? "-", numeric: a.numericValue };
 }
 
 function classifyAudit(a: any): "critical" | "warning" | "info" {
@@ -289,17 +289,17 @@ function ResultPanel({ data }: { data: PageSpeedMetrics }) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <MetricCard label="LCP" value={data.lcp?.display ?? "—"} hint="Largest Contentful Paint" />
-        <MetricCard label="TBT" value={data.tbt?.display ?? "—"} hint="Total Blocking Time" />
-        <MetricCard label="CLS" value={data.cls?.display ?? "—"} hint="Cumulative Layout Shift" />
-        <MetricCard label="FCP" value={data.fcp?.display ?? "—"} hint="First Contentful Paint" />
-        <MetricCard label="Speed Index" value={data.speedIndex?.display ?? "—"} hint="Скорость отображения" />
+        <MetricCard label="LCP" value={data.lcp?.display ?? "-"} hint="Largest Contentful Paint" />
+        <MetricCard label="TBT" value={data.tbt?.display ?? "-"} hint="Total Blocking Time" />
+        <MetricCard label="CLS" value={data.cls?.display ?? "-"} hint="Cumulative Layout Shift" />
+        <MetricCard label="FCP" value={data.fcp?.display ?? "-"} hint="First Contentful Paint" />
+        <MetricCard label="Speed Index" value={data.speedIndex?.display ?? "-"} hint="Скорость отображения" />
       </div>
 
       {totalIssues === 0 ? (
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-2 text-sm text-emerald-300">
           <CheckCircle2 className="h-4 w-4" />
-          Проблем со скоростью не найдено — все аудиты Lighthouse пройдены.
+          Проблем со скоростью не найдено - все аудиты Lighthouse пройдены.
         </div>
       ) : (
         <div className="space-y-5">

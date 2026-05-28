@@ -21,7 +21,7 @@ import { Download, BarChart3 } from 'lucide-react';
 import { useToolHistory } from '@/hooks/useToolHistory';
 import { SaveStatusBadge } from '@/components/SaveStatusBadge';
 
-// exceljs (~700kb) — динамический импорт при клике
+// exceljs (~700kb) - динамический импорт при клике
 const exportTopAnalysisXlsx = (...args: Parameters<typeof import('@/lib/topAnalysis/exportTopAnalysis').exportTopAnalysisXlsx>) =>
   import('@/lib/topAnalysis/exportTopAnalysis').then(m => m.exportTopAnalysisXlsx(...args));
 const exportCombinedTopAnalysisXlsx = (...args: Parameters<typeof import('@/lib/topAnalysis/exportTopAnalysis').exportCombinedTopAnalysisXlsx>) =>
@@ -176,7 +176,7 @@ export default function TopAnalysisPage() {
               Анализ топа
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Загрузите отдельные CSV для Яндекса и Google — для каждой ПС своя матрица, графики, AI-анализ и Excel.
+              Загрузите отдельные CSV для Яндекса и Google - для каждой ПС своя матрица, графики, AI-анализ и Excel.
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -234,14 +234,14 @@ export default function TopAnalysisPage() {
           ]}
           help={{
             content: [
-              'Анализ ТОП-10/30 — стандартная методология оценки конкурентного окружения в SERP. Google и Яндекс показывают примерно 10 органических результатов на первой странице — попадание в ТОП-10 даёт ~95% органического трафика по запросу (исследования AWR, Sistrix, 2023).',
-              'Распределение CTR по позициям (данные AWR, Backlinko 2023, Sistrix 2024): #1 — 27–32%, #2 — 15–18%, #3 — 10–11%, #4–10 — суммарно 22–25%, ТОП-30 — менее 1% совокупно. Поэтому смысл бороться имеют именно позиции 1–10.',
-              'Матрица присутствия показывает, какие домены доминируют в нише: если 3–4 сайта системно занимают 60%+ ТОП-10 — это лидеры рынка и одновременно эталон для бенчмаркинга контента, ссылок и UX. Методология применяется в Sistrix Visibility Index, Semrush Position Tracking, Serpstat Domain Comparison.',
+              'Анализ ТОП-10/30 - стандартная методология оценки конкурентного окружения в SERP. Google и Яндекс показывают примерно 10 органических результатов на первой странице - попадание в ТОП-10 даёт ~95% органического трафика по запросу (исследования AWR, Sistrix, 2023).',
+              'Распределение CTR по позициям (данные AWR, Backlinko 2023, Sistrix 2024): #1 - 27–32%, #2 - 15–18%, #3 - 10–11%, #4–10 - суммарно 22–25%, ТОП-30 - менее 1% совокупно. Поэтому смысл бороться имеют именно позиции 1–10.',
+              'Матрица присутствия показывает, какие домены доминируют в нише: если 3–4 сайта системно занимают 60%+ ТОП-10 - это лидеры рынка и одновременно эталон для бенчмаркинга контента, ссылок и UX. Методология применяется в Sistrix Visibility Index, Semrush Position Tracking, Serpstat Domain Comparison.',
             ],
             sources: [
-              { label: 'Google Search Quality — How Search ranks results', url: 'https://www.google.com/search/howsearchworks/how-search-works/ranking-results/' },
-              { label: 'Sistrix — Why almost no one clicks past #1', url: 'https://www.sistrix.com/blog/why-almost-no-one-clicks-the-no-1-search-result/' },
-              { label: 'Backlinko — Google CTR Stats 2023', url: 'https://backlinko.com/google-ctr-stats' },
+              { label: 'Google Search Quality - How Search ranks results', url: 'https://www.google.com/search/howsearchworks/how-search-works/ranking-results/' },
+              { label: 'Sistrix - Why almost no one clicks past #1', url: 'https://www.sistrix.com/blog/why-almost-no-one-clicks-the-no-1-search-result/' },
+              { label: 'Backlinko - Google CTR Stats 2023', url: 'https://backlinko.com/google-ctr-stats' },
             ],
           }}
         />

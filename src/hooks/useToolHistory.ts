@@ -21,7 +21,7 @@ interface SavePayload {
  * Логика:
  * - При первом enabled=true делается insert, id запоминается.
  * - Дальнейшие изменения payload отправляются debounced update (~1.2s).
- * - Если у пользователя нет проектов — показывает 1 toast и не сохраняет.
+ * - Если у пользователя нет проектов - показывает 1 toast и не сохраняет.
  */
 export function useToolHistory({ table, data, name, enabled }: SavePayload) {
   const [savedId, setSavedId] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export function useToolHistory({ table, data, name, enabled }: SavePayload) {
   const debounce = useRef<number | null>(null);
   const inserting = useRef(false);
 
-  // Один раз — узнаём userId + первый проект
+  // Один раз - узнаём userId + первый проект
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();

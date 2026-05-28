@@ -100,7 +100,7 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Left — branding + demo */}
+      {/* Left - branding + demo */}
       <div className="hidden lg:flex flex-col justify-between w-[45%] p-10 relative overflow-hidden border-r border-border/80">
         <div className="relative">
           <Link to="/" className="inline-flex items-center gap-2">
@@ -130,7 +130,7 @@ export default function AuthPage() {
         </div>
       </div>
 
-      {/* Right — form */}
+      {/* Right - form */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 relative">
         <div className="absolute top-5 right-5 flex items-center gap-2">
           <LangToggle />

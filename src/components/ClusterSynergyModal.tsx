@@ -197,7 +197,7 @@ export function ClusterSynergyModal({ open, onClose, analysisIds }: Props) {
                           <td className="p-2 font-medium text-foreground">{c.term}</td>
                           {data.map(d => {
                             const match = c.pages.find(p => p.url === d.url);
-                            if (!match) return <td key={d.id} className="text-center p-2 text-muted-foreground/30">—</td>;
+                            if (!match) return <td key={d.id} className="text-center p-2 text-muted-foreground/30">-</td>;
 
                             const isTitle = match.inTitle || match.inH1;
                             const bg = isTitle

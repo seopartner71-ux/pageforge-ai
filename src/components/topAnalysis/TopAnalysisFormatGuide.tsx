@@ -62,8 +62,8 @@ export function TopAnalysisFormatGuide({ open, onOpenChange }: Props) {
           <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
             <p>Разделитель: точка с запятой <code className="font-mono bg-muted px-1 rounded">;</code></p>
             <p>Кодировка: UTF-8</p>
-            <p>Первая строка — заголовки. Каждая строка = один результат (запрос × домен × позиция).</p>
-            <p>Если столбец «Домен» пуст — он будет извлечён автоматически из URL.</p>
+            <p>Первая строка - заголовки. Каждая строка = один результат (запрос × домен × позиция).</p>
+            <p>Если столбец «Домен» пуст - он будет извлечён автоматически из URL.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pt-1">

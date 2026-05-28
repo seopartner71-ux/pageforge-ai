@@ -220,21 +220,21 @@ export default function LinkProfilePage() {
         <PageDescription
           items={[
             { label: 'Что отслеживается', text: 'Каждая размещённая ссылка: донор, анкор, акцептор, цена и дата размещения' },
-            { label: 'Как работает проверка', text: 'Загружаем HTML страницы-донора и ищем ваш URL в коде. Найдено — Активна, нет — Потеряна' },
+            { label: 'Как работает проверка', text: 'Загружаем HTML страницы-донора и ищем ваш URL в коде. Найдено - Активна, нет - Потеряна' },
             { label: 'Метрики', text: 'Сводка по бюджету, активным, потерянным и ожидающим проверки ссылкам' },
             { label: 'Импорт', text: 'Массовая загрузка из CSV: donor_url, anchor, acceptor_url, type, cost' },
           ]}
           help={{
             title: 'Зачем нужен учёт ссылочного профиля',
             content: [
-              'Ссылочный профиль (backlink profile) — совокупность входящих ссылок на сайт. По данным Google, ссылки остаются одним из трёх ключевых факторов ранжирования наряду с контентом и RankBrain.',
-              'Регулярная проверка размещений нужна по двум причинам: (1) часть ссылок «отваливается» — донор удаляет статью, меняет URL или закрывает сайт; (2) только активные ссылки передают вес. Без мониторинга вы платите за то, чего уже нет.',
+              'Ссылочный профиль (backlink profile) - совокупность входящих ссылок на сайт. По данным Google, ссылки остаются одним из трёх ключевых факторов ранжирования наряду с контентом и RankBrain.',
+              'Регулярная проверка размещений нужна по двум причинам: (1) часть ссылок «отваливается» - донор удаляет статью, меняет URL или закрывает сайт; (2) только активные ссылки передают вес. Без мониторинга вы платите за то, чего уже нет.',
               'Инструмент сохраняет историю каждой ссылки (donor, anchor, type, cost), показывает сводку по бюджету и автоматически переводит ссылки в статус «Потеряна», если URL акцептора больше не найден на странице донора.',
             ],
             sources: [
-              { label: 'Google Search Central — ссылки и спам-политики', url: 'https://developers.google.com/search/docs/essentials/spam-policies' },
+              { label: 'Google Search Central - ссылки и спам-политики', url: 'https://developers.google.com/search/docs/essentials/spam-policies' },
               { label: 'Google Webmaster Guidelines (link schemes)', url: 'https://developers.google.com/search/docs/essentials/spam-policies#link-spam' },
-              { label: 'Яндекс.Вебмастер — внешние ссылки', url: 'https://yandex.ru/support/webmaster/recommendations/links.html' },
+              { label: 'Яндекс.Вебмастер - внешние ссылки', url: 'https://yandex.ru/support/webmaster/recommendations/links.html' },
             ],
           }}
         />
@@ -303,7 +303,7 @@ export default function LinkProfilePage() {
                         </a>
                         {l.last_error && <div className="text-[10px] text-red-500 mt-0.5 truncate" title={l.last_error}>{l.last_error}</div>}
                       </TableCell>
-                      <TableCell className="text-[12px] max-w-[160px] truncate">{l.anchor || '—'}</TableCell>
+                      <TableCell className="text-[12px] max-w-[160px] truncate">{l.anchor || '-'}</TableCell>
                       <TableCell className="max-w-[220px]">
                         <a href={l.acceptor_url} target="_blank" rel="noreferrer" className="text-[12px] text-muted-foreground hover:text-foreground truncate block">
                           {l.acceptor_url}
@@ -311,8 +311,8 @@ export default function LinkProfilePage() {
                       </TableCell>
                       <TableCell><Badge variant="secondary" className="text-[10px]">{TYPE_LABELS[l.type]}</Badge></TableCell>
                       <TableCell className="text-[12px] text-right tabular-nums">{Number(l.cost).toLocaleString('ru-RU')} ₽</TableCell>
-                      <TableCell className="text-[11px] text-muted-foreground">{l.placed_at ? format(new Date(l.placed_at), 'dd.MM.yy', { locale: ru }) : '—'}</TableCell>
-                      <TableCell className="text-[11px] text-muted-foreground">{l.last_checked_at ? format(new Date(l.last_checked_at), 'dd.MM HH:mm', { locale: ru }) : '—'}</TableCell>
+                      <TableCell className="text-[11px] text-muted-foreground">{l.placed_at ? format(new Date(l.placed_at), 'dd.MM.yy', { locale: ru }) : '-'}</TableCell>
+                      <TableCell className="text-[11px] text-muted-foreground">{l.last_checked_at ? format(new Date(l.last_checked_at), 'dd.MM HH:mm', { locale: ru }) : '-'}</TableCell>
                       <TableCell><StatusBadge status={l.status} /></TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-red-500" onClick={() => deleteMutation.mutate(l.id)}>

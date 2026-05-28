@@ -128,7 +128,7 @@ export default function IntentPage() {
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container py-6 space-y-6">
-        {/* Заголовок страницы — как в LinkAuditPage */}
+        {/* Заголовок страницы - как в LinkAuditPage */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
@@ -150,14 +150,14 @@ export default function IntentPage() {
           ]}
           help={{
             content: [
-              'Поисковый интент — намерение пользователя за запросом. Классическая классификация Андрея Бродера (2002, Compaq): Navigational (ищет конкретный сайт), Informational (хочет узнать), Transactional (хочет совершить действие). Google расширил её в Search Quality Rater Guidelines до 4 типов: Know, Do, Website, Visit-in-person.',
-              'Главный принцип Google: соответствие интенту — это первое, что оценивается. Страница, не отвечающая на тип запроса (например, статья по транзакционному запросу), не попадёт в ТОП, даже при идеальной on-page оптимизации. Алгоритм определяет интент по типу страниц, которые сам показывает в ТОП-10.',
-              'Метод определения интента: анализ форматов в ТОП-10 живой выдачи. Если в ТОПе карточки товаров — запрос коммерческий, нужна категория или товар. Статьи и Википедия — информационный, нужен лонгрид. Карты/локальные сниппеты — Visit-in-person, нужна страница филиала с адресом. Это самый надёжный способ — алгоритм сам показывает, что считает правильным ответом.',
+              'Поисковый интент - намерение пользователя за запросом. Классическая классификация Андрея Бродера (2002, Compaq): Navigational (ищет конкретный сайт), Informational (хочет узнать), Transactional (хочет совершить действие). Google расширил её в Search Quality Rater Guidelines до 4 типов: Know, Do, Website, Visit-in-person.',
+              'Главный принцип Google: соответствие интенту - это первое, что оценивается. Страница, не отвечающая на тип запроса (например, статья по транзакционному запросу), не попадёт в ТОП, даже при идеальной on-page оптимизации. Алгоритм определяет интент по типу страниц, которые сам показывает в ТОП-10.',
+              'Метод определения интента: анализ форматов в ТОП-10 живой выдачи. Если в ТОПе карточки товаров - запрос коммерческий, нужна категория или товар. Статьи и Википедия - информационный, нужен лонгрид. Карты/локальные сниппеты - Visit-in-person, нужна страница филиала с адресом. Это самый надёжный способ - алгоритм сам показывает, что считает правильным ответом.',
             ],
             sources: [
-              { label: 'Google Search Quality Rater Guidelines (PDF) — раздел User Intent', url: 'https://services.google.com/fh/files/misc/hsw-sqrg.pdf' },
-              { label: 'Andrei Broder — A taxonomy of web search (2002)', url: 'https://dl.acm.org/doi/10.1145/792550.792552' },
-              { label: 'Google — Helpful Content (people-first)', url: 'https://developers.google.com/search/docs/fundamentals/creating-helpful-content' },
+              { label: 'Google Search Quality Rater Guidelines (PDF) - раздел User Intent', url: 'https://services.google.com/fh/files/misc/hsw-sqrg.pdf' },
+              { label: 'Andrei Broder - A taxonomy of web search (2002)', url: 'https://dl.acm.org/doi/10.1145/792550.792552' },
+              { label: 'Google - Helpful Content (people-first)', url: 'https://developers.google.com/search/docs/fundamentals/creating-helpful-content' },
             ],
           }}
         />
@@ -338,7 +338,7 @@ export default function IntentPage() {
                         <td className="p-3 border-b border-border text-muted-foreground align-top font-mono">{i + 1}</td>
                         {queries.map(q => {
                           const r = (matrix[q] || [])[i];
-                          if (!r) return <td key={q} className="p-3 border-b border-l border-border align-top text-muted-foreground">—</td>;
+                          if (!r) return <td key={q} className="p-3 border-b border-l border-border align-top text-muted-foreground">-</td>;
                           return (
                             <td key={q} className="p-3 border-b border-l border-border align-top group">
                               <a href={r.url} target="_blank" rel="noopener noreferrer"
@@ -442,7 +442,7 @@ export default function IntentPage() {
                               <td key={q} className="p-3 border-b border-l border-border text-center">
                                 {row[q]
                                   ? <span className="text-foreground font-semibold">{row[q]}</span>
-                                  : <span className="text-muted-foreground/50">—</span>}
+                                  : <span className="text-muted-foreground/50">-</span>}
                               </td>
                             ))}
                             <td className="p-3 border-b border-l border-border text-center">
