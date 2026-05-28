@@ -15,7 +15,7 @@ import {
 import {
   LayoutGrid, Search, Sparkles, Link2, Users, BarChart3, Target,
   Code2, History as HistoryIcon, Zap, Smartphone, Network, FileText,
-  PenSquare, User, Settings, Bot, ShieldAlert, Gauge, LifeBuoy,
+  PenSquare, User, Settings, Bot, ShieldAlert, Gauge, LifeBuoy, Radar,
 } from 'lucide-react';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { useStaffRole } from '@/hooks/useStaffRole';
@@ -47,6 +47,7 @@ const PREFETCH: Record<string, () => Promise<unknown>> = {
   '/account': () => import('@/pages/AccountPage'),
   '/admin': () => import('@/pages/AdminPage'),
   '/staff-hub': () => import('@/pages/StaffHubPage'),
+  '/ai-visibility': () => import('@/pages/AiVisibilityPage'),
 };
 const prefetched = new Set<string>();
 function prefetch(path: string) {
@@ -69,6 +70,7 @@ const GROUPS: Group[] = [
     label: 'Аудиты',
     items: [
       { label: 'GEO Audit', path: '/geo-audit', icon: Sparkles },
+      { label: 'Видимость в ИИ ответах', path: '/ai-visibility', icon: Radar },
       { label: 'Коммерческие факторы', path: '/eeat-audit', icon: Target },
       { label: 'Микроразметка', path: '/schema-audit', icon: Code2 },
       { label: 'Ссылочный аудит', path: '/link-audit', icon: Link2 },
