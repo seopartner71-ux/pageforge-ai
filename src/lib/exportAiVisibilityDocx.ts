@@ -1,9 +1,10 @@
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
   Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType,
-  Header, Footer, PageNumber,
+  Header, Footer, PageNumber, ImageRun,
 } from 'docx';
 import { saveAs } from 'file-saver';
+import { renderVBarChartPng, renderHBarChartPng, renderDonutChartPng } from './docx/charts';
 
 export interface AiVisRow {
   keyword: string;
@@ -85,6 +86,35 @@ export async function exportAiVisibilityDocx(report: AiVisReport) {
   const totalChecks = report.rows.length;
   const visibleChecks = report.rows.filter(r => r.brand_mentioned || r.domain_linked).length;
   const overallSom = totalChecks ? Math.round((visibleChecks / totalChecks) * 100) : 0;
+
+  // === Charts ===
+  const somChart = report.modelStats.length
+    ? await renderVBarChartPng(
+        report.modelStats.map((s) => ({ label: ml(s.model), value: s.som })),
+        { title: 'Видимость бренда по моделям (Share of Model, %)', maxValue: 100, valueSuffix: '%', width: 900, height: 320 },
+      )
+    : null;
+
+  const competitorsChart = report.topCompetitors.length
+    ? await renderHBarChartPng(
+        report.topCompetitors.slice(0, 10).map(([d, n]) => ({ label: d, value: n })),
+        { title: 'Топ-10 конкурентов в ответах ИИ', width: 900 },
+      )
+    : null;
+
+  const visibilityDonut = await renderDonutChartPng(
+    [
+      { label: 'Бренд упомянут', value: visibleChecks, color: '#10B981' },
+      { label: 'Не упомянут', value: Math.max(0, totalChecks - visibleChecks), color: '#E5E7EB' },
+    ],
+    { title: 'Общая видимость бренда', width: 720, height: 320 },
+  );
+
+  const chartImg = (data: Uint8Array, w: number, h: number) =>
+    new Paragraph({
+      alignment: AlignmentType.CENTER, spacing: { before: 120, after: 120 },
+      children: [new ImageRun({ type: 'png', data, transformation: { width: w, height: h }, altText: { title: 'chart', description: 'chart', name: 'chart' } })],
+    });
 
   const summaryTable = new Table({
     width: { size: 9360, type: WidthType.DXA },
@@ -187,14 +217,17 @@ export async function exportAiVisibilityDocx(report: AiVisReport) {
         h('1. Сводка', HeadingLevel.HEADING_1),
         summaryTable,
         p(''),
+        chartImg(visibilityDonut, 540, 240),
         p('Отчёт показывает, как ваш бренд представлен в ответах ведущих генеративных ИИ-моделей. Чем выше показатель видимости (SOM), тем чаще модели упоминают ваш бренд или ссылаются на ваш домен в ответах на целевые запросы.', { color: COLOR_MUTED }),
 
         h('2. Видимость по моделям (Share of Model)', HeadingLevel.HEADING_1),
+        ...(somChart ? [chartImg(somChart, 600, 213)] : []),
         somTable,
         p(''),
         p('SOM = доля проверок, в которых модель упомянула бренд или сослалась на домен. Это основной показатель присутствия в AI-выдаче.', { color: COLOR_MUTED }),
 
         h('3. Конкуренты в ответах ИИ', HeadingLevel.HEADING_1),
+        ...(competitorsChart ? [chartImg(competitorsChart, 600, Math.min(420, 60 + report.topCompetitors.slice(0, 10).length * 22))] : []),
         compTable,
         p(''),
         p('Список доменов, которые ИИ-модели упоминают вместо или вместе с вашим брендом. Это прямые конкуренты за внимание в AI-поиске.', { color: COLOR_MUTED }),
