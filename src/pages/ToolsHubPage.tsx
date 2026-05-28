@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Sparkles, Target, Code2, Link2, Zap, Smartphone, History as HistoryIcon,
-  Users, BarChart3, Network, PenSquare, FileText,
+  Users, BarChart3, Network, PenSquare, FileText, ShieldCheck, Gauge,
 } from 'lucide-react';
 
 type Tool = {
@@ -35,6 +35,8 @@ const GROUPS: Group[] = [
       { label: 'PageSpeed', path: '/pagespeed', icon: Zap, desc: 'Core Web Vitals и аудит Lighthouse' },
       { label: 'Адаптивность', path: '/responsive', icon: Smartphone, desc: 'Mobile-friendly предпросмотр на 3 устройствах' },
       { label: 'История SERP', path: '/serp-history', icon: HistoryIcon, desc: 'Отслеживание позиций по ключевым запросам' },
+      { label: 'Технический аудит', path: '/technical-audit', icon: ShieldCheck, desc: 'Полный crawl сайта: ошибки, дубли, индексация' },
+      { label: 'Яндекс Вебмастер', path: '/yandex-webmaster', icon: Gauge, desc: 'Данные из Яндекс.Вебмастера по сайту' },
     ],
   },
   {
