@@ -339,6 +339,16 @@ const COLOR_ERR = 'B91C1C';     // красный
 const COLOR_TEXT = '111827';
 const COLOR_MUTED = '6B7280';
 const COLOR_ACCENT = '1F2937';
+const COLOR_PRIORITY_HIGH = 'B91C1C';   // высокий — красный
+const COLOR_PRIORITY_MID  = 'D97706';   // средний — оранжевый
+const COLOR_PRIORITY_LOW  = '1F4E79';   // низкий — синий
+
+const PRIORITY_LABEL: Record<'P1' | 'P2' | 'P3', string> = {
+  P1: 'Высокий', P2: 'Средний', P3: 'Низкий',
+};
+const PRIORITY_COLOR: Record<'P1' | 'P2' | 'P3', string> = {
+  P1: COLOR_PRIORITY_HIGH, P2: COLOR_PRIORITY_MID, P3: COLOR_PRIORITY_LOW,
+};
 
 const border = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
 const borders = { top: border, bottom: border, left: border, right: border };
@@ -350,7 +360,7 @@ function p(text: string, opts: { bold?: boolean; italic?: boolean; color?: strin
     spacing: { after: opts.after ?? 120, line: 300 },
     children: [new TextRun({
       text, bold: opts.bold, italics: opts.italic, color: opts.color,
-      size: opts.size ?? 22, font: 'Times New Roman',
+      size: opts.size ?? 22, font: 'Arial',
     })],
   });
 }
@@ -370,7 +380,7 @@ function h1(text: string, num?: string): Paragraph {
     spacing: { before: 240, after: 240 },
     children: [new TextRun({
       text: num ? `${num}. ${text}` : text,
-      bold: true, size: 32, font: 'Times New Roman', color: COLOR_TEXT,
+      bold: true, size: 32, font: 'Arial', color: COLOR_TEXT,
     })],
   });
 }
@@ -379,7 +389,7 @@ function h2(text: string): Paragraph {
   return new Paragraph({
     heading: HeadingLevel.HEADING_2,
     spacing: { before: 320, after: 160 },
-    children: [new TextRun({ text, bold: true, size: 26, font: 'Times New Roman', color: COLOR_TEXT })],
+    children: [new TextRun({ text, bold: true, size: 26, font: 'Arial', color: COLOR_TEXT })],
   });
 }
 
@@ -387,7 +397,7 @@ function h3(text: string): Paragraph {
   return new Paragraph({
     heading: HeadingLevel.HEADING_3,
     spacing: { before: 240, after: 120 },
-    children: [new TextRun({ text, bold: true, size: 24, font: 'Times New Roman', color: COLOR_ACCENT })],
+    children: [new TextRun({ text, bold: true, size: 24, font: 'Arial', color: COLOR_ACCENT })],
   });
 }
 
@@ -395,7 +405,7 @@ function bullet(text: string): Paragraph {
   return new Paragraph({
     numbering: { reference: 'bullets', level: 0 },
     spacing: { after: 80, line: 300 },
-    children: [new TextRun({ text, size: 22, font: 'Times New Roman' })],
+    children: [new TextRun({ text, size: 22, font: 'Arial' })],
   });
 }
 
@@ -462,7 +472,7 @@ function buildCover(domain: string, preparedBy: string, periodMonths: number): P
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 2400, after: 600 },
-      children: [new TextRun({ text: 'Технический аудит', bold: true, size: 56, font: 'Times New Roman', color: COLOR_TEXT })],
+      children: [new TextRun({ text: 'Технический аудит', bold: true, size: 56, font: 'Arial', color: COLOR_TEXT })],
     }),
     new Paragraph({ spacing: { after: 4800 }, children: [new TextRun({ text: '' })] }),
     // Карточка
@@ -476,9 +486,9 @@ function buildCoverCardParagraphs(domain: string, preparedBy: string, periodMont
     spacing: { after: 160, line: 300 },
     tabStops: [{ type: TabStopType.LEFT, position: 2400 }],
     children: [
-      new TextRun({ text: label, bold: true, size: 26, font: 'Times New Roman', color: COLOR_TEXT }),
-      new TextRun({ text: '\t', size: 26, font: 'Times New Roman' }),
-      new TextRun({ text: value, size: 26, font: 'Times New Roman', color: COLOR_ACCENT }),
+      new TextRun({ text: label, bold: true, size: 26, font: 'Arial', color: COLOR_TEXT }),
+      new TextRun({ text: '\t', size: 26, font: 'Arial' }),
+      new TextRun({ text: value, size: 26, font: 'Arial', color: COLOR_ACCENT }),
     ],
   });
   return [
@@ -502,9 +512,21 @@ function buildAbout(): Paragraph[] {
     bullet('Результат проверки: «Ошибки не найдены» или «Ошибка обнаружена».'),
     p('Если в проверяемом пункте обнаружена ошибка, конкретное ТЗ по её устранению описано в разделе «Рекомендации по устранению ошибок».', { bold: true }),
     p('Приоритет рекомендаций:', { bold: true }),
-    bullet('Высокая (P1) — выполнить в первую очередь. Игнорирование ведёт к серьёзным проблемам с индексацией.'),
-    bullet('Средняя (P2) — необходимо для успешного продвижения, но не блокирует индексацию.'),
-    bullet('Низкая (P3) — не влияет напрямую на ранжирование, можно выполнить в плановом порядке.'),
+    pRuns([
+      new TextRun({ text: '● ', size: 22, font: 'Arial' }),
+      new TextRun({ text: 'Высокий', bold: true, size: 22, font: 'Arial', color: COLOR_PRIORITY_HIGH }),
+      new TextRun({ text: ' — выполнить в первую очередь. Игнорирование ведёт к серьёзным проблемам с индексацией.', size: 22, font: 'Arial' }),
+    ], { after: 80 }),
+    pRuns([
+      new TextRun({ text: '● ', size: 22, font: 'Arial' }),
+      new TextRun({ text: 'Средний', bold: true, size: 22, font: 'Arial', color: COLOR_PRIORITY_MID }),
+      new TextRun({ text: ' — необходимо для успешного продвижения, но не блокирует индексацию.', size: 22, font: 'Arial' }),
+    ], { after: 80 }),
+    pRuns([
+      new TextRun({ text: '● ', size: 22, font: 'Arial' }),
+      new TextRun({ text: 'Низкий', bold: true, size: 22, font: 'Arial', color: COLOR_PRIORITY_LOW }),
+      new TextRun({ text: ' — не влияет напрямую на ранжирование, можно выполнить в плановом порядке.', size: 22, font: 'Arial' }),
+    ], { after: 80 }),
   ];
 }
 
@@ -526,15 +548,15 @@ function buildCheckBlock(r: CheckResult): Paragraph[] {
 
   // Результат
   out.push(pRuns([
-    new TextRun({ text: 'Результат проверки: ', size: 22, font: 'Times New Roman' }),
+    new TextRun({ text: 'Результат проверки: ', size: 22, font: 'Arial' }),
     new TextRun({
       text: hasError ? 'Ошибка обнаружена' : 'Ошибки не найдены',
-      bold: true, size: 22, font: 'Times New Roman',
+      bold: true, size: 22, font: 'Arial',
       color: hasError ? COLOR_ERR : COLOR_OK,
     }),
     ...(hasError ? [new TextRun({
       text: ` (затронуто страниц: ${affectedUrls.length || totalIssues})`,
-      size: 22, font: 'Times New Roman', color: COLOR_MUTED,
+      size: 22, font: 'Arial', color: COLOR_MUTED,
     })] : []),
   ], { after: 120 }));
 
@@ -549,9 +571,21 @@ function buildRecommendation(r: CheckResult, idx: number): Paragraph[] {
   const { check, affectedUrls, totalIssues } = r;
   const out: Paragraph[] = [];
 
-  out.push(h3(`${idx}. [${check.priority}] ${check.title}`));
-  out.push(p(`Приоритет: ${check.priority} • Важность: ${IMPORTANCE_LABEL[check.importance]} • Затронуто страниц: ${affectedUrls.length || totalIssues}`,
-    { italic: true, color: COLOR_MUTED, size: 20, after: 160 }));
+  out.push(new Paragraph({
+    heading: HeadingLevel.HEADING_3,
+    spacing: { before: 240, after: 120 },
+    children: [
+      new TextRun({ text: `${idx}. `, bold: true, size: 24, font: 'Arial', color: COLOR_ACCENT }),
+      new TextRun({ text: PRIORITY_LABEL[check.priority], bold: true, size: 24, font: 'Arial', color: PRIORITY_COLOR[check.priority] }),
+      new TextRun({ text: ` — ${check.title}`, bold: true, size: 24, font: 'Arial', color: COLOR_ACCENT }),
+    ],
+  }));
+  out.push(pRuns([
+    new TextRun({ text: 'Приоритет: ', italics: true, size: 20, font: 'Arial', color: COLOR_MUTED }),
+    new TextRun({ text: PRIORITY_LABEL[check.priority], bold: true, italics: true, size: 20, font: 'Arial', color: PRIORITY_COLOR[check.priority] }),
+    new TextRun({ text: ` • Важность: ${IMPORTANCE_LABEL[check.importance]} • Затронуто страниц: ${affectedUrls.length || totalIssues}`,
+      italics: true, size: 20, font: 'Arial', color: COLOR_MUTED }),
+  ], { after: 160 }));
 
   out.push(p('Что сделать:', { bold: true, after: 80 }));
   for (const step of check.fix) out.push(bullet(step));
@@ -602,11 +636,11 @@ export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInpu
   children.push(p(`Проверено страниц: ${totalPages}`));
   children.push(p(`Всего проверок выполнено: ${results.length}`));
   children.push(pRuns([
-    new TextRun({ text: 'Без ошибок: ', size: 22, font: 'Times New Roman' }),
-    new TextRun({ text: String(results.length - errors.length), bold: true, color: COLOR_OK, size: 22, font: 'Times New Roman' }),
-    new TextRun({ text: '   •   ', size: 22, font: 'Times New Roman', color: COLOR_MUTED }),
-    new TextRun({ text: 'С ошибками: ', size: 22, font: 'Times New Roman' }),
-    new TextRun({ text: String(errors.length), bold: true, color: COLOR_ERR, size: 22, font: 'Times New Roman' }),
+    new TextRun({ text: 'Без ошибок: ', size: 22, font: 'Arial' }),
+    new TextRun({ text: String(results.length - errors.length), bold: true, color: COLOR_OK, size: 22, font: 'Arial' }),
+    new TextRun({ text: '   •   ', size: 22, font: 'Arial', color: COLOR_MUTED }),
+    new TextRun({ text: 'С ошибками: ', size: 22, font: 'Arial' }),
+    new TextRun({ text: String(errors.length), bold: true, color: COLOR_ERR, size: 22, font: 'Arial' }),
   ]));
   children.push(p(`Средний ответ сервера (TTFB): ${stats?.avg_load_time_ms ?? 0} мс`));
 
@@ -650,16 +684,16 @@ export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInpu
       }],
     },
     styles: {
-      default: { document: { run: { font: 'Times New Roman', size: 22 } } },
+      default: { document: { run: { font: 'Arial', size: 22 } } },
       paragraphStyles: [
         { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-          run: { size: 32, bold: true, font: 'Times New Roman', color: COLOR_TEXT },
+          run: { size: 32, bold: true, font: 'Arial', color: COLOR_TEXT },
           paragraph: { spacing: { before: 240, after: 240 }, outlineLevel: 0 } },
         { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-          run: { size: 26, bold: true, font: 'Times New Roman', color: COLOR_TEXT },
+          run: { size: 26, bold: true, font: 'Arial', color: COLOR_TEXT },
           paragraph: { spacing: { before: 320, after: 160 }, outlineLevel: 1 } },
         { id: 'Heading3', name: 'Heading 3', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-          run: { size: 24, bold: true, font: 'Times New Roman', color: COLOR_ACCENT },
+          run: { size: 24, bold: true, font: 'Arial', color: COLOR_ACCENT },
           paragraph: { spacing: { before: 240, after: 120 }, outlineLevel: 2 } },
       ],
     },
@@ -672,13 +706,13 @@ export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInpu
       },
       headers: {
         default: new Header({ children: [new Paragraph({ alignment: AlignmentType.RIGHT,
-          children: [new TextRun({ text: `Технический аудит • ${domain}`, size: 18, color: '9CA3AF', font: 'Times New Roman' })] })] }),
+          children: [new TextRun({ text: `Технический аудит • ${domain}`, size: 18, color: '9CA3AF', font: 'Arial' })] })] }),
       },
       footers: {
         default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER,
           children: [
-            new TextRun({ text: 'Стр. ', size: 18, color: '9CA3AF', font: 'Times New Roman' }),
-            new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '9CA3AF', font: 'Times New Roman' }),
+            new TextRun({ text: 'Стр. ', size: 18, color: '9CA3AF', font: 'Arial' }),
+            new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '9CA3AF', font: 'Arial' }),
           ] })] }),
       },
       children,
