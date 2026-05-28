@@ -1,7 +1,7 @@
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
   Table, TableRow, TableCell, BorderStyle, WidthType, ShadingType, PageBreak,
-  Header, Footer, PageNumber,
+  Header, Footer, PageNumber, LevelFormat, TabStopType, TabStopPosition,
 } from 'docx';
 import { saveAs } from 'file-saver';
 
@@ -29,212 +29,384 @@ export interface TechnicalAuditExportInput {
   domain: string;
   stats?: CrawlStats | null;
   issues: CrawlIssue[];
+  preparedBy?: string;
+  periodMonths?: number;
 }
 
-// ---- Каталог проверок: человеческое название + объяснение клиенту + ТЗ разработчику ----
-type CheckMeta = {
-  label: string;
-  client: string;     // что это значит для бизнеса
-  fix: string;        // что именно делать программисту
-  severity: 'critical' | 'warning' | 'info';
-};
+// =====================================================================
+// Каталог проверок — строится в стиле шаблона.
+// Каждый чек: номер раздела, название, важность, сложность,
+// описание (методичка) и ТЗ (что именно делать программисту).
+// codes[] — какие коды из crawl_issues триггерят «Ошибка обнаружена».
+// =====================================================================
+type Importance = 'высокая' | 'средняя' | 'низкая';
+type Complexity = 'низкая' | 'средняя' | 'высокая';
 
-const CHECKS: Record<string, CheckMeta> = {
-  no_https: {
-    label: 'Сайт не использует HTTPS',
-    client: 'Сайт открывается по небезопасному протоколу HTTP. Браузеры показывают предупреждение «Не защищено», поисковые системы понижают такой сайт в выдаче.',
-    fix: 'Установить и настроить SSL-сертификат (Let\'s Encrypt бесплатно). Настроить 301-редирект со всех HTTP-URL на HTTPS на уровне веб-сервера. Обновить абсолютные ссылки и атрибут <base> в шаблонах. Включить HSTS-заголовок: Strict-Transport-Security: max-age=31536000; includeSubDomains.',
-    severity: 'critical',
-  },
-  no_robots_txt: {
-    label: 'Отсутствует файл robots.txt',
-    client: 'Поисковые роботы не получают инструкций, какие разделы сайта индексировать. Это снижает контроль над тем, что попадает в поиск.',
-    fix: 'Создать /robots.txt в корне домена. Указать User-agent: *, разрешённые/запрещённые разделы, ссылку на Sitemap. Минимальный пример: User-agent: *\\nAllow: /\\nSitemap: https://домен/sitemap.xml',
-    severity: 'warning',
-  },
-  robots_blocks_all: {
-    label: 'robots.txt блокирует весь сайт',
-    client: 'Текущие настройки запрещают поисковикам индексировать сайт целиком. Сайт исчезнет из выдачи.',
-    fix: 'Удалить директиву Disallow: / из robots.txt. Проверить, что нет глобальных запретов для User-agent: *. После правки запросить переобход в Google Search Console и Яндекс.Вебмастер.',
-    severity: 'critical',
-  },
-  no_sitemap: {
-    label: 'Отсутствует файл sitemap.xml',
-    client: 'Поисковые роботы вынуждены искать страницы сами. Новые материалы попадают в индекс медленнее.',
-    fix: 'Сгенерировать sitemap.xml (динамически или через CMS-плагин). Добавить ссылку в robots.txt: Sitemap: https://домен/sitemap.xml. Загрузить карту в Google Search Console и Яндекс.Вебмастер.',
-    severity: 'warning',
-  },
-  slow_ttfb: {
-    label: 'Медленный ответ сервера (TTFB > 3 сек)',
-    client: 'Страница долго «думает», прежде чем начать загружаться. Пользователи уходят, поведенческие факторы падают.',
-    fix: 'Профилировать запросы (APM, slow query log). Включить серверное кэширование (Redis/Memcached, OPcache). Оптимизировать тяжёлые SQL-запросы (индексы, EXPLAIN). Подключить CDN. Перейти на быстрый хостинг при необходимости.',
-    severity: 'critical',
-  },
-  noindex_meta: {
-    label: 'Страница закрыта от индексации (noindex)',
-    client: 'Страница помечена тегом, который запрещает её показ в поисковой выдаче. Если это коммерческая страница — потеря трафика.',
-    fix: 'Удалить из <head>: <meta name="robots" content="noindex">. Убедиться, что заголовок X-Robots-Tag: noindex не приходит из CMS/CDN. Проверить, что страница должна индексироваться.',
-    severity: 'critical',
-  },
-  status_404: {
-    label: 'Страницы возвращают 404 (не найдено)',
-    client: 'Ссылки ведут в никуда. Пользователи и поисковики получают пустую страницу.',
-    fix: 'Для каждого 404-URL: либо настроить 301-редирект на актуальную страницу, либо восстановить контент. Найти источник битых ссылок (внутренние ссылки в шаблонах, меню, контент) и поправить. Проверить корректность .htaccess / nginx rewrite-правил.',
-    severity: 'critical',
-  },
-  status_500: {
-    label: 'Страницы возвращают 500 (ошибка сервера)',
-    client: 'Сервер падает на этих страницах — пользователи видят техническую ошибку вместо контента.',
-    fix: 'Открыть error_log веб-сервера и application-логи. Воспроизвести запрос, поймать stacktrace. Проверить подключение к БД, права на файлы, превышение лимитов памяти/времени выполнения.',
-    severity: 'critical',
-  },
-  mixed_content: {
-    label: 'Mixed content (HTTP-ресурсы на HTTPS-странице)',
-    client: 'На защищённой странице загружаются файлы (картинки, скрипты) по небезопасному протоколу. Браузер блокирует часть контента, замок безопасности пропадает.',
-    fix: 'Найти HTTP-ссылки на ресурсы (img/src, link/href, script/src, url() в CSS). Заменить http:// на https:// или относительные //. Добавить CSP-заголовок: upgrade-insecure-requests.',
-    severity: 'warning',
-  },
-  broken_link: {
-    label: 'Битые внутренние ссылки',
-    client: 'Ссылки внутри сайта ведут на несуществующие страницы. Это раздражает пользователей и снижает доверие поисковика.',
-    fix: 'По списку битых URL найти страницы-источники и заменить ссылки на актуальные либо удалить. В CMS — проверить таблицу связей контента.',
-    severity: 'critical',
-  },
-  http_link: {
-    label: 'Ссылки с HTTP на HTTPS-сайте',
-    client: 'Внутренние ссылки используют небезопасный протокол. Браузер делает лишний редирект, теряется скорость.',
-    fix: 'Глобальный поиск/замена http://домен на https://домен в шаблонах, БД, контенте. Включить редирект на уровне сервера.',
-    severity: 'warning',
-  },
-  external_link: {
-    label: 'Исходящие внешние ссылки',
-    client: 'Информационный список ссылок на сторонние сайты для контроля.',
-    fix: 'Проверить релевантность ссылок. Для сомнительных — добавить rel="nofollow noopener". Для рекламных — rel="sponsored".',
-    severity: 'info',
-  },
-  missing_h1: {
-    label: 'Страницы без H1',
-    client: 'У страницы нет главного заголовка — поисковику сложнее понять, о чём она.',
-    fix: 'В шаблоне страницы добавить уникальный <h1> с ключевым запросом. Один H1 на страницу.',
-    severity: 'critical',
-  },
-  duplicate_h1: {
-    label: 'Дубли страниц по H1',
-    client: 'Несколько страниц имеют одинаковый заголовок — поисковик не понимает, какую показывать в выдаче.',
-    fix: 'Сделать H1 уникальным для каждой страницы. Использовать паттерны вида «{Категория} — {Подкатегория}» или включать в заголовок отличающийся параметр.',
-    severity: 'warning',
-  },
-  missing_title: {
-    label: 'Страницы без тега title',
-    client: 'Нет текста, который показывается в выдаче и во вкладке браузера. Кликабельность падает резко.',
-    fix: 'Добавить <title> в <head> каждой страницы. Длина 50–60 символов, главный ключевой запрос в начале, бренд в конце.',
-    severity: 'critical',
-  },
-  duplicate_title: {
-    label: 'Дубли страниц по title',
-    client: 'Одинаковые заголовки в выдаче — поисковик не различает страницы и может скрыть часть из них.',
-    fix: 'Шаблонизировать title: подставлять уникальные параметры (название товара, города, артикула). Проверить settings CMS на автогенерацию title.',
-    severity: 'warning',
-  },
-  missing_description: {
-    label: 'Страницы без meta description',
-    client: 'Под заголовком в выдаче нет описания — снижается CTR.',
-    fix: 'Добавить <meta name="description" content="..."> длиной 140–160 символов с УТП и призывом к действию.',
-    severity: 'warning',
-  },
-  missing_alt: {
-    label: 'Изображения без атрибута alt',
-    client: 'Поисковики не понимают, что на картинках. Теряется трафик из поиска по изображениям, страдает доступность для незрячих.',
-    fix: 'Для всех <img> добавить alt с описанием содержимого. Для декоративных — alt="". В CMS — обязательное поле «Описание» при загрузке.',
-    severity: 'warning',
-  },
-  ssl_expiring_soon: {
-    label: 'SSL-сертификат истекает менее чем через 30 дней',
-    client: 'Сертификат скоро перестанет действовать. После истечения сайт станет недоступен с ошибкой безопасности.',
-    fix: 'Продлить SSL-сертификат у регистратора. Настроить автопродление (certbot renew + cron). Добавить мониторинг срока действия.',
-    severity: 'warning',
-  },
-  no_hsts: {
-    label: 'Не настроен HSTS-заголовок',
-    client: 'Браузер каждый раз разрешает первое подключение по HTTP, что создаёт окно для атаки.',
-    fix: 'В конфигурации веб-сервера добавить заголовок: Strict-Transport-Security: max-age=31536000; includeSubDomains; preload',
-    severity: 'warning',
-  },
-};
-
-function metaFor(code: string, severity?: string | null): CheckMeta {
-  return CHECKS[code] ?? {
-    label: code,
-    client: 'Техническая проблема, требующая проверки.',
-    fix: 'Изучить детали в данных аудита и устранить.',
-    severity: (severity as any) || 'info',
-  };
+interface Check {
+  num: string;            // «1.2», «3.1.1»
+  title: string;
+  importance: Importance;
+  complexity: Complexity;
+  description: string[];  // абзацы методички
+  codes: string[];        // коды из crawl_issues, которые относятся к проверке
+  fix: string[];          // абзацы ТЗ для программиста
+  priority: 'P1' | 'P2' | 'P3';
 }
 
-const SEV_ORDER: Record<string, number> = { critical: 0, warning: 1, info: 2 };
-const SEV_RU: Record<string, string> = { critical: 'Критично', warning: 'Предупреждение', info: 'Информация' };
-const SEV_FILL: Record<string, string> = { critical: 'FEE2E2', warning: 'FEF3C7', info: 'DBEAFE' };
-const SEV_TEXT: Record<string, string> = { critical: '991B1B', warning: '92400E', info: '1E40AF' };
+const CHECKS: Check[] = [
+  // ============ 1. Технические ошибки ============
+  {
+    num: '1.2', title: 'Протокол HTTPS', importance: 'высокая', complexity: 'высокая',
+    codes: ['no_https'], priority: 'P1',
+    description: [
+      'HTTPS (HyperText Transfer Protocol Secure) — расширение протокола HTTP, которое шифрует данные между сайтом и пользователем. Это снижает риск перехвата персональных данных (логины, пароли, данные карт) и предотвращает подмену контента.',
+      'Google помечает HTTP-сайты в Chrome как «не защищённые», Яндекс считает HTTPS одним из показателей качества. С HTTP рекомендуется настроить прямой 301-редирект на HTTPS-версию (без цепочки редиректов).',
+    ],
+    fix: [
+      'Установить SSL-сертификат (бесплатно через Let\'s Encrypt с автопродлением).',
+      'Настроить 301-редирект всех HTTP-URL на HTTPS на уровне веб-сервера (nginx/Apache).',
+      'Заменить абсолютные ссылки http:// → https:// в шаблонах, БД и контенте.',
+      'Добавить заголовок HSTS: Strict-Transport-Security: max-age=31536000; includeSubDomains.',
+      'Проверить отсутствие mixed content (картинки, скрипты, стили должны загружаться по HTTPS).',
+    ],
+  },
+  {
+    num: '1.3', title: 'XML-карта сайта (sitemap.xml)', importance: 'высокая', complexity: 'низкая',
+    codes: ['no_sitemap'], priority: 'P1',
+    description: [
+      'XML-карта сайта — это файл, содержащий ссылки на все страницы сайта, подлежащие индексированию. Sitemap ускоряет индексацию и помогает поисковым системам находить новые страницы.',
+      'Файл должен содержать только канонические URL с кодом ответа 200, без редиректов и закрытых от индексации страниц. Один файл — не более 50 000 URL и 50 МБ. Ссылка на sitemap должна быть указана в robots.txt.',
+    ],
+    fix: [
+      'Сгенерировать /sitemap.xml (через CMS-плагин или серверный скрипт).',
+      'Включать только страницы с кодом 200, исключить редиректы, 404 и noindex.',
+      'Добавить в robots.txt: Sitemap: https://домен/sitemap.xml',
+      'Настроить автообновление карты при добавлении/удалении страниц.',
+      'Отправить sitemap в Google Search Console и Яндекс.Вебмастер.',
+    ],
+  },
+  {
+    num: '1.4', title: 'Файл Robots.txt', importance: 'высокая', complexity: 'низкая',
+    codes: ['no_robots_txt', 'robots_blocks_all'], priority: 'P1',
+    description: [
+      'Robots.txt — текстовый файл с инструкциями для поисковых роботов о том, какие разделы сайта индексировать, а какие нет. Файл должен быть доступен по адресу /robots.txt в корне домена.',
+      'Поисковые системы при каждом обходе обращаются к этому файлу в первую очередь. В нём указываются служебные разделы, исключаемые из поиска, и путь к sitemap.',
+    ],
+    fix: [
+      'Создать файл /robots.txt в корне домена.',
+      'Минимальное содержимое: User-agent: *  /  Allow: /  /  Sitemap: https://домен/sitemap.xml',
+      'Закрыть служебные разделы (admin, корзина, фильтры) через Disallow.',
+      'Убедиться, что нет глобального запрета Disallow: / для User-agent: *.',
+      'После правок запросить переобход в Google Search Console и Яндекс.Вебмастер.',
+    ],
+  },
+  {
+    num: '1.5', title: 'Скорость ответа сервера (TTFB)', importance: 'высокая', complexity: 'средняя',
+    codes: ['slow_ttfb'], priority: 'P1',
+    description: [
+      'TTFB (Time To First Byte) — время от запроса до получения первого байта ответа сервера. Это ключевая метрика производительности: чем выше TTFB, тем дольше пользователь видит белый экран.',
+      'Google рекомендует TTFB ниже 800 мс. Значения выше 3 секунд негативно влияют на ранжирование и поведенческие факторы.',
+    ],
+    fix: [
+      'Профилировать медленные запросы (APM, slow query log MySQL/PostgreSQL).',
+      'Включить серверное кэширование (Redis/Memcached, OPcache для PHP).',
+      'Оптимизировать тяжёлые SQL-запросы: добавить индексы, проверить EXPLAIN.',
+      'Подключить CDN (Cloudflare, BunnyCDN) для статики и кэша HTML.',
+      'При необходимости перейти на более быстрый хостинг / увеличить ресурсы.',
+    ],
+  },
+  {
+    num: '1.18', title: 'Элемент <meta name="robots"> (noindex)', importance: 'высокая', complexity: 'низкая',
+    codes: ['noindex_meta'], priority: 'P1',
+    description: [
+      'Тег <meta name="robots" content="noindex"> запрещает поисковым системам показывать страницу в выдаче. Также аналогично работает HTTP-заголовок X-Robots-Tag: noindex.',
+      'Если коммерческая или посадочная страница случайно закрыта от индексации — она исключается из поиска и теряет трафик. Закрывать от индексации стоит только служебные URL (личный кабинет, корзина, дубли).',
+    ],
+    fix: [
+      'Удалить из <head> коммерческих страниц: <meta name="robots" content="noindex">.',
+      'Проверить, что заголовок X-Robots-Tag: noindex не приходит из nginx/CDN/CMS.',
+      'В CMS проверить чекбокс «Скрыть от поисковиков» на нужных страницах.',
+      'После правок отправить страницы на переобход.',
+    ],
+  },
+  {
+    num: '1.20', title: 'Код ответа несуществующих страниц', importance: 'высокая', complexity: 'низкая',
+    codes: ['status_404'], priority: 'P1',
+    description: [
+      'Несуществующая страница должна возвращать HTTP-код 404 (Not Found). Если такая страница отдаёт 200 OK или 302, поисковые системы индексируют её как обычную, что засоряет индекс.',
+      'Большое количество страниц 404, на которые ведут внутренние ссылки, ухудшает поведенческие факторы и качество сайта в глазах поисковика.',
+    ],
+    fix: [
+      'Для каждого 404-URL: либо настроить 301-редирект на актуальную страницу, либо восстановить контент.',
+      'Найти источник битых ссылок (шаблоны, меню, контент) и поправить.',
+      'Проверить корректность .htaccess / nginx rewrite-правил.',
+      'Убедиться, что несуществующие страницы отдают именно код 404, а не 200.',
+    ],
+  },
 
-// ----- helpers -----
-const border = { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' };
+  // ============ 2. Ссылки и контент ============
+  {
+    num: '2.3', title: 'Mixed Content (HTTP-ресурсы на HTTPS)', importance: 'средняя', complexity: 'средняя',
+    codes: ['mixed_content'], priority: 'P2',
+    description: [
+      'Mixed content — ситуация, когда на защищённой HTTPS-странице загружаются ресурсы (картинки, скрипты, стили) по небезопасному HTTP. Браузер блокирует часть таких ресурсов, замок безопасности в адресной строке пропадает.',
+      'Это снижает доверие пользователей и негативно сказывается на ранжировании.',
+    ],
+    fix: [
+      'Найти HTTP-ссылки в коде: img/src, link/href, script/src, url() в CSS.',
+      'Заменить http:// → https:// или использовать протоколо-независимые ссылки //.',
+      'Добавить CSP-заголовок: Content-Security-Policy: upgrade-insecure-requests.',
+      'Глобальный поиск/замена в БД для контента из CMS.',
+    ],
+  },
+
+  // ============ 3. Ошибки, выявленные парсером ============
+  {
+    num: '3.1.1', title: 'Дубли страниц по заголовкам H1', importance: 'высокая', complexity: 'средняя',
+    codes: ['duplicate_h1'], priority: 'P2',
+    description: [
+      'Заголовок H1 должен быть уникальным для каждой страницы. Если несколько страниц имеют одинаковый H1, поисковая система не понимает, какую из них показывать в выдаче по запросу — релевантность размывается.',
+      'Дубли H1 типичны для шаблонных страниц (карточки товаров, города, фильтры), где не подставляется уникальный параметр.',
+    ],
+    fix: [
+      'Сделать H1 уникальным для каждой страницы.',
+      'Использовать паттерны: «{Категория} — {Подкатегория}», «{Товар} купить в {Город}».',
+      'Проверить шаблоны CMS: H1 должен включать переменные (название товара/города/артикула).',
+      'Для пагинации добавлять «— страница N» в H1.',
+    ],
+  },
+  {
+    num: '3.1.2', title: 'Страницы с отсутствующим H1', importance: 'высокая', complexity: 'низкая',
+    codes: ['missing_h1'], priority: 'P1',
+    description: [
+      'H1 — главный заголовок страницы, который сообщает поисковику и пользователю основную тему. Отсутствие H1 затрудняет поисковую систему в определении тематики страницы.',
+      'H1 должен быть один на страницу, содержать главный ключевой запрос и располагаться в начале контентной части.',
+    ],
+    fix: [
+      'В шаблоне страницы добавить тег <h1> с уникальным заголовком.',
+      'H1 должен содержать главный ключевой запрос страницы.',
+      'Один H1 на страницу — других тегов H1 быть не должно.',
+      'Длина 30–70 символов, без CAPS и спецсимволов.',
+    ],
+  },
+  {
+    num: '3.1.3', title: 'Страницы с несколькими H1', importance: 'высокая', complexity: 'низкая',
+    codes: ['multiple_h1'], priority: 'P2',
+    description: [
+      'На странице должен быть только один тег H1. Несколько H1 размывают семантику страницы для поисковиков и нарушают иерархию заголовков.',
+      'Часто несколько H1 появляются из-за того, что в H1 оформлен логотип в шапке или баннер в сайдбаре.',
+    ],
+    fix: [
+      'Оставить один H1 на страницу — заголовок основного контента.',
+      'Лишние H1 заменить на H2/H3 или на <div>/<span> с нужным стилем.',
+      'Логотип в шапке — обернуть в <a> с alt у картинки, без H1.',
+    ],
+  },
+  {
+    num: '3.2.1', title: 'Дубли страниц по title', importance: 'высокая', complexity: 'средняя',
+    codes: ['duplicate_title'], priority: 'P2',
+    description: [
+      'Title — основной заголовок страницы в результатах поиска и во вкладке браузера. Одинаковые title между страницами мешают поисковику различать страницы и снижают CTR.',
+      'Каждая страница должна иметь уникальный title длиной 50–60 символов с главным ключевым запросом в начале.',
+    ],
+    fix: [
+      'Шаблонизировать title в CMS: подставлять уникальные параметры (товар, город, артикул).',
+      'Пример: «{Название товара} — купить в {Город} | {Бренд}».',
+      'Длина 50–60 символов, главный ключ в начале, бренд в конце.',
+      'Проверить настройки CMS на автогенерацию title.',
+    ],
+  },
+  {
+    num: '3.2.2', title: 'Страницы с отсутствующим title', importance: 'высокая', complexity: 'низкая',
+    codes: ['missing_title'], priority: 'P1',
+    description: [
+      'Title — самый важный мета-тег для SEO. Это текст, который пользователь видит в результатах поиска и в вкладке браузера. Отсутствие title резко снижает кликабельность.',
+      'Без title поисковая система формирует заголовок сама — обычно из H1 или фрагмента URL, что неоптимально.',
+    ],
+    fix: [
+      'В <head> каждой страницы добавить <title>…</title>.',
+      'Длина 50–60 символов, главный ключ в начале, бренд в конце.',
+      'Title должен быть уникальным для каждой страницы.',
+      'В CMS сделать поле обязательным при создании страницы.',
+    ],
+  },
+  {
+    num: '3.3.1', title: 'Дубли страниц по description', importance: 'средняя', complexity: 'средняя',
+    codes: ['duplicate_description'], priority: 'P2',
+    description: [
+      'Meta description — краткое описание страницы (140–160 символов), которое часто отображается под заголовком в выдаче. Дубли description снижают уникальность каждой страницы и могут уменьшать CTR.',
+    ],
+    fix: [
+      'Сделать description уникальным для каждой страницы.',
+      'Использовать шаблоны с подстановкой переменных.',
+      'Включать УТП, цену, наличие, призыв к действию.',
+      'Длина 140–160 символов.',
+    ],
+  },
+  {
+    num: '3.3.2', title: 'Страницы с отсутствующим description', importance: 'высокая', complexity: 'средняя',
+    codes: ['missing_description'], priority: 'P2',
+    description: [
+      'Meta description отображается под title в результатах поиска. Без description поисковик автоматически выбирает фрагмент со страницы — обычно неоптимальный, что снижает CTR.',
+      'Description — это маркетинговый инструмент: он должен мотивировать пользователя кликнуть.',
+    ],
+    fix: [
+      'Добавить <meta name="description" content="…"> в <head> каждой страницы.',
+      'Длина 140–160 символов.',
+      'Включить главное преимущество, цену/выгоду, призыв к действию.',
+      'В CMS добавить отдельное поле для description при создании страницы.',
+    ],
+  },
+  {
+    num: '3.5', title: 'Ссылки с HTTP', importance: 'средняя', complexity: 'низкая',
+    codes: ['http_link'], priority: 'P2',
+    description: [
+      'Внутренние ссылки на сайте должны использовать HTTPS-протокол. HTTP-ссылки приводят к лишнему редиректу, теряется скорость загрузки и расходуется крауд-бюджет поисковика.',
+    ],
+    fix: [
+      'Глобальный поиск/замена: http://домен → https://домен в шаблонах, БД и контенте.',
+      'Использовать относительные ссылки /page вместо абсолютных.',
+      'Включить 301-редирект HTTP → HTTPS на уровне сервера.',
+    ],
+  },
+  {
+    num: '3.7', title: 'Битые ссылки и страницы 404', importance: 'высокая', complexity: 'средняя',
+    codes: ['broken_link', 'status_404'], priority: 'P1',
+    description: [
+      'Битые ссылки ведут на несуществующие страницы (код 404). Это раздражает пользователей, ухудшает поведенческие факторы и расходует крауд-бюджет поисковика впустую.',
+      'Особенно критичны битые ссылки в навигации, меню и сквозных блоках — они тиражируются на всех страницах.',
+    ],
+    fix: [
+      'Для каждого 404-URL: восстановить контент или поставить 301-редирект на актуальный.',
+      'Найти страницы-источники битых ссылок (по списку URL ниже) и заменить ссылки.',
+      'Проверить меню, футер, сквозные блоки.',
+      'В CMS — проверить таблицу связей контента, очистить мёртвые ссылки.',
+    ],
+  },
+  {
+    num: '3.8', title: 'Ошибки 500 (внутренняя ошибка сервера)', importance: 'высокая', complexity: 'высокая',
+    codes: ['status_500'], priority: 'P1',
+    description: [
+      '500 Internal Server Error — общая ошибка сервера, означающая, что сервер не смог обработать запрос. Пользователь видит белую страницу вместо контента, поисковик исключает такие страницы из индекса.',
+      'Если 500-ошибки появляются массово — это сигнал о серьёзной проблеме (упала БД, превышены лимиты, баг в коде).',
+    ],
+    fix: [
+      'Открыть error_log веб-сервера (/var/log/nginx/error.log, apache, php-fpm).',
+      'Воспроизвести запрос локально, поймать stacktrace в application-логах.',
+      'Проверить подключение к БД, права на файлы, лимиты памяти и времени.',
+      'Настроить мониторинг (Sentry, healthcheck) для оперативного реагирования.',
+    ],
+  },
+  {
+    num: '3.9', title: 'Изображения без атрибута alt', importance: 'средняя', complexity: 'низкая',
+    codes: ['missing_alt'], priority: 'P2',
+    description: [
+      'Атрибут alt у тега <img> описывает содержимое изображения. Он используется поисковыми системами для понимания картинки, программами для незрячих и отображается, если картинка не загрузилась.',
+      'Без alt теряется трафик из поиска по изображениям и страдает доступность сайта.',
+    ],
+    fix: [
+      'Для всех <img> добавить атрибут alt с осмысленным описанием.',
+      'Для декоративных изображений — alt="".',
+      'В CMS сделать поле «Описание» обязательным при загрузке изображений.',
+      'Использовать ключевые слова, но без переспама.',
+    ],
+  },
+  {
+    num: '3.11', title: 'Исходящие ссылки с сайта', importance: 'низкая', complexity: 'низкая',
+    codes: ['external_link'], priority: 'P3',
+    description: [
+      'Внешние ссылки ведут на сторонние домены. Большое количество внешних ссылок или ссылки на некачественные ресурсы могут передавать вес и негативно влиять на ранжирование.',
+      'Рекомендуется контролировать список внешних ссылок и закрывать сомнительные через rel="nofollow".',
+    ],
+    fix: [
+      'Проверить релевантность внешних ссылок.',
+      'Для сомнительных и партнёрских — добавить rel="nofollow noopener".',
+      'Для рекламных — rel="sponsored".',
+      'Для пользовательского контента — rel="ugc".',
+    ],
+  },
+];
+
+const IMPORTANCE_LABEL: Record<Importance, string> = {
+  'высокая': 'высокая', 'средняя': 'средняя', 'низкая': 'низкая',
+};
+
+// =====================================================================
+// Стили / helpers
+// =====================================================================
+const COLOR_OK = '047857';      // зелёный
+const COLOR_ERR = 'B91C1C';     // красный
+const COLOR_TEXT = '111827';
+const COLOR_MUTED = '6B7280';
+const COLOR_ACCENT = '1F2937';
+
+const border = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
 const borders = { top: border, bottom: border, left: border, right: border };
-const CONTENT_W = 9360;
+const CONTENT_W = 9638; // A4 - 2cm поля
 
-function cell(text: string | TextRun[], width: number, opts: { bold?: boolean; fill?: string; color?: string; align?: (typeof AlignmentType)[keyof typeof AlignmentType] } = {}): TableCell {
-  const runs = typeof text === 'string'
-    ? [new TextRun({ text: text || '-', bold: opts.bold, color: opts.color, size: 20, font: 'Arial' })]
-    : text;
-  return new TableCell({
-    borders,
-    width: { size: width, type: WidthType.DXA },
-    shading: opts.fill ? { fill: opts.fill, type: ShadingType.CLEAR } : undefined,
-    margins: { top: 100, bottom: 100, left: 140, right: 140 },
-    children: [new Paragraph({ alignment: opts.align, children: runs })],
+function p(text: string, opts: { bold?: boolean; italic?: boolean; color?: string; size?: number; align?: any; after?: number } = {}): Paragraph {
+  return new Paragraph({
+    alignment: opts.align,
+    spacing: { after: opts.after ?? 120, line: 300 },
+    children: [new TextRun({
+      text, bold: opts.bold, italics: opts.italic, color: opts.color,
+      size: opts.size ?? 22, font: 'Times New Roman',
+    })],
   });
 }
 
-function h1(text: string): Paragraph {
+function pRuns(runs: TextRun[], opts: { align?: any; after?: number } = {}): Paragraph {
+  return new Paragraph({
+    alignment: opts.align,
+    spacing: { after: opts.after ?? 120, line: 300 },
+    children: runs,
+  });
+}
+
+function h1(text: string, num?: string): Paragraph {
   return new Paragraph({
     heading: HeadingLevel.HEADING_1,
-    spacing: { before: 240, after: 180 },
-    children: [new TextRun({ text, bold: true, size: 36, font: 'Arial', color: '111827' })],
+    pageBreakBefore: true,
+    spacing: { before: 240, after: 240 },
+    children: [new TextRun({
+      text: num ? `${num}. ${text}` : text,
+      bold: true, size: 32, font: 'Times New Roman', color: COLOR_TEXT,
+    })],
   });
 }
 
 function h2(text: string): Paragraph {
   return new Paragraph({
     heading: HeadingLevel.HEADING_2,
-    spacing: { before: 220, after: 120 },
-    children: [new TextRun({ text, bold: true, size: 26, font: 'Arial', color: '1F2937' })],
+    spacing: { before: 320, after: 160 },
+    children: [new TextRun({ text, bold: true, size: 26, font: 'Times New Roman', color: COLOR_TEXT })],
   });
 }
 
-function h3(text: string, color = '111827'): Paragraph {
+function h3(text: string): Paragraph {
   return new Paragraph({
     heading: HeadingLevel.HEADING_3,
-    spacing: { before: 180, after: 100 },
-    children: [new TextRun({ text, bold: true, size: 22, font: 'Arial', color })],
-  });
-}
-
-function p(text: string, opts: { bold?: boolean; color?: string; italics?: boolean; size?: number } = {}): Paragraph {
-  return new Paragraph({
-    spacing: { after: 100 },
-    children: [new TextRun({ text, bold: opts.bold, italics: opts.italics, color: opts.color, size: opts.size ?? 22, font: 'Arial' })],
+    spacing: { before: 240, after: 120 },
+    children: [new TextRun({ text, bold: true, size: 24, font: 'Times New Roman', color: COLOR_ACCENT })],
   });
 }
 
 function bullet(text: string): Paragraph {
   return new Paragraph({
-    bullet: { level: 0 },
-    spacing: { after: 60 },
-    children: [new TextRun({ text, size: 22, font: 'Arial' })],
+    numbering: { reference: 'bullets', level: 0 },
+    spacing: { after: 80, line: 300 },
+    children: [new TextRun({ text, size: 22, font: 'Times New Roman' })],
   });
 }
 
-function spacer(): Paragraph {
-  return new Paragraph({ children: [new TextRun({ text: '' })] });
+function cell(content: Paragraph | Paragraph[], width: number, opts: { fill?: string; bold?: boolean } = {}): TableCell {
+  return new TableCell({
+    borders,
+    width: { size: width, type: WidthType.DXA },
+    shading: opts.fill ? { fill: opts.fill, type: ShadingType.CLEAR } : undefined,
+    margins: { top: 120, bottom: 120, left: 160, right: 160 },
+    children: Array.isArray(content) ? content : [content],
+  });
 }
 
 function fmtDate(d = new Date()): string {
@@ -245,269 +417,275 @@ function safeName(s: string): string {
   return (s || 'site').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '-').slice(0, 80);
 }
 
-function scoreLabel(score: number): { text: string; color: string } {
-  if (score >= 80) return { text: 'Хорошо', color: '047857' };
-  if (score >= 50) return { text: 'Требует улучшений', color: 'B45309' };
-  return { text: 'Плохо', color: 'B91C1C' };
+// =====================================================================
+// Анализ: определение, есть ли ошибка по чеку, и сбор затронутых URL
+// =====================================================================
+interface CheckResult {
+  check: Check;
+  hasError: boolean;
+  affectedUrls: string[];
+  totalIssues: number;
 }
 
-// группировка issues по code
-function groupIssues(issues: CrawlIssue[]) {
-  const byCode = new Map<string, { urls: Set<string>; total: number; severity: string }>();
+function analyzeChecks(issues: CrawlIssue[]): CheckResult[] {
+  const byCode = new Map<string, CrawlIssue[]>();
   for (const i of issues) {
     const code = i.code || 'unknown';
-    let g = byCode.get(code);
-    if (!g) { g = { urls: new Set(), total: 0, severity: i.severity || 'info' }; byCode.set(code, g); }
-    g.total += 1;
-    const url = i.page_url || (i.details && (i.details.url || i.details.page_url)) || null;
-    if (url) g.urls.add(url);
-    if ((SEV_ORDER[i.severity || 'info'] ?? 9) < (SEV_ORDER[g.severity] ?? 9)) g.severity = i.severity!;
+    if (!byCode.has(code)) byCode.set(code, []);
+    byCode.get(code)!.push(i);
   }
-  return Array.from(byCode.entries())
-    .map(([code, g]) => ({ code, ...g, urls: Array.from(g.urls) }))
-    .sort((a, b) => (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9) || b.total - a.total);
+  return CHECKS.map(check => {
+    const matched: CrawlIssue[] = [];
+    for (const code of check.codes) {
+      const arr = byCode.get(code);
+      if (arr) matched.push(...arr);
+    }
+    const urls = new Set<string>();
+    for (const i of matched) {
+      const u = i.page_url || (i.details && (i.details.url || i.details.page_url));
+      if (u) urls.add(u);
+    }
+    return {
+      check,
+      hasError: matched.length > 0,
+      affectedUrls: Array.from(urls),
+      totalIssues: matched.length,
+    };
+  });
 }
 
-// ----- основной экспорт -----
-export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInput): Promise<void> {
-  const { domain, stats, issues } = input;
-  const grouped = groupIssues(issues || []);
-  const totalPages = stats?.total_pages ?? 0;
-  const score = stats?.score ?? 0;
-  const scoreInfo = scoreLabel(score);
-
-  // ---------- Титульник ----------
-  const cover: Paragraph[] = [
-    new Paragraph({ spacing: { before: 1800, after: 240 }, alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: 'ТЕХНИЧЕСКИЙ SEO-АУДИТ', bold: true, size: 48, font: 'Arial', color: '111827' })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 },
-      children: [new TextRun({ text: domain, size: 32, font: 'Arial', color: '3B82F6', bold: true })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 1200 },
-      children: [new TextRun({ text: fmtDate(), size: 22, font: 'Arial', color: '6B7280' })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 },
-      children: [new TextRun({ text: `Оценка: ${score}/100 — ${scoreInfo.text}`, bold: true, size: 28, font: 'Arial', color: scoreInfo.color })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: `Просканировано страниц: ${totalPages}`, size: 22, font: 'Arial', color: '4B5563' })] }),
-    new Paragraph({ children: [new PageBreak()] }),
-  ];
-
-  // ---------- Часть 1: для клиента ----------
-  const clientPart: (Paragraph | Table)[] = [
-    h1('Часть 1. Отчёт для клиента'),
-    p('Этот раздел описывает результаты аудита простым языком — без технических терминов. Здесь видно, насколько сайт здоров с точки зрения поисковой оптимизации и какие проблемы требуют внимания.'),
-
-    h2('Сводка'),
-    new Table({
-      width: { size: CONTENT_W, type: WidthType.DXA },
-      columnWidths: [3120, 3120, 3120],
-      rows: [
-        new TableRow({ tableHeader: true, children: [
-          cell('Страниц проверено', 3120, { bold: true, fill: 'F3F4F6' }),
-          cell('Найдено проблем', 3120, { bold: true, fill: 'F3F4F6' }),
-          cell('Средний ответ сервера', 3120, { bold: true, fill: 'F3F4F6' }),
-        ]}),
-        new TableRow({ children: [
-          cell(String(totalPages), 3120, { align: AlignmentType.CENTER }),
-          cell(String(stats?.total_issues ?? issues.length), 3120, { align: AlignmentType.CENTER }),
-          cell(`${stats?.avg_load_time_ms ?? 0} мс`, 3120, { align: AlignmentType.CENTER }),
-        ]}),
-        new TableRow({ tableHeader: true, children: [
-          cell('Критических', 3120, { bold: true, fill: 'FEE2E2', color: '991B1B' }),
-          cell('Предупреждений', 3120, { bold: true, fill: 'FEF3C7', color: '92400E' }),
-          cell('Информационных', 3120, { bold: true, fill: 'DBEAFE', color: '1E40AF' }),
-        ]}),
-        new TableRow({ children: [
-          cell(String(stats?.critical_count ?? 0), 3120, { align: AlignmentType.CENTER, bold: true }),
-          cell(String(stats?.warning_count ?? 0), 3120, { align: AlignmentType.CENTER, bold: true }),
-          cell(String(stats?.info_count ?? 0), 3120, { align: AlignmentType.CENTER, bold: true }),
-        ]}),
-      ],
+// =====================================================================
+// Сборка разделов документа
+// =====================================================================
+function buildCover(domain: string, preparedBy: string, periodMonths: number): Paragraph[] {
+  return [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 2400, after: 600 },
+      children: [new TextRun({ text: 'Технический аудит', bold: true, size: 56, font: 'Times New Roman', color: COLOR_TEXT })],
     }),
-    spacer(),
-
-    h2('Что означает каждая категория'),
-    bullet('Критические проблемы — мешают сайту попадать в поиск или работать корректно. Решать в первую очередь.'),
-    bullet('Предупреждения — не блокируют работу, но снижают позиции и удобство. Решать после критических.'),
-    bullet('Информационные — не требуют срочных действий, оставлены для контроля.'),
-
-    h2('Список найденных проблем (для клиента)'),
+    new Paragraph({ spacing: { after: 4800 }, children: [new TextRun({ text: '' })] }),
+    // Карточка
+    ...buildCoverCardParagraphs(domain, preparedBy, periodMonths),
   ];
+}
 
-  if (grouped.length === 0) {
-    clientPart.push(p('Серьёзных проблем не обнаружено. Сайт прошёл проверку.', { italics: true, color: '047857' }));
-  } else {
-    // компактная таблица для клиента
-    const clientRows: TableRow[] = [
-      new TableRow({ tableHeader: true, children: [
-        cell('Проблема', 5400, { bold: true, fill: 'F3F4F6' }),
-        cell('Важность', 1800, { bold: true, fill: 'F3F4F6', align: AlignmentType.CENTER }),
-        cell('Стр.', 2160, { bold: true, fill: 'F3F4F6', align: AlignmentType.CENTER }),
-      ]}),
-    ];
-    for (const g of grouped) {
-      const m = metaFor(g.code, g.severity);
-      clientRows.push(new TableRow({ children: [
-        cell(m.label, 5400),
-        cell(SEV_RU[g.severity] || g.severity, 1800, {
-          align: AlignmentType.CENTER, bold: true,
-          fill: SEV_FILL[g.severity], color: SEV_TEXT[g.severity],
-        }),
-        cell(String(g.urls.length || g.total), 2160, { align: AlignmentType.CENTER }),
-      ]}));
-    }
-    clientPart.push(new Table({
-      width: { size: CONTENT_W, type: WidthType.DXA },
-      columnWidths: [5400, 1800, 2160],
-      rows: clientRows,
-    }));
+function buildCoverCardParagraphs(domain: string, preparedBy: string, periodMonths: number): Paragraph[] {
+  const tab = TabStopPosition.MAX;
+  const line = (label: string, value: string) => new Paragraph({
+    spacing: { after: 160, line: 300 },
+    tabStops: [{ type: TabStopType.LEFT, position: 2400 }],
+    children: [
+      new TextRun({ text: label, bold: true, size: 26, font: 'Times New Roman', color: COLOR_TEXT }),
+      new TextRun({ text: '\t', size: 26, font: 'Times New Roman' }),
+      new TextRun({ text: value, size: 26, font: 'Times New Roman', color: COLOR_ACCENT }),
+    ],
+  });
+  return [
+    line('Сайт:', domain),
+    line('Дата:', fmtDate()),
+    line('Период:', `${periodMonths} мес.`),
+    line('Подготовил:', preparedBy),
+  ];
+}
 
-    clientPart.push(spacer());
-    clientPart.push(h2('Краткие пояснения к проблемам'));
-    for (const g of grouped) {
-      const m = metaFor(g.code, g.severity);
-      clientPart.push(h3(`${m.label}`, SEV_TEXT[g.severity]));
-      clientPart.push(p(m.client));
-      clientPart.push(p(`Затронуто страниц: ${g.urls.length || g.total}`, { italics: true, color: '6B7280', size: 20 }));
-    }
+function buildAbout(): Paragraph[] {
+  return [
+    h1('О документе'),
+    p('Технический аудит — комплекс мероприятий по проверке сайта с технической точки зрения. По результатам анализа выявляются ошибки, которые мешают сайту нормально индексироваться и ранжироваться в поисковых системах, а также формируется техническое задание по их устранению.'),
+    p('В топ-10 Google и Яндекса быстрее попадают технически исправные сайты. Идеальная архитектура и качественный контент не дадут результата, если присутствуют технические ошибки.'),
+    p('Каждый пункт документа состоит из следующих элементов:', { bold: true }),
+    bullet('Название проверяемой ошибки.'),
+    bullet('Важность — насколько проблема может влиять на результаты продвижения.'),
+    bullet('Сложность внесения — насколько трудно устранить проблему.'),
+    bullet('Описание проблемы — в чём заключается проблема и как она влияет на SEO.'),
+    bullet('Результат проверки: «Ошибки не найдены» или «Ошибка обнаружена».'),
+    p('Если в проверяемом пункте обнаружена ошибка, конкретное ТЗ по её устранению описано в разделе «Рекомендации по устранению ошибок».', { bold: true }),
+    p('Приоритет рекомендаций:', { bold: true }),
+    bullet('Высокая (P1) — выполнить в первую очередь. Игнорирование ведёт к серьёзным проблемам с индексацией.'),
+    bullet('Средняя (P2) — необходимо для успешного продвижения, но не блокирует индексацию.'),
+    bullet('Низкая (P3) — не влияет напрямую на ранжирование, можно выполнить в плановом порядке.'),
+  ];
+}
+
+function buildCheckBlock(r: CheckResult): Paragraph[] {
+  const { check, hasError, totalIssues, affectedUrls } = r;
+  const out: Paragraph[] = [];
+
+  // Заголовок
+  const level = check.num.split('.').length;
+  if (level === 2) out.push(h2(`${check.num}. ${check.title}`));
+  else out.push(h3(`${check.num}. ${check.title}`));
+
+  // Важность / сложность
+  out.push(p(`Важность — ${IMPORTANCE_LABEL[check.importance]}`, { italic: true, bold: true, after: 60 }));
+  out.push(p(`Сложность внесения — ${check.complexity}`, { italic: true, bold: true, after: 160 }));
+
+  // Описание
+  for (const para of check.description) out.push(p(para));
+
+  // Результат
+  out.push(pRuns([
+    new TextRun({ text: 'Результат проверки: ', size: 22, font: 'Times New Roman' }),
+    new TextRun({
+      text: hasError ? 'Ошибка обнаружена' : 'Ошибки не найдены',
+      bold: true, size: 22, font: 'Times New Roman',
+      color: hasError ? COLOR_ERR : COLOR_OK,
+    }),
+    ...(hasError ? [new TextRun({
+      text: ` (затронуто страниц: ${affectedUrls.length || totalIssues})`,
+      size: 22, font: 'Times New Roman', color: COLOR_MUTED,
+    })] : []),
+  ], { after: 120 }));
+
+  if (hasError) {
+    out.push(p('Задание по устранению ошибки описано в разделе «Рекомендации по устранению ошибок».', { italic: true, color: COLOR_MUTED, size: 20 }));
   }
 
-  clientPart.push(new Paragraph({ children: [new PageBreak()] }));
+  return out;
+}
 
-  // ---------- Часть 2: ТЗ для разработчика ----------
-  const devPart: (Paragraph | Table)[] = [
-    h1('Часть 2. Техническое задание для разработчика'),
-    p('Раздел оформлен как чек-лист: по каждой проблеме — приоритет, что делать, где править и список конкретных URL. Двигаться сверху вниз (от критических к информационным).'),
+function buildRecommendation(r: CheckResult, idx: number): Paragraph[] {
+  const { check, affectedUrls, totalIssues } = r;
+  const out: Paragraph[] = [];
 
-    h2('Приоритеты'),
-    bullet('P1 — Критические. Блокируют индексацию или работу сайта. Сделать в течение 1–3 дней.'),
-    bullet('P2 — Предупреждения. Влияют на SEO и UX. Сделать в течение 1–2 недель.'),
-    bullet('P3 — Информационные. Можно включить в плановые работы.'),
+  out.push(h3(`${idx}. [${check.priority}] ${check.title}`));
+  out.push(p(`Приоритет: ${check.priority} • Важность: ${IMPORTANCE_LABEL[check.importance]} • Затронуто страниц: ${affectedUrls.length || totalIssues}`,
+    { italic: true, color: COLOR_MUTED, size: 20, after: 160 }));
 
-    h2('Сводный план задач'),
-  ];
+  out.push(p('Что сделать:', { bold: true, after: 80 }));
+  for (const step of check.fix) out.push(bullet(step));
 
-  if (grouped.length === 0) {
-    devPart.push(p('Замечаний к технической части нет.', { italics: true, color: '047857' }));
-  } else {
-    const planRows: TableRow[] = [
-      new TableRow({ tableHeader: true, children: [
-        cell('№', 540, { bold: true, fill: 'F3F4F6', align: AlignmentType.CENTER }),
-        cell('Приоритет', 1260, { bold: true, fill: 'F3F4F6', align: AlignmentType.CENTER }),
-        cell('Задача', 5760, { bold: true, fill: 'F3F4F6' }),
-        cell('URL', 1800, { bold: true, fill: 'F3F4F6', align: AlignmentType.CENTER }),
-      ]}),
-    ];
-    grouped.forEach((g, idx) => {
-      const m = metaFor(g.code, g.severity);
-      const prio = g.severity === 'critical' ? 'P1' : g.severity === 'warning' ? 'P2' : 'P3';
-      planRows.push(new TableRow({ children: [
-        cell(String(idx + 1), 540, { align: AlignmentType.CENTER }),
-        cell(prio, 1260, { align: AlignmentType.CENTER, bold: true,
-          fill: SEV_FILL[g.severity], color: SEV_TEXT[g.severity] }),
-        cell(m.label, 5760),
-        cell(String(g.urls.length || g.total), 1800, { align: AlignmentType.CENTER }),
-      ]}));
-    });
-    devPart.push(new Table({
-      width: { size: CONTENT_W, type: WidthType.DXA },
-      columnWidths: [540, 1260, 5760, 1800],
-      rows: planRows,
-    }));
-
-    devPart.push(new Paragraph({ children: [new PageBreak()] }));
-    devPart.push(h2('Детальные задачи'));
-
-    grouped.forEach((g, idx) => {
-      const m = metaFor(g.code, g.severity);
-      const prio = g.severity === 'critical' ? 'P1' : g.severity === 'warning' ? 'P2' : 'P3';
-
-      devPart.push(h3(`${idx + 1}. [${prio}] ${m.label}`, SEV_TEXT[g.severity]));
-
-      devPart.push(new Table({
-        width: { size: CONTENT_W, type: WidthType.DXA },
-        columnWidths: [2400, 6960],
-        rows: [
-          new TableRow({ children: [
-            cell('Код проверки', 2400, { bold: true, fill: 'F9FAFB' }),
-            cell(g.code, 6960),
-          ]}),
-          new TableRow({ children: [
-            cell('Приоритет', 2400, { bold: true, fill: 'F9FAFB' }),
-            cell(`${prio} (${SEV_RU[g.severity]})`, 6960,
-              { fill: SEV_FILL[g.severity], color: SEV_TEXT[g.severity], bold: true }),
-          ]}),
-          new TableRow({ children: [
-            cell('Затронуто страниц', 2400, { bold: true, fill: 'F9FAFB' }),
-            cell(String(g.urls.length || g.total), 6960),
-          ]}),
-          new TableRow({ children: [
-            cell('Суть проблемы', 2400, { bold: true, fill: 'F9FAFB' }),
-            cell(m.client, 6960),
-          ]}),
-          new TableRow({ children: [
-            cell('Что сделать', 2400, { bold: true, fill: 'F9FAFB' }),
-            cell(m.fix, 6960),
-          ]}),
-        ],
+  if (affectedUrls.length > 0) {
+    out.push(p('Затронутые URL:', { bold: true, after: 80 }));
+    const shown = affectedUrls.slice(0, 50);
+    for (const u of shown) {
+      out.push(new Paragraph({
+        spacing: { after: 40, line: 280 },
+        children: [new TextRun({ text: `• ${u}`, size: 18, font: 'Consolas', color: COLOR_ACCENT })],
       }));
-
-      if (g.urls.length > 0) {
-        devPart.push(p('URL-адреса для исправления:', { bold: true, size: 20 }));
-        const shown = g.urls.slice(0, 50);
-        for (const u of shown) {
-          devPart.push(new Paragraph({
-            spacing: { after: 40 },
-            children: [new TextRun({ text: `• ${u}`, size: 18, font: 'Consolas', color: '1F2937' })],
-          }));
-        }
-        if (g.urls.length > shown.length) {
-          devPart.push(p(`…и ещё ${g.urls.length - shown.length} URL — полный список в исходных данных аудита.`,
-            { italics: true, color: '6B7280', size: 18 }));
-        }
-      }
-      devPart.push(spacer());
-    });
+    }
+    if (affectedUrls.length > shown.length) {
+      out.push(p(`…и ещё ${affectedUrls.length - shown.length} URL — полный список доступен в интерфейсе аудита.`,
+        { italic: true, color: COLOR_MUTED, size: 18 }));
+    }
   }
 
-  // ---------- Документ ----------
+  out.push(new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: '' })] }));
+  return out;
+}
+
+// =====================================================================
+// Основной экспорт
+// =====================================================================
+export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInput): Promise<void> {
+  const { domain, stats, issues, preparedBy = 'SEO-Аудит', periodMonths = 1 } = input;
+  const results = analyzeChecks(issues || []);
+  const errors = results.filter(r => r.hasError);
+  const totalPages = stats?.total_pages ?? 0;
+
+  // Группировка чеков по разделам
+  const section1 = results.filter(r => r.check.num.startsWith('1.'));
+  const section2 = results.filter(r => r.check.num.startsWith('2.'));
+  const section3 = results.filter(r => r.check.num.startsWith('3.'));
+
+  const children: (Paragraph | Table)[] = [];
+
+  // Cover
+  children.push(...buildCover(domain, preparedBy, periodMonths));
+
+  // О документе
+  children.push(...buildAbout());
+
+  // Сводка
+  children.push(h1('Сводка по аудиту'));
+  children.push(p(`Проверено страниц: ${totalPages}`));
+  children.push(p(`Всего проверок выполнено: ${results.length}`));
+  children.push(pRuns([
+    new TextRun({ text: 'Без ошибок: ', size: 22, font: 'Times New Roman' }),
+    new TextRun({ text: String(results.length - errors.length), bold: true, color: COLOR_OK, size: 22, font: 'Times New Roman' }),
+    new TextRun({ text: '   •   ', size: 22, font: 'Times New Roman', color: COLOR_MUTED }),
+    new TextRun({ text: 'С ошибками: ', size: 22, font: 'Times New Roman' }),
+    new TextRun({ text: String(errors.length), bold: true, color: COLOR_ERR, size: 22, font: 'Times New Roman' }),
+  ]));
+  children.push(p(`Средний ответ сервера (TTFB): ${stats?.avg_load_time_ms ?? 0} мс`));
+
+  // Раздел 1
+  children.push(h1('Технические ошибки', '1'));
+  for (const r of section1) children.push(...buildCheckBlock(r));
+
+  // Раздел 2
+  if (section2.length > 0) {
+    children.push(h1('Ссылки и контент', '2'));
+    for (const r of section2) children.push(...buildCheckBlock(r));
+  }
+
+  // Раздел 3
+  children.push(h1('Ошибки, выявленные парсером', '3'));
+  for (const r of section3) children.push(...buildCheckBlock(r));
+
+  // Раздел 4: Рекомендации (только по ошибкам)
+  children.push(h1('Рекомендации по устранению ошибок', '4'));
+  if (errors.length === 0) {
+    children.push(p('Ошибки на сайте не обнаружены. Технических рекомендаций нет.',
+      { italic: true, color: COLOR_OK, bold: true }));
+  } else {
+    children.push(p('В этом разделе собрано конкретное техническое задание для разработчика — только по тем проверкам, где была обнаружена ошибка. Задачи отсортированы по приоритету.'));
+    // Сортировка: P1 → P2 → P3
+    const sorted = [...errors].sort((a, b) => a.check.priority.localeCompare(b.check.priority));
+    sorted.forEach((r, idx) => children.push(...buildRecommendation(r, idx + 1)));
+  }
+
+  // Документ
   const doc = new Document({
     creator: 'SEO-Аудит',
-    title: `Технический SEO-аудит — ${domain}`,
+    title: `Технический аудит — ${domain}`,
+    numbering: {
+      config: [{
+        reference: 'bullets',
+        levels: [{
+          level: 0, format: LevelFormat.BULLET, text: '●', alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        }],
+      }],
+    },
     styles: {
-      default: { document: { run: { font: 'Arial', size: 22 } } },
+      default: { document: { run: { font: 'Times New Roman', size: 22 } } },
       paragraphStyles: [
         { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-          run: { size: 36, bold: true, font: 'Arial', color: '111827' },
-          paragraph: { spacing: { before: 240, after: 180 }, outlineLevel: 0 } },
+          run: { size: 32, bold: true, font: 'Times New Roman', color: COLOR_TEXT },
+          paragraph: { spacing: { before: 240, after: 240 }, outlineLevel: 0 } },
         { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-          run: { size: 26, bold: true, font: 'Arial', color: '1F2937' },
-          paragraph: { spacing: { before: 220, after: 120 }, outlineLevel: 1 } },
+          run: { size: 26, bold: true, font: 'Times New Roman', color: COLOR_TEXT },
+          paragraph: { spacing: { before: 320, after: 160 }, outlineLevel: 1 } },
         { id: 'Heading3', name: 'Heading 3', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-          run: { size: 22, bold: true, font: 'Arial' },
-          paragraph: { spacing: { before: 180, after: 100 }, outlineLevel: 2 } },
+          run: { size: 24, bold: true, font: 'Times New Roman', color: COLOR_ACCENT },
+          paragraph: { spacing: { before: 240, after: 120 }, outlineLevel: 2 } },
       ],
     },
     sections: [{
       properties: {
         page: {
           size: { width: 11906, height: 16838 }, // A4
-          margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 }, // ~2 см
+          margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 },
         },
       },
       headers: {
         default: new Header({ children: [new Paragraph({ alignment: AlignmentType.RIGHT,
-          children: [new TextRun({ text: `Технический SEO-аудит • ${domain}`, size: 18, color: '9CA3AF', font: 'Arial' })] })] }),
+          children: [new TextRun({ text: `Технический аудит • ${domain}`, size: 18, color: '9CA3AF', font: 'Times New Roman' })] })] }),
       },
       footers: {
         default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: 'Стр. ', size: 18, color: '9CA3AF', font: 'Arial' }),
-                     new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '9CA3AF', font: 'Arial' })] })] }),
+          children: [
+            new TextRun({ text: 'Стр. ', size: 18, color: '9CA3AF', font: 'Times New Roman' }),
+            new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '9CA3AF', font: 'Times New Roman' }),
+          ] })] }),
       },
-      children: [...cover, ...clientPart, ...devPart],
+      children,
     }],
   });
 
   const blob = await Packer.toBlob(doc);
-  const filename = `Tech-Audit_${safeName(domain)}_${new Date().toISOString().slice(0, 10)}.docx`;
+  const filename = `Tehnicheskiy-audit_${safeName(domain)}_${new Date().toISOString().slice(0, 10)}.docx`;
   saveAs(blob, filename);
 }
