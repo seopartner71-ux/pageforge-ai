@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { TechnicalAuditView } from '@/components/audit/TechnicalAuditView';
+import { YandexWebmasterView } from '@/components/audit/YandexWebmasterView';
 import { PageDescription } from '@/components/PageDescription';
 import { ShieldAlert } from 'lucide-react';
 
@@ -70,7 +72,20 @@ export default function TechnicalAuditPage() {
         </form>
       </Card>
 
-      {activeDomain && <TechnicalAuditView domain={activeDomain} />}
+      {activeDomain && (
+        <Tabs defaultValue="checks" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="checks">Технические проверки</TabsTrigger>
+            <TabsTrigger value="yandex">Яндекс Вебмастер</TabsTrigger>
+          </TabsList>
+          <TabsContent value="checks" className="mt-0">
+            <TechnicalAuditView domain={activeDomain} />
+          </TabsContent>
+          <TabsContent value="yandex" className="mt-0">
+            <YandexWebmasterView domain={activeDomain} />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }
