@@ -115,7 +115,7 @@ export function AppSidebar() {
   const bottomItems: Item[] = [
     { label: 'История', path: '/history', icon: HistoryIcon },
     ...(isStaff
-      ? [{ label: 'Центр сотрудника', path: '/staff-hub', icon: LifeBuoy } as Item]
+      ? [{ label: 'Help me', path: '/staff-hub', icon: LifeBuoy } as Item]
       : []),
     ...(isAdmin
       ? [{ label: 'Админ-панель', path: '/admin', icon: Settings } as Item]
