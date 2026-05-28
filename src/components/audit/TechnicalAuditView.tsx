@@ -9,12 +9,13 @@ import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   ChevronDown, ChevronRight, ExternalLink, ShieldAlert, Link2, FileSearch,
-  CheckCircle2, AlertTriangle, Info, AlertCircle, HelpCircle, Trash2, Lock,
+  CheckCircle2, AlertTriangle, Info, AlertCircle, HelpCircle, Trash2, Lock, FileDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { CrawlerStatusIndicator } from './CrawlerStatusIndicator';
 import { AuditInsightsBlock } from './AuditInsightsBlock';
+import { downloadTechnicalAuditDocx } from '@/lib/audit/exportTechnicalAuditDocx';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -416,6 +417,20 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
 
   const isRunning = scanStatus === 'pending' || scanStatus === 'running';
 
+  const handleExport = async () => {
+    if (!jobId) return;
+    try {
+      await downloadTechnicalAuditDocx({
+        domain,
+        stats: jobStats ?? null,
+        issues: jobIssues as any[],
+      });
+      toast.success('Отчёт сформирован');
+    } catch (e: any) {
+      toast.error('Не удалось сформировать отчёт: ' + (e?.message ?? ''));
+    }
+  };
+
   return (
     <div className="space-y-5">
       {isDone && jobId && <AuditInsightsBlock jobId={jobId} />}
@@ -430,6 +445,13 @@ export function TechnicalAuditView({ domain }: { domain: string }) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {isDone && jobId && (
+              <Button variant="outline" size="sm" onClick={handleExport}
+                className="gap-1.5 text-[12px]">
+                <FileDown className="h-3.5 w-3.5" />
+                Отчёт + ТЗ (Word)
+              </Button>
+            )}
             {(jobId || scanStatus !== 'idle') && (
               <Button variant="outline" size="sm" disabled={resetting || isRunning}
                 onClick={() => setConfirmResetOpen(true)}
