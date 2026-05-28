@@ -644,6 +644,37 @@ export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInpu
   ]));
   children.push(p(`Средний ответ сервера (TTFB): ${stats?.avg_load_time_ms ?? 0} мс`));
 
+  // Оглавление
+  children.push(h2('Оглавление'));
+  const tocSections: Array<{ title: string; items: CheckResult[] }> = [
+    { title: '1. Технические ошибки', items: section1 },
+    ...(section2.length > 0 ? [{ title: '2. Ссылки и контент', items: section2 }] : []),
+    { title: '3. Ошибки, выявленные парсером', items: section3 },
+  ];
+  for (const sec of tocSections) {
+    children.push(p(sec.title, { bold: true, after: 80 }));
+    for (const r of sec.items) {
+      children.push(new Paragraph({
+        spacing: { after: 40, line: 280 },
+        tabStops: [{ type: TabStopType.RIGHT, position: 9360 }],
+        children: [
+          new TextRun({ text: `   ${r.check.num}. ${r.check.title}`, size: 20, font: 'Arial', color: COLOR_TEXT }),
+          new TextRun({ text: '\t', size: 20, font: 'Arial' }),
+          new TextRun({
+            text: r.hasError ? 'Ошибка обнаружена' : 'Ошибки не найдены',
+            size: 20, font: 'Arial', bold: true,
+            color: r.hasError ? COLOR_ERR : COLOR_OK,
+          }),
+        ],
+      }));
+    }
+  }
+  children.push(p('4. Рекомендации по устранению ошибок', { bold: true, after: 40 }));
+  children.push(pRuns([
+    new TextRun({ text: `   Всего задач для разработчика: `, size: 20, font: 'Arial', color: COLOR_TEXT }),
+    new TextRun({ text: String(errors.length), size: 20, font: 'Arial', bold: true, color: errors.length > 0 ? COLOR_ERR : COLOR_OK }),
+  ], { after: 120 }));
+
   // Раздел 1
   children.push(h1('Технические ошибки', '1'));
   for (const r of section1) children.push(...buildCheckBlock(r));
