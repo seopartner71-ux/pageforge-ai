@@ -253,6 +253,76 @@ export default function AiVisibilityPage() {
   }, [results]);
 
   const [exporting, setExporting] = useState(false);
+  const [runProgress, setRunProgress] = useState<{ completed: number; total: number; current?: string } | null>(null);
+  const [geoPlan, setGeoPlan] = useState('');
+  const [planLoading, setPlanLoading] = useState(false);
+
+  // Realtime progress subscription
+  useEffect(() => {
+    if (!activeProjectId) return;
+    const channel = supabase
+      .channel(`radar-runs-${activeProjectId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'radar_analysis_runs',
+        filter: `project_id=eq.${activeProjectId}`,
+      }, (payload: any) => {
+        const row = payload.new;
+        if (!row) return;
+        if (row.status === 'running') {
+          setRunProgress({ completed: row.completed_prompts || 0, total: row.total_prompts || 0, current: row.current_prompt_text || '' });
+        } else {
+          setRunProgress(null);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeProjectId]);
+
+  async function generateGeoPlan() {
+    if (!activeProject) return;
+    setPlanLoading(true);
+    setGeoPlan('');
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) throw new Error('Войдите в аккаунт');
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-geo-plan`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          project_id: activeProject.id,
+          radar_data: { radar: radarData, topCompetitors, totalResults: results.length },
+        }),
+      });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      let acc = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            const json = JSON.parse(data);
+            const delta = json.choices?.[0]?.delta?.content || '';
+            if (delta) { acc += delta; setGeoPlan(acc); }
+          } catch {}
+        }
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Не удалось сформировать план');
+    } finally {
+      setPlanLoading(false);
+    }
+  }
+
   async function handleExportDocx() {
     if (!activeProject || results.length === 0) {
       toast.error('Нет данных для экспорта. Запустите прогон.');
