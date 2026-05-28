@@ -629,10 +629,8 @@ export async function downloadTechnicalAuditDocx(input: TechnicalAuditExportInpu
   // О документе
   children.push(...buildAbout());
 
-  // Сводка
-  children.push(h1('Сводка по аудиту'));
   // Оглавление
-  children.push(h2('Оглавление'));
+  children.push(h1('Оглавление'));
   const tocSections: Array<{ title: string; items: CheckResult[] }> = [
     { title: '1. Технические ошибки', items: section1 },
     ...(section2.length > 0 ? [{ title: '2. Ссылки и контент', items: section2 }] : []),
