@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -55,6 +56,10 @@ export default function AiVisibilityPage() {
   const [brand, setBrand] = useState('');
   const [domain, setDomain] = useState('');
   const [lang, setLang] = useState('ru');
+  const [description, setDescription] = useState('');
+  const [products, setProducts] = useState('');
+  const [bulkKeywords, setBulkKeywords] = useState('');
+  const [suggesting, setSuggesting] = useState(false);
   const [selectedResult, setSelectedResult] = useState<Result | null>(null);
 
   const activeProject = useMemo(
@@ -109,10 +114,61 @@ export default function AiVisibilityPage() {
       .select('id, brand_name, domain, language')
       .single();
     if (error) { toast.error(error.message); return; }
-    toast.success('Проект создан');
-    setCreateOpen(false); setBrand(''); setDomain('');
+
+    // Parse bulk keywords (one per line, max 10)
+    const kws = bulkKeywords
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.length >= 2)
+      .slice(0, 10);
+    if (kws.length) {
+      const rows = kws.map((keyword) => ({
+        user_id: user.user!.id, project_id: data.id, keyword,
+      }));
+      const { error: kerr } = await supabase.from('radar_keywords').insert(rows);
+      if (kerr) toast.error(`Запросы: ${kerr.message}`);
+    }
+
+    toast.success(`Проект создан${kws.length ? `, добавлено запросов: ${kws.length}` : ''}`);
+    setCreateOpen(false);
+    setBrand(''); setDomain(''); setDescription(''); setProducts(''); setBulkKeywords('');
     setProjects((p) => [data as Project, ...p]);
     setActiveProjectId(data.id);
+  }
+
+  async function suggestPrompts() {
+    if (!brand.trim() || !domain.trim()) {
+      toast.error('Сначала укажите бренд и домен');
+      return;
+    }
+    setSuggesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('radar-suggest-prompts', {
+        body: {
+          brand_name: brand.trim(),
+          domain: domain.trim(),
+          language: lang,
+          description: description.trim(),
+          products: products.trim(),
+          count: 10,
+        },
+      });
+      if (error) throw error;
+      const prompts: string[] = (data as any)?.prompts || [];
+      if (!prompts.length) {
+        toast.error('ИИ не вернул промты, попробуйте ещё раз');
+        return;
+      }
+      // Merge with existing, dedupe, cap at 10
+      const existing = bulkKeywords.split('\n').map((s) => s.trim()).filter(Boolean);
+      const merged = [...new Set([...existing, ...prompts])].slice(0, 10);
+      setBulkKeywords(merged.join('\n'));
+      toast.success(`Сгенерировано ${prompts.length} промтов`);
+    } catch (e: any) {
+      toast.error(e.message || 'Не удалось сгенерировать промты');
+    } finally {
+      setSuggesting(false);
+    }
   }
 
   async function addKeyword() {
@@ -275,7 +331,7 @@ export default function AiVisibilityPage() {
             <DialogTrigger asChild>
               <Button variant="outline"><Plus className="w-4 h-4 mr-1" />Новый проект</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Новый проект GEO Radar</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div>
@@ -295,6 +351,45 @@ export default function AiVisibilityPage() {
                       <SelectItem value="en">English</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label>Описание компании <span className="text-muted-foreground text-xs">(для AI-подсказок)</span></Label>
+                  <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Чем занимается компания, для кого, регион"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <Label>Продукты / услуги</Label>
+                  <Textarea
+                    value={products}
+                    onChange={(e) => setProducts(e.target.value)}
+                    placeholder="Например: CRM для малого бизнеса, IP-телефония, чат-боты"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label>Запросы (до 10, по одному на строку)</Label>
+                    <Button
+                      type="button" size="sm" variant="outline"
+                      onClick={suggestPrompts} disabled={suggesting}
+                    >
+                      {suggesting ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RadarIcon className="w-3 h-3 mr-1" />}
+                      Сгенерировать с ИИ
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={bulkKeywords}
+                    onChange={(e) => setBulkKeywords(e.target.value)}
+                    placeholder={'лучшие CRM для малого бизнеса\nсравнение CRM 2026\n...'}
+                    rows={6}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {bulkKeywords.split('\n').filter((s) => s.trim().length >= 2).length} / 10 запросов
+                  </p>
                 </div>
               </div>
               <DialogFooter>
