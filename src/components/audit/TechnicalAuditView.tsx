@@ -48,6 +48,9 @@ const CHECK_INFO: Record<string, CheckInfo> = {
   duplicate_h1: { importance: 'Высокая', description: 'Дубли H1 между страницами.' },
   missing_alt: { importance: 'Средняя', description: 'Картинки без alt.' },
   broken_link: { importance: 'Высокая', description: 'Битые внутренние ссылки.' },
+  broken_external_link: { importance: 'Высокая', description: 'Битые внешние ссылки на другие сайты (4xx/5xx ответ).' },
+  http_link: { importance: 'Средняя', description: 'Внутренние ссылки используют HTTP вместо HTTPS.' },
+  external_link: { importance: 'Низкая', description: 'Исходящие ссылки на внешние сайты. Это не ошибка — информация для контроля внешних связей.' },
 };
 const IMPORTANCE_CLS: Record<string, string> = {
   'Критическая': 'text-red-400', 'Высокая': 'text-orange-400',
