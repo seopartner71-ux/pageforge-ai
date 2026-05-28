@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { PageDescription } from '@/components/PageDescription';
-import { Radar as RadarIcon, Plus, Play, Trash2, Loader2, CheckCircle2, XCircle, FileDown } from 'lucide-react';
+import { Radar as RadarIcon, Plus, Play, Trash2, Loader2, CheckCircle2, XCircle, FileDown, Sparkles } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,12 +12,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   RadarChart, Radar as RadarShape, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip,
 } from 'recharts';
 import { exportAiVisibilityDocx } from '@/lib/exportAiVisibilityDocx';
+import MentionsPage from './ai-visibility/MentionsPage';
+import PromptsPage from './ai-visibility/PromptsPage';
+import SourcesPage from './ai-visibility/SourcesPage';
+import ReactMarkdown from 'react-markdown';
 
 type Project = { id: string; brand_name: string; domain: string; language: string };
 type Keyword = { id: string; keyword: string; last_checked_at: string | null };
@@ -248,6 +253,76 @@ export default function AiVisibilityPage() {
   }, [results]);
 
   const [exporting, setExporting] = useState(false);
+  const [runProgress, setRunProgress] = useState<{ completed: number; total: number; current?: string } | null>(null);
+  const [geoPlan, setGeoPlan] = useState('');
+  const [planLoading, setPlanLoading] = useState(false);
+
+  // Realtime progress subscription
+  useEffect(() => {
+    if (!activeProjectId) return;
+    const channel = supabase
+      .channel(`radar-runs-${activeProjectId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'radar_analysis_runs',
+        filter: `project_id=eq.${activeProjectId}`,
+      }, (payload: any) => {
+        const row = payload.new;
+        if (!row) return;
+        if (row.status === 'running') {
+          setRunProgress({ completed: row.completed_prompts || 0, total: row.total_prompts || 0, current: row.current_prompt_text || '' });
+        } else {
+          setRunProgress(null);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeProjectId]);
+
+  async function generateGeoPlan() {
+    if (!activeProject) return;
+    setPlanLoading(true);
+    setGeoPlan('');
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) throw new Error('Войдите в аккаунт');
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-geo-plan`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          project_id: activeProject.id,
+          radar_data: { radar: radarData, topCompetitors, totalResults: results.length },
+        }),
+      });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      let acc = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            const json = JSON.parse(data);
+            const delta = json.choices?.[0]?.delta?.content || '';
+            if (delta) { acc += delta; setGeoPlan(acc); }
+          } catch {}
+        }
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Не удалось сформировать план');
+    } finally {
+      setPlanLoading(false);
+    }
+  }
+
   async function handleExportDocx() {
     if (!activeProject || results.length === 0) {
       toast.error('Нет данных для экспорта. Запустите прогон.');
@@ -407,10 +482,32 @@ export default function AiVisibilityPage() {
           </Button>
         </Card>
 
+        {runProgress && runProgress.total > 0 && (
+          <Card className="p-4 space-y-2 border-primary/40">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 font-medium">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                Сканирование: {runProgress.completed} / {runProgress.total}
+              </span>
+              <span className="text-muted-foreground">
+                {Math.round((runProgress.completed / runProgress.total) * 100)}%
+              </span>
+            </div>
+            <Progress value={(runProgress.completed / runProgress.total) * 100} />
+            {runProgress.current && (
+              <p className="text-xs text-muted-foreground truncate">→ {runProgress.current}</p>
+            )}
+          </Card>
+        )}
+
         {activeProject ? (
           <Tabs defaultValue="dashboard" className="space-y-4">
             <TabsList>
               <TabsTrigger value="dashboard">Дашборд</TabsTrigger>
+              <TabsTrigger value="mentions">Позиции</TabsTrigger>
+              <TabsTrigger value="prompts">Промпты</TabsTrigger>
+              <TabsTrigger value="sources">Источники</TabsTrigger>
+              <TabsTrigger value="strategy">GEO Стратегия</TabsTrigger>
               <TabsTrigger value="keywords">Запросы ({keywords.length})</TabsTrigger>
               <TabsTrigger value="results">Результаты ({results.length})</TabsTrigger>
             </TabsList>
@@ -447,6 +544,46 @@ export default function AiVisibilityPage() {
                   )}
                 </Card>
               </div>
+            </TabsContent>
+
+            <TabsContent value="mentions">
+              <MentionsPage projectId={activeProject.id} />
+            </TabsContent>
+            <TabsContent value="prompts">
+              <PromptsPage projectId={activeProject.id} />
+            </TabsContent>
+            <TabsContent value="sources">
+              <SourcesPage projectId={activeProject.id} />
+            </TabsContent>
+            <TabsContent value="strategy">
+              <Card className="p-5 space-y-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <h3 className="text-base font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      GEO Стратегия
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      AI-сгенерированный план действий на 30/60/90 дней на основе данных аудита.
+                    </p>
+                  </div>
+                  <Button onClick={generateGeoPlan} disabled={planLoading || results.length === 0}>
+                    {planLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                    {geoPlan ? 'Перегенерировать' : 'Сгенерировать GEO-план'}
+                  </Button>
+                </div>
+                {geoPlan ? (
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{geoPlan}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {results.length === 0
+                      ? 'Сначала запустите прогон, чтобы собрать данные для плана.'
+                      : 'Нажмите кнопку, чтобы AI составил персональный план роста видимости в LLM.'}
+                  </p>
+                )}
+              </Card>
             </TabsContent>
 
             <TabsContent value="keywords">
