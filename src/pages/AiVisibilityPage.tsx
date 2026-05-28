@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { PageDescription } from '@/components/PageDescription';
-import { Radar as RadarIcon, Plus, Play, Trash2, Loader2, CheckCircle2, XCircle, FileDown } from 'lucide-react';
+import { Radar as RadarIcon, Plus, Play, Trash2, Loader2, CheckCircle2, XCircle, FileDown, Sparkles } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,12 +12,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   RadarChart, Radar as RadarShape, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip,
 } from 'recharts';
 import { exportAiVisibilityDocx } from '@/lib/exportAiVisibilityDocx';
+import MentionsPage from './ai-visibility/MentionsPage';
+import PromptsPage from './ai-visibility/PromptsPage';
+import SourcesPage from './ai-visibility/SourcesPage';
+import ReactMarkdown from 'react-markdown';
 
 type Project = { id: string; brand_name: string; domain: string; language: string };
 type Keyword = { id: string; keyword: string; last_checked_at: string | null };
