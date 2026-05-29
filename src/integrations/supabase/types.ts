@@ -1032,26 +1032,38 @@ export type Database = {
         Row: {
           created_at: string
           domain: string | null
+          gsc_connected: boolean
+          gsc_site_url: string | null
           id: string
           name: string
           updated_at: string
           user_id: string
+          yandex_connected: boolean
+          yandex_host: string | null
         }
         Insert: {
           created_at?: string
           domain?: string | null
+          gsc_connected?: boolean
+          gsc_site_url?: string | null
           id?: string
           name: string
           updated_at?: string
           user_id: string
+          yandex_connected?: boolean
+          yandex_host?: string | null
         }
         Update: {
           created_at?: string
           domain?: string | null
+          gsc_connected?: boolean
+          gsc_site_url?: string | null
           id?: string
           name?: string
           updated_at?: string
           user_id?: string
+          yandex_connected?: boolean
+          yandex_host?: string | null
         }
         Relationships: []
       }
