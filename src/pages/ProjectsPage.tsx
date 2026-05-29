@@ -13,14 +13,8 @@ import {
   FolderKanban, Plus, Trash2, Gauge, Search as SearchIcon, CheckCircle2, XCircle, Link2, Loader2,
 } from 'lucide-react';
 
-const YANDEX_AUTHORIZE = 'https://oauth.yandex.ru/authorize';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/yandex-oauth-callback`;
-// Если в env прокинули VITE_YANDEX_CLIENT_ID — используем; иначе попросим у edge функции через ?
-// Для упрощения ClientID должен совпадать с зарегистрированным в Яндексе и попадает в URL авторизации.
-const YANDEX_CLIENT_ID =
-  (import.meta.env.VITE_YANDEX_CLIENT_ID as string | undefined) || '';
 
 type Project = {
   id: string;
@@ -119,29 +113,26 @@ export default function ProjectsPage() {
 
   // === Yandex OAuth ===
   const startYandexOAuth = async () => {
-    if (!YANDEX_CLIENT_ID) {
-      toast({
-        title: 'Не указан Yandex Client ID',
-        description: 'Добавьте VITE_YANDEX_CLIENT_ID в переменные окружения проекта.',
-        variant: 'destructive',
-      });
-      return;
-    }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       toast({ title: 'Войдите в систему', variant: 'destructive' });
       return;
     }
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: YANDEX_CLIENT_ID,
-      redirect_uri: CALLBACK_URL,
-      state: session.access_token,
-      force_confirm: 'yes',
-    });
-    const url = `${YANDEX_AUTHORIZE}?${params.toString()}`;
-    const w = window.open(url, 'yandex_oauth', 'width=560,height=720');
-    if (!w) window.location.href = url;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/yandex-oauth-start`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: SUPABASE_KEY,
+        },
+      });
+      const json = await res.json();
+      if (!res.ok || !json.url) throw new Error(json.error || 'oauth_start_failed');
+      const w = window.open(json.url, 'yandex_oauth', 'width=560,height=720');
+      if (!w) window.location.href = json.url;
+    } catch (e) {
+      toast({ title: 'Ошибка OAuth', description: (e as Error).message, variant: 'destructive' });
+    }
   };
 
   const callYandex = async (body: Record<string, unknown>) => {
