@@ -15,7 +15,7 @@ import {
 import {
   LayoutGrid, Search, Sparkles, Link2, Users, BarChart3, Target,
   Code2, History as HistoryIcon, Zap, Smartphone, Network, FileText,
-  PenSquare, User, Settings, Bot, ShieldAlert, Gauge, LifeBuoy, Radar, Mic,
+  PenSquare, User, Settings, Bot, ShieldAlert, Gauge, LifeBuoy, Radar, Mic, FolderKanban,
 } from 'lucide-react';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { useStaffRole } from '@/hooks/useStaffRole';
@@ -49,6 +49,7 @@ const PREFETCH: Record<string, () => Promise<unknown>> = {
   '/staff-hub': () => import('@/pages/StaffHubPage'),
   '/ai-visibility': () => import('@/pages/AiVisibilityPage'),
   '/alice-visibility': () => import('@/pages/AliceVisibilityPage'),
+  '/projects': () => import('@/pages/ProjectsPage'),
 };
 const prefetched = new Set<string>();
 function prefetch(path: string) {
@@ -64,6 +65,7 @@ const GROUPS: Group[] = [
     label: 'Главное',
     items: [
       { label: 'Все инструменты', path: '/tools', icon: LayoutGrid },
+      { label: 'Проекты', path: '/projects', icon: FolderKanban },
       { label: 'On-page страницы', path: '/dashboard', icon: Search },
     ],
   },
