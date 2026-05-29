@@ -1827,6 +1827,36 @@ export type Database = {
         }
         Relationships: []
       }
+      yandex_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          refresh_token: string
+          updated_at: string
+          user_id: string
+          yandex_login: string | null
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          refresh_token: string
+          updated_at?: string
+          user_id: string
+          yandex_login?: string | null
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          refresh_token?: string
+          updated_at?: string
+          user_id?: string
+          yandex_login?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

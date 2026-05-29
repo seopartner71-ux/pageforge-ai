@@ -10,8 +10,11 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
-  FolderKanban, Plus, Trash2, Gauge, Search as SearchIcon, CheckCircle2, XCircle,
+  FolderKanban, Plus, Trash2, Gauge, Search as SearchIcon, CheckCircle2, XCircle, Link2, Loader2,
 } from 'lucide-react';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 type Project = {
   id: string;
@@ -22,6 +25,13 @@ type Project = {
   gsc_connected: boolean;
   yandex_connected: boolean;
   created_at: string;
+};
+
+type YandexHost = {
+  host_id: string;
+  ascii_host_url?: string;
+  unicode_host_url?: string;
+  verified?: boolean;
 };
 
 function normalizeDomain(value: string): string {
@@ -35,24 +45,45 @@ export default function ProjectsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDomain, setNewDomain] = useState('');
-  const [connectFor, setConnectFor] = useState<{ project: Project; kind: 'gsc' | 'yandex' } | null>(null);
-  const [connectValue, setConnectValue] = useState('');
+  const [gscFor, setGscFor] = useState<Project | null>(null);
+  const [gscValue, setGscValue] = useState('');
+
+  const [yandexConnected, setYandexConnected] = useState(false);
+  const [yandexLogin, setYandexLogin] = useState<string | null>(null);
+  const [yandexHosts, setYandexHosts] = useState<YandexHost[]>([]);
+  const [yandexLoadingHosts, setYandexLoadingHosts] = useState(false);
+  const [pickHostFor, setPickHostFor] = useState<Project | null>(null);
 
   const load = async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, name, domain, gsc_site_url, yandex_host, gsc_connected, yandex_connected, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    const [{ data, error }, { data: tok }] = await Promise.all([
+      supabase
+        .from('projects')
+        .select('id, name, domain, gsc_site_url, yandex_host, gsc_connected, yandex_connected, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
+      supabase.from('yandex_tokens').select('yandex_login').eq('user_id', user.id).maybeSingle(),
+    ]);
     if (error) toast({ title: 'Ошибка загрузки', description: error.message, variant: 'destructive' });
     setProjects((data ?? []) as Project[]);
+    setYandexConnected(!!tok);
+    setYandexLogin(tok?.yandex_login ?? null);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'yandex-oauth-done') {
+        toast({ title: 'Яндекс подключён' });
+        load();
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
 
   const createProject = async () => {
     const name = newName.trim();
@@ -60,9 +91,7 @@ export default function ProjectsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const domain = newDomain ? normalizeDomain(newDomain) : '';
-    const { error } = await supabase.from('projects').insert({
-      user_id: user.id, name, domain,
-    });
+    const { error } = await supabase.from('projects').insert({ user_id: user.id, name, domain });
     if (error) {
       toast({ title: 'Не удалось создать', description: error.message, variant: 'destructive' });
       return;
@@ -82,35 +111,117 @@ export default function ProjectsPage() {
     setProjects((p) => p.filter((x) => x.id !== id));
   };
 
-  const openConnect = (project: Project, kind: 'gsc' | 'yandex') => {
-    setConnectFor({ project, kind });
-    setConnectValue(kind === 'gsc'
-      ? (project.gsc_site_url || (project.domain ? `https://${project.domain}/` : ''))
-      : (project.yandex_host || project.domain || ''));
+  // === Yandex OAuth ===
+  const startYandexOAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({ title: 'Войдите в систему', variant: 'destructive' });
+      return;
+    }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/yandex-oauth-start`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: SUPABASE_KEY,
+        },
+      });
+      const json = await res.json();
+      if (!res.ok || !json.url) throw new Error(json.error || 'oauth_start_failed');
+      const w = window.open(json.url, 'yandex_oauth', 'width=560,height=720');
+      if (!w) window.location.href = json.url;
+    } catch (e) {
+      toast({ title: 'Ошибка OAuth', description: (e as Error).message, variant: 'destructive' });
+    }
   };
 
-  const saveConnect = async () => {
-    if (!connectFor) return;
-    const { project, kind } = connectFor;
-    const value = connectValue.trim();
+  const callYandex = async (body: Record<string, unknown>) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/yandex-webmaster-api`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session?.access_token}`,
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'request failed');
+    return json;
+  };
+
+  const openHostPicker = async (project: Project) => {
+    setPickHostFor(project);
+    setYandexLoadingHosts(true);
+    setYandexHosts([]);
+    try {
+      const r = await callYandex({ action: 'hosts' });
+      setYandexHosts(r.hosts ?? []);
+    } catch (e) {
+      toast({ title: 'Не удалось получить хосты', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setYandexLoadingHosts(false);
+    }
+  };
+
+  const linkHostToProject = async (host: YandexHost) => {
+    if (!pickHostFor) return;
+    const { error } = await supabase
+      .from('projects')
+      .update({ yandex_host: host.host_id, yandex_connected: true })
+      .eq('id', pickHostFor.id);
+    if (error) {
+      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Сайт привязан', description: host.unicode_host_url || host.host_id });
+    setPickHostFor(null);
+    load();
+  };
+
+  const disconnectYandexAccount = async () => {
+    if (!confirm('Отключить аккаунт Яндекса? Все проекты потеряют связь с Вебмастером.')) return;
+    try {
+      await callYandex({ action: 'disconnect' });
+      toast({ title: 'Аккаунт отключён' });
+      load();
+    } catch (e) {
+      toast({ title: 'Ошибка', description: (e as Error).message, variant: 'destructive' });
+    }
+  };
+
+  const onYandexAction = (project: Project) => {
+    if (!yandexConnected) startYandexOAuth();
+    else openHostPicker(project);
+  };
+
+  const openGsc = (project: Project) => {
+    setGscFor(project);
+    setGscValue(project.gsc_site_url || (project.domain ? `https://${project.domain}/` : ''));
+  };
+
+  const saveGsc = async () => {
+    if (!gscFor) return;
+    const value = gscValue.trim();
     if (!value) return;
-    const patch = kind === 'gsc'
-      ? { gsc_site_url: value, gsc_connected: true }
-      : { yandex_host: normalizeDomain(value), yandex_connected: true };
-    const { error } = await supabase.from('projects').update(patch).eq('id', project.id);
+    const { error } = await supabase
+      .from('projects')
+      .update({ gsc_site_url: value, gsc_connected: true })
+      .eq('id', gscFor.id);
     if (error) {
       toast({ title: 'Ошибка сохранения', description: error.message, variant: 'destructive' });
       return;
     }
     toast({ title: 'Подключено' });
-    setConnectFor(null);
+    setGscFor(null);
     load();
   };
 
   const disconnect = async (project: Project, kind: 'gsc' | 'yandex') => {
     const patch = kind === 'gsc'
       ? { gsc_connected: false }
-      : { yandex_connected: false };
+      : { yandex_connected: false, yandex_host: null };
     const { error } = await supabase.from('projects').update(patch).eq('id', project.id);
     if (error) {
       toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
@@ -161,6 +272,31 @@ export default function ProjectsPage() {
         </Dialog>
       </div>
 
+      <Card className="bg-card border-border p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-9 w-9 rounded-md bg-primary/10 text-primary flex items-center justify-center">
+            <Gauge className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-foreground">Аккаунт Яндекс.Вебмастера</div>
+            <div className="text-[11px] text-muted-foreground truncate">
+              {yandexConnected
+                ? <>Подключён{yandexLogin ? ` как ${yandexLogin}` : ''} — используется для всех проектов</>
+                : <>Подключите аккаунт один раз — затем выбирайте сайт из списка ваших хостов</>}
+            </div>
+          </div>
+        </div>
+        {yandexConnected ? (
+          <Button variant="ghost" size="sm" onClick={disconnectYandexAccount}>
+            Отключить аккаунт
+          </Button>
+        ) : (
+          <Button size="sm" onClick={startYandexOAuth}>
+            <Link2 className="h-4 w-4 mr-1.5" /> Подключить Яндекс
+          </Button>
+        )}
+      </Card>
+
       {loading ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">Загрузка…</Card>
       ) : projects.length === 0 ? (
@@ -201,7 +337,7 @@ export default function ProjectsPage() {
                   label="Google Search Console"
                   connected={p.gsc_connected}
                   detail={p.gsc_site_url}
-                  onConnect={() => openConnect(p, 'gsc')}
+                  onConnect={() => openGsc(p)}
                   onDisconnect={() => disconnect(p, 'gsc')}
                 />
                 <ConnectionRow
@@ -209,8 +345,9 @@ export default function ProjectsPage() {
                   label="Яндекс.Вебмастер"
                   connected={p.yandex_connected}
                   detail={p.yandex_host}
-                  onConnect={() => openConnect(p, 'yandex')}
+                  onConnect={() => onYandexAction(p)}
                   onDisconnect={() => disconnect(p, 'yandex')}
+                  actionLabel={yandexConnected ? 'Выбрать сайт' : 'Подключить Яндекс'}
                 />
               </div>
             </Card>
@@ -218,31 +355,68 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      <Dialog open={!!connectFor} onOpenChange={(o) => !o && setConnectFor(null)}>
+      <Dialog open={!!pickHostFor} onOpenChange={(o) => !o && setPickHostFor(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Выберите сайт в Яндекс.Вебмастере</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            {yandexLoadingHosts ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center">
+                <Loader2 className="h-4 w-4 animate-spin" /> Загрузка хостов…
+              </div>
+            ) : yandexHosts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                В вашем Вебмастере нет добавленных сайтов
+              </p>
+            ) : (
+              <div className="space-y-1 max-h-[420px] overflow-y-auto">
+                {yandexHosts.map((h) => (
+                  <button
+                    key={h.host_id}
+                    onClick={() => linkHostToProject(h)}
+                    className="w-full text-left flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-border/60 hover:bg-secondary transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm text-foreground truncate">
+                        {h.unicode_host_url || h.ascii_host_url || h.host_id}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground truncate">{h.host_id}</div>
+                    </div>
+                    {h.verified ? (
+                      <Badge variant="secondary" className="gap-1 shrink-0">
+                        <CheckCircle2 className="h-3 w-3 text-green-500" /> Подтверждён
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="shrink-0 text-muted-foreground">Не подтверждён</Badge>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!gscFor} onOpenChange={(o) => !o && setGscFor(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {connectFor?.kind === 'gsc' ? 'Подключить Google Search Console' : 'Подключить Яндекс.Вебмастер'}
-            </DialogTitle>
+            <DialogTitle>Подключить Google Search Console</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <Label className="block text-sm">
-              {connectFor?.kind === 'gsc' ? 'URL ресурса в GSC' : 'Хост сайта в Вебмастере'}
-            </Label>
+            <Label className="block text-sm">URL ресурса в GSC</Label>
             <Input
-              value={connectValue}
-              onChange={(e) => setConnectValue(e.target.value)}
-              placeholder={connectFor?.kind === 'gsc' ? 'https://example.com/' : 'example.com'}
+              value={gscValue}
+              onChange={(e) => setGscValue(e.target.value)}
+              placeholder="https://example.com/"
             />
             <p className="text-[11px] text-muted-foreground">
-              {connectFor?.kind === 'gsc'
-                ? 'Укажите ресурс ровно как он добавлен в Google Search Console (с протоколом и слэшем).'
-                : 'Хост сайта без протокола, например: example.com'}
+              Укажите ресурс ровно как он добавлен в Google Search Console (с протоколом и слэшем).
             </p>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setConnectFor(null)}>Отмена</Button>
-            <Button onClick={saveConnect} disabled={!connectValue.trim()}>Сохранить</Button>
+            <Button variant="ghost" onClick={() => setGscFor(null)}>Отмена</Button>
+            <Button onClick={saveGsc} disabled={!gscValue.trim()}>Сохранить</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -251,7 +425,7 @@ export default function ProjectsPage() {
 }
 
 function ConnectionRow({
-  icon, label, connected, detail, onConnect, onDisconnect,
+  icon, label, connected, detail, onConnect, onDisconnect, actionLabel,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -259,6 +433,7 @@ function ConnectionRow({
   detail: string | null;
   onConnect: () => void;
   onDisconnect: () => void;
+  actionLabel?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2">
@@ -284,7 +459,7 @@ function ConnectionRow({
         {connected ? (
           <Button size="sm" variant="ghost" onClick={onDisconnect}>Отключить</Button>
         ) : (
-          <Button size="sm" variant="outline" onClick={onConnect}>Подключить</Button>
+          <Button size="sm" variant="outline" onClick={onConnect}>{actionLabel || 'Подключить'}</Button>
         )}
       </div>
     </div>
