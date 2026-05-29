@@ -42,6 +42,7 @@ const ToolsHubPage = lazy(() => import('./pages/ToolsHubPage.tsx'));
 const StaffHubPage = lazy(() => import('./pages/StaffHubPage.tsx'));
 const AiVisibilityPage = lazy(() => import('./pages/AiVisibilityPage.tsx'));
 const AliceVisibilityPage = lazy(() => import('./pages/AliceVisibilityPage.tsx'));
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage.tsx'));
 const AppLayout = lazy(() => import('./components/AppLayout.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
 
@@ -157,6 +158,7 @@ const App = () => (
                   <Route path="/yandex-webmaster" element={<YandexWebmasterPage />} />
                   <Route path="/ai-visibility" element={<AiVisibilityPage />} />
                   <Route path="/alice-visibility" element={<AliceVisibilityPage />} />
+                  <Route path="/projects" element={<ProjectsPage />} />
                 </Route>
                 <Route element={<AdminGate><AppLayout /></AdminGate>}>
                   <Route path="/admin" element={<AdminPage />} />
