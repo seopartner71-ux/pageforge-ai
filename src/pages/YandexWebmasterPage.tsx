@@ -2,13 +2,9 @@ import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { YandexWebmasterView } from '@/components/audit/YandexWebmasterView';
 import { Gauge, Plug, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-
-const YANDEX_CLIENT_ID = 'fb246e32678145fd973e9e1a5b476843';
-const REDIRECT_URI = 'https://slyvnzxvkyqtiyawethv.supabase.co/functions/v1/yandex-oauth-callback';
 
 export default function YandexWebmasterPage() {
   const [domainInput, setDomainInput] = useState('');
@@ -44,12 +40,15 @@ export default function YandexWebmasterPage() {
       alert('Сначала войдите в систему');
       return;
     }
-    const url = new URL('https://oauth.yandex.ru/authorize');
-    url.searchParams.set('response_type', 'code');
-    url.searchParams.set('client_id', YANDEX_CLIENT_ID);
-    url.searchParams.set('redirect_uri', REDIRECT_URI);
-    url.searchParams.set('state', jwt);
-    window.open(url.toString(), 'yandex_oauth', 'width=600,height=600');
+    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/yandex-oauth-start`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    });
+    const json = await res.json();
+    if (!res.ok || !json.url) {
+      alert(json.error || 'Не удалось начать авторизацию');
+      return;
+    }
+    window.open(json.url, 'yandex_oauth', 'width=600,height=600');
   };
 
   const submit = (e: React.FormEvent) => {
