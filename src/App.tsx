@@ -49,6 +49,7 @@ const AdsOverviewPage = lazy(() => import('./pages/AdsOverviewPage.tsx'));
 const AdsPlaceholderPage = lazy(() => import('./pages/AdsPlaceholderPage.tsx'));
 const AdsAccountsPage = lazy(() => import('./pages/AdsAccountsPage.tsx'));
 const AnalyticsPlaceholderPage = lazy(() => import('./pages/AnalyticsPlaceholderPage.tsx'));
+const NicheOverviewPage = lazy(() => import('./pages/analytics/NicheOverviewPage.tsx'));
 const SeoPlaceholderPage = lazy(() => import('./pages/SeoPlaceholderPage.tsx'));
 const AppLayout = lazy(() => import('./components/AppLayout.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
@@ -153,6 +154,8 @@ const App = () => (
                   <Route path="/ads/accounts" element={<AdsAccountsPage />} />
                   <Route path="/ads/*" element={<AdsPlaceholderPage />} />
                   <Route path="/analytics" element={<AnalyticsPlaceholderPage />} />
+                  <Route path="/analytics/niche/overview" element={<NicheOverviewPage />} />
+                  <Route path="/analytics/ln/overview" element={<NicheOverviewPage />} />
                   <Route path="/analytics/*" element={<AnalyticsPlaceholderPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/history" element={<HistoryPage />} />
