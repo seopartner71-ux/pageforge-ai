@@ -4,6 +4,38 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 const API_BASE = 'https://api.direct.yandex.com/json/v5';
 const REPORTS_URL = `${API_BASE}/reports`;
 const CAMPAIGNS_URL = `${API_BASE}/campaigns`;
+const YANDEX_TOKEN_URL = 'https://oauth.yandex.ru/token';
+
+async function refreshAccessToken(admin: ReturnType<typeof createClient>, tokenRow: any) {
+  if (!tokenRow.refresh_token || !tokenRow.oauth_client_id || !tokenRow.oauth_client_secret) return tokenRow.access_token as string;
+  const expiresAt = tokenRow.expires_at ? new Date(tokenRow.expires_at).getTime() : 0;
+  if (expiresAt && expiresAt - Date.now() > 60_000) return tokenRow.access_token as string;
+
+  const res = await fetch(YANDEX_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: tokenRow.refresh_token,
+      client_id: tokenRow.oauth_client_id,
+      client_secret: tokenRow.oauth_client_secret,
+    }),
+  });
+  const refreshed = await res.json();
+  if (!res.ok || !refreshed.access_token) return tokenRow.access_token as string;
+
+  const nextExpiresAt = refreshed.expires_in
+    ? new Date(Date.now() + Number(refreshed.expires_in) * 1000).toISOString()
+    : tokenRow.expires_at;
+  await admin.from('ads_oauth_tokens').update({
+    access_token: refreshed.access_token,
+    refresh_token: refreshed.refresh_token ?? tokenRow.refresh_token,
+    token_type: refreshed.token_type ?? tokenRow.token_type ?? 'Bearer',
+    scope: refreshed.scope ?? tokenRow.scope ?? null,
+    expires_at: nextExpiresAt,
+  }).eq('id', tokenRow.id);
+  return refreshed.access_token as string;
+}
 
 async function callJson(path: string, token: string, login: string, body: unknown) {
   const res = await fetch(path, {
