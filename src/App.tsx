@@ -48,6 +48,7 @@ const SeoDashboardPage = lazy(() => import('./pages/SeoDashboardPage.tsx'));
 const AdsOverviewPage = lazy(() => import('./pages/AdsOverviewPage.tsx'));
 const AdsPlaceholderPage = lazy(() => import('./pages/AdsPlaceholderPage.tsx'));
 const AdsAccountsPage = lazy(() => import('./pages/AdsAccountsPage.tsx'));
+const AnalyticsPlaceholderPage = lazy(() => import('./pages/AnalyticsPlaceholderPage.tsx'));
 const AppLayout = lazy(() => import('./components/AppLayout.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
 
