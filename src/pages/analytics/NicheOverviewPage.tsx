@@ -102,7 +102,30 @@ type ReportData = {
     wedges: { title: string; description: string; effort: string; impact: string }[];
     risks: string[];
   };
+  assumptions?: Assumption[];
 };
+
+type Assumption = {
+  field: string;
+  assumption: string;
+  impact: string;
+  confidence: 'high' | 'medium' | 'low';
+};
+
+function normalizeAssumptions(arr: any): Assumption[] {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((a) => {
+      const conf = String(a?.confidence || 'medium').toLowerCase();
+      return {
+        field: String(a?.field || '').trim() || 'Общие данные',
+        assumption: String(a?.assumption || '').trim(),
+        impact: String(a?.impact || '').trim(),
+        confidence: (conf === 'high' || conf === 'low' ? conf : 'medium') as Assumption['confidence'],
+      };
+    })
+    .filter((a) => a.assumption.length > 0);
+}
 
 function normalizeVerdict(v: any, scoring: ReportData['scoring']): StructuredVerdict {
   // Back-compat: старые ответы возвращали verdict как строку
@@ -264,6 +287,7 @@ export default function NicheOverviewPage() {
           ...raw.executive_summary,
           verdict: normalizeVerdict(raw?.executive_summary?.verdict, raw.scoring),
         },
+        assumptions: normalizeAssumptions(raw?.assumptions),
       };
       setReportData(report);
     } catch (e: any) {
