@@ -368,16 +368,19 @@ export default function AdsOverviewPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {campaigns.map((c) => (
-                    <TableRow key={c.name} className="border-slate-800 hover:bg-slate-800/30">
-                      <TableCell className="py-2 px-2">
-                        <div className="text-xs text-slate-200 truncate max-w-[140px]">{c.name}</div>
-                        <Badge variant="outline" className={`mt-1 text-[10px] px-1.5 py-0 h-4 ${c.status.color}`}>{c.status.label}</Badge>
-                      </TableCell>
-                      <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{c.spend}</TableCell>
-                      <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{c.cpl}</TableCell>
-                    </TableRow>
-                  ))}
+                  {campaigns.map((c) => {
+                    const st = STATUS_LABELS[c.status] ?? STATUS_LABELS.working;
+                    return (
+                      <TableRow key={c.id} className="border-slate-800 hover:bg-slate-800/30">
+                        <TableCell className="py-2 px-2">
+                          <div className="text-xs text-slate-200 truncate max-w-[140px]">{c.name}</div>
+                          <Badge variant="outline" className={`mt-1 text-[10px] px-1.5 py-0 h-4 ${st.color}`}>{st.label}</Badge>
+                        </TableCell>
+                        <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{fmtMoney(c.spend)}</TableCell>
+                        <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{c.cpl > 0 ? fmtMoney(c.cpl) : '—'}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -450,7 +453,7 @@ export default function AdsOverviewPage() {
                 <Skeleton className="h-full w-full bg-slate-800" />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radar}>
+                  <RadarChart data={axes}>
                     <PolarGrid stroke="#1F2937" />
                     <PolarAngleAxis dataKey="axis" tick={{ fill: '#94A3B8', fontSize: 11 }} />
                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#475569', fontSize: 10 }} stroke="#1F2937" />
@@ -481,16 +484,16 @@ export default function AdsOverviewPage() {
                 <TableBody>
                   {badQueries.map((q) => (
                     <TableRow key={q.id} className="border-slate-800 hover:bg-slate-800/30">
-                      <TableCell className="py-2 px-2 text-xs text-slate-200 truncate max-w-[140px]">{q.q}</TableCell>
-                      <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{q.spend}</TableCell>
+                      <TableCell className="py-2 px-2 text-xs text-slate-200 truncate max-w-[140px]">{q.query}</TableCell>
+                      <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{fmtMoney(q.spend)}</TableCell>
                       <TableCell className="py-2 px-2 text-right">
                         <button
-                          onClick={() => q.conv === 0
+                          onClick={() => q.conversions === 0
                             ? removeBadQuery(q.id)
                             : toast.info('Запрос отправлен на проверку')}
-                          className={`text-[11px] font-medium ${q.conv === 0 ? 'text-red-400 hover:text-red-300' : 'text-slate-400 hover:text-slate-200'}`}
+                          className={`text-[11px] font-medium ${q.conversions === 0 ? 'text-red-400 hover:text-red-300' : 'text-slate-400 hover:text-slate-200'}`}
                         >
-                          {q.conv === 0 ? 'В минус' : 'Проверить'}
+                          {q.conversions === 0 ? 'В минус' : 'Проверить'}
                         </button>
                       </TableCell>
                     </TableRow>
@@ -539,26 +542,28 @@ export default function AdsOverviewPage() {
           <Card className="rounded-xl bg-[#111827] border-[#1F2937] p-4 lg:col-span-1">
             <h3 className="font-medium text-slate-200 text-sm mb-3">AI-рекомендации</h3>
             <ul className="space-y-3">
-              {INITIAL_RECS.map((r) => {
-                const state = recState[r.id] ?? 'idle';
+              {recs.length === 0 && <li className="text-xs text-slate-500 py-2">Нет активных рекомендаций</li>}
+              {recs.map((r) => {
+                const isLoading = !!recLoading[r.id];
+                const isDone = r.status === 'done';
                 return (
                   <li key={r.id} className="flex items-start gap-2.5">
                     <div className="w-7 h-7 rounded-md bg-blue-500/15 text-blue-400 flex items-center justify-center shrink-0">
                       <Sparkles className="w-3.5 h-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs leading-snug ${state === 'done' ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{r.text}</p>
-                      <p className="text-[11px] text-emerald-400 mt-0.5">+{r.save}</p>
+                      <p className={`text-xs leading-snug ${isDone ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{r.text}</p>
+                      <p className="text-[11px] text-emerald-400 mt-0.5">+{fmtMoney(r.savings)}/мес</p>
                     </div>
                     <Button
                       variant="outline" size="sm"
-                      onClick={() => applyRec(r)}
-                      disabled={state === 'loading' || state === 'done'}
+                      onClick={() => applyRec(r.id)}
+                      disabled={isLoading || isDone}
                       className="h-7 text-[11px] bg-transparent border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white shrink-0 disabled:opacity-60"
                     >
-                      {state === 'loading' && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                      {state === 'done' && <Check className="w-3 h-3 mr-1 text-emerald-400" />}
-                      {state === 'idle' ? r.cta : state === 'loading' ? 'Применяю…' : 'Выполнено'}
+                      {isLoading && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                      {isDone && <Check className="w-3 h-3 mr-1 text-emerald-400" />}
+                      {isDone ? 'Выполнено' : isLoading ? 'Применяю…' : r.cta}
                     </Button>
                   </li>
                 );
@@ -589,20 +594,20 @@ export default function AdsOverviewPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {accounts.map((a) => (
+                    {accountAggs.map((a, i) => (
                       <TableRow key={a.id} className="border-slate-800 hover:bg-slate-800/30">
                         <TableCell className="py-2">
                           <div className="text-xs text-slate-100 font-medium">{a.name}</div>
-                          <div className="text-[10px] text-slate-500">ID {a.id}</div>
+                          <div className="text-[10px] text-slate-500">ID {a.external_id || a.id.slice(0, 8)}</div>
                         </TableCell>
                         <TableCell className="py-2"><MiniScore value={a.score} /></TableCell>
-                        <TableCell className="py-2 text-xs text-slate-300 text-right">{a.spend}</TableCell>
-                        <TableCell className="py-2 text-xs text-slate-300 text-right">{a.conv}</TableCell>
-                        <TableCell className="py-2 text-xs text-slate-300 text-right">{a.cpl}</TableCell>
-                        <TableCell className="py-2 text-xs text-emerald-400 text-right">{a.romi}</TableCell>
+                        <TableCell className="py-2 text-xs text-slate-300 text-right">{fmtMoney(a.spend)}</TableCell>
+                        <TableCell className="py-2 text-xs text-slate-300 text-right">{a.conversions}</TableCell>
+                        <TableCell className="py-2 text-xs text-slate-300 text-right">{a.cpl > 0 ? fmtMoney(a.cpl) : '—'}</TableCell>
+                        <TableCell className="py-2 text-xs text-emerald-400 text-right">{a.romi}%</TableCell>
                         <TableCell className="py-2 text-xs text-red-400 text-right font-medium">{a.problems}</TableCell>
-                        <TableCell className="py-2 text-xs text-red-400 text-right">{a.loss}</TableCell>
-                        <TableCell className="py-2 w-[120px]"><Sparkline seed={a.seed} color="#3B82F6" /></TableCell>
+                        <TableCell className="py-2 text-xs text-red-400 text-right">{fmtMoney(a.loss)}</TableCell>
+                        <TableCell className="py-2 w-[120px]"><Sparkline seed={i + 1} color="#3B82F6" /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
