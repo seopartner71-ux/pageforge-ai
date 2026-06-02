@@ -309,6 +309,8 @@ export type Database = {
           expires_at: string | null
           external_login: string | null
           id: string
+          oauth_client_id: string | null
+          oauth_client_secret: string | null
           provider: string
           refresh_token: string | null
           scope: string | null
@@ -323,6 +325,8 @@ export type Database = {
           expires_at?: string | null
           external_login?: string | null
           id?: string
+          oauth_client_id?: string | null
+          oauth_client_secret?: string | null
           provider?: string
           refresh_token?: string | null
           scope?: string | null
@@ -337,6 +341,8 @@ export type Database = {
           expires_at?: string | null
           external_login?: string | null
           id?: string
+          oauth_client_id?: string | null
+          oauth_client_secret?: string | null
           provider?: string
           refresh_token?: string | null
           scope?: string | null
