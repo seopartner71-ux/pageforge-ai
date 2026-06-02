@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search, Globe } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search, Globe, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 type CheckStatus = 'ok' | 'error' | 'not_checked';
 type SectionType = 'fatal' | 'critical' | 'possible' | 'recommendation';
@@ -39,6 +40,50 @@ const SECTION_META: Record<SectionType, { label: string; toneVar: string; emoji:
     label: 'Рекомендации', toneVar: '--chart-2', emoji: '🔵',
     info: 'Рекомендации носят необязательный характер, но помогают улучшить сайт и его отображение.',
   },
+};
+
+// Маппинг типов проблем Яндекса (problem_type) на наши apiField
+const PROBLEM_TYPE_TO_FIELD: Record<string, string> = {
+  SITE_ERROR: 'security_problems',
+  MALWARE: 'security_problems',
+  DANGEROUS_SITE: 'security_problems',
+  DNS_ERROR: 'dns_error',
+  SERVER_ERROR: 'server_error',
+  MAIN_PAGE_RETURNED_ERROR: 'main_page_unavailable',
+  DISALLOWED_BY_USER_IN_ROBOTS_TXT: 'robots_disallow_all',
+  SITE_CLOSED_FOR_ROBOT: 'robots_disallow_all',
+  SSL_CERTIFICATE_ERROR: 'ssl_error',
+  PAGES_WITH_DUPLICATING_QUERY_PARAMS: 'get_params_duplicates',
+  SITE_HTTP_5XX: 'http_5xx_pages',
+  SITE_HTTP_4XX: 'http_4xx_pages',
+  SLOW_SERVER_RESPONSE: 'slow_server_response',
+  NO_CORRECT_ROBOTS_TXT: 'robots_errors',
+  INCORRECT_404_PAGE: 'incorrect_404',
+  NO_TITLE: 'missing_titles',
+  NO_DESCRIPTION: 'missing_descriptions',
+  NO_METRIKA_COUNTER: 'metrika_missing',
+  METRIKA_COUNTER_NOT_LINKED: 'metrika_not_linked',
+  SUBDOMAINS_DETECTED: 'subdomains_found',
+  DUPLICATE_TITLES_DESCRIPTIONS: 'duplicate_titles_descriptions',
+  ROBOTS_TXT_NOT_FOUND: 'robots_not_found',
+  NO_SITEMAPS: 'no_sitemap',
+  SITEMAP_ERRORS: 'sitemap_errors',
+  SITEMAP_OUTDATED: 'sitemap_outdated',
+  DUPLICATE_PAGES: 'duplicate_pages',
+  FAVICON_INACCESSIBLE: 'favicon_inaccessible',
+  FAVICON_NOT_FOUND: 'favicon_missing',
+  VIDEO_AGREEMENT_REQUIRED: 'video_agreement',
+  MAIN_PAGE_REDIRECT: 'main_page_redirect',
+  COUNTER_CRAWL_DISABLED: 'counter_crawl_disabled',
+  USEFUL_PAGES_CLOSED: 'useful_pages_closed',
+  YANDEX_AGREEMENT_REQUIRED: 'yandex_agreement_required',
+  NO_HTTPS_MIRROR: 'no_https_mirror',
+  PRODUCTS_NOT_SUBMITTED: 'products_not_submitted',
+  NO_FAVICON_SVG: 'favicon_recommendation',
+  REGION_NOT_SET: 'region_not_set',
+  YANDEX_BUSINESS_CARD_CREATED: 'business_card_created',
+  NOT_IN_YANDEX_BUSINESS: 'add_to_yandex_business',
+  MOBILE_NOT_OPTIMIZED: 'mobile_not_optimized',
 };
 
 function buildChecks(d: string): WmCheck[] {
@@ -197,9 +242,89 @@ function Section({ section, checks }: { section: SectionType; checks: WmCheck[] 
 export function YandexWebmasterView({ domain }: { domain: string }) {
   const [filter, setFilter] = useState<'all' | 'errors' | 'fatal' | 'critical'>('all');
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hostId, setHostId] = useState<string | null>(null);
+  const [verified, setVerified] = useState<boolean | null>(null);
+  const [summary, setSummary] = useState<any | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  const checks = useMemo(() => buildChecks(domain), [domain]);
-  const hasData = false; // заглушка - интеграция с API Я.Вебмастера появится позже
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const jwt = sess.session?.access_token;
+      if (!jwt) throw new Error('Не авторизованы');
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/yandex-webmaster-api`;
+      // 1. hosts
+      const hostsRes = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'hosts' }),
+      });
+      const hostsJson = await hostsRes.json();
+      if (!hostsRes.ok) throw new Error(hostsJson.error || 'Ошибка загрузки хостов');
+      const hosts = hostsJson.hosts || [];
+      const clean = domain.toLowerCase().replace(/^www\./, '');
+      const match = hosts.find((h: any) => {
+        const hu = (h.unicode_host_url || h.ascii_host_url || '').toLowerCase();
+        return hu.includes(clean);
+      });
+      if (!match) {
+        throw new Error(`Домен ${domain} не найден в вашем Яндекс.Вебмастере. Добавьте сайт на webmaster.yandex.ru`);
+      }
+      setHostId(match.host_id);
+      setVerified(!!match.verified);
+      // 2. summary
+      const sumRes = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'summary', host_id: match.host_id }),
+      });
+      const sumJson = await sumRes.json();
+      if (!sumRes.ok) throw new Error(sumJson.error || 'Ошибка загрузки сводки');
+      setSummary(sumJson.summary);
+      setLastUpdated(new Date().toLocaleString('ru-RU'));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (domain) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [domain]);
+
+  // Карта найденных проблем: apiField -> severity
+  const problemMap = useMemo(() => {
+    const m = new Map<string, SectionType>();
+    const arr = summary?.host_problems || [];
+    for (const p of arr) {
+      const field = PROBLEM_TYPE_TO_FIELD[p.problem_type];
+      if (!field) continue;
+      const sev: SectionType =
+        p.severity === 'FATAL' ? 'fatal'
+        : p.severity === 'CRITICAL' ? 'critical'
+        : p.severity === 'POSSIBLE' ? 'possible'
+        : 'recommendation';
+      m.set(field, sev);
+    }
+    return m;
+  }, [summary]);
+
+  const checks = useMemo(() => {
+    const base = buildChecks(domain);
+    if (!summary) return base;
+    return base.map((c) => {
+      const has = problemMap.has(c.apiField);
+      return { ...c, status: has ? 'error' : 'ok' } as WmCheck;
+    });
+  }, [domain, summary, problemMap]);
+
+  const hasData = !!summary;
 
   const bySection = (s: SectionType) => {
     let f = checks.filter((c) => c.section === s);
@@ -215,7 +340,7 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
   const possibleCount = checks.filter((c) => c.section === 'possible' && c.status === 'error').length;
   const recCount = checks.filter((c) => c.section === 'recommendation' && c.status === 'error').length;
 
-  const summary = [
+  const summaryCards = [
     { label: 'Фатальные ошибки', count: fatalCount, tone: '--destructive', emoji: '🔴' },
     { label: 'Критичные ошибки', count: criticalCount, tone: '--chart-4', emoji: '🟠' },
     { label: 'Возможные проблемы', count: possibleCount, tone: '--chart-5', emoji: '🟡' },
@@ -230,22 +355,39 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg font-bold text-foreground">Яндекс Вебмастер</h2>
-              <Badge className="bg-muted text-muted-foreground border-border text-[11px]">
-                Интеграция в разработке
-              </Badge>
+              {hasData ? (
+                <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[11px]">
+                  Данные загружены
+                </Badge>
+              ) : loading ? (
+                <Badge className="bg-muted text-muted-foreground border-border text-[11px]">
+                  Загрузка…
+                </Badge>
+              ) : error ? (
+                <Badge className="bg-destructive/15 text-destructive border-destructive/30 text-[11px]">
+                  Ошибка
+                </Badge>
+              ) : null}
+              {verified === false && (
+                <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[11px]">
+                  Сайт не подтверждён
+                </Badge>
+              )}
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] text-muted-foreground">
               <span>Сайт: <span className="text-foreground font-medium">{domain}</span></span>
-              <span>Дата анализа: <span className="text-foreground">-</span></span>
+              <span>Дата анализа: <span className="text-foreground">{lastUpdated || '-'}</span></span>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Button
-              size="sm" disabled
+              size="sm"
+              onClick={load}
+              disabled={loading}
               className="gap-1.5 text-[12px]"
-              title="Подключение к API Яндекс.Вебмастера появится в следующей версии"
             >
-              <RefreshCw className="h-3.5 w-3.5" /> Обновить данные
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Обновить данные
             </Button>
           </div>
         </div>
@@ -253,7 +395,7 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
 
       {/* SUMMARY CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {summary.map((c) => (
+        {summaryCards.map((c) => (
           <Card key={c.label} className="bg-card border-border p-4">
             <div className="flex items-center gap-3">
               <div
@@ -277,10 +419,13 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
       </div>
 
       {/* STATUS BANNER */}
-      {!hasData ? (
+      {error ? (
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-[13px] text-destructive">
+          ⚠️ {error}
+        </div>
+      ) : !hasData ? (
         <div className="rounded-lg bg-muted/40 border border-border px-4 py-3 text-[13px] text-muted-foreground">
-          ℹ️ Данные из Яндекс.Вебмастера ещё не подключены. Показан полный каталог из {checks.length} проверок -
-          подключение OAuth и автоматическая выгрузка появятся в следующей версии.
+          {loading ? 'Загружаем данные из Я.Вебмастера…' : `Каталог из ${checks.length} проверок. Нажмите «Обновить данные».`}
         </div>
       ) : fatalCount > 0 ? (
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-[13px] text-destructive font-medium">
@@ -331,10 +476,36 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
       {/* DATA WIDGETS placeholder */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { title: '📊 Индексация', rows: [['Страниц в индексе', '-'], ['Всего страниц', '-'], ['Исключено', '-']] },
-          { title: '🔍 Поисковые запросы', rows: [['Всего показов', '-'], ['Средний CTR', '-'], ['Средняя позиция', '-']] },
-          { title: '🔗 Внешние ссылки', rows: [['Всего ссылок', '-'], ['Реферирующих доменов', '-']] },
-          { title: '🌐 Регион', rows: [['Регион сайта', '-'], ['Карточка в Я.Бизнес', '-']] },
+          {
+            title: '📊 Индексация',
+            rows: [
+              ['Страниц в поиске', summary?.searchable_pages_count?.toLocaleString('ru-RU') ?? '-'],
+              ['Загружено страниц', summary?.loaded_pages_count?.toLocaleString('ru-RU') ?? '-'],
+              ['Исключено', summary?.excluded_pages_count?.toLocaleString('ru-RU') ?? '-'],
+            ],
+          },
+          {
+            title: '🔍 Поисковые запросы (7д)',
+            rows: [
+              ['Показы', summary?.search_query_stat?.total_shows?.toLocaleString('ru-RU') ?? '-'],
+              ['Клики', summary?.search_query_stat?.total_clicks?.toLocaleString('ru-RU') ?? '-'],
+              ['Средний CTR', summary?.search_query_stat?.avg_ctr != null ? `${summary.search_query_stat.avg_ctr.toFixed(2)}%` : '-'],
+            ],
+          },
+          {
+            title: '🔗 Внешние ссылки',
+            rows: [
+              ['Всего ссылок', summary?.links_count?.toLocaleString('ru-RU') ?? '-'],
+              ['SQI', summary?.sqi?.toLocaleString('ru-RU') ?? '-'],
+            ],
+          },
+          {
+            title: '🌐 Сайт',
+            rows: [
+              ['Подтверждён', verified == null ? '-' : verified ? 'Да' : 'Нет'],
+              ['ID хоста', hostId ? hostId.slice(0, 24) + '…' : '-'],
+            ],
+          },
         ].map((w) => (
           <Card key={w.title} className="bg-card border-border p-4">
             <h4 className="text-[13px] font-semibold text-foreground mb-3 flex items-center gap-2">
