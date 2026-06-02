@@ -352,6 +352,96 @@ export function AppSidebar() {
             </Collapsible>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <SidebarGroup>
+          {!collapsed && (
+            <SidebarGroupLabel className="flex items-center gap-2">
+              <span>АНАЛИТИКА</span>
+              <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/30 tracking-wide">
+                Новое
+              </span>
+            </SidebarGroupLabel>
+          )}
+          <SidebarGroupContent>
+            <Collapsible
+              open={collapsed ? true : analyticsOpen}
+              onOpenChange={setAnalyticsOpen}
+            >
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <div className="flex items-center gap-1">
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive('/analytics')}
+                      tooltip="Аналитика"
+                      className="flex-1"
+                    >
+                      <NavLink to="/analytics" className="flex items-center gap-2">
+                        <PieChart className="h-4 w-4 shrink-0" />
+                        <span>Аналитика</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                    {!collapsed && (
+                      <CollapsibleTrigger
+                        aria-label="Развернуть Аналитика"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                      >
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${analyticsOpen ? 'rotate-180' : ''}`}
+                        />
+                      </CollapsibleTrigger>
+                    )}
+                  </div>
+                </SidebarMenuItem>
+
+                <CollapsibleContent>
+                  <div className={collapsed ? '' : 'pl-3 mt-1 border-l border-border/40 ml-3 space-y-1'}>
+                    {ANALYTICS_SECTIONS.map((section) => {
+                      const open = analyticsSubOpen[section.label] ?? false;
+                      return (
+                        <Collapsible
+                          key={section.label}
+                          open={collapsed ? true : open}
+                          onOpenChange={(v) =>
+                            setAnalyticsSubOpen((s) => ({ ...s, [section.label]: v }))
+                          }
+                        >
+                          {!collapsed && (
+                            <CollapsibleTrigger className="w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors">
+                              <span>{section.label}</span>
+                              <ChevronDown
+                                className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+                              />
+                            </CollapsibleTrigger>
+                          )}
+                          <CollapsibleContent>
+                            {section.items.map((item) => {
+                              const Icon = item.icon;
+                              return (
+                                <SidebarMenuItem key={item.path}>
+                                  <SidebarMenuButton
+                                    asChild
+                                    isActive={isActive(item.path)}
+                                    tooltip={item.label}
+                                  >
+                                    <NavLink to={item.path} className="flex items-center gap-2">
+                                      <Icon className="h-4 w-4 shrink-0" />
+                                      <span>{item.label}</span>
+                                    </NavLink>
+                                  </SidebarMenuButton>
+                                </SidebarMenuItem>
+                              );
+                            })}
+                          </CollapsibleContent>
+                        </Collapsible>
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </SidebarMenu>
+            </Collapsible>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border/60">
