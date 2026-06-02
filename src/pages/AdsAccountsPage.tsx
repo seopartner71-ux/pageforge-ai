@@ -236,11 +236,10 @@ export default function AdsAccountsPage() {
                 </Badge>
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                Безопасная авторизация через Яндекс ID. Мы импортируем кампании, ежедневные метрики
-                и поисковые запросы за последние 90 дней.
+                Для каждого кабинета укажите отдельные Client ID и Client Secret от OAuth-приложения Яндекса.
               </p>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="grid grid-cols-1 md:grid-cols-[200px_220px_220px_auto] items-end gap-2 w-full lg:w-auto">
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
                 <SelectTrigger className="w-[200px] h-9 bg-[#0B0F19] border-slate-800 text-xs text-slate-200">
                   <SelectValue placeholder="Выберите проект" />
@@ -253,9 +252,22 @@ export default function AdsAccountsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Input
+                value={oauthClientId}
+                onChange={(e) => setOauthClientId(e.target.value)}
+                placeholder="Client ID"
+                className="h-9 bg-[#0B0F19] border-slate-800 text-xs text-slate-100"
+              />
+              <Input
+                type="password"
+                value={oauthClientSecret}
+                onChange={(e) => setOauthClientSecret(e.target.value)}
+                placeholder="Client Secret"
+                className="h-9 bg-[#0B0F19] border-slate-800 text-xs text-slate-100"
+              />
               <Button
                 onClick={connectYandex}
-                disabled={connecting || !selectedProjectId}
+                disabled={connecting || !selectedProjectId || !oauthClientId.trim() || !oauthClientSecret.trim()}
                 className="bg-blue-500 hover:bg-blue-600 text-white"
               >
                 {connecting
@@ -305,6 +317,7 @@ export default function AdsAccountsPage() {
                       <span>Логин: {acc.external_id}</span>
                       <span>Проект: {projectName(acc.project_id)}</span>
                       <span>Валюта: {acc.currency}</span>
+                      {acc.oauth_client_id && <span>Client ID: {acc.oauth_client_id}</span>}
                       {acc.last_synced_at && (
                         <span>Синхр.: {format(new Date(acc.last_synced_at), 'd MMM yyyy, HH:mm', { locale: ru })}</span>
                       )}
