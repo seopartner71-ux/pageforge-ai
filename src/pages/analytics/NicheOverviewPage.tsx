@@ -412,6 +412,7 @@ export default function NicheOverviewPage() {
           verdict: normalizeVerdict(raw?.executive_summary?.verdict, raw.scoring),
         },
         assumptions: normalizeAssumptions(raw?.assumptions),
+        opportunities: normalizeOpportunities(raw?.opportunities),
       };
       setReportData(report);
     } catch (e: any) {
