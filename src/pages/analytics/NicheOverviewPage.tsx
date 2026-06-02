@@ -702,3 +702,166 @@ function ScoreCard({
     </Card>
   );
 }
+
+function ModuleDescription() {
+  const items = [
+    {
+      icon: Database,
+      title: 'Источники данных',
+      desc: 'Параметры формы + знания AI-модели о рынке: спрос, конкуренция, экономика ниши, E-E-A-T-сигналы и риски AI-выдачи.',
+    },
+    {
+      icon: Brain,
+      title: 'Как считаем',
+      desc: 'Скоринг по 4 метрикам (Search / Commercial / Trust / AI Risk) и сценарный анализ барьеров и White Spaces силами AI-аналитика.',
+    },
+    {
+      icon: FileText,
+      title: 'Что получите',
+      desc: 'Профессиональный вердикт GO / CAUTION / NO-GO, roadmap на 3-6-12 месяцев и .docx-отчёт для клиента в фирменном оформлении.',
+    },
+  ];
+  return (
+    <Card className="p-6 space-y-5">
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold text-foreground">О модуле</h2>
+        <p className="text-sm text-muted-foreground max-w-3xl leading-relaxed">
+          «Обзор ниши» — стратегический AI-аудит рыночных возможностей. Модуль оценивает поисковый и коммерческий
+          потенциал, барьеры входа по E-E-A-T, риск вытеснения трафика AI-ответами и предлагает дорожную карту входа
+          под силу домена и горизонт планирования.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {items.map((it) => {
+          const Icon = it.icon;
+          return (
+            <div key={it.title} className="rounded-lg border border-border bg-muted/20 p-4 flex gap-3">
+              <div className="w-9 h-9 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Icon className="w-4 h-4" />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <div className="text-sm font-medium text-foreground">{it.title}</div>
+                <div className="text-xs text-muted-foreground leading-relaxed">{it.desc}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function positionMeta(pos: VerdictPosition) {
+  if (pos === 'GO') return {
+    label: 'РЕКОМЕНДУЕМ ВХОДИТЬ',
+    badge: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30',
+    accent: 'text-emerald-500',
+    icon: ShieldCheck,
+  };
+  if (pos === 'NO-GO') return {
+    label: 'НЕ РЕКОМЕНДУЕМ',
+    badge: 'bg-rose-500/15 text-rose-500 border-rose-500/30',
+    accent: 'text-rose-500',
+    icon: XCircle,
+  };
+  return {
+    label: 'ВХОДИТЬ С ОГОВОРКАМИ',
+    badge: 'bg-amber-500/15 text-amber-500 border-amber-500/30',
+    accent: 'text-amber-500',
+    icon: AlertTriangle,
+  };
+}
+
+function confidenceLabel(c: VerdictConfidence) {
+  return c === 'high' ? 'высокая' : c === 'low' ? 'низкая' : 'средняя';
+}
+
+function VerdictCard({ verdict }: { verdict: StructuredVerdict }) {
+  const meta = positionMeta(verdict.position);
+  const Icon = meta.icon;
+  return (
+    <Card className="p-6 space-y-5">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-10 h-10 rounded-lg bg-muted/40 flex items-center justify-center ${meta.accent}`}>
+            <Icon className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+              Стратегический вердикт
+            </div>
+            <h3 className="text-base font-semibold text-foreground leading-snug">
+              {verdict.headline}
+            </h3>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className={meta.badge}>{meta.label}</Badge>
+          <Badge variant="outline" className="border-border text-muted-foreground">
+            Уверенность: {confidenceLabel(verdict.confidence)}
+          </Badge>
+        </div>
+      </div>
+
+      {verdict.summary && (
+        <p className="text-sm text-foreground/90 leading-relaxed">{verdict.summary}</p>
+      )}
+
+      {(verdict.key_drivers.length > 0 || verdict.key_risks.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {verdict.key_drivers.length > 0 && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-500">
+                  Ключевые драйверы
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {verdict.key_drivers.map((d, i) => (
+                  <li key={i} className="text-sm text-foreground flex gap-2">
+                    <span className="text-emerald-500 shrink-0">▸</span>
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {verdict.key_risks.length > 0 && (
+            <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-4 h-4 text-rose-500" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-rose-500">
+                  Ключевые риски
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {verdict.key_risks.map((r, i) => (
+                  <li key={i} className="text-sm text-foreground flex gap-2">
+                    <span className="text-rose-500 shrink-0">▸</span>
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {verdict.recommendation && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 flex gap-3">
+          <div className="w-8 h-8 rounded-md bg-primary/15 text-primary flex items-center justify-center shrink-0">
+            <Lightbulb className="w-4 h-4" />
+          </div>
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+              Next best action
+              <ArrowRight className="w-3 h-3" />
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">{verdict.recommendation}</p>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
