@@ -23,6 +23,7 @@ export type Database = {
           is_primary: boolean
           last_synced_at: string | null
           name: string
+          oauth_client_id: string | null
           project_id: string
           provider: string
           status: string
@@ -37,6 +38,7 @@ export type Database = {
           is_primary?: boolean
           last_synced_at?: string | null
           name: string
+          oauth_client_id?: string | null
           project_id: string
           provider?: string
           status?: string
@@ -51,6 +53,7 @@ export type Database = {
           is_primary?: boolean
           last_synced_at?: string | null
           name?: string
+          oauth_client_id?: string | null
           project_id?: string
           provider?: string
           status?: string
