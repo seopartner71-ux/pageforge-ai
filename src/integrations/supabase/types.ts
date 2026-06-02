@@ -17,34 +17,43 @@ export type Database = {
       ads_accounts: {
         Row: {
           created_at: string
+          currency: string
           external_id: string
           id: string
           is_primary: boolean
+          last_synced_at: string | null
           name: string
           project_id: string
           provider: string
+          status: string
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          currency?: string
           external_id?: string
           id?: string
           is_primary?: boolean
+          last_synced_at?: string | null
           name: string
           project_id: string
           provider?: string
+          status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          currency?: string
           external_id?: string
           id?: string
           is_primary?: boolean
+          last_synced_at?: string | null
           name?: string
           project_id?: string
           provider?: string
+          status?: string
           updated_at?: string
           user_id?: string
         }
@@ -217,6 +226,127 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "ads_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_import_jobs: {
+        Row: {
+          account_id: string
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          imported_campaigns: number
+          imported_metric_rows: number
+          imported_query_rows: number
+          progress: number
+          project_id: string
+          provider: string
+          started_at: string | null
+          status: string
+          step: string | null
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          imported_campaigns?: number
+          imported_metric_rows?: number
+          imported_query_rows?: number
+          progress?: number
+          project_id: string
+          provider?: string
+          started_at?: string | null
+          status?: string
+          step?: string | null
+          total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          imported_campaigns?: number
+          imported_metric_rows?: number
+          imported_query_rows?: number
+          progress?: number
+          project_id?: string
+          provider?: string
+          started_at?: string | null
+          status?: string
+          step?: string | null
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_import_jobs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "ads_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_oauth_tokens: {
+        Row: {
+          access_token: string
+          account_id: string | null
+          created_at: string
+          expires_at: string | null
+          external_login: string | null
+          id: string
+          provider: string
+          refresh_token: string | null
+          scope: string | null
+          token_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          account_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_login?: string | null
+          id?: string
+          provider?: string
+          refresh_token?: string | null
+          scope?: string | null
+          token_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          account_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_login?: string | null
+          id?: string
+          provider?: string
+          refresh_token?: string | null
+          scope?: string | null
+          token_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_oauth_tokens_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "ads_accounts"
             referencedColumns: ["id"]
           },
         ]
