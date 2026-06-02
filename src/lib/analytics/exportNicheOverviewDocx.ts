@@ -39,6 +39,27 @@ export type NicheReportData = {
     risks: string[];
   };
   assumptions?: { field: string; assumption: string; impact: string; confidence: 'high' | 'medium' | 'low' }[];
+  opportunities?: {
+    summary: string;
+    portfolio: {
+      core_growth: string[]; quick_wins: string[]; revenue_priority: string[];
+      trust_building: string[]; authority_ai_visibility: string[];
+      defer: string[]; avoid: string[];
+    };
+    top_overall: {
+      title: string; why: string; best_format: string;
+      speed_to_impact: '30d' | 'q1' | 'q2' | '6-12m' | '12-24m';
+      demand_quality: number; business_value: number; accessibility: number;
+      serp_openness: number; ai_upside: number; overall_score: number;
+    }[];
+    wedges: { title: string; asset: string; payoff: string; speed: '30d' | 'q1' | 'q2' | '6-12m' | '12-24m' }[];
+    compounding: { pair: string; sequencing: string; payoff: string }[];
+    traps: { title: string; why_looks_good: string; why_risk: string }[];
+    gaps: { title: string; why_underserved: string; asset_needed: string }[];
+    sequencing: { '30_days': string[]; q1: string[]; q2: string[]; '6_12m': string[]; '12_24m': string[] };
+    launch_model: string;
+    recommendation: string;
+  };
 };
 
 const PRIMARY = '3B82F6';
