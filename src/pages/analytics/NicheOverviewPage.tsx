@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Compass, Sparkles, Target, TrendingUp, ShieldAlert, Map, CheckCircle2, AlertTriangle, Info, FileDown } from 'lucide-react';
+import { Loader2, Compass, Sparkles, Target, TrendingUp, ShieldAlert, Map, CheckCircle2, AlertTriangle, Info, FileDown, Database, Brain, FileText, Lightbulb, ArrowRight, ShieldCheck, XCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
@@ -67,10 +67,23 @@ type FormData = {
   horizon: string;
 };
 
+type VerdictPosition = 'GO' | 'CAUTION' | 'NO-GO';
+type VerdictConfidence = 'high' | 'medium' | 'low';
+
+type StructuredVerdict = {
+  position: VerdictPosition;
+  confidence: VerdictConfidence;
+  headline: string;
+  summary: string;
+  key_drivers: string[];
+  key_risks: string[];
+  recommendation: string;
+};
+
 type ReportData = {
   scoring: { searchOpp: number; commercial: number; trust: number; aiRisk: number };
   executive_summary: {
-    verdict: string;
+    verdict: StructuredVerdict;
     top_subniches: string[];
     roadmap: { '3_months': string; '6_months': string; '12_months': string };
   };
@@ -91,6 +104,39 @@ type ReportData = {
   };
 };
 
+function normalizeVerdict(v: any, scoring: ReportData['scoring']): StructuredVerdict {
+  // Back-compat: старые ответы возвращали verdict как строку
+  if (typeof v === 'string') {
+    const avg = (scoring.searchOpp + scoring.commercial + scoring.trust + (100 - scoring.aiRisk)) / 4;
+    const position: VerdictPosition = avg >= 65 ? 'GO' : avg >= 45 ? 'CAUTION' : 'NO-GO';
+    return {
+      position,
+      confidence: 'medium',
+      headline: v.slice(0, 110),
+      summary: v,
+      key_drivers: [],
+      key_risks: [],
+      recommendation: '',
+    };
+  }
+  const pos = String(v?.position || '').toUpperCase();
+  const position: VerdictPosition =
+    pos === 'GO' || pos === 'NO-GO' || pos === 'NOGO' ? (pos === 'NOGO' ? 'NO-GO' : (pos as VerdictPosition)) :
+    pos === 'CAUTION' ? 'CAUTION' : 'CAUTION';
+  const conf = String(v?.confidence || 'medium').toLowerCase();
+  const confidence: VerdictConfidence =
+    conf === 'high' || conf === 'low' ? (conf as VerdictConfidence) : 'medium';
+  return {
+    position,
+    confidence,
+    headline: String(v?.headline || '').trim() || 'Стратегический вердикт по нише',
+    summary: String(v?.summary || '').trim(),
+    key_drivers: Array.isArray(v?.key_drivers) ? v.key_drivers.filter(Boolean) : [],
+    key_risks: Array.isArray(v?.key_risks) ? v.key_risks.filter(Boolean) : [],
+    recommendation: String(v?.recommendation || '').trim(),
+  };
+}
+
 const LOADING_STAGES = [
   'Сканируем поисковую выдачу и SERP...',
   'Анализируем барьеры E-E-A-T...',
@@ -102,8 +148,25 @@ const LOADING_STAGES = [
 const MOCK_REPORT: ReportData = {
   scoring: { searchOpp: 85, commercial: 70, trust: 90, aiRisk: 40 },
   executive_summary: {
-    verdict:
-      'Ниша зрелая, но в B2B-сегменте есть пространство для роста за счёт нишевых SaaS-решений и локализации под малый бизнес.',
+    verdict: {
+      position: 'CAUTION',
+      confidence: 'medium',
+      headline: 'Ниша зрелая: входить точечно через вертикальный B2B-SaaS-клин.',
+      summary:
+        'Рынок стабилен и платёжеспособен, но насыщен крупными горизонтальными игроками. Ключевая возможность — узкие вертикали и локальный B2B в городах второго эшелона. E-E-A-T требования высокие, поэтому без экспертного контента и кейсов выйти в ТОП не получится. AI-риск умеренный: коммерческие интенты слабо вытесняются AI Overviews, но информационный трафик будет постепенно сжиматься.',
+      key_drivers: [
+        'Платёжеспособный B2B-спрос — высокий чек и LTV в подписочной модели',
+        'Свободные микро-сегменты соло-предпринимателей и локального B2B',
+        'Возможность дифференциации через интеграции с маркетплейсами и кассами',
+      ],
+      key_risks: [
+        'Высокая стоимость экспертного контента и удержания авторов',
+        'Консолидация рынка вокруг 2–3 лидеров с сильным брендом',
+        'AI Overviews снижают CTR на информационные кластеры',
+      ],
+      recommendation:
+        'Старт с одной узкой вертикали и опорного контент-хаба на 25 материалов за 3 месяца, параллельно — наращивание E-E-A-T (кейсы, авторы, внешние публикации) и подготовка партнёрской программы на горизонте 6+ месяцев.',
+    },
     top_subniches: ['B2B SaaS для логистики', 'Локальный CRM для салонов', 'AI-ассистент для бухгалтерии'],
     roadmap: {
       '3_months': 'Базовый контент-хаб: 25 опорных статей, технический аудит, локальная оптимизация.',
@@ -191,11 +254,18 @@ export default function NicheOverviewPage() {
     try {
       const { data, error } = await supabase.functions.invoke('analyze-niche', { body: formData });
       if (error) throw error;
-      const report = (data as any)?.report;
-      if (!report || !report.scoring) {
+      const raw = (data as any)?.report;
+      if (!raw || !raw.scoring) {
         throw new Error('Пустой ответ AI');
       }
-      setReportData(report as ReportData);
+      const report: ReportData = {
+        ...raw,
+        executive_summary: {
+          ...raw.executive_summary,
+          verdict: normalizeVerdict(raw?.executive_summary?.verdict, raw.scoring),
+        },
+      };
+      setReportData(report);
     } catch (e: any) {
       console.error('analyze-niche failed', e);
       toast({
@@ -247,6 +317,8 @@ export default function NicheOverviewPage() {
             </p>
           </div>
         </div>
+
+        {!reportData && !isLoading && <ModuleDescription />}
 
         {!reportData && !isLoading && (
           <Card className="p-6">
@@ -444,10 +516,7 @@ function ResultsDashboard({
         </TabsList>
 
         <TabsContent value="summary" className="mt-4 space-y-4">
-          <Card className="p-6">
-            <h3 className="text-sm font-semibold text-foreground mb-2">Вердикт</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">{data.executive_summary.verdict}</p>
-          </Card>
+          <VerdictCard verdict={data.executive_summary.verdict} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="p-6">
               <h3 className="text-sm font-semibold text-foreground mb-3">Топ-подниши</h3>
@@ -630,6 +699,169 @@ function ScoreCard({
         </div>
       </div>
       <Progress value={value} className="mt-3 h-1.5" />
+    </Card>
+  );
+}
+
+function ModuleDescription() {
+  const items = [
+    {
+      icon: Database,
+      title: 'Источники данных',
+      desc: 'Параметры формы + знания AI-модели о рынке: спрос, конкуренция, экономика ниши, E-E-A-T-сигналы и риски AI-выдачи.',
+    },
+    {
+      icon: Brain,
+      title: 'Как считаем',
+      desc: 'Скоринг по 4 метрикам (Search / Commercial / Trust / AI Risk) и сценарный анализ барьеров и White Spaces силами AI-аналитика.',
+    },
+    {
+      icon: FileText,
+      title: 'Что получите',
+      desc: 'Профессиональный вердикт GO / CAUTION / NO-GO, roadmap на 3-6-12 месяцев и .docx-отчёт для клиента в фирменном оформлении.',
+    },
+  ];
+  return (
+    <Card className="p-6 space-y-5">
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold text-foreground">О модуле</h2>
+        <p className="text-sm text-muted-foreground max-w-3xl leading-relaxed">
+          «Обзор ниши» — стратегический AI-аудит рыночных возможностей. Модуль оценивает поисковый и коммерческий
+          потенциал, барьеры входа по E-E-A-T, риск вытеснения трафика AI-ответами и предлагает дорожную карту входа
+          под силу домена и горизонт планирования.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {items.map((it) => {
+          const Icon = it.icon;
+          return (
+            <div key={it.title} className="rounded-lg border border-border bg-muted/20 p-4 flex gap-3">
+              <div className="w-9 h-9 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Icon className="w-4 h-4" />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <div className="text-sm font-medium text-foreground">{it.title}</div>
+                <div className="text-xs text-muted-foreground leading-relaxed">{it.desc}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function positionMeta(pos: VerdictPosition) {
+  if (pos === 'GO') return {
+    label: 'РЕКОМЕНДУЕМ ВХОДИТЬ',
+    badge: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30',
+    accent: 'text-emerald-500',
+    icon: ShieldCheck,
+  };
+  if (pos === 'NO-GO') return {
+    label: 'НЕ РЕКОМЕНДУЕМ',
+    badge: 'bg-rose-500/15 text-rose-500 border-rose-500/30',
+    accent: 'text-rose-500',
+    icon: XCircle,
+  };
+  return {
+    label: 'ВХОДИТЬ С ОГОВОРКАМИ',
+    badge: 'bg-amber-500/15 text-amber-500 border-amber-500/30',
+    accent: 'text-amber-500',
+    icon: AlertTriangle,
+  };
+}
+
+function confidenceLabel(c: VerdictConfidence) {
+  return c === 'high' ? 'высокая' : c === 'low' ? 'низкая' : 'средняя';
+}
+
+function VerdictCard({ verdict }: { verdict: StructuredVerdict }) {
+  const meta = positionMeta(verdict.position);
+  const Icon = meta.icon;
+  return (
+    <Card className="p-6 space-y-5">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-10 h-10 rounded-lg bg-muted/40 flex items-center justify-center ${meta.accent}`}>
+            <Icon className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+              Стратегический вердикт
+            </div>
+            <h3 className="text-base font-semibold text-foreground leading-snug">
+              {verdict.headline}
+            </h3>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className={meta.badge}>{meta.label}</Badge>
+          <Badge variant="outline" className="border-border text-muted-foreground">
+            Уверенность: {confidenceLabel(verdict.confidence)}
+          </Badge>
+        </div>
+      </div>
+
+      {verdict.summary && (
+        <p className="text-sm text-foreground/90 leading-relaxed">{verdict.summary}</p>
+      )}
+
+      {(verdict.key_drivers.length > 0 || verdict.key_risks.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {verdict.key_drivers.length > 0 && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-500">
+                  Ключевые драйверы
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {verdict.key_drivers.map((d, i) => (
+                  <li key={i} className="text-sm text-foreground flex gap-2">
+                    <span className="text-emerald-500 shrink-0">▸</span>
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {verdict.key_risks.length > 0 && (
+            <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-4 h-4 text-rose-500" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-rose-500">
+                  Ключевые риски
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {verdict.key_risks.map((r, i) => (
+                  <li key={i} className="text-sm text-foreground flex gap-2">
+                    <span className="text-rose-500 shrink-0">▸</span>
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {verdict.recommendation && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 flex gap-3">
+          <div className="w-8 h-8 rounded-md bg-primary/15 text-primary flex items-center justify-center shrink-0">
+            <Lightbulb className="w-4 h-4" />
+          </div>
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+              Next best action
+              <ArrowRight className="w-3 h-3" />
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">{verdict.recommendation}</p>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
