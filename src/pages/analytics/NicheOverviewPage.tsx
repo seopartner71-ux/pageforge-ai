@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Compass, Sparkles, Target, TrendingUp, ShieldAlert, Map, CheckCircle2, AlertTriangle, Info, FileDown, Database, Brain, FileText, Lightbulb, ArrowRight, ShieldCheck, XCircle } from 'lucide-react';
+import { Loader2, Compass, Sparkles, Target, TrendingUp, ShieldAlert, CheckCircle2, AlertTriangle, Info, FileDown, Database, Brain, FileText, Lightbulb, ArrowRight, ShieldCheck, XCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
@@ -17,6 +17,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { exportNicheOverviewDocx } from '@/lib/analytics/exportNicheOverviewDocx';
+import { OpportunitiesData, normalizeOpportunities } from '@/components/analytics/OpportunitiesView';
 
 const FIELD_HINTS: Record<string, string> = {
   niche: 'Опишите тематику бизнеса так, как её ищут клиенты. Чем точнее формулировка — тем релевантнее анализ. Пример: «онлайн-курсы по Python для джунов».',
