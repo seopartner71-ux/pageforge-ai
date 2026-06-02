@@ -178,6 +178,11 @@ JSON-схема (верни ровно её, без лишних полей):
 }`;
 
 function buildUserPrompt(body: any): string {
+  const mode = String(body.mode || "overview");
+  const opportunitiesInstruction =
+    mode === "opportunities"
+      ? "Заполни блок opportunities максимально подробно — это основной запрос."
+      : "НЕ ЗАПОЛНЯЙ блок opportunities — верни его как пустой объект {}. Сфокусируйся на executive_summary, market, barriers, strategy, assumptions, scoring.";
   return `Параметры ниши:
 - Ниша: ${body.niche || "-"}
 - Гео: ${body.geo || "-"}
@@ -186,6 +191,8 @@ function buildUserPrompt(body: any): string {
 - Аудитория: ${body.audience || "-"}
 - Сила домена: ${body.domainStrength || "-"}
 - Горизонт планирования (мес): ${body.horizon || "-"}
+
+${opportunitiesInstruction}
 
 Сделай реалистичный экспертный анализ. Верни JSON по заданной схеме.`;
 }
@@ -256,6 +263,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Не удалось распарсить ответ AI", raw }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    // Возвращаем opportunities только если они были запрошены явно
+    if (String(body.mode || "overview") !== "opportunities") {
+      delete (report as any).opportunities;
     }
     return new Response(JSON.stringify({ report }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

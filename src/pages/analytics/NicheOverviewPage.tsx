@@ -331,7 +331,9 @@ export default function NicheOverviewPage() {
     setIsLoading(true);
     setReportData(null);
     try {
-      const { data, error } = await supabase.functions.invoke('analyze-niche', { body: formData });
+      const { data, error } = await supabase.functions.invoke('analyze-niche', {
+        body: { ...formData, mode: 'overview' },
+      });
       if (error) throw error;
       const raw = (data as any)?.report;
       if (!raw || !raw.scoring) {

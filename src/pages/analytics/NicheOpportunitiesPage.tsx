@@ -94,7 +94,9 @@ export default function NicheOpportunitiesPage() {
     setIsLoading(true);
     setData(null);
     try {
-      const { data: resp, error } = await supabase.functions.invoke('analyze-niche', { body: formData });
+      const { data: resp, error } = await supabase.functions.invoke('analyze-niche', {
+        body: { ...formData, mode: 'opportunities' },
+      });
       if (error) throw error;
       const opp = normalizeOpportunities((resp as any)?.report?.opportunities);
       if (!opp) throw new Error('AI не вернул блок возможностей');
