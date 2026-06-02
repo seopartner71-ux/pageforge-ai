@@ -141,6 +141,7 @@ const App = () => (
                   <Route path="/tools" element={<ToolsHubPage />} />
                   <Route path="/seo" element={<SeoDashboardPage />} />
                   <Route path="/ads" element={<AdsOverviewPage />} />
+                  <Route path="/ads/*" element={<AdsOverviewPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/history" element={<HistoryPage />} />
                   <Route path="/report/:id" element={<ReportRouterPage />} />

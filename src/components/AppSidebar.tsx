@@ -19,6 +19,7 @@ import {
   Code2, History as HistoryIcon, Zap, Smartphone, Network, FileText,
   PenSquare, User, Settings, Bot, ShieldAlert, Gauge, LifeBuoy, Radar, Mic, FolderKanban,
   ChevronDown, BarChart2,
+  Megaphone, LayoutDashboard, Briefcase, Rocket, MessageSquare, FileBarChart, Wand2, ShieldCheck,
 } from 'lucide-react';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { useStaffRole } from '@/hooks/useStaffRole';
@@ -90,6 +91,18 @@ const SEO_ITEMS: Item[] = [
   { label: 'Интент запросов', path: '/intent', icon: FileText },
 ];
 
+const ADS_ITEMS: Item[] = [
+  { label: 'Обзор', path: '/ads', icon: LayoutDashboard },
+  { label: 'Кабинеты', path: '/ads/accounts', icon: Briefcase },
+  { label: 'Кампании', path: '/ads/campaigns', icon: Rocket },
+  { label: 'Поисковые запросы', path: '/ads/queries', icon: Search },
+  { label: 'Объявления', path: '/ads/creatives', icon: MessageSquare },
+  { label: 'AI-рекомендации', path: '/ads/ai-recommendations', icon: Sparkles },
+  { label: 'Отчёты', path: '/ads/reports', icon: FileBarChart },
+  { label: 'Автоматизация', path: '/ads/automation', icon: Wand2 },
+  { label: 'Аудит кабинета (AI)', path: '/ads/audit', icon: ShieldCheck },
+];
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
@@ -102,6 +115,9 @@ export function AppSidebar() {
   const seoPaths = SEO_ITEMS.map((i) => i.path).concat('/seo');
   const isSeoActive = seoPaths.includes(pathname);
   const [seoOpen, setSeoOpen] = useState(isSeoActive);
+  const adsPaths = ADS_ITEMS.map((i) => i.path);
+  const isAdsActive = adsPaths.some((p) => pathname === p || pathname.startsWith(p + '/'));
+  const [adsOpen, setAdsOpen] = useState(isAdsActive || pathname.startsWith('/ads'));
 
   const bottomItems: Item[] = [
     { label: 'История', path: '/history', icon: HistoryIcon },
@@ -198,6 +214,77 @@ export function AppSidebar() {
                 <CollapsibleContent>
                   <div className={collapsed ? '' : 'pl-3 mt-1 border-l border-border/40 ml-3'}>
                     {SEO_ITEMS.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <SidebarMenuItem key={item.path}>
+                          <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={item.label}>
+                            <NavLink
+                              to={item.path}
+                              className="flex items-center gap-2"
+                              onMouseEnter={() => prefetch(item.path)}
+                              onFocus={() => prefetch(item.path)}
+                              onTouchStart={() => prefetch(item.path)}
+                            >
+                              <Icon className="h-4 w-4 shrink-0" />
+                              <span>{item.label}</span>
+                            </NavLink>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </SidebarMenu>
+            </Collapsible>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          {!collapsed && (
+            <SidebarGroupLabel className="flex items-center gap-2">
+              <span>РЕКЛАМА</span>
+              <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/30 tracking-wide">
+                Новое
+              </span>
+            </SidebarGroupLabel>
+          )}
+          <SidebarGroupContent>
+            <Collapsible open={collapsed ? true : adsOpen} onOpenChange={setAdsOpen}>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <div className="flex items-center gap-1">
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive('/ads')}
+                      tooltip="Реклама — Обзор"
+                      className="flex-1"
+                    >
+                      <NavLink
+                        to="/ads"
+                        className="flex items-center gap-2"
+                        onMouseEnter={() => prefetch('/ads')}
+                        onFocus={() => prefetch('/ads')}
+                      >
+                        <Megaphone className="h-4 w-4 shrink-0" />
+                        <span>Реклама</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                    {!collapsed && (
+                      <CollapsibleTrigger
+                        aria-label="Развернуть Реклама"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                      >
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${adsOpen ? 'rotate-180' : ''}`}
+                        />
+                      </CollapsibleTrigger>
+                    )}
+                  </div>
+                </SidebarMenuItem>
+
+                <CollapsibleContent>
+                  <div className={collapsed ? '' : 'pl-3 mt-1 border-l border-border/40 ml-3'}>
+                    {ADS_ITEMS.map((item) => {
                       const Icon = item.icon;
                       return (
                         <SidebarMenuItem key={item.path}>
