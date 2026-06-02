@@ -40,15 +40,15 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const projectId = String(body.project_id ?? '').trim();
+    const oauthClientId = String(body.oauth_client_id ?? '').trim() || Deno.env.get('YANDEX_OAUTH_CLIENT_ID');
     if (!projectId) {
       return new Response(JSON.stringify({ error: 'project_id required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const clientId = Deno.env.get('YANDEX_OAUTH_CLIENT_ID');
     const stateSecret = Deno.env.get('CRAWLER_SECRET');
-    if (!clientId || !stateSecret) {
+    if (!oauthClientId || !stateSecret) {
       return new Response(JSON.stringify({ error: 'OAuth not configured' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     const redirectUri = 'https://oauth.yandex.ru/verification_code';
     const url = new URL(YANDEX_OAUTH_AUTHORIZE);
     url.searchParams.set('response_type', 'code');
-    url.searchParams.set('client_id', clientId);
+    url.searchParams.set('client_id', oauthClientId);
     url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('state', state);
     url.searchParams.set('force_confirm', 'yes');
