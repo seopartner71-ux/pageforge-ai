@@ -1,5 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Sidebar,
   SidebarContent,
@@ -15,11 +16,21 @@ import {
 } from '@/components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
   LayoutGrid, Search, Sparkles, Link2, Users, BarChart3, Target,
   Code2, History as HistoryIcon, Zap, Smartphone, Network, FileText,
   PenSquare, User, Settings, Bot, ShieldAlert, Gauge, LifeBuoy, Radar, Mic, FolderKanban,
   ChevronDown, BarChart2,
   Megaphone, LayoutDashboard, Briefcase, Rocket, MessageSquare, FileBarChart, Wand2, ShieldCheck,
+  UserCircle2, UsersRound, CreditCard, LogOut, ChevronsUpDown,
 } from 'lucide-react';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { useStaffRole } from '@/hooks/useStaffRole';
