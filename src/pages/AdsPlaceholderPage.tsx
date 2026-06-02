@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Construction, ArrowLeft } from 'lucide-react';
 
 const ADS_LABELS: Record<string, string> = {
-  '/ads/accounts': 'Кабинеты',
   '/ads/campaigns': 'Кампании',
   '/ads/queries': 'Поисковые запросы',
   '/ads/creatives': 'Объявления',
