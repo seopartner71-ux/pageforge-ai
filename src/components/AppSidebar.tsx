@@ -31,9 +31,11 @@ import {
   ChevronDown, BarChart2,
   Megaphone, LayoutDashboard, Briefcase, Rocket, MessageSquare, FileBarChart, Wand2, ShieldCheck,
   UserCircle2, UsersRound, CreditCard, LogOut, ChevronsUpDown,
+  PieChart,
 } from 'lucide-react';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { useStaffRole } from '@/hooks/useStaffRole';
+import { ANALYTICS_SECTIONS } from '@/lib/analyticsNav';
 
 type Item = { label: string; path: string; icon: any };
 type Group = { label: string; items: Item[] };
@@ -129,6 +131,15 @@ export function AppSidebar() {
   const adsPaths = ADS_ITEMS.map((i) => i.path);
   const isAdsActive = adsPaths.some((p) => pathname === p || pathname.startsWith(p + '/'));
   const [adsOpen, setAdsOpen] = useState(isAdsActive || pathname.startsWith('/ads'));
+  const isAnalyticsActive = pathname.startsWith('/analytics');
+  const [analyticsOpen, setAnalyticsOpen] = useState(isAnalyticsActive);
+  const [analyticsSubOpen, setAnalyticsSubOpen] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    for (const s of ANALYTICS_SECTIONS) {
+      init[s.label] = s.items.some((it) => pathname.startsWith(it.path));
+    }
+    return init;
+  });
 
   const bottomItems: Item[] = [
     { label: 'История', path: '/history', icon: HistoryIcon },
