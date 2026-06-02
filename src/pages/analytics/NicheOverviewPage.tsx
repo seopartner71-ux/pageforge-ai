@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Compass, Sparkles, Target, TrendingUp, ShieldAlert, Map, CheckCircle2, AlertTriangle, Info, FileDown } from 'lucide-react';
+import { Loader2, Compass, Sparkles, Target, TrendingUp, ShieldAlert, Map, CheckCircle2, AlertTriangle, Info, FileDown, Database, Brain, FileText, Lightbulb, ArrowRight, ShieldCheck, XCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
@@ -67,10 +67,23 @@ type FormData = {
   horizon: string;
 };
 
+type VerdictPosition = 'GO' | 'CAUTION' | 'NO-GO';
+type VerdictConfidence = 'high' | 'medium' | 'low';
+
+type StructuredVerdict = {
+  position: VerdictPosition;
+  confidence: VerdictConfidence;
+  headline: string;
+  summary: string;
+  key_drivers: string[];
+  key_risks: string[];
+  recommendation: string;
+};
+
 type ReportData = {
   scoring: { searchOpp: number; commercial: number; trust: number; aiRisk: number };
   executive_summary: {
-    verdict: string;
+    verdict: StructuredVerdict;
     top_subniches: string[];
     roadmap: { '3_months': string; '6_months': string; '12_months': string };
   };
@@ -91,6 +104,39 @@ type ReportData = {
   };
 };
 
+function normalizeVerdict(v: any, scoring: ReportData['scoring']): StructuredVerdict {
+  // Back-compat: старые ответы возвращали verdict как строку
+  if (typeof v === 'string') {
+    const avg = (scoring.searchOpp + scoring.commercial + scoring.trust + (100 - scoring.aiRisk)) / 4;
+    const position: VerdictPosition = avg >= 65 ? 'GO' : avg >= 45 ? 'CAUTION' : 'NO-GO';
+    return {
+      position,
+      confidence: 'medium',
+      headline: v.slice(0, 110),
+      summary: v,
+      key_drivers: [],
+      key_risks: [],
+      recommendation: '',
+    };
+  }
+  const pos = String(v?.position || '').toUpperCase();
+  const position: VerdictPosition =
+    pos === 'GO' || pos === 'NO-GO' || pos === 'NOGO' ? (pos === 'NOGO' ? 'NO-GO' : (pos as VerdictPosition)) :
+    pos === 'CAUTION' ? 'CAUTION' : 'CAUTION';
+  const conf = String(v?.confidence || 'medium').toLowerCase();
+  const confidence: VerdictConfidence =
+    conf === 'high' || conf === 'low' ? (conf as VerdictConfidence) : 'medium';
+  return {
+    position,
+    confidence,
+    headline: String(v?.headline || '').trim() || 'Стратегический вердикт по нише',
+    summary: String(v?.summary || '').trim(),
+    key_drivers: Array.isArray(v?.key_drivers) ? v.key_drivers.filter(Boolean) : [],
+    key_risks: Array.isArray(v?.key_risks) ? v.key_risks.filter(Boolean) : [],
+    recommendation: String(v?.recommendation || '').trim(),
+  };
+}
+
 const LOADING_STAGES = [
   'Сканируем поисковую выдачу и SERP...',
   'Анализируем барьеры E-E-A-T...',
@@ -102,8 +148,25 @@ const LOADING_STAGES = [
 const MOCK_REPORT: ReportData = {
   scoring: { searchOpp: 85, commercial: 70, trust: 90, aiRisk: 40 },
   executive_summary: {
-    verdict:
-      'Ниша зрелая, но в B2B-сегменте есть пространство для роста за счёт нишевых SaaS-решений и локализации под малый бизнес.',
+    verdict: {
+      position: 'CAUTION',
+      confidence: 'medium',
+      headline: 'Ниша зрелая: входить точечно через вертикальный B2B-SaaS-клин.',
+      summary:
+        'Рынок стабилен и платёжеспособен, но насыщен крупными горизонтальными игроками. Ключевая возможность — узкие вертикали и локальный B2B в городах второго эшелона. E-E-A-T требования высокие, поэтому без экспертного контента и кейсов выйти в ТОП не получится. AI-риск умеренный: коммерческие интенты слабо вытесняются AI Overviews, но информационный трафик будет постепенно сжиматься.',
+      key_drivers: [
+        'Платёжеспособный B2B-спрос — высокий чек и LTV в подписочной модели',
+        'Свободные микро-сегменты соло-предпринимателей и локального B2B',
+        'Возможность дифференциации через интеграции с маркетплейсами и кассами',
+      ],
+      key_risks: [
+        'Высокая стоимость экспертного контента и удержания авторов',
+        'Консолидация рынка вокруг 2–3 лидеров с сильным брендом',
+        'AI Overviews снижают CTR на информационные кластеры',
+      ],
+      recommendation:
+        'Старт с одной узкой вертикали и опорного контент-хаба на 25 материалов за 3 месяца, параллельно — наращивание E-E-A-T (кейсы, авторы, внешние публикации) и подготовка партнёрской программы на горизонте 6+ месяцев.',
+    },
     top_subniches: ['B2B SaaS для логистики', 'Локальный CRM для салонов', 'AI-ассистент для бухгалтерии'],
     roadmap: {
       '3_months': 'Базовый контент-хаб: 25 опорных статей, технический аудит, локальная оптимизация.',
@@ -191,11 +254,18 @@ export default function NicheOverviewPage() {
     try {
       const { data, error } = await supabase.functions.invoke('analyze-niche', { body: formData });
       if (error) throw error;
-      const report = (data as any)?.report;
-      if (!report || !report.scoring) {
+      const raw = (data as any)?.report;
+      if (!raw || !raw.scoring) {
         throw new Error('Пустой ответ AI');
       }
-      setReportData(report as ReportData);
+      const report: ReportData = {
+        ...raw,
+        executive_summary: {
+          ...raw.executive_summary,
+          verdict: normalizeVerdict(raw?.executive_summary?.verdict, raw.scoring),
+        },
+      };
+      setReportData(report);
     } catch (e: any) {
       console.error('analyze-niche failed', e);
       toast({
@@ -247,6 +317,8 @@ export default function NicheOverviewPage() {
             </p>
           </div>
         </div>
+
+        {!reportData && !isLoading && <ModuleDescription />}
 
         {!reportData && !isLoading && (
           <Card className="p-6">
