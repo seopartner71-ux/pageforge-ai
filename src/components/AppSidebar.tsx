@@ -364,6 +364,69 @@ export function AppSidebar() {
               </SidebarMenuItem>
             );
           })}
+
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  tooltip={user?.name ?? 'Аккаунт'}
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <Avatar className="h-7 w-7 rounded-md">
+                    <AvatarFallback className="rounded-md bg-primary/15 text-primary text-xs font-semibold">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  {!collapsed && (
+                    <>
+                      <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
+                        <span className="truncate font-medium">{user?.name ?? 'Аккаунт'}</span>
+                        <span className="truncate text-[11px] text-muted-foreground">
+                          {user?.email ?? ''}
+                        </span>
+                      </div>
+                      <ChevronsUpDown className="ml-auto h-4 w-4 opacity-60" />
+                    </>
+                  )}
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                align="end"
+                className="w-56"
+                sideOffset={8}
+              >
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium truncate">{user?.name ?? 'Аккаунт'}</span>
+                    <span className="text-[11px] text-muted-foreground truncate">{user?.email}</span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/account')}>
+                  <UserCircle2 className="w-4 h-4 mr-2" />
+                  Профиль
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/account')}>
+                  <UsersRound className="w-4 h-4 mr-2" />
+                  Команда
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/account')}>
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Биллинг / Подписка
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Выйти
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
