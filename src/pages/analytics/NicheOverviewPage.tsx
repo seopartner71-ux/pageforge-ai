@@ -1,0 +1,524 @@
+import { useEffect, useState } from 'react';
+import { AppHeader } from '@/components/AppHeader';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, Compass, Sparkles, Target, TrendingUp, ShieldAlert, Map, CheckCircle2, AlertTriangle } from 'lucide-react';
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+} from 'recharts';
+
+type FormData = {
+  niche: string;
+  geo: string;
+  businessType: string;
+  monetization: string;
+  audience: string;
+  domainStrength: string;
+  horizon: string;
+};
+
+type ReportData = {
+  scoring: { searchOpp: number; commercial: number; trust: number; aiRisk: number };
+  executive_summary: {
+    verdict: string;
+    top_subniches: string[];
+    roadmap: { '3_months': string; '6_months': string; '12_months': string };
+  };
+  market: {
+    size_estimate: string;
+    growth_rate: string;
+    key_players: { name: string; share: number }[];
+    white_spaces: string[];
+  };
+  barriers: {
+    eeat: { name: string; level: 'low' | 'mid' | 'high'; note: string }[];
+    capital: string;
+    regulation: string;
+  };
+  strategy: {
+    wedges: { title: string; description: string; effort: string; impact: string }[];
+    risks: string[];
+  };
+};
+
+const LOADING_STAGES = [
+  'Сканируем поисковую выдачу и SERP...',
+  'Анализируем барьеры E-E-A-T...',
+  'Ищем свободные зоны (White Spaces)...',
+  'Строим стратегию входа (Wedges)...',
+  'Генерируем финальный JSON-отчёт...',
+];
+
+const MOCK_REPORT: ReportData = {
+  scoring: { searchOpp: 85, commercial: 70, trust: 90, aiRisk: 40 },
+  executive_summary: {
+    verdict:
+      'Ниша зрелая, но в B2B-сегменте есть пространство для роста за счёт нишевых SaaS-решений и локализации под малый бизнес.',
+    top_subniches: ['B2B SaaS для логистики', 'Локальный CRM для салонов', 'AI-ассистент для бухгалтерии'],
+    roadmap: {
+      '3_months': 'Базовый контент-хаб: 25 опорных статей, технический аудит, локальная оптимизация.',
+      '6_months': 'Усиление E-E-A-T: кейсы, авторы-эксперты, внешние публикации, видео-обзоры.',
+      '12_months': 'Выход в смежные сегменты, партнёрские интеграции, программа адвокатов бренда.',
+    },
+  },
+  market: {
+    size_estimate: '≈ 1.2 млрд ₽/год',
+    growth_rate: '+18% YoY',
+    key_players: [
+      { name: 'Лидер A', share: 32 },
+      { name: 'Игрок B', share: 21 },
+      { name: 'Игрок C', share: 14 },
+      { name: 'Игрок D', share: 9 },
+      { name: 'Остальные', share: 24 },
+    ],
+    white_spaces: [
+      'Микро-сегмент «соло-предприниматели» без вертикального решения',
+      'Локальный B2B в городах 100–500 тыс. населения',
+      'Интеграции с маркетплейсами и кассовыми системами',
+    ],
+  },
+  barriers: {
+    eeat: [
+      { name: 'Экспертиза авторов', level: 'high', note: 'Требуется команда практиков с публичным треком.' },
+      { name: 'Опыт (Experience)', level: 'mid', note: 'Нужны реальные кейсы и доказательства внедрений.' },
+      { name: 'Авторитетность бренда', level: 'high', note: 'Цитируемость в отраслевых СМИ обязательна.' },
+      { name: 'Доверие (Trust)', level: 'mid', note: 'Отзывы, прозрачные цены, юридические гарантии.' },
+    ],
+    capital: 'Средний порог входа: 1.5–3 млн ₽ на первые 6 месяцев (команда + контент + продукт).',
+    regulation: 'Регуляторных барьеров нет, но обязательны 152-ФЗ и оферта.',
+  },
+  strategy: {
+    wedges: [
+      { title: 'Vertical SaaS Wedge', description: 'Узкий продукт под одну вертикаль, затем расширение.', effort: 'High', impact: 'High' },
+      { title: 'Content-Led Growth', description: 'Опорные гайды + калькуляторы для захвата SEO-спроса.', effort: 'Mid', impact: 'High' },
+      { title: 'Local Partnership', description: 'Партнёрства с локальными интеграторами и агентствами.', effort: 'Low', impact: 'Mid' },
+    ],
+    risks: [
+      'Высокая стоимость экспертного контента',
+      'Появление AI-Overviews снижает CTR на информационные запросы',
+      'Консолидация рынка крупными игроками',
+    ],
+  },
+};
+
+const DEFAULT_FORM: FormData = {
+  niche: '',
+  geo: 'ru',
+  businessType: 'b2b',
+  monetization: 'subscription',
+  audience: '',
+  domainStrength: 'new',
+  horizon: '6',
+};
+
+function levelColor(level: 'low' | 'mid' | 'high') {
+  if (level === 'high') return 'bg-rose-500/15 text-rose-500 border-rose-500/30';
+  if (level === 'mid') return 'bg-amber-500/15 text-amber-500 border-amber-500/30';
+  return 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30';
+}
+
+export default function NicheOverviewPage() {
+  const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
+  const [isLoading, setIsLoading] = useState(false);
+  const [stageIndex, setStageIndex] = useState(0);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    setStageIndex(0);
+    const id = setInterval(() => {
+      setStageIndex((i) => (i + 1) % LOADING_STAGES.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [isLoading]);
+
+  const update = <K extends keyof FormData>(k: K, v: FormData[K]) =>
+    setFormData((s) => ({ ...s, [k]: v }));
+
+  async function generateReport() {
+    setIsLoading(true);
+    setReportData(null);
+    // Имитация запроса. В будущем: await supabase.functions.invoke('analyze-niche', { body: formData })
+    await new Promise((r) => setTimeout(r, 12000));
+    setReportData(MOCK_REPORT);
+    setIsLoading(false);
+  }
+
+  const canSubmit = formData.niche.trim().length > 1 && !isLoading;
+
+  return (
+    <div className="min-h-screen bg-background">
+      <AppHeader />
+      <main className="container max-w-[1400px] py-8 space-y-6">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+            <Compass className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Обзор ниши</h1>
+            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              AI-анализ рыночных возможностей, барьеров входа и стратегии для выбранной ниши.
+            </p>
+          </div>
+        </div>
+
+        {!reportData && !isLoading && (
+          <Card className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="niche">Ниша / тематика *</Label>
+                <Input
+                  id="niche"
+                  placeholder="Например: онлайн-курсы по программированию"
+                  value={formData.niche}
+                  onChange={(e) => update('niche', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Гео</Label>
+                <Select value={formData.geo} onValueChange={(v) => update('geo', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ru">Россия</SelectItem>
+                    <SelectItem value="cis">СНГ</SelectItem>
+                    <SelectItem value="ee">Восточная Европа</SelectItem>
+                    <SelectItem value="global">Глобально</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Тип бизнеса</Label>
+                <Select value={formData.businessType} onValueChange={(v) => update('businessType', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="b2b">B2B</SelectItem>
+                    <SelectItem value="b2c">B2C</SelectItem>
+                    <SelectItem value="b2b2c">B2B2C</SelectItem>
+                    <SelectItem value="marketplace">Маркетплейс</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Монетизация</Label>
+                <Select value={formData.monetization} onValueChange={(v) => update('monetization', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="subscription">Подписка</SelectItem>
+                    <SelectItem value="one-time">Разовая продажа</SelectItem>
+                    <SelectItem value="ads">Реклама</SelectItem>
+                    <SelectItem value="commission">Комиссия</SelectItem>
+                    <SelectItem value="services">Услуги</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Сила домена</Label>
+                <Select value={formData.domainStrength} onValueChange={(v) => update('domainStrength', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">Новый сайт</SelectItem>
+                    <SelectItem value="weak">Слабый (DR &lt; 20)</SelectItem>
+                    <SelectItem value="mid">Средний (DR 20–50)</SelectItem>
+                    <SelectItem value="strong">Сильный (DR &gt; 50)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="audience">Целевая аудитория</Label>
+                <Input
+                  id="audience"
+                  placeholder="Кто ваши клиенты? Возраст, роль, проблемы"
+                  value={formData.audience}
+                  onChange={(e) => update('audience', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Горизонт планирования</Label>
+                <Select value={formData.horizon} onValueChange={(v) => update('horizon', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3">3 месяца</SelectItem>
+                    <SelectItem value="6">6 месяцев</SelectItem>
+                    <SelectItem value="12">12 месяцев</SelectItem>
+                    <SelectItem value="24">24 месяца</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button onClick={generateReport} disabled={!canSubmit} size="lg">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Запустить анализ
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {isLoading && (
+          <Card className="p-12 min-h-[420px] flex flex-col items-center justify-center text-center gap-6">
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold text-foreground">Анализ ниши «{formData.niche || '...'}»</h2>
+              <p className="text-sm text-muted-foreground transition-opacity duration-300 min-h-[20px]">
+                {LOADING_STAGES[stageIndex]}
+              </p>
+            </div>
+            <div className="w-full max-w-md space-y-2">
+              <Progress value={((stageIndex + 1) / LOADING_STAGES.length) * 100} />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Этап {stageIndex + 1} из {LOADING_STAGES.length}</span>
+                <span>~12 сек</span>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {reportData && !isLoading && (
+          <ResultsDashboard
+            data={reportData}
+            niche={formData.niche}
+            onReset={() => {
+              setReportData(null);
+              setFormData(DEFAULT_FORM);
+            }}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+function ResultsDashboard({
+  data,
+  niche,
+  onReset,
+}: {
+  data: ReportData;
+  niche: string;
+  onReset: () => void;
+}) {
+  const scoringRadar = [
+    { metric: 'Поисковый потенциал', value: data.scoring.searchOpp },
+    { metric: 'Коммерческий', value: data.scoring.commercial },
+    { metric: 'Доверие', value: data.scoring.trust },
+    { metric: 'AI-риск', value: 100 - data.scoring.aiRisk },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Отчёт по нише «{niche}»</h2>
+          <p className="text-xs text-muted-foreground mt-1">Сгенерировано AI на основе ваших параметров</p>
+        </div>
+        <Button variant="outline" onClick={onReset}>Новый анализ</Button>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <ScoreCard label="Search Opportunity" value={data.scoring.searchOpp} icon={TrendingUp} accent="text-emerald-500" />
+        <ScoreCard label="Commercial" value={data.scoring.commercial} icon={Target} accent="text-blue-500" />
+        <ScoreCard label="Trust" value={data.scoring.trust} icon={CheckCircle2} accent="text-violet-500" />
+        <ScoreCard label="AI Risk" value={data.scoring.aiRisk} icon={ShieldAlert} accent="text-amber-500" invert />
+      </div>
+
+      <Tabs defaultValue="summary" className="w-full">
+        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+          <TabsTrigger value="summary">Резюме</TabsTrigger>
+          <TabsTrigger value="market">Рынок</TabsTrigger>
+          <TabsTrigger value="barriers">Барьеры</TabsTrigger>
+          <TabsTrigger value="strategy">Стратегия</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="summary" className="mt-4 space-y-4">
+          <Card className="p-6">
+            <h3 className="text-sm font-semibold text-foreground mb-2">Вердикт</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">{data.executive_summary.verdict}</p>
+          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="p-6">
+              <h3 className="text-sm font-semibold text-foreground mb-3">Топ-подниши</h3>
+              <ul className="space-y-2">
+                {data.executive_summary.top_subniches.map((s, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm">
+                    <Badge variant="secondary" className="shrink-0">{i + 1}</Badge>
+                    <span className="text-foreground">{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+            <Card className="p-6">
+              <h3 className="text-sm font-semibold text-foreground mb-3">Профиль ниши</h3>
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={scoringRadar}>
+                    <PolarGrid stroke="hsl(var(--border))" />
+                    <PolarAngleAxis dataKey="metric" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                    <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </div>
+          <Card className="p-6">
+            <h3 className="text-sm font-semibold text-foreground mb-4">Roadmap</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(data.executive_summary.roadmap).map(([k, v]) => (
+                <div key={k} className="rounded-lg border border-border p-4">
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                    {k.replace('_', ' ')}
+                  </div>
+                  <p className="text-sm text-foreground">{v}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="market" className="mt-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="p-6">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Объём рынка</div>
+              <div className="text-2xl font-bold mt-2">{data.market.size_estimate}</div>
+            </Card>
+            <Card className="p-6">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Темп роста</div>
+              <div className="text-2xl font-bold mt-2 text-emerald-500">{data.market.growth_rate}</div>
+            </Card>
+          </div>
+          <Card className="p-6">
+            <h3 className="text-sm font-semibold text-foreground mb-4">Распределение долей</h3>
+            <div className="h-[260px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.market.key_players}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                  <Bar dataKey="share" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+          <Card className="p-6">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <Map className="w-4 h-4 text-primary" />
+              White Spaces
+            </h3>
+            <ul className="space-y-2">
+              {data.market.white_spaces.map((w, i) => (
+                <li key={i} className="text-sm text-foreground flex gap-2">
+                  <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  {w}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="barriers" className="mt-4 space-y-4">
+          <Card className="p-6">
+            <h3 className="text-sm font-semibold text-foreground mb-4">E-E-A-T факторы</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {data.barriers.eeat.map((e, i) => (
+                <div key={i} className="rounded-lg border border-border p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-foreground">{e.name}</span>
+                    <Badge variant="outline" className={levelColor(e.level)}>{e.level.toUpperCase()}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{e.note}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="p-6">
+              <h3 className="text-sm font-semibold text-foreground mb-2">Капитал</h3>
+              <p className="text-sm text-muted-foreground">{data.barriers.capital}</p>
+            </Card>
+            <Card className="p-6">
+              <h3 className="text-sm font-semibold text-foreground mb-2">Регулирование</h3>
+              <p className="text-sm text-muted-foreground">{data.barriers.regulation}</p>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="strategy" className="mt-4 space-y-4">
+          <Card className="p-6">
+            <h3 className="text-sm font-semibold text-foreground mb-4">Стратегии входа (Wedges)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {data.strategy.wedges.map((w, i) => (
+                <div key={i} className="rounded-lg border border-border p-4 space-y-2">
+                  <h4 className="text-sm font-semibold text-foreground">{w.title}</h4>
+                  <p className="text-xs text-muted-foreground">{w.description}</p>
+                  <div className="flex gap-2 pt-2">
+                    <Badge variant="secondary" className="text-[10px]">Усилия: {w.effort}</Badge>
+                    <Badge variant="secondary" className="text-[10px]">Импакт: {w.impact}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <Card className="p-6">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              Риски
+            </h3>
+            <ul className="space-y-2">
+              {data.strategy.risks.map((r, i) => (
+                <li key={i} className="text-sm text-foreground flex gap-2">
+                  <span className="text-amber-500">•</span>
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function ScoreCard({
+  label, value, icon: Icon, accent, invert,
+}: {
+  label: string;
+  value: number;
+  icon: any;
+  accent: string;
+  invert?: boolean;
+}) {
+  const display = invert ? `${value}/100` : `${value}/100`;
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium truncate">{label}</div>
+          <div className="text-2xl font-bold mt-1 tabular-nums">{display}</div>
+        </div>
+        <div className={`w-9 h-9 rounded-md bg-muted/40 flex items-center justify-center ${accent}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+      </div>
+      <Progress value={value} className="mt-3 h-1.5" />
+    </Card>
+  );
+}
