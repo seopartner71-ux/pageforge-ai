@@ -8,13 +8,54 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Compass, Sparkles, Target, TrendingUp, ShieldAlert, Map, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Loader2, Compass, Sparkles, Target, TrendingUp, ShieldAlert, Map, CheckCircle2, AlertTriangle, Info, FileDown } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { exportNicheOverviewDocx } from '@/lib/analytics/exportNicheOverviewDocx';
+
+const FIELD_HINTS: Record<string, string> = {
+  niche: 'Опишите тематику бизнеса так, как её ищут клиенты. Чем точнее формулировка — тем релевантнее анализ. Пример: «онлайн-курсы по Python для джунов».',
+  geo: 'Регион, для которого AI оценит спрос, SERP и конкуренцию. Локальный рынок и глобальный дают разные результаты по сложности входа.',
+  businessType: 'B2B и B2C по-разному оцениваются по циклу сделки, E-E-A-T и стоимости лида. От этого зависит выбор стратегии.',
+  monetization: 'Модель монетизации влияет на оценку коммерческого потенциала и приоритеты в воронке (подписка ≠ разовая покупка).',
+  audience: 'Краткое описание сегмента (роль, боль, возраст). Помогает AI точнее найти подниши и JTBD-возможности.',
+  domainStrength: 'Возраст и авторитет вашего домена. Новому сайту нужна более длинная дорожная карта по E-E-A-T.',
+  horizon: 'На какой срок строим план. От него зависит детализация roadmap и баланс «быстрые победы / стратегические инвестиции».',
+};
+
+const SCORE_HINTS: Record<string, string> = {
+  searchOpp:
+    'Search Opportunity — потенциал захвата органического трафика. Учитывает объём спроса, конкуренцию в SERP и долю информационных запросов.',
+  commercial:
+    'Commercial — оценка денежного потенциала ниши: коммерческие интенты, средний чек, готовность платить, наличие моделей подписки.',
+  trust:
+    'Trust (E-E-A-T) — насколько критично доверие в нише. Высокое значение = нужны эксперты, кейсы, ссылки, прозрачные данные.',
+  aiRisk:
+    'AI Risk — риск вытеснения вашего трафика AI-ответами (AI Overviews, Алиса, ChatGPT). Чем выше, тем больше нужно ставки на YMYL/экспертность.',
+};
+
+function HintLabel({ children, hint }: { children: React.ReactNode; hint: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span>{children}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" tabIndex={-1} className="text-muted-foreground hover:text-foreground transition-colors">
+            <Info className="w-3.5 h-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
 
 type FormData = {
   niche: string;
@@ -170,7 +211,28 @@ export default function NicheOverviewPage() {
 
   const canSubmit = formData.niche.trim().length > 1 && !isLoading;
 
+  async function handleDownload() {
+    if (!reportData) return;
+    try {
+      await exportNicheOverviewDocx({
+        niche: formData.niche,
+        data: reportData,
+        meta: {
+          geo: formData.geo,
+          businessType: formData.businessType,
+          monetization: formData.monetization,
+          audience: formData.audience,
+          horizon: formData.horizon,
+        },
+      });
+      toast({ title: 'Отчёт готов', description: 'Файл .docx сохранён.' });
+    } catch (e: any) {
+      toast({ title: 'Ошибка экспорта', description: e?.message || 'Не удалось создать .docx', variant: 'destructive' });
+    }
+  }
+
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container max-w-[1400px] py-8 space-y-6">
@@ -190,7 +252,7 @@ export default function NicheOverviewPage() {
           <Card className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="niche">Ниша / тематика *</Label>
+                <Label htmlFor="niche" asChild><HintLabel hint={FIELD_HINTS.niche}>Ниша / тематика *</HintLabel></Label>
                 <Input
                   id="niche"
                   placeholder="Например: онлайн-курсы по программированию"
@@ -200,7 +262,7 @@ export default function NicheOverviewPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Гео</Label>
+                <Label asChild><HintLabel hint={FIELD_HINTS.geo}>Гео</HintLabel></Label>
                 <Select value={formData.geo} onValueChange={(v) => update('geo', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -213,7 +275,7 @@ export default function NicheOverviewPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Тип бизнеса</Label>
+                <Label asChild><HintLabel hint={FIELD_HINTS.businessType}>Тип бизнеса</HintLabel></Label>
                 <Select value={formData.businessType} onValueChange={(v) => update('businessType', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -226,7 +288,7 @@ export default function NicheOverviewPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Монетизация</Label>
+                <Label asChild><HintLabel hint={FIELD_HINTS.monetization}>Монетизация</HintLabel></Label>
                 <Select value={formData.monetization} onValueChange={(v) => update('monetization', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -240,7 +302,7 @@ export default function NicheOverviewPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Сила домена</Label>
+                <Label asChild><HintLabel hint={FIELD_HINTS.domainStrength}>Сила домена</HintLabel></Label>
                 <Select value={formData.domainStrength} onValueChange={(v) => update('domainStrength', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -253,7 +315,7 @@ export default function NicheOverviewPage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="audience">Целевая аудитория</Label>
+                <Label htmlFor="audience" asChild><HintLabel hint={FIELD_HINTS.audience}>Целевая аудитория</HintLabel></Label>
                 <Input
                   id="audience"
                   placeholder="Кто ваши клиенты? Возраст, роль, проблемы"
@@ -263,7 +325,7 @@ export default function NicheOverviewPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Горизонт планирования</Label>
+                <Label asChild><HintLabel hint={FIELD_HINTS.horizon}>Горизонт планирования</HintLabel></Label>
                 <Select value={formData.horizon} onValueChange={(v) => update('horizon', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -312,6 +374,7 @@ export default function NicheOverviewPage() {
           <ResultsDashboard
             data={reportData}
             niche={formData.niche}
+            onDownload={handleDownload}
             onReset={() => {
               setReportData(null);
               setFormData(DEFAULT_FORM);
@@ -320,16 +383,19 @@ export default function NicheOverviewPage() {
         )}
       </main>
     </div>
+    </TooltipProvider>
   );
 }
 
 function ResultsDashboard({
   data,
   niche,
+  onDownload,
   onReset,
 }: {
   data: ReportData;
   niche: string;
+  onDownload: () => void;
   onReset: () => void;
 }) {
   const scoringRadar = [
@@ -346,14 +412,27 @@ function ResultsDashboard({
           <h2 className="text-lg font-semibold text-foreground">Отчёт по нише «{niche}»</h2>
           <p className="text-xs text-muted-foreground mt-1">Сгенерировано AI на основе ваших параметров</p>
         </div>
-        <Button variant="outline" onClick={onReset}>Новый анализ</Button>
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={onDownload}>
+                <FileDown className="w-4 h-4 mr-2" />
+                Скачать отчёт .docx
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs text-xs">
+              Профессиональный отчёт для клиента в Word: резюме, метрики, рынок, барьеры и стратегия с фирменным оформлением.
+            </TooltipContent>
+          </Tooltip>
+          <Button variant="outline" onClick={onReset}>Новый анализ</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <ScoreCard label="Search Opportunity" value={data.scoring.searchOpp} icon={TrendingUp} accent="text-emerald-500" />
-        <ScoreCard label="Commercial" value={data.scoring.commercial} icon={Target} accent="text-blue-500" />
-        <ScoreCard label="Trust" value={data.scoring.trust} icon={CheckCircle2} accent="text-violet-500" />
-        <ScoreCard label="AI Risk" value={data.scoring.aiRisk} icon={ShieldAlert} accent="text-amber-500" invert />
+        <ScoreCard label="Search Opportunity" hint={SCORE_HINTS.searchOpp} value={data.scoring.searchOpp} icon={TrendingUp} accent="text-emerald-500" />
+        <ScoreCard label="Commercial" hint={SCORE_HINTS.commercial} value={data.scoring.commercial} icon={Target} accent="text-blue-500" />
+        <ScoreCard label="Trust" hint={SCORE_HINTS.trust} value={data.scoring.trust} icon={CheckCircle2} accent="text-violet-500" />
+        <ScoreCard label="AI Risk" hint={SCORE_HINTS.aiRisk} value={data.scoring.aiRisk} icon={ShieldAlert} accent="text-amber-500" invert />
       </div>
 
       <Tabs defaultValue="summary" className="w-full">
@@ -515,20 +594,35 @@ function ResultsDashboard({
 }
 
 function ScoreCard({
-  label, value, icon: Icon, accent, invert,
+  label, value, icon: Icon, accent, invert, hint,
 }: {
   label: string;
   value: number;
   icon: any;
   accent: string;
   invert?: boolean;
+  hint?: string;
 }) {
   const display = invert ? `${value}/100` : `${value}/100`;
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium truncate">{label}</div>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium truncate flex items-center gap-1">
+            <span className="truncate">{label}</span>
+            {hint && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" tabIndex={-1} className="shrink-0 hover:text-foreground transition-colors">
+                    <Info className="w-3 h-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed normal-case tracking-normal">
+                  {hint}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
           <div className="text-2xl font-bold mt-1 tabular-nums">{display}</div>
         </div>
         <div className={`w-9 h-9 rounded-md bg-muted/40 flex items-center justify-center ${accent}`}>
