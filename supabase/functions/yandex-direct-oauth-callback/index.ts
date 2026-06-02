@@ -42,12 +42,14 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const code = String(body.code ?? '').trim();
   const projectId = String(body.project_id ?? '').trim();
+  const requestedClientId = String(body.oauth_client_id ?? '').trim();
+  const requestedClientSecret = String(body.oauth_client_secret ?? '').trim();
   if (!code || !projectId) {
     return json({ error: 'code and project_id are required' }, 400);
   }
 
-  const clientId = Deno.env.get('YANDEX_OAUTH_CLIENT_ID');
-  const clientSecret = Deno.env.get('YANDEX_OAUTH_CLIENT_SECRET');
+  const clientId = requestedClientId || Deno.env.get('YANDEX_OAUTH_CLIENT_ID');
+  const clientSecret = requestedClientSecret || (!requestedClientId ? Deno.env.get('YANDEX_OAUTH_CLIENT_SECRET') : '');
   if (!clientId || !clientSecret) {
     return json({ error: 'OAuth not configured' }, 500);
   }
@@ -90,6 +92,7 @@ Deno.serve(async (req) => {
       .eq('user_id', userId)
       .eq('provider', 'yandex_direct')
       .eq('external_id', login)
+      .eq('oauth_client_id', clientId)
       .maybeSingle();
 
     let accountId = existing?.id as string | undefined;
@@ -99,14 +102,14 @@ Deno.serve(async (req) => {
         .insert({
           user_id: userId, project_id: projectId,
           provider: 'yandex_direct', external_id: login,
-          name: displayName, status: 'connected', currency: 'RUB',
+          name: displayName, status: 'connected', currency: 'RUB', oauth_client_id: clientId,
         })
         .select('id').single();
       if (insErr) throw insErr;
       accountId = inserted.id;
     } else {
       await admin.from('ads_accounts')
-        .update({ status: 'connected', name: displayName })
+        .update({ status: 'connected', name: displayName, oauth_client_id: clientId })
         .eq('id', accountId);
     }
 
@@ -119,7 +122,8 @@ Deno.serve(async (req) => {
       external_login: login, access_token: token.access_token,
       refresh_token: token.refresh_token ?? null, token_type: token.token_type ?? 'Bearer',
       scope: token.scope ?? null, expires_at: expiresAt,
-    }, { onConflict: 'user_id,provider,external_login' });
+      oauth_client_id: clientId, oauth_client_secret: clientSecret,
+    }, { onConflict: 'user_id,provider,external_login,oauth_client_id' });
 
     // Create import job + fire-and-forget import
     const { data: job } = await admin.from('ads_import_jobs').insert({

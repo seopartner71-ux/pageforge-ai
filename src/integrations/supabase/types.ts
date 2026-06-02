@@ -23,6 +23,7 @@ export type Database = {
           is_primary: boolean
           last_synced_at: string | null
           name: string
+          oauth_client_id: string | null
           project_id: string
           provider: string
           status: string
@@ -37,6 +38,7 @@ export type Database = {
           is_primary?: boolean
           last_synced_at?: string | null
           name: string
+          oauth_client_id?: string | null
           project_id: string
           provider?: string
           status?: string
@@ -51,6 +53,7 @@ export type Database = {
           is_primary?: boolean
           last_synced_at?: string | null
           name?: string
+          oauth_client_id?: string | null
           project_id?: string
           provider?: string
           status?: string
@@ -309,6 +312,8 @@ export type Database = {
           expires_at: string | null
           external_login: string | null
           id: string
+          oauth_client_id: string | null
+          oauth_client_secret: string | null
           provider: string
           refresh_token: string | null
           scope: string | null
@@ -323,6 +328,8 @@ export type Database = {
           expires_at?: string | null
           external_login?: string | null
           id?: string
+          oauth_client_id?: string | null
+          oauth_client_secret?: string | null
           provider?: string
           refresh_token?: string | null
           scope?: string | null
@@ -337,6 +344,8 @@ export type Database = {
           expires_at?: string | null
           external_login?: string | null
           id?: string
+          oauth_client_id?: string | null
+          oauth_client_secret?: string | null
           provider?: string
           refresh_token?: string | null
           scope?: string | null
