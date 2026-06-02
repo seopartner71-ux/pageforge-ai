@@ -4,6 +4,8 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { AppHeader } from '@/components/AppHeader';
+import { supabase } from '@/integrations/supabase/client';
+import { useAdsDashboard } from '@/lib/ads/useAdsDashboard';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,65 +25,26 @@ import {
   Bot, Send, Sparkles, AlertTriangle, Loader2, Check, User as UserIcon,
 } from 'lucide-react';
 
-/* ============ Mock API layer ============ */
-
 const spark = (seed: number) =>
   Array.from({ length: 14 }, (_, i) => ({
     x: i,
     y: Math.round(40 + Math.sin(i / 1.8 + seed) * 18 + (i % 3) * 4 + seed * 2),
   }));
 
-const KPIS = [
-  { label: 'Расход', value: '45 300 ₽', delta: +18, sparkSeed: 1 },
-  { label: 'Конверсии', value: '73', delta: +12, sparkSeed: 2 },
-  { label: 'CPL', value: '620 ₽', delta: -14, sparkSeed: 3 },
-  { label: 'CTR средний', value: '2.31%', delta: +6, sparkSeed: 4 },
-  { label: 'ROMI', value: '348%', delta: +24, sparkSeed: 5 },
-];
-
 const DYNAMIC_TABS = ['Расход', 'Конверсии', 'CPL', 'CTR', 'Показы'] as const;
 type ChartTab = (typeof DYNAMIC_TABS)[number];
 
-const DYNAMIC_BY_TAB: Record<ChartTab, { d: string; v: number }[]> = {
-  'Расход':     [{ d: '13 мая', v: 5200 }, { d: '14 мая', v: 6100 }, { d: '15 мая', v: 5800 }, { d: '16 мая', v: 7300 }, { d: '17 мая', v: 6900 }, { d: '18 мая', v: 8200 }, { d: '19 мая', v: 7800 }],
-  'Конверсии':  [{ d: '13 мая', v: 8 },    { d: '14 мая', v: 11 },   { d: '15 мая', v: 9 },    { d: '16 мая', v: 14 },   { d: '17 мая', v: 12 },   { d: '18 мая', v: 19 },   { d: '19 мая', v: 0 }],
-  'CPL':        [{ d: '13 мая', v: 650 },  { d: '14 мая', v: 555 },  { d: '15 мая', v: 644 },  { d: '16 мая', v: 521 },  { d: '17 мая', v: 575 },  { d: '18 мая', v: 432 },  { d: '19 мая', v: 488 }],
-  'CTR':        [{ d: '13 мая', v: 1.9 },  { d: '14 мая', v: 2.1 },  { d: '15 мая', v: 2.0 },  { d: '16 мая', v: 2.4 },  { d: '17 мая', v: 2.3 },  { d: '18 мая', v: 2.6 },  { d: '19 мая', v: 2.5 }],
-  'Показы':     [{ d: '13 мая', v: 42000 },{ d: '14 мая', v: 51000 },{ d: '15 мая', v: 48000 },{ d: '16 мая', v: 61000 },{ d: '17 мая', v: 58000 },{ d: '18 мая', v: 72000 },{ d: '19 мая', v: 68000 }],
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  working: { label: 'Работает', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
+  limited: { label: 'Ограничен бюджетом', color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
+  low_ctr: { label: 'Низкий CTR', color: 'bg-red-500/15 text-red-400 border-red-500/30' },
+  paused:  { label: 'Остановлен', color: 'bg-slate-500/15 text-slate-400 border-slate-500/30' },
 };
-
-const ALERTS = [
-  { color: 'bg-red-500', text: 'Кампания «Поиск / Москва» ограничена бюджетом', impact: '−8 700 ₽/мес', impactColor: 'text-red-400' },
-  { color: 'bg-yellow-500', text: 'Объявления группы «РСЯ-Ретаргет» с низким CTR', impact: '−2 300 ₽/мес', impactColor: 'text-red-400' },
-  { color: 'bg-blue-500', text: 'Найдены минус-слова для группы «Услуги»', impact: '+1 200 ₽/мес', impactColor: 'text-emerald-400' },
-  { color: 'bg-emerald-500', text: 'Стратегия «Макс. конверсий» работает стабильно', impact: '+4 500 ₽/мес', impactColor: 'text-emerald-400' },
-  { color: 'bg-yellow-500', text: 'Снижается доля показов на мобильных', impact: '−1 600 ₽/мес', impactColor: 'text-red-400' },
-];
-
-const CAMPAIGNS = [
-  { name: 'Поиск / Москва', spend: '14 200 ₽', conv: 28, cpl: '507 ₽', status: { label: 'Работает', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' } },
-  { name: 'РСЯ / Ретаргет', spend: '8 900 ₽', conv: 11, cpl: '809 ₽', status: { label: 'Ограничен бюджетом', color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' } },
-  { name: 'Поиск / Регионы', spend: '6 400 ₽', conv: 9, cpl: '711 ₽', status: { label: 'Работает', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' } },
-  { name: 'Мастер кампаний', spend: '9 700 ₽', conv: 14, cpl: '692 ₽', status: { label: 'Низкий CTR', color: 'bg-red-500/15 text-red-400 border-red-500/30' } },
-  { name: 'Бренд', spend: '6 100 ₽', conv: 11, cpl: '554 ₽', status: { label: 'Работает', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' } },
-];
-
-const RADAR_DATA = [
-  { axis: 'Настройки', value: 88 },
-  { axis: 'Объявления', value: 72 },
-  { axis: 'Стратегии', value: 90 },
-  { axis: 'Конверсии', value: 81 },
-  { axis: 'Аудитории', value: 76 },
-];
-
-type BadQuery = { id: string; q: string; spend: string; conv: number };
-const INITIAL_BAD_QUERIES: BadQuery[] = [
-  { id: '1', q: 'купить бесплатно', spend: '1 240 ₽', conv: 0 },
-  { id: '2', q: 'скачать торрент', spend: '980 ₽', conv: 0 },
-  { id: '3', q: 'работа удаленно', spend: '760 ₽', conv: 1 },
-  { id: '4', q: 'отзывы форум', spend: '540 ₽', conv: 0 },
-  { id: '5', q: 'своими руками', spend: '420 ₽', conv: 0 },
-];
+const ALERT_COLOR: Record<string, string> = {
+  red: 'bg-red-500', yellow: 'bg-yellow-500', blue: 'bg-blue-500', emerald: 'bg-emerald-500',
+};
+const fmtMoney = (n: number) => `${Math.round(n).toLocaleString('ru-RU')} ₽`;
+const fmtShortDate = (iso: string) => format(new Date(iso), 'd MMM', { locale: ru });
 
 const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -99,39 +62,6 @@ const heatColor = (v: number) => {
   if (v < 0.85) return 'bg-blue-500';
   return 'bg-blue-400';
 };
-
-type Rec = { id: string; text: string; save: string; cta: string };
-const INITIAL_RECS: Rec[] = [
-  { id: 'r1', text: 'Добавьте 12 минус-слов в группу «Услуги»', save: '8 700 ₽/мес', cta: 'Применить' },
-  { id: 'r2', text: 'Перераспределить бюджет с РСЯ на Поиск', save: '5 400 ₽/мес', cta: 'Применить' },
-  { id: 'r3', text: 'Сгенерировать 6 новых объявлений для группы «Москва»', save: '3 100 ₽/мес', cta: 'Сгенерировать' },
-  { id: 'r4', text: 'Включить корректировки −20% для мобильных в ночное время', save: '1 800 ₽/мес', cta: 'Применить' },
-];
-
-const ACCOUNTS = [
-  { name: 'Главный кабинет', id: '8123-44-21', score: 84, spend: '45 300 ₽', conv: 73, cpl: '620 ₽', romi: '348%', problems: 5, loss: '12 600 ₽', seed: 2 },
-  { name: 'Клиент: Аптека+', id: '7711-09-02', score: 71, spend: '32 100 ₽', conv: 41, cpl: '783 ₽', romi: '212%', problems: 8, loss: '9 200 ₽', seed: 4 },
-  { name: 'Клиент: AutoPro', id: '6620-77-15', score: 92, spend: '58 700 ₽', conv: 96, cpl: '611 ₽', romi: '412%', problems: 2, loss: '2 100 ₽', seed: 6 },
-  { name: 'Клиент: EduMax', id: '5520-31-88', score: 64, spend: '21 400 ₽', conv: 18, cpl: '1 188 ₽', romi: '118%', problems: 11, loss: '14 800 ₽', seed: 1 },
-];
-
-/* ============ useDashboardData hook ============ */
-
-function useDashboardData() {
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1000);
-    return () => clearTimeout(t);
-  }, []);
-  return {
-    loading,
-    kpis: KPIS,
-    alerts: ALERTS,
-    campaigns: CAMPAIGNS,
-    radar: RADAR_DATA,
-    accounts: ACCOUNTS,
-  };
-}
 
 /* ============ Atoms ============ */
 
