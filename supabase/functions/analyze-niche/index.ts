@@ -95,6 +95,18 @@ assumptions: ОБЯЗАТЕЛЬНО перечисли 3–8 ключевых д
 roadmap: 3_months — wedge & quick wins; 6_months — расширение core; 12_months — authority/expansion.
 scoring: 0–100 (aiRisk: 100 = максимальный риск вытеснения AI-ответами).
 
+opportunities: ОБЯЗАТЕЛЬНО построй decision-grade карту рыночных возможностей по методологии 28 фаз (определение opportunity, layers, subniches, demand quality, demand-to-opportunity, business value density, accessibility, SERP-opportunity fit, journey/intent, trust-adjusted, monetization-adjusted, AI-adjusted, format fit, wedges, compounding, traps, underexploited gaps, operational feasibility, speed-to-impact, site maturity, portfolio, scoring, comparative ranking, sequencing, strategy-model, final verdict). Не путай search volume и opportunity. Различай traffic / business / strategic / authority / wedge / AI opportunities. Делай risk-adjusted интерпретацию: если возможность сильна по трафику, но слаба по монетизации — отмечай явно; если low-volume но high-value — отмечай. Учитывай YMYL/SaaS/e-com/B2B/local/affiliate/media модификаторы по типу бизнеса. Для каждой возможности явно укажи page type / asset / cluster, чтобы её можно было запустить. Заполни следующие поля:
+- summary: 3–5 предложений общей картины opportunity-зрелости ниши (где сильнее всего возможности, где основные ловушки, какая launch-модель оптимальна).
+- portfolio: семь массивов по 2–5 коротких пунктов каждый (core_growth, quick_wins, revenue_priority, trust_building, authority_ai_visibility, defer, avoid). Каждый пункт — конкретная возможность/кластер, а не общая фраза.
+- top_overall: 5–8 самых сильных возможностей в нише, каждая с полями title, why (1–2 предложения), best_format (page type / asset), speed_to_impact ("30d" | "q1" | "q2" | "6-12m" | "12-24m") и скорами 0–100: demand_quality, business_value, accessibility, serp_openness, ai_upside, overall_score (risk-adjusted, ≤ остальных в среднем).
+- wedges: 3–6 disproportionately attractive entry points. Поля: title, asset (page type / cluster), payoff (что даёт), speed ("30d"|"q1"|"q2"|"6-12m"|"12-24m").
+- compounding: 2–4 связки возможностей, усиливающих друг друга. Поля: pair ("A → B" или "A + B"), sequencing (короткое описание порядка), payoff (cumulative effect).
+- traps: 3–5 ложных возможностей. Поля: title, why_looks_good, why_risk.
+- gaps: 3–5 underexploited gaps. Поля: title, why_underserved, asset_needed.
+- sequencing: 5 массивов по 2–5 пунктов (30_days, q1, q2, 6_12m, 12_24m) — что запускать в каждый горизонт.
+- launch_model: одна из "traffic-first" | "commercial-first" | "authority-first" | "wedge-first" | "local-first" | "ai-first" | "hybrid".
+- recommendation: одна из "go" | "selective-go" | "phased-go" | "cautious-go" | "no-go".
+
 JSON-схема (верни ровно её, без лишних полей):
 {
   "scoring": { "searchOpp": 0-100, "commercial": 0-100, "trust": 0-100, "aiRisk": 0-100 },
@@ -128,7 +140,41 @@ JSON-схема (верни ровно её, без лишних полей):
   },
   "assumptions": [
     { "field": "...", "assumption": "...", "impact": "...", "confidence": "high|medium|low" }
-  ]
+  ],
+  "opportunities": {
+    "summary": "...",
+    "portfolio": {
+      "core_growth": ["..."],
+      "quick_wins": ["..."],
+      "revenue_priority": ["..."],
+      "trust_building": ["..."],
+      "authority_ai_visibility": ["..."],
+      "defer": ["..."],
+      "avoid": ["..."]
+    },
+    "top_overall": [
+      { "title": "...", "why": "...", "best_format": "...", "speed_to_impact": "30d|q1|q2|6-12m|12-24m",
+        "demand_quality": 0-100, "business_value": 0-100, "accessibility": 0-100,
+        "serp_openness": 0-100, "ai_upside": 0-100, "overall_score": 0-100 }
+    ],
+    "wedges": [
+      { "title": "...", "asset": "...", "payoff": "...", "speed": "30d|q1|q2|6-12m|12-24m" }
+    ],
+    "compounding": [
+      { "pair": "...", "sequencing": "...", "payoff": "..." }
+    ],
+    "traps": [
+      { "title": "...", "why_looks_good": "...", "why_risk": "..." }
+    ],
+    "gaps": [
+      { "title": "...", "why_underserved": "...", "asset_needed": "..." }
+    ],
+    "sequencing": {
+      "30_days": ["..."], "q1": ["..."], "q2": ["..."], "6_12m": ["..."], "12_24m": ["..."]
+    },
+    "launch_model": "traffic-first|commercial-first|authority-first|wedge-first|local-first|ai-first|hybrid",
+    "recommendation": "go|selective-go|phased-go|cautious-go|no-go"
+  }
 }`;
 
 function buildUserPrompt(body: any): string {
