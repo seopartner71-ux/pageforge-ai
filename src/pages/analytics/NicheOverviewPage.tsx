@@ -471,10 +471,10 @@ function ResultsDashboard({
   onReset: () => void;
 }) {
   const scoringRadar = [
-    { metric: 'Поисковый потенциал', value: data.scoring.searchOpp },
-    { metric: 'Коммерческий', value: data.scoring.commercial },
-    { metric: 'Доверие', value: data.scoring.trust },
-    { metric: 'AI-риск', value: 100 - data.scoring.aiRisk },
+    { metric: 'Поисковый', value: data.scoring.searchOpp, raw: data.scoring.searchOpp, kind: 'direct' as const },
+    { metric: 'Коммерческий', value: data.scoring.commercial, raw: data.scoring.commercial, kind: 'direct' as const },
+    { metric: 'Доверие', value: data.scoring.trust, raw: data.scoring.trust, kind: 'direct' as const },
+    { metric: 'AI-устойчивость', value: 100 - data.scoring.aiRisk, raw: data.scoring.aiRisk, kind: 'inverted' as const },
   ];
 
   return (
@@ -530,16 +530,69 @@ function ResultsDashboard({
               </ul>
             </Card>
             <Card className="p-6">
-              <h3 className="text-sm font-semibold text-foreground mb-3">Профиль ниши</h3>
-              <div className="h-[220px]">
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <h3 className="text-sm font-semibold text-foreground">Профиль ниши</h3>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
+                    Радарная диаграмма по 4 метрикам (шкала 0–100). Чем больше площадь — тем привлекательнее ниша.
+                    AI-устойчивость инвертирована: на графике показано «100 − AI-риск», чтобы все оси читались «больше = лучше».
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Сводный профиль по 4 метрикам · шкала 0–100 · больше площадь = сильнее ниша
+              </p>
+              <div className="h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={scoringRadar}>
+                  <RadarChart data={scoringRadar} outerRadius="78%">
                     <PolarGrid stroke="hsl(var(--border))" />
-                    <PolarAngleAxis dataKey="metric" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                    <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
+                    <PolarAngleAxis
+                      dataKey="metric"
+                      tick={{ fill: 'hsl(var(--foreground))', fontSize: 11 }}
+                      tickFormatter={(name) => {
+                        const item = scoringRadar.find((s) => s.metric === name);
+                        return item ? `${name} · ${item.value}` : name;
+                      }}
+                    />
+                    <PolarRadiusAxis
+                      domain={[0, 100]}
+                      tickCount={5}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 9 }}
+                      stroke="hsl(var(--border))"
+                      axisLine={false}
+                    />
+                    <Radar
+                      name="Оценка"
+                      dataKey="value"
+                      stroke="hsl(var(--primary))"
+                      fill="hsl(var(--primary))"
+                      fillOpacity={0.35}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }}
+                      formatter={(val: any, _n: any, p: any) => {
+                        const item = p?.payload;
+                        if (item?.kind === 'inverted') {
+                          return [`${val}/100 (AI-риск: ${item.raw}/100)`, item.metric];
+                        }
+                        return [`${val}/100`, item?.metric];
+                      }}
+                    />
                   </RadarChart>
                 </ResponsiveContainer>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                {scoringRadar.map((s) => (
+                  <div key={s.metric} className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground truncate">{s.metric}</span>
+                    <span className="tabular-nums font-medium text-foreground">{s.value}/100</span>
+                  </div>
+                ))}
               </div>
             </Card>
           </div>
