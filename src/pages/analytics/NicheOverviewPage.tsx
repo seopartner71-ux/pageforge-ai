@@ -471,10 +471,10 @@ function ResultsDashboard({
   onReset: () => void;
 }) {
   const scoringRadar = [
-    { metric: 'Поисковый потенциал', value: data.scoring.searchOpp },
-    { metric: 'Коммерческий', value: data.scoring.commercial },
-    { metric: 'Доверие', value: data.scoring.trust },
-    { metric: 'AI-риск', value: 100 - data.scoring.aiRisk },
+    { metric: 'Поисковый', value: data.scoring.searchOpp, raw: data.scoring.searchOpp, kind: 'direct' as const },
+    { metric: 'Коммерческий', value: data.scoring.commercial, raw: data.scoring.commercial, kind: 'direct' as const },
+    { metric: 'Доверие', value: data.scoring.trust, raw: data.scoring.trust, kind: 'direct' as const },
+    { metric: 'AI-устойчивость', value: 100 - data.scoring.aiRisk, raw: data.scoring.aiRisk, kind: 'inverted' as const },
   ];
 
   return (
