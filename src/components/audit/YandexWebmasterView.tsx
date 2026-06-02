@@ -340,7 +340,7 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
   const possibleCount = checks.filter((c) => c.section === 'possible' && c.status === 'error').length;
   const recCount = checks.filter((c) => c.section === 'recommendation' && c.status === 'error').length;
 
-  const summary = [
+  const summaryCards = [
     { label: 'Фатальные ошибки', count: fatalCount, tone: '--destructive', emoji: '🔴' },
     { label: 'Критичные ошибки', count: criticalCount, tone: '--chart-4', emoji: '🟠' },
     { label: 'Возможные проблемы', count: possibleCount, tone: '--chart-5', emoji: '🟡' },
