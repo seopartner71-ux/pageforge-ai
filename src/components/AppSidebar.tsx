@@ -36,6 +36,7 @@ import {
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { useStaffRole } from '@/hooks/useStaffRole';
 import { ANALYTICS_SECTIONS } from '@/lib/analyticsNav';
+import { SEO_SECTIONS } from '@/lib/seoNav';
 
 type Item = { label: string; path: string; icon: any };
 type Group = { label: string; items: Item[] };
@@ -83,26 +84,7 @@ const MAIN_ITEMS: Item[] = [
   { label: 'Проекты', path: '/projects', icon: FolderKanban },
 ];
 
-const SEO_ITEMS: Item[] = [
-  { label: 'SEO Audit', path: '/dashboard', icon: Search },
-  { label: 'GEO Audit', path: '/geo-audit', icon: Sparkles },
-  { label: 'Видимость в ИИ ответах', path: '/ai-visibility', icon: Radar },
-  { label: 'Видимость в ответах Алисы', path: '/alice-visibility', icon: Mic },
-  { label: 'Коммерческие факторы', path: '/eeat-audit', icon: Target },
-  { label: 'Микроразметка', path: '/schema-audit', icon: Code2 },
-  { label: 'Ссылочный аудит', path: '/link-audit', icon: Link2 },
-  { label: 'Ссылочный профиль', path: '/link-profile', icon: Link2 },
-  { label: 'Технический аудит', path: '/technical-audit', icon: ShieldAlert },
-  { label: 'Яндекс Вебмастер', path: '/yandex-webmaster', icon: Gauge },
-  { label: 'PageSpeed', path: '/pagespeed', icon: Zap },
-  { label: 'Адаптивность', path: '/responsive', icon: Smartphone },
-  { label: 'История SERP', path: '/serp-history', icon: HistoryIcon },
-  { label: 'Конкуренты', path: '/competitors', icon: Users },
-  { label: 'Анализ топа', path: '/top-analysis', icon: BarChart3 },
-  { label: 'Семантика', path: '/semantic-core', icon: Network },
-  { label: 'Темы для блога', path: '/blog-topics', icon: PenSquare },
-  { label: 'Интент запросов', path: '/intent', icon: FileText },
-];
+const SEO_ALL_ITEMS: Item[] = SEO_SECTIONS.flatMap((s) => s.items);
 
 const ADS_ITEMS: Item[] = [
   { label: 'Обзор', path: '/ads', icon: LayoutDashboard },
@@ -125,9 +107,16 @@ export function AppSidebar() {
   const { isStaff } = useStaffRole();
 
   const isActive = (path: string) => pathname === path;
-  const seoPaths = SEO_ITEMS.map((i) => i.path).concat('/seo');
-  const isSeoActive = seoPaths.includes(pathname);
+  const seoPaths = SEO_ALL_ITEMS.map((i) => i.path).concat('/seo');
+  const isSeoActive = seoPaths.includes(pathname) || pathname.startsWith('/seo');
   const [seoOpen, setSeoOpen] = useState(isSeoActive);
+  const [seoSubOpen, setSeoSubOpen] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    for (const s of SEO_SECTIONS) {
+      init[s.label] = s.items.some((it) => pathname === it.path);
+    }
+    return init;
+  });
   const adsPaths = ADS_ITEMS.map((i) => i.path);
   const isAdsActive = adsPaths.some((p) => pathname === p || pathname.startsWith(p + '/'));
   const [adsOpen, setAdsOpen] = useState(isAdsActive || pathname.startsWith('/ads'));
@@ -255,24 +244,51 @@ export function AppSidebar() {
                 </SidebarMenuItem>
 
                 <CollapsibleContent>
-                  <div className={collapsed ? '' : 'pl-3 mt-1 border-l border-border/40 ml-3'}>
-                    {SEO_ITEMS.map((item) => {
-                      const Icon = item.icon;
+                  <div className={collapsed ? '' : 'pl-3 mt-1 border-l border-border/40 ml-3 space-y-1'}>
+                    {SEO_SECTIONS.map((section) => {
+                      const open = seoSubOpen[section.label] ?? false;
                       return (
-                        <SidebarMenuItem key={item.path}>
-                          <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={item.label}>
-                            <NavLink
-                              to={item.path}
-                              className="flex items-center gap-2"
-                              onMouseEnter={() => prefetch(item.path)}
-                              onFocus={() => prefetch(item.path)}
-                              onTouchStart={() => prefetch(item.path)}
-                            >
-                              <Icon className="h-4 w-4 shrink-0" />
-                              <span>{item.label}</span>
-                            </NavLink>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
+                        <Collapsible
+                          key={section.label}
+                          open={collapsed ? true : open}
+                          onOpenChange={(v) =>
+                            setSeoSubOpen((s) => ({ ...s, [section.label]: v }))
+                          }
+                        >
+                          {!collapsed && (
+                            <CollapsibleTrigger className="w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors">
+                              <span>{section.label}</span>
+                              <ChevronDown
+                                className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+                              />
+                            </CollapsibleTrigger>
+                          )}
+                          <CollapsibleContent>
+                            {section.items.map((item) => {
+                              const Icon = item.icon;
+                              return (
+                                <SidebarMenuItem key={item.path}>
+                                  <SidebarMenuButton
+                                    asChild
+                                    isActive={isActive(item.path)}
+                                    tooltip={item.label}
+                                  >
+                                    <NavLink
+                                      to={item.path}
+                                      className="flex items-center gap-2"
+                                      onMouseEnter={() => prefetch(item.path)}
+                                      onFocus={() => prefetch(item.path)}
+                                      onTouchStart={() => prefetch(item.path)}
+                                    >
+                                      <Icon className="h-4 w-4 shrink-0" />
+                                      <span>{item.label}</span>
+                                    </NavLink>
+                                  </SidebarMenuButton>
+                                </SidebarMenuItem>
+                              );
+                            })}
+                          </CollapsibleContent>
+                        </Collapsible>
                       );
                     })}
                   </div>
