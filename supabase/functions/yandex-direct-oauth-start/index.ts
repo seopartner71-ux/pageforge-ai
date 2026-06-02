@@ -61,7 +61,9 @@ Deno.serve(async (req) => {
     const state = btoa(JSON.stringify({ u: userId, p: projectId, n: nonce, t: ts, s: sig }))
       .replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 
-    const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/yandex-direct-oauth-callback`;
+    // Out-of-band redirect URI: Yandex shows the verification code to the user
+    // on its own page, the user pastes it back into our app.
+    const redirectUri = 'https://oauth.yandex.ru/verification_code';
     const url = new URL(YANDEX_OAUTH_AUTHORIZE);
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('client_id', clientId);
