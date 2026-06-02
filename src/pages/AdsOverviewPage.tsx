@@ -4,6 +4,8 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { AppHeader } from '@/components/AppHeader';
+import { supabase } from '@/integrations/supabase/client';
+import { useAdsDashboard } from '@/lib/ads/useAdsDashboard';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,65 +25,26 @@ import {
   Bot, Send, Sparkles, AlertTriangle, Loader2, Check, User as UserIcon,
 } from 'lucide-react';
 
-/* ============ Mock API layer ============ */
-
 const spark = (seed: number) =>
   Array.from({ length: 14 }, (_, i) => ({
     x: i,
     y: Math.round(40 + Math.sin(i / 1.8 + seed) * 18 + (i % 3) * 4 + seed * 2),
   }));
 
-const KPIS = [
-  { label: 'Расход', value: '45 300 ₽', delta: +18, sparkSeed: 1 },
-  { label: 'Конверсии', value: '73', delta: +12, sparkSeed: 2 },
-  { label: 'CPL', value: '620 ₽', delta: -14, sparkSeed: 3 },
-  { label: 'CTR средний', value: '2.31%', delta: +6, sparkSeed: 4 },
-  { label: 'ROMI', value: '348%', delta: +24, sparkSeed: 5 },
-];
-
 const DYNAMIC_TABS = ['Расход', 'Конверсии', 'CPL', 'CTR', 'Показы'] as const;
 type ChartTab = (typeof DYNAMIC_TABS)[number];
 
-const DYNAMIC_BY_TAB: Record<ChartTab, { d: string; v: number }[]> = {
-  'Расход':     [{ d: '13 мая', v: 5200 }, { d: '14 мая', v: 6100 }, { d: '15 мая', v: 5800 }, { d: '16 мая', v: 7300 }, { d: '17 мая', v: 6900 }, { d: '18 мая', v: 8200 }, { d: '19 мая', v: 7800 }],
-  'Конверсии':  [{ d: '13 мая', v: 8 },    { d: '14 мая', v: 11 },   { d: '15 мая', v: 9 },    { d: '16 мая', v: 14 },   { d: '17 мая', v: 12 },   { d: '18 мая', v: 19 },   { d: '19 мая', v: 0 }],
-  'CPL':        [{ d: '13 мая', v: 650 },  { d: '14 мая', v: 555 },  { d: '15 мая', v: 644 },  { d: '16 мая', v: 521 },  { d: '17 мая', v: 575 },  { d: '18 мая', v: 432 },  { d: '19 мая', v: 488 }],
-  'CTR':        [{ d: '13 мая', v: 1.9 },  { d: '14 мая', v: 2.1 },  { d: '15 мая', v: 2.0 },  { d: '16 мая', v: 2.4 },  { d: '17 мая', v: 2.3 },  { d: '18 мая', v: 2.6 },  { d: '19 мая', v: 2.5 }],
-  'Показы':     [{ d: '13 мая', v: 42000 },{ d: '14 мая', v: 51000 },{ d: '15 мая', v: 48000 },{ d: '16 мая', v: 61000 },{ d: '17 мая', v: 58000 },{ d: '18 мая', v: 72000 },{ d: '19 мая', v: 68000 }],
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  working: { label: 'Работает', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
+  limited: { label: 'Ограничен бюджетом', color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
+  low_ctr: { label: 'Низкий CTR', color: 'bg-red-500/15 text-red-400 border-red-500/30' },
+  paused:  { label: 'Остановлен', color: 'bg-slate-500/15 text-slate-400 border-slate-500/30' },
 };
-
-const ALERTS = [
-  { color: 'bg-red-500', text: 'Кампания «Поиск / Москва» ограничена бюджетом', impact: '−8 700 ₽/мес', impactColor: 'text-red-400' },
-  { color: 'bg-yellow-500', text: 'Объявления группы «РСЯ-Ретаргет» с низким CTR', impact: '−2 300 ₽/мес', impactColor: 'text-red-400' },
-  { color: 'bg-blue-500', text: 'Найдены минус-слова для группы «Услуги»', impact: '+1 200 ₽/мес', impactColor: 'text-emerald-400' },
-  { color: 'bg-emerald-500', text: 'Стратегия «Макс. конверсий» работает стабильно', impact: '+4 500 ₽/мес', impactColor: 'text-emerald-400' },
-  { color: 'bg-yellow-500', text: 'Снижается доля показов на мобильных', impact: '−1 600 ₽/мес', impactColor: 'text-red-400' },
-];
-
-const CAMPAIGNS = [
-  { name: 'Поиск / Москва', spend: '14 200 ₽', conv: 28, cpl: '507 ₽', status: { label: 'Работает', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' } },
-  { name: 'РСЯ / Ретаргет', spend: '8 900 ₽', conv: 11, cpl: '809 ₽', status: { label: 'Ограничен бюджетом', color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' } },
-  { name: 'Поиск / Регионы', spend: '6 400 ₽', conv: 9, cpl: '711 ₽', status: { label: 'Работает', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' } },
-  { name: 'Мастер кампаний', spend: '9 700 ₽', conv: 14, cpl: '692 ₽', status: { label: 'Низкий CTR', color: 'bg-red-500/15 text-red-400 border-red-500/30' } },
-  { name: 'Бренд', spend: '6 100 ₽', conv: 11, cpl: '554 ₽', status: { label: 'Работает', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' } },
-];
-
-const RADAR_DATA = [
-  { axis: 'Настройки', value: 88 },
-  { axis: 'Объявления', value: 72 },
-  { axis: 'Стратегии', value: 90 },
-  { axis: 'Конверсии', value: 81 },
-  { axis: 'Аудитории', value: 76 },
-];
-
-type BadQuery = { id: string; q: string; spend: string; conv: number };
-const INITIAL_BAD_QUERIES: BadQuery[] = [
-  { id: '1', q: 'купить бесплатно', spend: '1 240 ₽', conv: 0 },
-  { id: '2', q: 'скачать торрент', spend: '980 ₽', conv: 0 },
-  { id: '3', q: 'работа удаленно', spend: '760 ₽', conv: 1 },
-  { id: '4', q: 'отзывы форум', spend: '540 ₽', conv: 0 },
-  { id: '5', q: 'своими руками', spend: '420 ₽', conv: 0 },
-];
+const ALERT_COLOR: Record<string, string> = {
+  red: 'bg-red-500', yellow: 'bg-yellow-500', blue: 'bg-blue-500', emerald: 'bg-emerald-500',
+};
+const fmtMoney = (n: number) => `${Math.round(n).toLocaleString('ru-RU')} ₽`;
+const fmtShortDate = (iso: string) => format(new Date(iso), 'd MMM', { locale: ru });
 
 const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -99,39 +62,6 @@ const heatColor = (v: number) => {
   if (v < 0.85) return 'bg-blue-500';
   return 'bg-blue-400';
 };
-
-type Rec = { id: string; text: string; save: string; cta: string };
-const INITIAL_RECS: Rec[] = [
-  { id: 'r1', text: 'Добавьте 12 минус-слов в группу «Услуги»', save: '8 700 ₽/мес', cta: 'Применить' },
-  { id: 'r2', text: 'Перераспределить бюджет с РСЯ на Поиск', save: '5 400 ₽/мес', cta: 'Применить' },
-  { id: 'r3', text: 'Сгенерировать 6 новых объявлений для группы «Москва»', save: '3 100 ₽/мес', cta: 'Сгенерировать' },
-  { id: 'r4', text: 'Включить корректировки −20% для мобильных в ночное время', save: '1 800 ₽/мес', cta: 'Применить' },
-];
-
-const ACCOUNTS = [
-  { name: 'Главный кабинет', id: '8123-44-21', score: 84, spend: '45 300 ₽', conv: 73, cpl: '620 ₽', romi: '348%', problems: 5, loss: '12 600 ₽', seed: 2 },
-  { name: 'Клиент: Аптека+', id: '7711-09-02', score: 71, spend: '32 100 ₽', conv: 41, cpl: '783 ₽', romi: '212%', problems: 8, loss: '9 200 ₽', seed: 4 },
-  { name: 'Клиент: AutoPro', id: '6620-77-15', score: 92, spend: '58 700 ₽', conv: 96, cpl: '611 ₽', romi: '412%', problems: 2, loss: '2 100 ₽', seed: 6 },
-  { name: 'Клиент: EduMax', id: '5520-31-88', score: 64, spend: '21 400 ₽', conv: 18, cpl: '1 188 ₽', romi: '118%', problems: 11, loss: '14 800 ₽', seed: 1 },
-];
-
-/* ============ useDashboardData hook ============ */
-
-function useDashboardData() {
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1000);
-    return () => clearTimeout(t);
-  }, []);
-  return {
-    loading,
-    kpis: KPIS,
-    alerts: ALERTS,
-    campaigns: CAMPAIGNS,
-    radar: RADAR_DATA,
-    accounts: ACCOUNTS,
-  };
-}
 
 /* ============ Atoms ============ */
 
@@ -195,7 +125,18 @@ function MiniScore({ value }: { value: number }) {
 type ChatMsg = { role: 'user' | 'ai'; text: string };
 
 export default function AdsOverviewPage() {
-  const { loading, kpis, alerts, campaigns, radar, accounts } = useDashboardData();
+  /* Date range — default: последние 7 дней */
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const to = new Date(); to.setHours(0, 0, 0, 0);
+    const from = new Date(to); from.setDate(to.getDate() - 6);
+    return { from, to };
+  });
+
+  const {
+    loading, accounts, campaigns, daily, accountAggs, alerts, recs,
+    queries: badQueries, axes, kpis,
+    setRecs, setQueries: setBadQueries, setAlerts,
+  } = useAdsDashboard(dateRange);
 
   /* Chart tabs */
   const [activeChartTab, setActiveChartTab] = useState<ChartTab>('Расход');
@@ -224,37 +165,44 @@ export default function AdsOverviewPage() {
     }, 1500);
   };
 
-  /* Bad queries */
-  const [badQueries, setBadQueries] = useState<BadQuery[]>(INITIAL_BAD_QUERIES);
-  const removeBadQuery = (id: string) => {
+  /* Bad queries — пометка как минус-фраза в БД */
+  const removeBadQuery = async (id: string) => {
     setBadQueries((q) => q.filter((x) => x.id !== id));
-    toast.success('Слово добавлено в минус-фразы');
+    const { error } = await supabase.from('ads_search_queries').update({ is_negative: true }).eq('id', id);
+    if (error) toast.error('Не удалось сохранить'); else toast.success('Слово добавлено в минус-фразы');
   };
 
   /* AI recommendations */
-  const [recState, setRecState] = useState<Record<string, 'idle' | 'loading' | 'done'>>({});
-  const applyRec = (rec: Rec) => {
-    if (recState[rec.id] === 'loading' || recState[rec.id] === 'done') return;
+  const [recLoading, setRecLoading] = useState<Record<string, boolean>>({});
+  const applyRec = async (recId: string) => {
+    if (recLoading[recId]) return;
+    setRecLoading((s) => ({ ...s, [recId]: true }));
     toast.info('Запуск автоматизации...');
-    setRecState((s) => ({ ...s, [rec.id]: 'loading' }));
-    setTimeout(() => {
-      setRecState((s) => ({ ...s, [rec.id]: 'done' }));
-      toast.success('Рекомендация применена');
-    }, 2000);
+    const { error } = await supabase.from('ads_recommendations').update({ status: 'done' }).eq('id', recId);
+    if (error) { toast.error('Ошибка'); setRecLoading((s) => ({ ...s, [recId]: false })); return; }
+    setRecs((rs) => rs.map(r => r.id === recId ? { ...r, status: 'done' } : r));
+    setRecLoading((s) => ({ ...s, [recId]: false }));
+    toast.success('Рекомендация применена');
   };
 
-  /* Date range */
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(2024, 4, 13),
-    to: new Date(2024, 4, 19),
-  });
   const dateLabel = useMemo(() => {
     if (!dateRange?.from) return 'Выбрать даты';
     if (!dateRange.to) return format(dateRange.from, 'd MMM yyyy', { locale: ru });
     return `${format(dateRange.from, 'd MMM', { locale: ru })} – ${format(dateRange.to, 'd MMM yyyy', { locale: ru })}`;
   }, [dateRange]);
 
-  const chartData = DYNAMIC_BY_TAB[activeChartTab];
+  /* Данные графика — берём из daily, мапим по выбранной метрике */
+  const chartData = useMemo(() => {
+    const map: Record<ChartTab, (d: typeof daily[number]) => number> = {
+      'Расход':    d => d.spend,
+      'Конверсии': d => d.conversions,
+      'CPL':       d => d.conversions > 0 ? Math.round(d.spend / d.conversions) : 0,
+      'CTR':       d => d.impressions > 0 ? Number(((d.clicks / d.impressions) * 100).toFixed(2)) : 0,
+      'Показы':    d => d.impressions,
+    };
+    const get = map[activeChartTab];
+    return daily.map(d => ({ d: fmtShortDate(d.date), v: get(d) }));
+  }, [daily, activeChartTab]);
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-200">
@@ -314,22 +262,22 @@ export default function AdsOverviewPage() {
               ))
             : (
               <>
-                {kpis.map((k) => (
-                  <Card key={k.label} className="rounded-xl bg-[#111827] border-[#1F2937] p-4 space-y-2">
+                {kpis.map((k, i) => (
+                  <Card key={k.key} className="rounded-xl bg-[#111827] border-[#1F2937] p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-400">{k.label}</span>
                       <DeltaBadge delta={k.delta} />
                     </div>
                     <div className="text-2xl font-semibold text-white tracking-tight">{k.value}</div>
-                    <Sparkline seed={k.sparkSeed} color={k.delta >= 0 ? '#10B981' : '#EF4444'} />
+                    <Sparkline seed={i + 1} color={k.delta >= 0 ? '#10B981' : '#EF4444'} />
                   </Card>
                 ))}
                 <Card className="rounded-xl bg-[#111827] border-[#1F2937] p-4 flex items-center gap-3">
-                  <CircularScore value={84} />
+                  <CircularScore value={accountAggs[0]?.score ?? 84} />
                   <div>
                     <div className="text-xs text-slate-400">Оценка кабинета</div>
                     <div className="text-sm font-medium text-emerald-400 mt-1">Хорошая оптимизация</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">5 рекомендаций</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">{recs.length} рекомендаций</div>
                   </div>
                 </Card>
               </>
@@ -349,12 +297,15 @@ export default function AdsOverviewPage() {
               </div>
             ) : (
               <ul className="space-y-3">
-                {alerts.map((a, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${a.color}`} />
+                {alerts.length === 0 && <li className="text-xs text-slate-500 py-2">Нет активных алертов</li>}
+                {alerts.map((a) => (
+                  <li key={a.id} className="flex items-start gap-2">
+                    <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${ALERT_COLOR[a.severity] ?? 'bg-slate-500'}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-slate-300 leading-snug">{a.text}</p>
-                      <p className={`text-[11px] font-medium mt-0.5 ${a.impactColor}`}>{a.impact}</p>
+                      <p className={`text-[11px] font-medium mt-0.5 ${a.impact_positive ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {a.impact_positive ? '+' : '−'}{Math.round(a.impact_value).toLocaleString('ru-RU')} ₽/мес
+                      </p>
                     </div>
                   </li>
                 ))}
@@ -417,16 +368,19 @@ export default function AdsOverviewPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {campaigns.map((c) => (
-                    <TableRow key={c.name} className="border-slate-800 hover:bg-slate-800/30">
-                      <TableCell className="py-2 px-2">
-                        <div className="text-xs text-slate-200 truncate max-w-[140px]">{c.name}</div>
-                        <Badge variant="outline" className={`mt-1 text-[10px] px-1.5 py-0 h-4 ${c.status.color}`}>{c.status.label}</Badge>
-                      </TableCell>
-                      <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{c.spend}</TableCell>
-                      <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{c.cpl}</TableCell>
-                    </TableRow>
-                  ))}
+                  {campaigns.map((c) => {
+                    const st = STATUS_LABELS[c.status] ?? STATUS_LABELS.working;
+                    return (
+                      <TableRow key={c.id} className="border-slate-800 hover:bg-slate-800/30">
+                        <TableCell className="py-2 px-2">
+                          <div className="text-xs text-slate-200 truncate max-w-[140px]">{c.name}</div>
+                          <Badge variant="outline" className={`mt-1 text-[10px] px-1.5 py-0 h-4 ${st.color}`}>{st.label}</Badge>
+                        </TableCell>
+                        <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{fmtMoney(c.spend)}</TableCell>
+                        <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{c.cpl > 0 ? fmtMoney(c.cpl) : '—'}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -499,7 +453,7 @@ export default function AdsOverviewPage() {
                 <Skeleton className="h-full w-full bg-slate-800" />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radar}>
+                  <RadarChart data={axes}>
                     <PolarGrid stroke="#1F2937" />
                     <PolarAngleAxis dataKey="axis" tick={{ fill: '#94A3B8', fontSize: 11 }} />
                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#475569', fontSize: 10 }} stroke="#1F2937" />
@@ -530,16 +484,16 @@ export default function AdsOverviewPage() {
                 <TableBody>
                   {badQueries.map((q) => (
                     <TableRow key={q.id} className="border-slate-800 hover:bg-slate-800/30">
-                      <TableCell className="py-2 px-2 text-xs text-slate-200 truncate max-w-[140px]">{q.q}</TableCell>
-                      <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{q.spend}</TableCell>
+                      <TableCell className="py-2 px-2 text-xs text-slate-200 truncate max-w-[140px]">{q.query}</TableCell>
+                      <TableCell className="py-2 px-2 text-xs text-slate-300 text-right">{fmtMoney(q.spend)}</TableCell>
                       <TableCell className="py-2 px-2 text-right">
                         <button
-                          onClick={() => q.conv === 0
+                          onClick={() => q.conversions === 0
                             ? removeBadQuery(q.id)
                             : toast.info('Запрос отправлен на проверку')}
-                          className={`text-[11px] font-medium ${q.conv === 0 ? 'text-red-400 hover:text-red-300' : 'text-slate-400 hover:text-slate-200'}`}
+                          className={`text-[11px] font-medium ${q.conversions === 0 ? 'text-red-400 hover:text-red-300' : 'text-slate-400 hover:text-slate-200'}`}
                         >
-                          {q.conv === 0 ? 'В минус' : 'Проверить'}
+                          {q.conversions === 0 ? 'В минус' : 'Проверить'}
                         </button>
                       </TableCell>
                     </TableRow>
@@ -588,26 +542,28 @@ export default function AdsOverviewPage() {
           <Card className="rounded-xl bg-[#111827] border-[#1F2937] p-4 lg:col-span-1">
             <h3 className="font-medium text-slate-200 text-sm mb-3">AI-рекомендации</h3>
             <ul className="space-y-3">
-              {INITIAL_RECS.map((r) => {
-                const state = recState[r.id] ?? 'idle';
+              {recs.length === 0 && <li className="text-xs text-slate-500 py-2">Нет активных рекомендаций</li>}
+              {recs.map((r) => {
+                const isLoading = !!recLoading[r.id];
+                const isDone = r.status === 'done';
                 return (
                   <li key={r.id} className="flex items-start gap-2.5">
                     <div className="w-7 h-7 rounded-md bg-blue-500/15 text-blue-400 flex items-center justify-center shrink-0">
                       <Sparkles className="w-3.5 h-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs leading-snug ${state === 'done' ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{r.text}</p>
-                      <p className="text-[11px] text-emerald-400 mt-0.5">+{r.save}</p>
+                      <p className={`text-xs leading-snug ${isDone ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{r.text}</p>
+                      <p className="text-[11px] text-emerald-400 mt-0.5">+{fmtMoney(r.savings)}/мес</p>
                     </div>
                     <Button
                       variant="outline" size="sm"
-                      onClick={() => applyRec(r)}
-                      disabled={state === 'loading' || state === 'done'}
+                      onClick={() => applyRec(r.id)}
+                      disabled={isLoading || isDone}
                       className="h-7 text-[11px] bg-transparent border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white shrink-0 disabled:opacity-60"
                     >
-                      {state === 'loading' && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                      {state === 'done' && <Check className="w-3 h-3 mr-1 text-emerald-400" />}
-                      {state === 'idle' ? r.cta : state === 'loading' ? 'Применяю…' : 'Выполнено'}
+                      {isLoading && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                      {isDone && <Check className="w-3 h-3 mr-1 text-emerald-400" />}
+                      {isDone ? 'Выполнено' : isLoading ? 'Применяю…' : r.cta}
                     </Button>
                   </li>
                 );
@@ -638,20 +594,20 @@ export default function AdsOverviewPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {accounts.map((a) => (
+                    {accountAggs.map((a, i) => (
                       <TableRow key={a.id} className="border-slate-800 hover:bg-slate-800/30">
                         <TableCell className="py-2">
                           <div className="text-xs text-slate-100 font-medium">{a.name}</div>
-                          <div className="text-[10px] text-slate-500">ID {a.id}</div>
+                          <div className="text-[10px] text-slate-500">ID {a.external_id || a.id.slice(0, 8)}</div>
                         </TableCell>
                         <TableCell className="py-2"><MiniScore value={a.score} /></TableCell>
-                        <TableCell className="py-2 text-xs text-slate-300 text-right">{a.spend}</TableCell>
-                        <TableCell className="py-2 text-xs text-slate-300 text-right">{a.conv}</TableCell>
-                        <TableCell className="py-2 text-xs text-slate-300 text-right">{a.cpl}</TableCell>
-                        <TableCell className="py-2 text-xs text-emerald-400 text-right">{a.romi}</TableCell>
+                        <TableCell className="py-2 text-xs text-slate-300 text-right">{fmtMoney(a.spend)}</TableCell>
+                        <TableCell className="py-2 text-xs text-slate-300 text-right">{a.conversions}</TableCell>
+                        <TableCell className="py-2 text-xs text-slate-300 text-right">{a.cpl > 0 ? fmtMoney(a.cpl) : '—'}</TableCell>
+                        <TableCell className="py-2 text-xs text-emerald-400 text-right">{a.romi}%</TableCell>
                         <TableCell className="py-2 text-xs text-red-400 text-right font-medium">{a.problems}</TableCell>
-                        <TableCell className="py-2 text-xs text-red-400 text-right">{a.loss}</TableCell>
-                        <TableCell className="py-2 w-[120px]"><Sparkline seed={a.seed} color="#3B82F6" /></TableCell>
+                        <TableCell className="py-2 text-xs text-red-400 text-right">{fmtMoney(a.loss)}</TableCell>
+                        <TableCell className="py-2 w-[120px]"><Sparkline seed={i + 1} color="#3B82F6" /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
