@@ -137,8 +137,29 @@ export function AppSidebar() {
       : []),
     ...(isAdmin
       ? [{ label: 'Админ-панель', path: '/admin', icon: Settings } as Item]
-      : [{ label: 'Аккаунт', path: '/account', icon: User } as Item]),
+      : []),
   ];
+
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!active || !data.user) return;
+      const meta: any = data.user.user_metadata || {};
+      const name =
+        meta.full_name || meta.name ||
+        (data.user.email ? data.user.email.split('@')[0] : 'Пользователь');
+      setUser({ name, email: data.user.email ?? '' });
+    });
+    return () => { active = false; };
+  }, []);
+  const initials = (user?.name ?? 'U')
+    .split(/\s+/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('') || 'U';
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/auth');
+  };
 
   return (
     <Sidebar collapsible="icon">
