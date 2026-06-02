@@ -6,7 +6,7 @@ const REPORTS_URL = `${API_BASE}/reports`;
 const CAMPAIGNS_URL = `${API_BASE}/campaigns`;
 const YANDEX_TOKEN_URL = 'https://oauth.yandex.ru/token';
 
-async function refreshAccessToken(admin: ReturnType<typeof createClient>, tokenRow: any) {
+async function refreshAccessToken(admin: any, tokenRow: any) {
   if (!tokenRow.refresh_token || !tokenRow.oauth_client_id || !tokenRow.oauth_client_secret) return tokenRow.access_token as string;
   const expiresAt = tokenRow.expires_at ? new Date(tokenRow.expires_at).getTime() : 0;
   if (expiresAt && expiresAt - Date.now() > 60_000) return tokenRow.access_token as string;
