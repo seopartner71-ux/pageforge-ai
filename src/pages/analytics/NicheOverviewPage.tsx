@@ -359,6 +359,55 @@ const MOCK_REPORT: ReportData = {
     { field: 'Доли игроков', assumption: 'Доли лидеров оценены по узнаваемости бренда и SERP, без точной выручки.', impact: 'Распределение долей может смещаться на ±10 п.п.', confidence: 'low' },
     { field: 'Сила домена', assumption: 'Считаем домен новым — стратегия делает упор на длинный E-E-A-T-цикл.', impact: 'Для зрелого домена приоритеты в roadmap нужно ускорить на 2–3 месяца.', confidence: 'high' },
   ],
+  opportunities: {
+    summary: 'Ниша opportunity-rich, но «тяжёлый верх» закрыт лидерами. Реальные возможности — в узких вертикалях, локальном B2B и канонических сравнительных активах. Информационный слой страдает от AI-сжатия — приоритет на коммерческие и trust-возможности с быстрой бизнес-конверсией.',
+    portfolio: {
+      core_growth: ['Хаб «Сравнения и альтернативы» под вертикали', 'Use-case кластеры для логистики и салонов', 'Канонический глоссарий категории'],
+      quick_wins: ['10 long-tail сравнений «X vs Y для [вертикали]»', 'Локальные посадочные для 5 городов 100–500 тыс.', 'Калькулятор ROI / окупаемости'],
+      revenue_priority: ['Pricing-страницы по сегментам', 'Use-case → демо-форма', 'Кейс-стади с ROI и цифрами'],
+      trust_building: ['Авторы-эксперты с публичным треком', 'Прозрачная методология ревью', 'Сертификации и compliance-страницы'],
+      authority_ai_visibility: ['Цитируемые стат-страницы (industry benchmarks)', 'FAQ-хабы под answer-форматы', 'Канонические definition-страницы'],
+      defer: ['Broad head-термины уровня категории', 'Тяжёлые медиа-форматы без распределения'],
+      avoid: ['Affiliate-сравнения без дифференциации', 'Контент уровня «что такое X» без trust-слоя'],
+    },
+    top_overall: [
+      { title: 'Vertical comparison hub (логистика)', why: 'Низкая SERP-конкуренция в вертикали, высокий коммерческий интент.', best_format: 'Сравнительный хаб + сравнения 1:1', speed_to_impact: 'q1', demand_quality: 75, business_value: 85, accessibility: 70, serp_openness: 80, ai_upside: 55, overall_score: 78 },
+      { title: 'Локальные посадочные B2B (города 100–500 тыс.)', why: 'Местный SERP открыт, low-volume × high-value.', best_format: 'City + service pages', speed_to_impact: '30d', demand_quality: 60, business_value: 80, accessibility: 85, serp_openness: 85, ai_upside: 40, overall_score: 74 },
+      { title: 'Калькулятор ROI и окупаемости', why: 'Linkable asset + конверсионный crossover, дефицит на рынке.', best_format: 'Интерактивный tool', speed_to_impact: 'q1', demand_quality: 55, business_value: 75, accessibility: 75, serp_openness: 70, ai_upside: 65, overall_score: 71 },
+      { title: 'Канонические industry benchmarks', why: 'Высокий потенциал цитирований в AI и СМИ.', best_format: 'Stats / methodology', speed_to_impact: 'q2', demand_quality: 50, business_value: 60, accessibility: 60, serp_openness: 75, ai_upside: 90, overall_score: 70 },
+      { title: 'Alternatives-страницы под конкурентов', why: 'Чистый коммерческий интент, открытый SERP в вертикали.', best_format: '«Alternative to X»', speed_to_impact: 'q1', demand_quality: 65, business_value: 80, accessibility: 70, serp_openness: 65, ai_upside: 45, overall_score: 68 },
+    ],
+    wedges: [
+      { title: 'Comparison wedge', asset: '«X vs Y для [вертикали]»', payoff: 'Быстрый коммерческий трафик', speed: 'q1' },
+      { title: 'Local wedge', asset: 'City pages + локальные кейсы', payoff: 'Низкая конкуренция, тёплые лиды', speed: '30d' },
+      { title: 'Tool wedge', asset: 'ROI-калькулятор', payoff: 'Ссылки и брендовый поиск', speed: 'q1' },
+      { title: 'Authority wedge', asset: 'Industry stats / benchmarks', payoff: 'Цитирования в AI и СМИ', speed: 'q2' },
+    ],
+    compounding: [
+      { pair: 'Глоссарий → Сравнения', sequencing: 'Сначала канонические definition-страницы, затем сравнения цитируют их.', payoff: 'Внутренний линкинг и topical authority.' },
+      { pair: 'Калькулятор → Pricing → Demo', sequencing: 'Калькулятор → расчёт → CTA на pricing → демо.', payoff: 'Удлинённая конверсионная воронка из SEO-трафика.' },
+      { pair: 'Industry stats → PR/Outreach', sequencing: 'Публикуем бенчмарки → outreach в отраслевые медиа.', payoff: 'Линки + AI-цитирование + бренд.' },
+    ],
+    traps: [
+      { title: 'Broad head-термины «CRM», «учёт»', why_looks_good: 'Огромный объём поиска и узнаваемые формулировки.', why_risk: 'Заняты лидерами и AI Overviews; CTR сжат, конверсия низкая.' },
+      { title: '«Что такое X» без trust-слоя', why_looks_good: 'Лёгкий трафик и быстрый запуск.', why_risk: 'Vanity-трафик без LTV; первые жертвы AI-сжатия.' },
+      { title: 'Тяжёлые affiliate-сравнения без UX-преимущества', why_looks_good: 'Высокий RPM у конкурентов.', why_risk: 'Нужны бренд и доверие; новые домены не выдерживают конкуренции.' },
+    ],
+    gaps: [
+      { title: 'Use-case сегментация по ролям', why_underserved: 'Конкуренты пишут «для бизнеса», но не «для бухгалтера логистической компании».', asset_needed: 'Cluster role × industry pages.' },
+      { title: 'Implementation / onboarding content', why_underserved: 'Рынок фокусируется на маркетинговом контенте, не на сценариях внедрения.', asset_needed: 'Implementation guides + чек-листы.' },
+      { title: 'Локальные кейсы для городов 100–500 тыс.', why_underserved: 'Все кейсы — про Москву/СПб.', asset_needed: 'City case studies с цифрами клиента.' },
+    ],
+    sequencing: {
+      '30_days': ['10 локальных посадочных', '5 alternatives-страниц', 'Базовый глоссарий 15 терминов'],
+      q1: ['Comparison hub запуск', 'ROI-калькулятор v1', 'Первые 5 use-case кластеров'],
+      q2: ['Industry stats / benchmarks', 'PR-outreach под benchmarks', 'Расширение глоссария и интерлинкинг'],
+      '6_12m': ['Authority hub под вертикаль', 'Pricing-страницы по сегментам', 'Программа авторов-экспертов'],
+      '12_24m': ['Расширение в смежные вертикали', 'Партнёрская программа', 'Локализация под новые гео'],
+    },
+    launch_model: 'wedge-first',
+    recommendation: 'phased-go',
+  },
 };
 
 const DEFAULT_FORM: FormData = {
