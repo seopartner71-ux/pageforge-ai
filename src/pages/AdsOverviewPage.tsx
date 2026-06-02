@@ -262,22 +262,22 @@ export default function AdsOverviewPage() {
               ))
             : (
               <>
-                {kpis.map((k) => (
-                  <Card key={k.label} className="rounded-xl bg-[#111827] border-[#1F2937] p-4 space-y-2">
+                {kpis.map((k, i) => (
+                  <Card key={k.key} className="rounded-xl bg-[#111827] border-[#1F2937] p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-400">{k.label}</span>
                       <DeltaBadge delta={k.delta} />
                     </div>
                     <div className="text-2xl font-semibold text-white tracking-tight">{k.value}</div>
-                    <Sparkline seed={k.sparkSeed} color={k.delta >= 0 ? '#10B981' : '#EF4444'} />
+                    <Sparkline seed={i + 1} color={k.delta >= 0 ? '#10B981' : '#EF4444'} />
                   </Card>
                 ))}
                 <Card className="rounded-xl bg-[#111827] border-[#1F2937] p-4 flex items-center gap-3">
-                  <CircularScore value={84} />
+                  <CircularScore value={accountAggs[0]?.score ?? 84} />
                   <div>
                     <div className="text-xs text-slate-400">Оценка кабинета</div>
                     <div className="text-sm font-medium text-emerald-400 mt-1">Хорошая оптимизация</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">5 рекомендаций</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">{recs.length} рекомендаций</div>
                   </div>
                 </Card>
               </>
@@ -297,12 +297,15 @@ export default function AdsOverviewPage() {
               </div>
             ) : (
               <ul className="space-y-3">
-                {alerts.map((a, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${a.color}`} />
+                {alerts.length === 0 && <li className="text-xs text-slate-500 py-2">Нет активных алертов</li>}
+                {alerts.map((a) => (
+                  <li key={a.id} className="flex items-start gap-2">
+                    <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${ALERT_COLOR[a.severity] ?? 'bg-slate-500'}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-slate-300 leading-snug">{a.text}</p>
-                      <p className={`text-[11px] font-medium mt-0.5 ${a.impactColor}`}>{a.impact}</p>
+                      <p className={`text-[11px] font-medium mt-0.5 ${a.impact_positive ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {a.impact_positive ? '+' : '−'}{Math.round(a.impact_value).toLocaleString('ru-RU')} ₽/мес
+                      </p>
                     </div>
                   </li>
                 ))}
