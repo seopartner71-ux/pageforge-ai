@@ -195,6 +195,46 @@ function wedgesTable(wedges: NicheReportData['strategy']['wedges']) {
   return new Table({ width: { size: 9400, type: WidthType.DXA }, columnWidths: widths, rows });
 }
 
+function positionMeta(pos: VerdictPosition) {
+  if (pos === 'GO') return { label: 'РЕКОМЕНДУЕМ ВХОДИТЬ', color: SUCCESS };
+  if (pos === 'NO-GO') return { label: 'НЕ РЕКОМЕНДУЕМ', color: DANGER };
+  return { label: 'ВХОДИТЬ С ОГОВОРКАМИ', color: WARN };
+}
+function confidenceLabel(c: VerdictConfidence) {
+  return c === 'high' ? 'высокая' : c === 'low' ? 'низкая' : 'средняя';
+}
+function renderVerdict(v: StructuredVerdict | string): (Paragraph | Table)[] {
+  const out: (Paragraph | Table)[] = [h2('Стратегический вердикт')];
+  if (typeof v === 'string') {
+    out.push(p(v));
+    return out;
+  }
+  const meta = positionMeta(v.position);
+  out.push(new Paragraph({
+    spacing: { after: 80 },
+    children: [
+      new TextRun({ text: `Позиция: `, bold: true, size: 22 }),
+      new TextRun({ text: meta.label, bold: true, size: 22, color: meta.color }),
+      new TextRun({ text: `   ·   Уверенность: ${confidenceLabel(v.confidence)}`, color: MUTED, size: 20 }),
+    ],
+  }));
+  if (v.headline) out.push(p(v.headline, { bold: true, size: 24 }));
+  if (v.summary) out.push(p(v.summary));
+  if (v.key_drivers?.length) {
+    out.push(p('Ключевые драйверы:', { bold: true, color: SUCCESS }));
+    v.key_drivers.forEach((d) => out.push(bullet(d)));
+  }
+  if (v.key_risks?.length) {
+    out.push(p('Ключевые риски:', { bold: true, color: DANGER }));
+    v.key_risks.forEach((r) => out.push(bullet(r)));
+  }
+  if (v.recommendation) {
+    out.push(p('Рекомендация (next best action):', { bold: true, color: PRIMARY }));
+    out.push(p(v.recommendation));
+  }
+  return out;
+}
+
 export async function exportNicheOverviewDocx(opts: {
   niche: string;
   data: NicheReportData;
