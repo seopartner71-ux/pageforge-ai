@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const callback = `${Deno.env.get('SUPABASE_URL')}/functions/v1/yandex-oauth-callback`;
+    const callback = 'https://oauth.yandex.ru/verification_code';
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: clientId,

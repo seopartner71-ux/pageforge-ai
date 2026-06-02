@@ -50,6 +50,8 @@ export default function ProjectsPage() {
 
   const [yandexConnected, setYandexConnected] = useState(false);
   const [yandexLogin, setYandexLogin] = useState<string | null>(null);
+  const [yandexCode, setYandexCode] = useState('');
+  const [yandexCodeLoading, setYandexCodeLoading] = useState(false);
   const [yandexHosts, setYandexHosts] = useState<YandexHost[]>([]);
   const [yandexLoadingHosts, setYandexLoadingHosts] = useState(false);
   const [pickHostFor, setPickHostFor] = useState<Project | null>(null);
@@ -132,6 +134,37 @@ export default function ProjectsPage() {
       if (!w) window.location.href = json.url;
     } catch (e) {
       toast({ title: 'Ошибка OAuth', description: (e as Error).message, variant: 'destructive' });
+    }
+  };
+
+  const exchangeYandexCode = async () => {
+    const code = yandexCode.trim();
+    if (!code) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({ title: 'Войдите в систему', variant: 'destructive' });
+      return;
+    }
+    setYandexCodeLoading(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/yandex-oauth-exchange-code`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_KEY,
+        },
+        body: JSON.stringify({ code }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || 'token_exchange_failed');
+      setYandexCode('');
+      toast({ title: 'Яндекс подключён', description: json.yandex_login ? `Аккаунт: ${json.yandex_login}` : undefined });
+      load();
+    } catch (e) {
+      toast({ title: 'Не удалось подключить Яндекс', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setYandexCodeLoading(false);
     }
   };
 
@@ -291,9 +324,20 @@ export default function ProjectsPage() {
             Отключить аккаунт
           </Button>
         ) : (
-          <Button size="sm" onClick={startYandexOAuth}>
-            <Link2 className="h-4 w-4 mr-1.5" /> Подключить Яндекс
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              className="h-9 w-[220px]"
+              placeholder="Код от Яндекса"
+              value={yandexCode}
+              onChange={(e) => setYandexCode(e.target.value)}
+            />
+            <Button size="sm" variant="secondary" onClick={exchangeYandexCode} disabled={!yandexCode.trim() || yandexCodeLoading}>
+              {yandexCodeLoading ? 'Проверка…' : 'Вставить код'}
+            </Button>
+            <Button size="sm" onClick={startYandexOAuth}>
+              <Link2 className="h-4 w-4 mr-1.5" /> Получить код
+            </Button>
+          </div>
         )}
       </Card>
 

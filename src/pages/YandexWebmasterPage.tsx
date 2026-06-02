@@ -11,6 +11,8 @@ export default function YandexWebmasterPage() {
   const [activeDomain, setActiveDomain] = useState<string | null>(null);
   const [tokenInfo, setTokenInfo] = useState<{ yandex_login: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [oauthCode, setOauthCode] = useState('');
+  const [exchangingCode, setExchangingCode] = useState(false);
 
   useEffect(() => {
     checkConnection();
@@ -49,6 +51,36 @@ export default function YandexWebmasterPage() {
       return;
     }
     window.open(json.url, 'yandex_oauth', 'width=600,height=600');
+  };
+
+  const exchangeYandexCode = async () => {
+    const code = oauthCode.trim();
+    if (!code) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const jwt = sessionData.session?.access_token;
+    if (!jwt) {
+      alert('Сначала войдите в систему');
+      return;
+    }
+    setExchangingCode(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/yandex-oauth-exchange-code`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || 'Не удалось сохранить токен');
+      setOauthCode('');
+      await checkConnection();
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setExchangingCode(false);
+    }
   };
 
   const submit = (e: React.FormEvent) => {
@@ -102,9 +134,20 @@ export default function YandexWebmasterPage() {
             )}
           </div>
           {!loading && !tokenInfo && (
-            <Button size="sm" onClick={connectYandex} className="gap-1.5">
-              <Plug className="h-3.5 w-3.5" /> Подключить Яндекс.Вебмастер
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                className="h-9 w-[220px]"
+                placeholder="Код от Яндекса"
+                value={oauthCode}
+                onChange={(e) => setOauthCode(e.target.value)}
+              />
+              <Button size="sm" variant="secondary" onClick={exchangeYandexCode} disabled={!oauthCode.trim() || exchangingCode}>
+                {exchangingCode ? 'Проверка…' : 'Вставить код'}
+              </Button>
+              <Button size="sm" onClick={connectYandex} className="gap-1.5">
+                <Plug className="h-3.5 w-3.5" /> Получить код Яндекса
+              </Button>
+            </div>
           )}
         </div>
       </Card>
