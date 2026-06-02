@@ -13,6 +13,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
   Loader2, Plug, Plus, RefreshCw, CheckCircle2, AlertCircle, ExternalLink, Trash2,
 } from 'lucide-react';
 
@@ -52,6 +57,10 @@ export default function AdsAccountsPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [connecting, setConnecting] = useState(false);
   const [resyncing, setResyncing] = useState<Record<string, boolean>>({});
+  const [codeDialogOpen, setCodeDialogOpen] = useState(false);
+  const [codeInput, setCodeInput] = useState('');
+  const [exchanging, setExchanging] = useState(false);
+  const [pendingProjectId, setPendingProjectId] = useState<string>('');
 
   const load = async () => {
     const [{ data: accs }, { data: projs }, { data: js }] = await Promise.all([
@@ -94,22 +103,6 @@ export default function AdsAccountsPage() {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  // Listen for OAuth popup messages
-  useEffect(() => {
-    const handler = (e: MessageEvent) => {
-      if (!e.data || e.data.type !== 'yandex-direct-oauth') return;
-      setConnecting(false);
-      if (e.data.ok) {
-        toast.success(`Подключён аккаунт ${e.data.account?.login ?? ''}`);
-        load();
-      } else {
-        toast.error(`Не удалось подключить: ${e.data.message ?? ''}`);
-      }
-    };
-    window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
-  }, []);
-
   const connectYandex = async () => {
     if (!selectedProjectId) {
       toast.error('Выберите проект');
@@ -121,16 +114,38 @@ export default function AdsAccountsPage() {
         body: { project_id: selectedProjectId },
       });
       if (error || !data?.authorize_url) throw new Error(error?.message ?? 'No URL');
-      const w = 600, h = 720;
-      const left = window.screenX + (window.outerWidth - w) / 2;
-      const top = window.screenY + (window.outerHeight - h) / 2;
-      window.open(
-        data.authorize_url, 'yandex-oauth',
-        `width=${w},height=${h},left=${left},top=${top}`,
-      );
+      // Open Yandex authorization in a new tab. The user will see a verification
+      // code on https://oauth.yandex.ru/verification_code and paste it back.
+      window.open(data.authorize_url, '_blank', 'noopener,noreferrer');
+      setPendingProjectId(selectedProjectId);
+      setCodeInput('');
+      setCodeDialogOpen(true);
     } catch (e) {
-      setConnecting(false);
       toast.error(`Ошибка: ${(e as Error).message}`);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const submitCode = async () => {
+    const code = codeInput.trim();
+    if (!code) { toast.error('Введите код подтверждения'); return; }
+    if (!pendingProjectId) { toast.error('Проект не выбран'); return; }
+    setExchanging(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('yandex-direct-oauth-callback', {
+        body: { code, project_id: pendingProjectId },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.ok) throw new Error(data?.error ?? 'Не удалось обменять код');
+      toast.success(`Подключён аккаунт ${data.account?.login ?? ''}. Импорт запущен.`);
+      setCodeDialogOpen(false);
+      setCodeInput('');
+      load();
+    } catch (e) {
+      toast.error(`Не удалось подключить: ${(e as Error).message}`);
+    } finally {
+      setExchanging(false);
     }
   };
 
@@ -329,14 +344,57 @@ export default function AdsAccountsPage() {
           <div className="flex items-start gap-2">
             <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-400" />
             <span>
-              Для работы OAuth у вашего приложения Яндекса должен быть прописан redirect URI:{' '}
-              <code className="text-slate-200">
-                {import.meta.env.VITE_SUPABASE_URL}/functions/v1/yandex-direct-oauth-callback
-              </code>
+              Для работы OAuth в настройках приложения Яндекса должен быть выбран redirect URI{' '}
+              <strong>«Подставлять код подтверждения в URL»</strong>:{' '}
+              <code className="text-slate-200">https://oauth.yandex.ru/verification_code</code>
             </span>
           </div>
         </Card>
       </main>
+
+      <Dialog open={codeDialogOpen} onOpenChange={(o) => !exchanging && setCodeDialogOpen(o)}>
+        <DialogContent className="bg-[#111827] border-[#1F2937] text-slate-200 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-slate-100">Введите код подтверждения Яндекса</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Авторизуйтесь во вкладке Яндекса и скопируйте код, который покажет страница{' '}
+              <code className="text-slate-300">oauth.yandex.ru/verification_code</code>. Затем вставьте его сюда.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="yandex-code" className="text-xs text-slate-400">Код подтверждения</Label>
+            <Input
+              id="yandex-code"
+              autoFocus
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitCode(); }}
+              placeholder="например, 1234567"
+              className="bg-[#0B0F19] border-slate-800 text-slate-100 tracking-widest font-mono"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCodeDialogOpen(false)}
+              disabled={exchanging}
+              className="bg-transparent border-slate-700 text-slate-200 hover:bg-slate-800"
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={submitCode}
+              disabled={exchanging || !codeInput.trim()}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              {exchanging
+                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              Подключить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

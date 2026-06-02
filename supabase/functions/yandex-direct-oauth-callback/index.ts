@@ -3,86 +3,53 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const YANDEX_TOKEN_URL = 'https://oauth.yandex.ru/token';
 const YANDEX_LOGIN_INFO = 'https://login.yandex.ru/info?format=json';
+const REDIRECT_URI = 'https://oauth.yandex.ru/verification_code';
 
-async function sign(payload: string, secret: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
-  return btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-function htmlPage(title: string, message: string, ok: boolean, account?: { id: string; login: string }) {
-  const payload = JSON.stringify({
-    type: 'yandex-direct-oauth',
-    ok, message, account: account ?? null,
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-  return `<!doctype html><html lang="ru"><head>
-<meta charset="utf-8"><title>${title}</title>
-<style>
-  html,body{margin:0;height:100%;background:#0B0F19;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;}
-  .wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;}
-  .badge{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;
-         background:${ok ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)'};
-         color:${ok ? '#10B981' : '#EF4444'};font-size:28px;margin-bottom:16px;}
-  h1{font-size:18px;margin:0 0 8px;}
-  p{font-size:13px;color:#94A3B8;max-width:340px;line-height:1.5;}
-  button{margin-top:18px;background:#3B82F6;color:#fff;border:0;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;}
-</style></head>
-<body><div class="wrap">
-  <div class="badge">${ok ? '✓' : '!'}</div>
-  <h1>${title}</h1>
-  <p>${message}</p>
-  <button onclick="window.close()">Закрыть окно</button>
-</div>
-<script>
-  try { window.opener && window.opener.postMessage(${payload}, '*'); } catch(e){}
-  setTimeout(function(){ try{window.close();}catch(e){} }, 1500);
-</script>
-</body></html>`;
-}
-
-function htmlResponse(html: string, status = 200) {
-  return new Response(html, { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const url = new URL(req.url);
-  const code = url.searchParams.get('code');
-  const stateParam = url.searchParams.get('state');
-  const errorParam = url.searchParams.get('error');
-
-  if (errorParam) {
-    return htmlResponse(htmlPage('Подключение отменено', errorParam, false), 400);
-  }
-  if (!code || !stateParam) {
-    return htmlResponse(htmlPage('Ошибка', 'Отсутствует code или state.', false), 400);
+  // POST-only: frontend sends { code, project_id } after user pastes the
+  // verification code from oauth.yandex.ru/verification_code.
+  if (req.method !== 'POST') {
+    return json({ error: 'method_not_allowed' }, 405);
   }
 
-  // Verify state
-  let userId = '', projectId = '';
-  try {
-    const padded = stateParam.replaceAll('-', '+').replaceAll('_', '/');
-    const decoded = JSON.parse(atob(padded + '==='.slice((padded.length + 3) % 4)));
-    const stateSecret = Deno.env.get('CRAWLER_SECRET')!;
-    const raw = `${decoded.u}.${decoded.p}.${decoded.n}.${decoded.t}`;
-    const expected = await sign(raw, stateSecret);
-    if (expected !== decoded.s) throw new Error('bad signature');
-    if (Date.now() - Number(decoded.t) > 15 * 60_000) throw new Error('state expired');
-    userId = decoded.u;
-    projectId = decoded.p;
-  } catch (e) {
-    return htmlResponse(htmlPage('Ошибка', `Невалидный state: ${(e as Error).message}`, false), 400);
+  const authHeader = req.headers.get('Authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return json({ error: 'Unauthorized' }, 401);
+  }
+
+  const userClient = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(
+    authHeader.replace('Bearer ', ''),
+  );
+  if (claimsErr || !claimsData?.claims?.sub) {
+    return json({ error: 'Unauthorized' }, 401);
+  }
+  const userId = claimsData.claims.sub as string;
+
+  const body = await req.json().catch(() => ({}));
+  const code = String(body.code ?? '').trim();
+  const projectId = String(body.project_id ?? '').trim();
+  if (!code || !projectId) {
+    return json({ error: 'code and project_id are required' }, 400);
   }
 
   const clientId = Deno.env.get('YANDEX_OAUTH_CLIENT_ID');
   const clientSecret = Deno.env.get('YANDEX_OAUTH_CLIENT_SECRET');
   if (!clientId || !clientSecret) {
-    return htmlResponse(htmlPage('Ошибка', 'OAuth не сконфигурирован.', false), 500);
+    return json({ error: 'OAuth not configured' }, 500);
   }
 
   try {
@@ -95,14 +62,12 @@ Deno.serve(async (req) => {
         code,
         client_id: clientId,
         client_secret: clientSecret,
+        redirect_uri: REDIRECT_URI,
       }),
     });
     const token = await tokenRes.json();
     if (!tokenRes.ok || !token.access_token) {
-      return htmlResponse(
-        htmlPage('Ошибка', `Не удалось получить токен: ${JSON.stringify(token)}`, false),
-        400,
-      );
+      return json({ error: 'token_exchange_failed', details: token }, 400);
     }
 
     // Get Yandex login
@@ -175,13 +140,12 @@ Deno.serve(async (req) => {
       }).catch(() => {});
     }
 
-    return htmlResponse(htmlPage(
-      'Аккаунт подключён',
-      `Яндекс.Директ «${login}» подключён. Импорт за 90 дней запущен в фоне.`,
-      true,
-      { id: accountId!, login },
-    ));
+    return json({
+      ok: true,
+      account: { id: accountId, login, name: displayName },
+      job_id: job?.id ?? null,
+    });
   } catch (e) {
-    return htmlResponse(htmlPage('Ошибка', String((e as Error).message ?? e), false), 500);
+    return json({ error: String((e as Error).message ?? e) }, 500);
   }
 });
