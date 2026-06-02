@@ -1,6 +1,7 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -78,6 +79,7 @@ function useAuthSession() {
 function AuthGate({ children }: { children: React.ReactNode }) {
   const session = useAuthSession();
   const [isApproved, setIsApproved] = useState<boolean | undefined>(undefined);
+  const location = useLocation();
 
   useEffect(() => {
     if (!session?.user) {
@@ -96,7 +98,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [session?.user?.id]);
 
   if (session === undefined) return <PageLoader />;
-  if (!session) return <AuthPage />;
+  if (!session) return <Navigate to="/auth" replace state={{ from: location.pathname + location.search }} />;
   if (isApproved === undefined) return <PageLoader />;
   if (!isApproved) return <PendingApprovalScreen />;
   return <>{children}</>;
@@ -105,9 +107,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 function AdminGate({ children }: { children: React.ReactNode }) {
   const session = useAuthSession();
   const { isAdmin, loading } = useAdminRole();
+  const location = useLocation();
 
   if (session === undefined || loading) return <PageLoader />;
-  if (!session) return <AuthPage />;
+  if (!session) return <Navigate to="/auth" replace state={{ from: location.pathname + location.search }} />;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;
@@ -116,9 +119,10 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 function StaffGate({ children }: { children: React.ReactNode }) {
   const session = useAuthSession();
   const { isStaff, loading } = useStaffRole();
+  const location = useLocation();
 
   if (session === undefined || loading) return <PageLoader />;
-  if (!session) return <AuthPage />;
+  if (!session) return <Navigate to="/auth" replace state={{ from: location.pathname + location.search }} />;
   if (!isStaff) return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;
