@@ -861,6 +861,55 @@ function confidenceLabel(c: VerdictConfidence) {
   return c === 'high' ? 'высокая' : c === 'low' ? 'низкая' : 'средняя';
 }
 
+function confidenceBadgeClass(c: 'high' | 'medium' | 'low') {
+  if (c === 'high') return 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30';
+  if (c === 'low') return 'bg-rose-500/15 text-rose-500 border-rose-500/30';
+  return 'bg-amber-500/15 text-amber-500 border-amber-500/30';
+}
+
+function AssumptionsCard({ items }: { items: Assumption[] }) {
+  return (
+    <Card className="p-6 space-y-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-md bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-foreground">Гипотезы и предположения</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Места, где AI достроил картину из-за неполных входных данных. Проверьте перед принятием решений.
+            </p>
+          </div>
+        </div>
+        <Badge variant="outline" className="border-border text-muted-foreground">
+          {items.length} {items.length === 1 ? 'допущение' : 'допущений'}
+        </Badge>
+      </div>
+      <div className="space-y-3">
+        {items.map((a, i) => (
+          <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="text-xs font-semibold uppercase tracking-wider text-amber-500">
+                {a.field}
+              </div>
+              <Badge variant="outline" className={confidenceBadgeClass(a.confidence)}>
+                Уверенность: {confidenceLabel(a.confidence)}
+              </Badge>
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">{a.assumption}</p>
+            {a.impact && (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground/80">Влияние:</span> {a.impact}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function VerdictCard({ verdict }: { verdict: StructuredVerdict }) {
   const meta = positionMeta(verdict.position);
   const Icon = meta.icon;
