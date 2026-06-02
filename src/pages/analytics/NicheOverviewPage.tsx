@@ -13,6 +13,8 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 type FormData = {
   niche: string;
@@ -145,10 +147,25 @@ export default function NicheOverviewPage() {
   async function generateReport() {
     setIsLoading(true);
     setReportData(null);
-    // Имитация запроса. В будущем: await supabase.functions.invoke('analyze-niche', { body: formData })
-    await new Promise((r) => setTimeout(r, 12000));
-    setReportData(MOCK_REPORT);
-    setIsLoading(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-niche', { body: formData });
+      if (error) throw error;
+      const report = (data as any)?.report;
+      if (!report || !report.scoring) {
+        throw new Error('Пустой ответ AI');
+      }
+      setReportData(report as ReportData);
+    } catch (e: any) {
+      console.error('analyze-niche failed', e);
+      toast({
+        title: 'AI недоступен',
+        description: (e?.message || 'Ошибка запроса') + '. Показан демо-отчёт.',
+        variant: 'destructive',
+      });
+      setReportData(MOCK_REPORT);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   const canSubmit = formData.niche.trim().length > 1 && !isLoading;
