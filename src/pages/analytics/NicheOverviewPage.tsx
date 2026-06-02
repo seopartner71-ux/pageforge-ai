@@ -102,7 +102,30 @@ type ReportData = {
     wedges: { title: string; description: string; effort: string; impact: string }[];
     risks: string[];
   };
+  assumptions?: Assumption[];
 };
+
+type Assumption = {
+  field: string;
+  assumption: string;
+  impact: string;
+  confidence: 'high' | 'medium' | 'low';
+};
+
+function normalizeAssumptions(arr: any): Assumption[] {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((a) => {
+      const conf = String(a?.confidence || 'medium').toLowerCase();
+      return {
+        field: String(a?.field || '').trim() || 'Общие данные',
+        assumption: String(a?.assumption || '').trim(),
+        impact: String(a?.impact || '').trim(),
+        confidence: (conf === 'high' || conf === 'low' ? conf : 'medium') as Assumption['confidence'],
+      };
+    })
+    .filter((a) => a.assumption.length > 0);
+}
 
 function normalizeVerdict(v: any, scoring: ReportData['scoring']): StructuredVerdict {
   // Back-compat: старые ответы возвращали verdict как строку
@@ -212,6 +235,11 @@ const MOCK_REPORT: ReportData = {
       'Консолидация рынка крупными игроками',
     ],
   },
+  assumptions: [
+    { field: 'Размер рынка', assumption: 'Оценка ≈ 1.2 млрд ₽/год построена по аналогам без локальных отраслевых отчётов.', impact: 'Перепроверить блок «Рынок» при наличии данных Росстата или отраслевых обзоров.', confidence: 'medium' },
+    { field: 'Доли игроков', assumption: 'Доли лидеров оценены по узнаваемости бренда и SERP, без точной выручки.', impact: 'Распределение долей может смещаться на ±10 п.п.', confidence: 'low' },
+    { field: 'Сила домена', assumption: 'Считаем домен новым — стратегия делает упор на длинный E-E-A-T-цикл.', impact: 'Для зрелого домена приоритеты в roadmap нужно ускорить на 2–3 месяца.', confidence: 'high' },
+  ],
 };
 
 const DEFAULT_FORM: FormData = {
@@ -264,6 +292,7 @@ export default function NicheOverviewPage() {
           ...raw.executive_summary,
           verdict: normalizeVerdict(raw?.executive_summary?.verdict, raw.scoring),
         },
+        assumptions: normalizeAssumptions(raw?.assumptions),
       };
       setReportData(report);
     } catch (e: any) {
@@ -609,6 +638,9 @@ function ResultsDashboard({
               ))}
             </div>
           </Card>
+          {data.assumptions && data.assumptions.length > 0 && (
+            <AssumptionsCard items={data.assumptions} />
+          )}
         </TabsContent>
 
         <TabsContent value="market" className="mt-4 space-y-4">
@@ -827,6 +859,55 @@ function positionMeta(pos: VerdictPosition) {
 
 function confidenceLabel(c: VerdictConfidence) {
   return c === 'high' ? 'высокая' : c === 'low' ? 'низкая' : 'средняя';
+}
+
+function confidenceBadgeClass(c: 'high' | 'medium' | 'low') {
+  if (c === 'high') return 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30';
+  if (c === 'low') return 'bg-rose-500/15 text-rose-500 border-rose-500/30';
+  return 'bg-amber-500/15 text-amber-500 border-amber-500/30';
+}
+
+function AssumptionsCard({ items }: { items: Assumption[] }) {
+  return (
+    <Card className="p-6 space-y-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-md bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-foreground">Гипотезы и предположения</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Места, где AI достроил картину из-за неполных входных данных. Проверьте перед принятием решений.
+            </p>
+          </div>
+        </div>
+        <Badge variant="outline" className="border-border text-muted-foreground">
+          {items.length} {items.length === 1 ? 'допущение' : 'допущений'}
+        </Badge>
+      </div>
+      <div className="space-y-3">
+        {items.map((a, i) => (
+          <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="text-xs font-semibold uppercase tracking-wider text-amber-500">
+                {a.field}
+              </div>
+              <Badge variant="outline" className={confidenceBadgeClass(a.confidence)}>
+                Уверенность: {confidenceLabel(a.confidence)}
+              </Badge>
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">{a.assumption}</p>
+            {a.impact && (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground/80">Влияние:</span> {a.impact}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
 }
 
 function VerdictCard({ verdict }: { verdict: StructuredVerdict }) {

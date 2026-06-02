@@ -38,6 +38,7 @@ export type NicheReportData = {
     wedges: { title: string; description: string; effort: string; impact: string }[];
     risks: string[];
   };
+  assumptions?: { field: string; assumption: string; impact: string; confidence: 'high' | 'medium' | 'low' }[];
 };
 
 const PRIMARY = '3B82F6';
@@ -203,6 +204,51 @@ function positionMeta(pos: VerdictPosition) {
 function confidenceLabel(c: VerdictConfidence) {
   return c === 'high' ? 'высокая' : c === 'low' ? 'низкая' : 'средняя';
 }
+function assumptionConfidenceColor(c: 'high' | 'medium' | 'low') {
+  if (c === 'high') return SUCCESS;
+  if (c === 'low') return DANGER;
+  return WARN;
+}
+function assumptionsTable(items: NonNullable<NicheReportData['assumptions']>) {
+  const widths = [2400, 4400, 1400, 1200];
+  const rows = [
+    tableHeader(['Поле / аспект', 'Допущение и влияние', 'Уверенность', 'Метка'], widths),
+    ...items.map((a) => new TableRow({
+      children: [
+        new TableCell({
+          borders: cellBorders, width: { size: widths[0], type: WidthType.DXA },
+          margins: { top: 90, bottom: 90, left: 140, right: 140 },
+          children: [new Paragraph({ children: [new TextRun({ text: a.field, bold: true, size: 20 })] })],
+        }),
+        new TableCell({
+          borders: cellBorders, width: { size: widths[1], type: WidthType.DXA },
+          margins: { top: 90, bottom: 90, left: 140, right: 140 },
+          children: [
+            new Paragraph({ children: [new TextRun({ text: a.assumption, size: 20 })] }),
+            ...(a.impact ? [new Paragraph({
+              spacing: { before: 60 },
+              children: [
+                new TextRun({ text: 'Влияние: ', bold: true, size: 18, color: MUTED }),
+                new TextRun({ text: a.impact, size: 18, color: '374151' }),
+              ],
+            })] : []),
+          ],
+        }),
+        new TableCell({
+          borders: cellBorders, width: { size: widths[2], type: WidthType.DXA },
+          margins: { top: 90, bottom: 90, left: 140, right: 140 },
+          children: [new Paragraph({ children: [new TextRun({ text: confidenceLabel(a.confidence), bold: true, size: 20, color: assumptionConfidenceColor(a.confidence) })] })],
+        }),
+        new TableCell({
+          borders: cellBorders, width: { size: widths[3], type: WidthType.DXA },
+          margins: { top: 90, bottom: 90, left: 140, right: 140 },
+          children: [new Paragraph({ children: [new TextRun({ text: 'Гипотеза', size: 18, color: WARN, bold: true })] })],
+        }),
+      ],
+    })),
+  ];
+  return new Table({ width: { size: 9400, type: WidthType.DXA }, columnWidths: widths, rows });
+}
 function renderVerdict(v: StructuredVerdict | string): (Paragraph | Table)[] {
   const out: (Paragraph | Table)[] = [h2('Стратегический вердикт')];
   if (typeof v === 'string') {
@@ -314,6 +360,12 @@ export async function exportNicheOverviewDocx(opts: {
     wedgesTable(data.strategy.wedges),
     h2('Риски'),
     ...data.strategy.risks.map((r) => bullet(r)),
+
+    ...(data.assumptions && data.assumptions.length > 0 ? [
+      h1('7. Гипотезы и предположения'),
+      p('Допущения, сделанные AI из-за неполных входных данных. Каждое поле помечено уровнем уверенности — проверьте перед принятием стратегических решений.', { color: MUTED }),
+      assumptionsTable(data.assumptions),
+    ] : []),
 
     divider(),
     new Paragraph({
