@@ -142,11 +142,11 @@ Deno.serve(async (req) => {
 
     const { data: tokenRow } = await admin
       .from('ads_oauth_tokens')
-      .select('access_token, external_login')
+      .select('id, access_token, refresh_token, token_type, scope, expires_at, external_login, oauth_client_id, oauth_client_secret')
       .eq('account_id', job.account_id)
       .maybeSingle();
     if (!tokenRow?.access_token) throw new Error('token not found');
-    const token = tokenRow.access_token as string;
+    const token = await refreshAccessToken(admin, tokenRow);
     const login = tokenRow.external_login as string;
 
     await admin.from('ads_import_jobs').update({
