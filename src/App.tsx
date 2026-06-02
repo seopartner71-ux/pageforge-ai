@@ -43,6 +43,7 @@ const StaffHubPage = lazy(() => import('./pages/StaffHubPage.tsx'));
 const AiVisibilityPage = lazy(() => import('./pages/AiVisibilityPage.tsx'));
 const AliceVisibilityPage = lazy(() => import('./pages/AliceVisibilityPage.tsx'));
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage.tsx'));
+const SeoDashboardPage = lazy(() => import('./pages/SeoDashboardPage.tsx'));
 const AppLayout = lazy(() => import('./components/AppLayout.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
 
@@ -137,6 +138,7 @@ const App = () => (
                 <Route path="/terms" element={<TermsPage />} />
                 <Route element={<AuthGate><AppLayout /></AuthGate>}>
                   <Route path="/tools" element={<ToolsHubPage />} />
+                  <Route path="/seo" element={<SeoDashboardPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/history" element={<HistoryPage />} />
                   <Route path="/report/:id" element={<ReportRouterPage />} />
