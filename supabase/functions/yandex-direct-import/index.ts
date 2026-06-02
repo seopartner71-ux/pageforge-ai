@@ -62,12 +62,32 @@ function ymd(d: Date) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  // This function is invoked server-side only (service role). Reject anonymous calls.
+  // Accept either service-role calls (from oauth-callback) or authenticated users
+  // triggering a manual resync from the UI.
   const auth = req.headers.get('Authorization') ?? '';
-  if (!auth.includes(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '___none___')) {
-    return new Response(JSON.stringify({ error: 'forbidden' }), {
-      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  const isService = serviceKey && auth.includes(serviceKey);
+  let callerUserId: string | null = null;
+  if (!isService) {
+    if (!auth.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: auth } } },
+    );
+    const { data: claims, error: clErr } = await userClient.auth.getClaims(
+      auth.replace('Bearer ', ''),
+    );
+    if (clErr || !claims?.claims?.sub) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    callerUserId = claims.claims.sub as string;
   }
 
   const admin = createClient(
@@ -84,6 +104,9 @@ Deno.serve(async (req) => {
     const { data: job, error: jobErr } = await admin
       .from('ads_import_jobs').select('*').eq('id', jobId).single();
     if (jobErr || !job) throw new Error('job not found');
+    if (callerUserId && job.user_id !== callerUserId) {
+      throw new Error('forbidden');
+    }
 
     const { data: tokenRow } = await admin
       .from('ads_oauth_tokens')
