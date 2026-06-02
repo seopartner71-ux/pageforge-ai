@@ -638,6 +638,9 @@ function ResultsDashboard({
               ))}
             </div>
           </Card>
+          {data.assumptions && data.assumptions.length > 0 && (
+            <AssumptionsCard items={data.assumptions} />
+          )}
         </TabsContent>
 
         <TabsContent value="market" className="mt-4 space-y-4">
