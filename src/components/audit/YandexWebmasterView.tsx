@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search, Globe } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, RefreshCw, Search, Globe, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 type CheckStatus = 'ok' | 'error' | 'not_checked';
 type SectionType = 'fatal' | 'critical' | 'possible' | 'recommendation';
@@ -39,6 +40,50 @@ const SECTION_META: Record<SectionType, { label: string; toneVar: string; emoji:
     label: 'Рекомендации', toneVar: '--chart-2', emoji: '🔵',
     info: 'Рекомендации носят необязательный характер, но помогают улучшить сайт и его отображение.',
   },
+};
+
+// Маппинг типов проблем Яндекса (problem_type) на наши apiField
+const PROBLEM_TYPE_TO_FIELD: Record<string, string> = {
+  SITE_ERROR: 'security_problems',
+  MALWARE: 'security_problems',
+  DANGEROUS_SITE: 'security_problems',
+  DNS_ERROR: 'dns_error',
+  SERVER_ERROR: 'server_error',
+  MAIN_PAGE_RETURNED_ERROR: 'main_page_unavailable',
+  DISALLOWED_BY_USER_IN_ROBOTS_TXT: 'robots_disallow_all',
+  SITE_CLOSED_FOR_ROBOT: 'robots_disallow_all',
+  SSL_CERTIFICATE_ERROR: 'ssl_error',
+  PAGES_WITH_DUPLICATING_QUERY_PARAMS: 'get_params_duplicates',
+  SITE_HTTP_5XX: 'http_5xx_pages',
+  SITE_HTTP_4XX: 'http_4xx_pages',
+  SLOW_SERVER_RESPONSE: 'slow_server_response',
+  NO_CORRECT_ROBOTS_TXT: 'robots_errors',
+  INCORRECT_404_PAGE: 'incorrect_404',
+  NO_TITLE: 'missing_titles',
+  NO_DESCRIPTION: 'missing_descriptions',
+  NO_METRIKA_COUNTER: 'metrika_missing',
+  METRIKA_COUNTER_NOT_LINKED: 'metrika_not_linked',
+  SUBDOMAINS_DETECTED: 'subdomains_found',
+  DUPLICATE_TITLES_DESCRIPTIONS: 'duplicate_titles_descriptions',
+  ROBOTS_TXT_NOT_FOUND: 'robots_not_found',
+  NO_SITEMAPS: 'no_sitemap',
+  SITEMAP_ERRORS: 'sitemap_errors',
+  SITEMAP_OUTDATED: 'sitemap_outdated',
+  DUPLICATE_PAGES: 'duplicate_pages',
+  FAVICON_INACCESSIBLE: 'favicon_inaccessible',
+  FAVICON_NOT_FOUND: 'favicon_missing',
+  VIDEO_AGREEMENT_REQUIRED: 'video_agreement',
+  MAIN_PAGE_REDIRECT: 'main_page_redirect',
+  COUNTER_CRAWL_DISABLED: 'counter_crawl_disabled',
+  USEFUL_PAGES_CLOSED: 'useful_pages_closed',
+  YANDEX_AGREEMENT_REQUIRED: 'yandex_agreement_required',
+  NO_HTTPS_MIRROR: 'no_https_mirror',
+  PRODUCTS_NOT_SUBMITTED: 'products_not_submitted',
+  NO_FAVICON_SVG: 'favicon_recommendation',
+  REGION_NOT_SET: 'region_not_set',
+  YANDEX_BUSINESS_CARD_CREATED: 'business_card_created',
+  NOT_IN_YANDEX_BUSINESS: 'add_to_yandex_business',
+  MOBILE_NOT_OPTIMIZED: 'mobile_not_optimized',
 };
 
 function buildChecks(d: string): WmCheck[] {
