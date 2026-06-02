@@ -706,8 +706,9 @@ function ResultsDashboard({
       </div>
 
       <Tabs defaultValue="summary" className="w-full">
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+        <TabsList className="grid grid-cols-5 w-full max-w-3xl">
           <TabsTrigger value="summary">Резюме</TabsTrigger>
+          <TabsTrigger value="opportunities">Возможности</TabsTrigger>
           <TabsTrigger value="market">Рынок</TabsTrigger>
           <TabsTrigger value="barriers">Барьеры</TabsTrigger>
           <TabsTrigger value="strategy">Стратегия</TabsTrigger>
@@ -809,6 +810,16 @@ function ResultsDashboard({
           </Card>
           {data.assumptions && data.assumptions.length > 0 && (
             <AssumptionsCard items={data.assumptions} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="opportunities" className="mt-4 space-y-4">
+          {data.opportunities ? (
+            <OpportunitiesView data={data.opportunities} />
+          ) : (
+            <Card className="p-8 text-center text-sm text-muted-foreground">
+              Блок рыночных возможностей недоступен для этого отчёта.
+            </Card>
           )}
         </TabsContent>
 
