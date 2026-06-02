@@ -24,7 +24,7 @@ import {
 type Account = {
   id: string; name: string; external_id: string; provider: string;
   status: string; currency: string; last_synced_at: string | null;
-  project_id: string; created_at: string;
+  project_id: string; created_at: string; oauth_client_id?: string | null;
 };
 type Project = { id: string; name: string };
 type ImportJob = {
@@ -61,6 +61,10 @@ export default function AdsAccountsPage() {
   const [codeInput, setCodeInput] = useState('');
   const [exchanging, setExchanging] = useState(false);
   const [pendingProjectId, setPendingProjectId] = useState<string>('');
+  const [oauthClientId, setOauthClientId] = useState('');
+  const [oauthClientSecret, setOauthClientSecret] = useState('');
+  const [pendingOauthClientId, setPendingOauthClientId] = useState('');
+  const [pendingOauthClientSecret, setPendingOauthClientSecret] = useState('');
 
   const load = async () => {
     const [{ data: accs }, { data: projs }, { data: js }] = await Promise.all([
@@ -108,16 +112,24 @@ export default function AdsAccountsPage() {
       toast.error('Выберите проект');
       return;
     }
+    const clientId = oauthClientId.trim();
+    const clientSecret = oauthClientSecret.trim();
+    if (!clientId || !clientSecret) {
+      toast.error('Укажите Client ID и Client Secret для этого кабинета');
+      return;
+    }
     setConnecting(true);
     try {
       const { data, error } = await supabase.functions.invoke('yandex-direct-oauth-start', {
-        body: { project_id: selectedProjectId },
+        body: { project_id: selectedProjectId, oauth_client_id: clientId },
       });
       if (error || !data?.authorize_url) throw new Error(error?.message ?? 'No URL');
       // Open Yandex authorization in a new tab. The user will see a verification
       // code on https://oauth.yandex.ru/verification_code and paste it back.
       window.open(data.authorize_url, '_blank', 'noopener,noreferrer');
       setPendingProjectId(selectedProjectId);
+      setPendingOauthClientId(clientId);
+      setPendingOauthClientSecret(clientSecret);
       setCodeInput('');
       setCodeDialogOpen(true);
     } catch (e) {
@@ -134,13 +146,20 @@ export default function AdsAccountsPage() {
     setExchanging(true);
     try {
       const { data, error } = await supabase.functions.invoke('yandex-direct-oauth-callback', {
-        body: { code, project_id: pendingProjectId },
+        body: {
+          code,
+          project_id: pendingProjectId,
+          oauth_client_id: pendingOauthClientId,
+          oauth_client_secret: pendingOauthClientSecret,
+        },
       });
       if (error) throw new Error(error.message);
       if (!data?.ok) throw new Error(data?.error ?? 'Не удалось обменять код');
       toast.success(`Подключён аккаунт ${data.account?.login ?? ''}. Импорт запущен.`);
       setCodeDialogOpen(false);
       setCodeInput('');
+      setOauthClientSecret('');
+      setPendingOauthClientSecret('');
       load();
     } catch (e) {
       toast.error(`Не удалось подключить: ${(e as Error).message}`);
