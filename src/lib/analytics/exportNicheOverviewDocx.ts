@@ -5,10 +5,21 @@ import {
 } from 'docx';
 import { saveAs } from 'file-saver';
 
+export type VerdictPosition = 'GO' | 'CAUTION' | 'NO-GO';
+export type VerdictConfidence = 'high' | 'medium' | 'low';
+export type StructuredVerdict = {
+  position: VerdictPosition;
+  confidence: VerdictConfidence;
+  headline: string;
+  summary: string;
+  key_drivers: string[];
+  key_risks: string[];
+  recommendation: string;
+};
 export type NicheReportData = {
   scoring: { searchOpp: number; commercial: number; trust: number; aiRisk: number };
   executive_summary: {
-    verdict: string;
+    verdict: StructuredVerdict | string;
     top_subniches: string[];
     roadmap: { '3_months': string; '6_months': string; '12_months': string };
   };
@@ -227,8 +238,7 @@ export async function exportNicheOverviewDocx(opts: {
     })),
 
     h1('2. Резюме (Executive Summary)'),
-    h2('Вердикт'),
-    p(data.executive_summary.verdict, { size: 22 }),
+    ...renderVerdict(data.executive_summary.verdict),
     h2('Топ-подниши для входа'),
     ...data.executive_summary.top_subniches.map((s, i) => bullet(`${i + 1}. ${s}`)),
     h2('Дорожная карта'),
