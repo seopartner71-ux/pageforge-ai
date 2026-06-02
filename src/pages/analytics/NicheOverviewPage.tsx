@@ -516,10 +516,7 @@ function ResultsDashboard({
         </TabsList>
 
         <TabsContent value="summary" className="mt-4 space-y-4">
-          <Card className="p-6">
-            <h3 className="text-sm font-semibold text-foreground mb-2">Вердикт</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">{data.executive_summary.verdict}</p>
-          </Card>
+          <VerdictCard verdict={data.executive_summary.verdict} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="p-6">
               <h3 className="text-sm font-semibold text-foreground mb-3">Топ-подниши</h3>
