@@ -543,6 +543,8 @@ export async function exportNicheOverviewDocx(opts: {
       assumptionsTable(data.assumptions),
     ] : []),
 
+    ...(data.opportunities ? renderOpportunities(data.opportunities) : []),
+
     divider(),
     new Paragraph({
       alignment: AlignmentType.CENTER,
