@@ -1,5 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Sidebar,
   SidebarContent,
@@ -15,11 +16,21 @@ import {
 } from '@/components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
   LayoutGrid, Search, Sparkles, Link2, Users, BarChart3, Target,
   Code2, History as HistoryIcon, Zap, Smartphone, Network, FileText,
   PenSquare, User, Settings, Bot, ShieldAlert, Gauge, LifeBuoy, Radar, Mic, FolderKanban,
   ChevronDown, BarChart2,
   Megaphone, LayoutDashboard, Briefcase, Rocket, MessageSquare, FileBarChart, Wand2, ShieldCheck,
+  UserCircle2, UsersRound, CreditCard, LogOut, ChevronsUpDown,
 } from 'lucide-react';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { useStaffRole } from '@/hooks/useStaffRole';
@@ -126,8 +137,29 @@ export function AppSidebar() {
       : []),
     ...(isAdmin
       ? [{ label: 'Админ-панель', path: '/admin', icon: Settings } as Item]
-      : [{ label: 'Аккаунт', path: '/account', icon: User } as Item]),
+      : []),
   ];
+
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!active || !data.user) return;
+      const meta: any = data.user.user_metadata || {};
+      const name =
+        meta.full_name || meta.name ||
+        (data.user.email ? data.user.email.split('@')[0] : 'Пользователь');
+      setUser({ name, email: data.user.email ?? '' });
+    });
+    return () => { active = false; };
+  }, []);
+  const initials = (user?.name ?? 'U')
+    .split(/\s+/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('') || 'U';
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/auth');
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -332,6 +364,69 @@ export function AppSidebar() {
               </SidebarMenuItem>
             );
           })}
+
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  tooltip={user?.name ?? 'Аккаунт'}
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <Avatar className="h-7 w-7 rounded-md">
+                    <AvatarFallback className="rounded-md bg-primary/15 text-primary text-xs font-semibold">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  {!collapsed && (
+                    <>
+                      <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
+                        <span className="truncate font-medium">{user?.name ?? 'Аккаунт'}</span>
+                        <span className="truncate text-[11px] text-muted-foreground">
+                          {user?.email ?? ''}
+                        </span>
+                      </div>
+                      <ChevronsUpDown className="ml-auto h-4 w-4 opacity-60" />
+                    </>
+                  )}
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                align="end"
+                className="w-56"
+                sideOffset={8}
+              >
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium truncate">{user?.name ?? 'Аккаунт'}</span>
+                    <span className="text-[11px] text-muted-foreground truncate">{user?.email}</span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/account')}>
+                  <UserCircle2 className="w-4 h-4 mr-2" />
+                  Профиль
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/account')}>
+                  <UsersRound className="w-4 h-4 mr-2" />
+                  Команда
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/account')}>
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Биллинг / Подписка
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Выйти
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
