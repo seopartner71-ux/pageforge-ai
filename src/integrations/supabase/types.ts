@@ -14,6 +14,301 @@ export type Database = {
   }
   public: {
     Tables: {
+      ads_accounts: {
+        Row: {
+          created_at: string
+          external_id: string
+          id: string
+          is_primary: boolean
+          name: string
+          project_id: string
+          provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          external_id?: string
+          id?: string
+          is_primary?: boolean
+          name: string
+          project_id: string
+          provider?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          external_id?: string
+          id?: string
+          is_primary?: boolean
+          name?: string
+          project_id?: string
+          provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ads_alerts: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          id: string
+          impact_positive: boolean
+          impact_value: number
+          is_resolved: boolean
+          severity: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          id?: string
+          impact_positive?: boolean
+          impact_value?: number
+          is_resolved?: boolean
+          severity?: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          id?: string
+          impact_positive?: boolean
+          impact_value?: number
+          is_resolved?: boolean
+          severity?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_alerts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "ads_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_audit_axes: {
+        Row: {
+          account_id: string
+          axis: string
+          created_at: string
+          id: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          account_id: string
+          axis: string
+          created_at?: string
+          id?: string
+          user_id: string
+          value?: number
+        }
+        Update: {
+          account_id?: string
+          axis?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_audit_axes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "ads_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_campaigns: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          name: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          name: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_campaigns_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "ads_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_daily_metrics: {
+        Row: {
+          account_id: string
+          campaign_id: string | null
+          clicks: number
+          conversions: number
+          created_at: string
+          date: string
+          id: string
+          impressions: number
+          revenue: number
+          spend: number
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          campaign_id?: string | null
+          clicks?: number
+          conversions?: number
+          created_at?: string
+          date: string
+          id?: string
+          impressions?: number
+          revenue?: number
+          spend?: number
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          campaign_id?: string | null
+          clicks?: number
+          conversions?: number
+          created_at?: string
+          date?: string
+          id?: string
+          impressions?: number
+          revenue?: number
+          spend?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_daily_metrics_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "ads_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_daily_metrics_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ads_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_recommendations: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          cta: string
+          id: string
+          savings: number
+          status: string
+          text: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          cta?: string
+          id?: string
+          savings?: number
+          status?: string
+          text: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          cta?: string
+          id?: string
+          savings?: number
+          status?: string
+          text?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_recommendations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "ads_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_search_queries: {
+        Row: {
+          account_id: string
+          conversions: number
+          created_at: string
+          date: string
+          id: string
+          is_negative: boolean
+          query: string
+          spend: number
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          conversions?: number
+          created_at?: string
+          date?: string
+          id?: string
+          is_negative?: boolean
+          query: string
+          spend?: number
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          conversions?: number
+          created_at?: string
+          date?: string
+          id?: string
+          is_negative?: boolean
+          query?: string
+          spend?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_search_queries_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "ads_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analyses: {
         Row: {
           ai_context: string | null
