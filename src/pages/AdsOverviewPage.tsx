@@ -125,7 +125,18 @@ function MiniScore({ value }: { value: number }) {
 type ChatMsg = { role: 'user' | 'ai'; text: string };
 
 export default function AdsOverviewPage() {
-  const { loading, kpis, alerts, campaigns, radar, accounts } = useDashboardData();
+  /* Date range — default: последние 7 дней */
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const to = new Date(); to.setHours(0, 0, 0, 0);
+    const from = new Date(to); from.setDate(to.getDate() - 6);
+    return { from, to };
+  });
+
+  const {
+    loading, accounts, campaigns, daily, accountAggs, alerts, recs,
+    queries: badQueries, axes, kpis,
+    setRecs, setQueries: setBadQueries, setAlerts,
+  } = useAdsDashboard(dateRange);
 
   /* Chart tabs */
   const [activeChartTab, setActiveChartTab] = useState<ChartTab>('Расход');
@@ -154,37 +165,44 @@ export default function AdsOverviewPage() {
     }, 1500);
   };
 
-  /* Bad queries */
-  const [badQueries, setBadQueries] = useState<BadQuery[]>(INITIAL_BAD_QUERIES);
-  const removeBadQuery = (id: string) => {
+  /* Bad queries — пометка как минус-фраза в БД */
+  const removeBadQuery = async (id: string) => {
     setBadQueries((q) => q.filter((x) => x.id !== id));
-    toast.success('Слово добавлено в минус-фразы');
+    const { error } = await supabase.from('ads_search_queries').update({ is_negative: true }).eq('id', id);
+    if (error) toast.error('Не удалось сохранить'); else toast.success('Слово добавлено в минус-фразы');
   };
 
   /* AI recommendations */
-  const [recState, setRecState] = useState<Record<string, 'idle' | 'loading' | 'done'>>({});
-  const applyRec = (rec: Rec) => {
-    if (recState[rec.id] === 'loading' || recState[rec.id] === 'done') return;
+  const [recLoading, setRecLoading] = useState<Record<string, boolean>>({});
+  const applyRec = async (recId: string) => {
+    if (recLoading[recId]) return;
+    setRecLoading((s) => ({ ...s, [recId]: true }));
     toast.info('Запуск автоматизации...');
-    setRecState((s) => ({ ...s, [rec.id]: 'loading' }));
-    setTimeout(() => {
-      setRecState((s) => ({ ...s, [rec.id]: 'done' }));
-      toast.success('Рекомендация применена');
-    }, 2000);
+    const { error } = await supabase.from('ads_recommendations').update({ status: 'done' }).eq('id', recId);
+    if (error) { toast.error('Ошибка'); setRecLoading((s) => ({ ...s, [recId]: false })); return; }
+    setRecs((rs) => rs.map(r => r.id === recId ? { ...r, status: 'done' } : r));
+    setRecLoading((s) => ({ ...s, [recId]: false }));
+    toast.success('Рекомендация применена');
   };
 
-  /* Date range */
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(2024, 4, 13),
-    to: new Date(2024, 4, 19),
-  });
   const dateLabel = useMemo(() => {
     if (!dateRange?.from) return 'Выбрать даты';
     if (!dateRange.to) return format(dateRange.from, 'd MMM yyyy', { locale: ru });
     return `${format(dateRange.from, 'd MMM', { locale: ru })} – ${format(dateRange.to, 'd MMM yyyy', { locale: ru })}`;
   }, [dateRange]);
 
-  const chartData = DYNAMIC_BY_TAB[activeChartTab];
+  /* Данные графика — берём из daily, мапим по выбранной метрике */
+  const chartData = useMemo(() => {
+    const map: Record<ChartTab, (d: typeof daily[number]) => number> = {
+      'Расход':    d => d.spend,
+      'Конверсии': d => d.conversions,
+      'CPL':       d => d.conversions > 0 ? Math.round(d.spend / d.conversions) : 0,
+      'CTR':       d => d.impressions > 0 ? Number(((d.clicks / d.impressions) * 100).toFixed(2)) : 0,
+      'Показы':    d => d.impressions,
+    };
+    const get = map[activeChartTab];
+    return daily.map(d => ({ d: fmtShortDate(d.date), v: get(d) }));
+  }, [daily, activeChartTab]);
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-200">
