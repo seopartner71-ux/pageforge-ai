@@ -70,6 +70,8 @@ Deno.serve(async (req) => {
     url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('state', state);
     url.searchParams.set('force_confirm', 'yes');
+    // direct:api is required for Yandex.Direct API v5 (campaigns + reports).
+    url.searchParams.set('scope', 'direct:api');
 
     return new Response(JSON.stringify({ authorize_url: url.toString(), redirect_uri: redirectUri }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
