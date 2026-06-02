@@ -150,6 +150,8 @@ const App = () => (
                   <Route path="/ads" element={<AdsOverviewPage />} />
                   <Route path="/ads/accounts" element={<AdsAccountsPage />} />
                   <Route path="/ads/*" element={<AdsPlaceholderPage />} />
+                  <Route path="/analytics" element={<AnalyticsPlaceholderPage />} />
+                  <Route path="/analytics/*" element={<AnalyticsPlaceholderPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/history" element={<HistoryPage />} />
                   <Route path="/report/:id" element={<ReportRouterPage />} />
