@@ -270,6 +270,161 @@ function assumptionsTable(items: NonNullable<NicheReportData['assumptions']>) {
   ];
   return new Table({ width: { size: 9400, type: WidthType.DXA }, columnWidths: widths, rows });
 }
+
+const SPEED_LABEL: Record<string, string> = {
+  '30d': '30 дней', q1: '1 кв.', q2: '2 кв.', '6-12m': '6–12 мес.', '12-24m': '12–24 мес.',
+};
+const LAUNCH_LABEL: Record<string, string> = {
+  'traffic-first': 'Traffic-first', 'commercial-first': 'Commercial-first',
+  'authority-first': 'Authority-first', 'wedge-first': 'Wedge-first',
+  'local-first': 'Local-first', 'ai-first': 'AI-first', hybrid: 'Hybrid',
+};
+const REC_LABEL: Record<string, string> = {
+  go: 'GO', 'selective-go': 'SELECTIVE GO', 'phased-go': 'PHASED GO',
+  'cautious-go': 'CAUTIOUS GO', 'no-go': 'NO-GO',
+};
+
+function topOppTable(items: NonNullable<NicheReportData['opportunities']>['top_overall']) {
+  const widths = [2200, 1400, 900, 900, 900, 900, 900, 1300];
+  const head = tableHeader(
+    ['Возможность', 'Формат', 'Скорость', 'Demand', 'Business', 'Access', 'SERP', 'Overall'],
+    widths,
+  );
+  const rows = items.map((t) =>
+    tableRow(
+      [
+        { text: t.title, bold: true },
+        t.best_format || '—',
+        SPEED_LABEL[t.speed_to_impact] || t.speed_to_impact,
+        { text: String(t.demand_quality), color: scoreColor(t.demand_quality) },
+        { text: String(t.business_value), color: scoreColor(t.business_value) },
+        { text: String(t.accessibility), color: scoreColor(t.accessibility) },
+        { text: String(t.serp_openness), color: scoreColor(t.serp_openness) },
+        { text: `${t.overall_score}/100`, bold: true, color: scoreColor(t.overall_score) },
+      ],
+      widths,
+    ),
+  );
+  return new Table({ width: { size: 9400, type: WidthType.DXA }, columnWidths: widths, rows: [head, ...rows] });
+}
+
+function wedgesOppTable(items: NonNullable<NicheReportData['opportunities']>['wedges']) {
+  const widths = [2400, 3000, 2800, 1200];
+  const rows = [
+    tableHeader(['Wedge', 'Asset', 'Payoff', 'Скорость'], widths),
+    ...items.map((w) => tableRow([
+      { text: w.title, bold: true }, w.asset || '—', w.payoff || '—',
+      SPEED_LABEL[w.speed] || w.speed,
+    ], widths)),
+  ];
+  return new Table({ width: { size: 9400, type: WidthType.DXA }, columnWidths: widths, rows });
+}
+
+function trapsTable(items: NonNullable<NicheReportData['opportunities']>['traps']) {
+  const widths = [2600, 3400, 3400];
+  const rows = [
+    tableHeader(['Ловушка', 'Почему привлекает', 'Почему риск'], widths),
+    ...items.map((t) => tableRow([
+      { text: t.title, bold: true }, t.why_looks_good || '—',
+      { text: t.why_risk || '—', color: DANGER },
+    ], widths)),
+  ];
+  return new Table({ width: { size: 9400, type: WidthType.DXA }, columnWidths: widths, rows });
+}
+
+function gapsTable(items: NonNullable<NicheReportData['opportunities']>['gaps']) {
+  const widths = [2600, 3400, 3400];
+  const rows = [
+    tableHeader(['Gap', 'Почему рынок недорабатывает', 'Нужный asset'], widths),
+    ...items.map((g) => tableRow([
+      { text: g.title, bold: true }, g.why_underserved || '—', g.asset_needed || '—',
+    ], widths)),
+  ];
+  return new Table({ width: { size: 9400, type: WidthType.DXA }, columnWidths: widths, rows });
+}
+
+function renderOpportunities(o: NonNullable<NicheReportData['opportunities']>): (Paragraph | Table)[] {
+  const out: (Paragraph | Table)[] = [];
+  out.push(h1('8. Рыночные возможности (Opportunity map)'));
+  out.push(new Paragraph({
+    spacing: { after: 80 },
+    children: [
+      new TextRun({ text: 'Launch model: ', bold: true, size: 22 }),
+      new TextRun({ text: LAUNCH_LABEL[o.launch_model] || o.launch_model, size: 22, color: PRIMARY, bold: true }),
+      new TextRun({ text: '   ·   Рекомендация: ', color: MUTED, size: 20 }),
+      new TextRun({ text: REC_LABEL[o.recommendation] || o.recommendation, bold: true, size: 22, color: PRIMARY }),
+    ],
+  }));
+  if (o.summary) out.push(p(o.summary));
+
+  if (o.top_overall.length) {
+    out.push(h2('Топ возможностей (risk-adjusted)'));
+    out.push(topOppTable(o.top_overall));
+    o.top_overall.forEach((t, i) => {
+      if (t.why) {
+        out.push(new Paragraph({
+          spacing: { before: 60, after: 40 },
+          children: [
+            new TextRun({ text: `${i + 1}. ${t.title}: `, bold: true, size: 20 }),
+            new TextRun({ text: t.why, size: 20, color: '374151' }),
+          ],
+        }));
+      }
+    });
+  }
+
+  out.push(h2('Opportunity portfolio'));
+  const groups: [keyof typeof o.portfolio, string][] = [
+    ['core_growth', 'Core growth'], ['quick_wins', 'Quick wins'],
+    ['revenue_priority', 'Revenue priority'], ['trust_building', 'Trust building'],
+    ['authority_ai_visibility', 'Authority / AI visibility'],
+    ['defer', 'Defer for later'], ['avoid', 'Avoid'],
+  ];
+  groups.forEach(([k, label]) => {
+    const items = o.portfolio[k];
+    if (!items || items.length === 0) return;
+    out.push(p(label + ':', { bold: true, color: PRIMARY }));
+    items.forEach((it) => out.push(bullet(it)));
+  });
+
+  if (o.wedges.length) {
+    out.push(h2('Opportunity wedges'));
+    out.push(wedgesOppTable(o.wedges));
+  }
+
+  if (o.compounding.length) {
+    out.push(h2('Compounding opportunities'));
+    o.compounding.forEach((c) => {
+      out.push(p(c.pair, { bold: true }));
+      if (c.sequencing) out.push(p(`Порядок: ${c.sequencing}`, { color: MUTED }));
+      if (c.payoff) out.push(p(`Эффект: ${c.payoff}`, { color: MUTED }));
+    });
+  }
+
+  if (o.gaps.length) {
+    out.push(h2('Underexploited gaps'));
+    out.push(gapsTable(o.gaps));
+  }
+
+  if (o.traps.length) {
+    out.push(h2('Ловушки и ложные возможности'));
+    out.push(trapsTable(o.traps));
+  }
+
+  out.push(h2('Strategic sequencing'));
+  const seq: [keyof typeof o.sequencing, string][] = [
+    ['30_days', '30 дней'], ['q1', '1-й квартал'], ['q2', '2-й квартал'],
+    ['6_12m', '6–12 месяцев'], ['12_24m', '12–24 месяца'],
+  ];
+  seq.forEach(([k, label]) => {
+    const items = o.sequencing[k];
+    if (!items || items.length === 0) return;
+    out.push(p(label + ':', { bold: true, color: PRIMARY }));
+    items.forEach((it) => out.push(bullet(it)));
+  });
+
+  return out;
+}
 function renderVerdict(v: StructuredVerdict | string): (Paragraph | Table)[] {
   const out: (Paragraph | Table)[] = [h2('Стратегический вердикт')];
   if (typeof v === 'string') {
