@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
       code: cleanCode,
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
+      redirect_uri: 'https://oauth.yandex.ru/verification_code',
     });
 
     const tokRes = await fetch('https://oauth.yandex.ru/token', {
