@@ -395,7 +395,7 @@ export function YandexWebmasterView({ domain }: { domain: string }) {
 
       {/* SUMMARY CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {summary.map((c) => (
+        {summaryCards.map((c) => (
           <Card key={c.label} className="bg-card border-border p-4">
             <div className="flex items-center gap-3">
               <div
