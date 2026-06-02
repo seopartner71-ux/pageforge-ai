@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import {
   Loader2, Plug, Plus, RefreshCw, CheckCircle2, AlertCircle, ExternalLink, Trash2,
 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 type Account = {
   id: string; name: string; external_id: string; provider: string;
@@ -65,6 +66,10 @@ export default function AdsAccountsPage() {
   const [oauthClientSecret, setOauthClientSecret] = useState('');
   const [pendingOauthClientId, setPendingOauthClientId] = useState('');
   const [pendingOauthClientSecret, setPendingOauthClientSecret] = useState('');
+  const [connectMode, setConnectMode] = useState<'oauth' | 'token'>('oauth');
+  const [manualToken, setManualToken] = useState('');
+  const [manualLogin, setManualLogin] = useState('');
+  const [connectingToken, setConnectingToken] = useState(false);
 
   const load = async () => {
     const [{ data: accs }, { data: projs }, { data: js }] = await Promise.all([
@@ -202,6 +207,32 @@ export default function AdsAccountsPage() {
     else { toast.success('Аккаунт удалён'); load(); }
   };
 
+  const connectByToken = async () => {
+    if (!selectedProjectId) { toast.error('Выберите проект'); return; }
+    const token = manualToken.trim();
+    if (token.length < 10) { toast.error('Введите валидный access token'); return; }
+    setConnectingToken(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('yandex-direct-connect-token', {
+        body: {
+          project_id: selectedProjectId,
+          access_token: token,
+          login: manualLogin.trim() || undefined,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.ok) throw new Error(data?.error ?? 'Не удалось подключить');
+      toast.success(`Подключён аккаунт ${data.account?.login ?? ''}. Импорт запущен.`);
+      setManualToken('');
+      setManualLogin('');
+      load();
+    } catch (e) {
+      toast.error(`Не удалось подключить: ${(e as Error).message}`);
+    } finally {
+      setConnectingToken(false);
+    }
+  };
+
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? '—';
 
   const yandexAccounts = useMemo(
@@ -224,59 +255,122 @@ export default function AdsAccountsPage() {
 
         {/* Connect card */}
         <Card className="rounded-xl bg-[#111827] border-[#1F2937] p-5">
-          <div className="flex items-start gap-4 flex-wrap">
+          <div className="flex items-start gap-4 flex-wrap mb-4">
             <div className="w-11 h-11 rounded-xl bg-yellow-500/15 text-yellow-400 flex items-center justify-center shrink-0">
               <Plug className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-[240px]">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm font-semibold text-slate-100">Яндекс.Директ</h2>
-                <Badge variant="outline" className="text-[10px] bg-blue-500/15 text-blue-400 border-blue-500/30">
-                  OAuth
-                </Badge>
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                Для каждого кабинета укажите отдельные Client ID и Client Secret от OAuth-приложения Яндекса.
+                Подключите кабинет через собственное OAuth-приложение или вставьте готовый токен из интерфейса Яндекс.Директа.
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-[200px_220px_220px_auto] items-end gap-2 w-full lg:w-auto">
-              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger className="w-[200px] h-9 bg-[#0B0F19] border-slate-800 text-xs text-slate-200">
-                  <SelectValue placeholder="Выберите проект" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#0B0F19] border-slate-800">
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id} className="text-xs text-slate-200">
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                value={oauthClientId}
-                onChange={(e) => setOauthClientId(e.target.value)}
-                placeholder="Client ID"
-                className="h-9 bg-[#0B0F19] border-slate-800 text-xs text-slate-100"
-              />
-              <Input
-                type="password"
-                value={oauthClientSecret}
-                onChange={(e) => setOauthClientSecret(e.target.value)}
-                placeholder="Client Secret"
-                className="h-9 bg-[#0B0F19] border-slate-800 text-xs text-slate-100"
-              />
-              <Button
-                onClick={connectYandex}
-                disabled={connecting || !selectedProjectId || !oauthClientId.trim() || !oauthClientSecret.trim()}
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-              >
-                {connecting
-                  ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  : <Plus className="w-4 h-4 mr-2" />}
-                Подключить Яндекс
-              </Button>
-            </div>
           </div>
+
+          <div className="mb-3">
+            <Label className="text-xs text-slate-400">Проект</Label>
+            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+              <SelectTrigger className="w-full sm:w-[280px] h-9 mt-1 bg-[#0B0F19] border-slate-800 text-xs text-slate-200">
+                <SelectValue placeholder="Выберите проект" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#0B0F19] border-slate-800">
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id} className="text-xs text-slate-200">
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Tabs value={connectMode} onValueChange={(v) => setConnectMode(v as 'oauth' | 'token')}>
+            <TabsList className="bg-[#0B0F19] border border-slate-800 h-9">
+              <TabsTrigger value="token" className="text-xs data-[state=active]:bg-blue-500/15 data-[state=active]:text-blue-400">
+                По токену (просто)
+              </TabsTrigger>
+              <TabsTrigger value="oauth" className="text-xs data-[state=active]:bg-blue-500/15 data-[state=active]:text-blue-400">
+                Своё OAuth-приложение
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="token" className="mt-3 space-y-3">
+              <p className="text-[11px] text-slate-500">
+                В Директе откройте <strong>Инструменты → Настройки → API</strong> и получите токен.
+                Подходит для аккаунтов формата <code>e-XXXXXXX</code> и <code>porg-XXXX</code> с одобренным доступом.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_auto] gap-2 items-end">
+                <div>
+                  <Label className="text-xs text-slate-400">Access Token Яндекс.Директа</Label>
+                  <Input
+                    type="password"
+                    value={manualToken}
+                    onChange={(e) => setManualToken(e.target.value)}
+                    placeholder="y0_AgAAAA..."
+                    className="h-9 mt-1 bg-[#0B0F19] border-slate-800 text-xs text-slate-100 font-mono"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-400">Client-Login (опц.)</Label>
+                  <Input
+                    value={manualLogin}
+                    onChange={(e) => setManualLogin(e.target.value)}
+                    placeholder="e-1234567"
+                    className="h-9 mt-1 bg-[#0B0F19] border-slate-800 text-xs text-slate-100"
+                  />
+                </div>
+                <Button
+                  onClick={connectByToken}
+                  disabled={connectingToken || !selectedProjectId || manualToken.trim().length < 10}
+                  className="bg-blue-500 hover:bg-blue-600 text-white h-9"
+                >
+                  {connectingToken
+                    ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    : <Plus className="w-4 h-4 mr-2" />}
+                  Подключить
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="oauth" className="mt-3 space-y-3">
+              <p className="text-[11px] text-slate-500">
+                Для каждого кабинета укажите отдельные Client ID и Client Secret от OAuth-приложения Яндекса
+                с одобренной заявкой на доступ к API Директа.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                <div>
+                  <Label className="text-xs text-slate-400">Client ID</Label>
+                  <Input
+                    value={oauthClientId}
+                    onChange={(e) => setOauthClientId(e.target.value)}
+                    placeholder="Client ID"
+                    className="h-9 mt-1 bg-[#0B0F19] border-slate-800 text-xs text-slate-100"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-400">Client Secret</Label>
+                  <Input
+                    type="password"
+                    value={oauthClientSecret}
+                    onChange={(e) => setOauthClientSecret(e.target.value)}
+                    placeholder="Client Secret"
+                    className="h-9 mt-1 bg-[#0B0F19] border-slate-800 text-xs text-slate-100"
+                  />
+                </div>
+                <Button
+                  onClick={connectYandex}
+                  disabled={connecting || !selectedProjectId || !oauthClientId.trim() || !oauthClientSecret.trim()}
+                  className="bg-blue-500 hover:bg-blue-600 text-white h-9"
+                >
+                  {connecting
+                    ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    : <Plus className="w-4 h-4 mr-2" />}
+                  Подключить через OAuth
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </Card>
 
         {/* List */}
