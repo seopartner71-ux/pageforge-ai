@@ -245,7 +245,7 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
     fullName: c.name,
     Бизнес: c.business_value,
     Конверсия: c.conversion_fit,
-    AI: c.ai_opportunity,
+    ИИ: c.ai_opportunity,
   }));
 
   return (
@@ -253,9 +253,9 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
       <TabsList className="grid grid-cols-5 w-full max-w-3xl">
         <TabsTrigger value="exec">Главное</TabsTrigger>
         <TabsTrigger value="segments">Сегменты</TabsTrigger>
-        <TabsTrigger value="journey">Путь и JTBD</TabsTrigger>
-        <TabsTrigger value="wedges">Wedges</TabsTrigger>
-        <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
+        <TabsTrigger value="journey">Путь и задачи</TabsTrigger>
+        <TabsTrigger value="wedges">Точки входа</TabsTrigger>
+        <TabsTrigger value="roadmap">План</TabsTrigger>
       </TabsList>
 
       {/* === EXEC === */}
@@ -266,27 +266,27 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Segmentation Map</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Карта сегментации</div>
               <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                Scoring framework
+                Оценка сегментной структуры
                 <Hint text="Оценка привлекательности сегментной структуры ниши и её соответствия бизнес-целям." />
               </h3>
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-            <ScoreRing value={data.scoring.overall_segment_attractiveness} label="Overall" color="hsl(217 91% 60%)" hint="Совокупная привлекательность segment-led стратегии." />
-            <ScoreRing value={data.scoring.market_relevance} label="Market" color="hsl(199 89% 48%)" hint="Релевантность сегментов реальному рынку." />
-            <ScoreRing value={data.scoring.business_value} label="Business" color="hsl(142 76% 45%)" hint="Бизнес-ценность найденных сегментов." />
-            <ScoreRing value={data.scoring.conversion_fit} label="Conversion" color="hsl(38 92% 50%)" hint="Близость сегментов к деньгам и готовности купить." />
-            <ScoreRing value={data.scoring.trust_feasibility} label="Trust" color="hsl(262 83% 65%)" hint="Реализуемость доверия для сегментов на текущем сайте." />
-            <ScoreRing value={data.scoring.ai_opportunity} label="AI" color="hsl(173 80% 40%)" hint="Возможность брать AI-выдачу через сегментные ответы." />
+            <ScoreRing value={data.scoring.overall_segment_attractiveness} label="Итог" color="hsl(217 91% 60%)" hint="Совокупная привлекательность стратегии, основанной на сегментах." />
+            <ScoreRing value={data.scoring.market_relevance} label="Рынок" color="hsl(199 89% 48%)" hint="Релевантность сегментов реальному рынку." />
+            <ScoreRing value={data.scoring.business_value} label="Бизнес" color="hsl(142 76% 45%)" hint="Бизнес-ценность найденных сегментов." />
+            <ScoreRing value={data.scoring.conversion_fit} label="Конверсия" color="hsl(38 92% 50%)" hint="Близость сегментов к деньгам и готовности купить." />
+            <ScoreRing value={data.scoring.trust_feasibility} label="Доверие" color="hsl(262 83% 65%)" hint="Реализуемость доверия для сегментов на текущем сайте." />
+            <ScoreRing value={data.scoring.ai_opportunity} label="ИИ" color="hsl(173 80% 40%)" hint="Возможность забирать ИИ-выдачу через сегментные ответы." />
           </div>
           {data.scoring.reasoning && <p className="text-sm text-foreground/90 leading-relaxed">{data.scoring.reasoning}</p>}
         </Card>
 
         <Card className="p-6 space-y-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" /> Executive verdict
+            <Sparkles className="w-4 h-4 text-primary" /> Сводный вердикт
           </h3>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className={DIV_RU[data.executive_verdict.diversity_level]?.cls || ''}>
@@ -327,7 +327,7 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
           </Card>
           <Card className="p-6 space-y-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Target className="w-4 h-4 text-emerald-500" /> Core targets (приоритет 1)
+              <Target className="w-4 h-4 text-emerald-500" /> Ключевые цели (приоритет 1)
               <Hint text="Сегменты, с которых начинать в первую очередь." />
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -351,7 +351,7 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
           </Card>
           <Card className="p-6 space-y-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <EyeOff className="w-4 h-4 text-violet-500" /> Underserved сегменты
+              <EyeOff className="w-4 h-4 text-violet-500" /> Недообслуженные сегменты
               <Hint text="Сильные сегменты, которые рынок плохо обслуживает. Окно для входа." />
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -363,7 +363,7 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
           </Card>
           <Card className="p-6 space-y-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Shield className="w-4 h-4 text-amber-500" /> Trust-sensitive сегменты
+              <Shield className="w-4 h-4 text-amber-500" /> Чувствительные к доверию
               <Hint text="Сегменты с высоким порогом доверия. Нужны экспертиза и доказательства." />
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -405,8 +405,8 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
       <TabsContent value="segments" className="space-y-5 mt-5">
         <Card className="p-6 space-y-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Layers className="w-4 h-4 text-primary" /> Бизнес × Конверсия × AI по сегментам
-            <Hint text="Сравнение бизнес-ценности, близости к конверсии и AI-возможности." />
+            <Layers className="w-4 h-4 text-primary" /> Бизнес × Конверсия × ИИ по сегментам
+            <Hint text="Сравнение бизнес-ценности, близости к конверсии и ИИ-возможности." />
           </h3>
           <div className="w-full h-[360px]">
             <ResponsiveContainer>
@@ -421,7 +421,7 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="Бизнес" fill="hsl(142 76% 45%)" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="Конверсия" fill="hsl(38 92% 50%)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="AI" fill="hsl(173 80% 40%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="ИИ" fill="hsl(173 80% 40%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -451,9 +451,9 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
                 {[
                   ['Бизнес', sg.business_value],
                   ['Конв', sg.conversion_fit],
-                  ['Trust', sg.trust_threshold],
-                  ['AI', sg.ai_opportunity],
-                  ['Fit', sg.feasibility_for_project],
+                  ['Доверие', sg.trust_threshold],
+                  ['ИИ', sg.ai_opportunity],
+                  ['Подход', sg.feasibility_for_project],
                 ].map(([l, v], k) => (
                   <div key={k} className="rounded-md border border-border p-1.5">
                     <div className={`text-sm font-bold tabular-nums ${scoreColor(v as number)}`}>{v}</div>
@@ -467,7 +467,7 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
               {sg.core_problems.length > 0 && (
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1 flex items-center gap-1">
-                    <Flame className="w-3 h-3" /> Core проблемы
+                    <Flame className="w-3 h-3" /> Ключевые проблемы
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {sg.core_problems.map((p, pi) => <Badge key={pi} variant="secondary" className="text-[11px] font-normal">{p}</Badge>)}
@@ -520,7 +520,7 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
                 <TableHead className="w-[18%]">Стадия</TableHead>
                 <TableHead className="w-[28%]">Активные сегменты</TableHead>
                 <TableHead className="w-[22%]">Самые ценные</TableHead>
-                <TableHead className="w-[22%]">Нужные assets</TableHead>
+                <TableHead className="w-[22%]">Нужные материалы</TableHead>
                 <TableHead>Ценность</TableHead>
               </TableRow>
             </TableHeader>
@@ -562,17 +562,17 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
 
         <Card className="p-6 space-y-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-primary" /> JTBD-сегменты
+            <MessageSquare className="w-4 h-4 text-primary" /> Сегменты по задачам клиента (JTBD)
             <Hint text="Сегменты, сформированные не по профилю, а по реальной работе, которую они «нанимают» делать." />
           </h3>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[20%]">Сегмент</TableHead>
-                <TableHead className="w-[38%]">Job (что нужно сделать)</TableHead>
-                <TableHead>Search-driven</TableHead>
+                <TableHead className="w-[38%]">Задача (что нужно сделать)</TableHead>
+                <TableHead>Через поиск</TableHead>
                 <TableHead>Монетизация</TableHead>
-                <TableHead>Best asset</TableHead>
+                <TableHead>Лучший материал</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -601,7 +601,7 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
       <TabsContent value="wedges" className="space-y-5 mt-5">
         <Card className="p-6 space-y-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Compass className="w-4 h-4 text-primary" /> Сегментные wedges (точки входа)
+            <Compass className="w-4 h-4 text-primary" /> Сегментные точки входа
             <Hint text="Узкие сегменты, через которые можно зайти на рынок, минуя сильных конкурентов." />
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -610,7 +610,7 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
                 <div className="flex items-center justify-between gap-2">
                   <h4 className="text-sm font-semibold text-foreground">{w.wedge}</h4>
                   <Badge variant="outline" className={VAL_RU[w.fit_for_project]?.cls || ''}>
-                    Fit: {VAL_RU[w.fit_for_project]?.label || w.fit_for_project}
+                    Подходит: {VAL_RU[w.fit_for_project]?.label || w.fit_for_project}
                   </Badge>
                 </div>
                 {w.segment && (
@@ -635,8 +635,8 @@ export function AudienceSegmentsView({ data }: { data: AudienceSegmentsData }) {
       <TabsContent value="roadmap" className="space-y-5 mt-5">
         <Card className="p-6 space-y-5">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Rocket className="w-4 h-4 text-primary" /> Phased segment roadmap
-            <Hint text="Какие сегменты таргетировать сейчас, какие — позже, и какие assets под них нужны." />
+            <Rocket className="w-4 h-4 text-primary" /> Поэтапный план по сегментам
+            <Hint text="Какие сегменты брать сейчас, какие — позже, и какие материалы под них нужны." />
           </h3>
           <div className="space-y-3">
             {(
