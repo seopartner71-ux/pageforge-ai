@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Map, Sparkles, Database, Brain, FileText } from 'lucide-react';
+import { Loader2, Map, Sparkles } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { DemandMapView, DemandMapData, normalizeDemandMap } from '@/components/analytics/DemandMapView';
+import { PageDescription } from '@/components/PageDescription';
 
 type FormData = {
   niche: string; geo: string; businessType: string; monetization: string;
@@ -89,35 +90,29 @@ export default function DemandMapPage() {
           </div>
 
           {!data && !isLoading && (
-            <Card className="p-6 space-y-5">
-              <div className="space-y-1">
-                <h2 className="text-base font-semibold text-foreground">О модуле</h2>
-                <p className="text-sm text-muted-foreground max-w-3xl leading-relaxed">
-                  Раскладывает спрос ниши по стадиям buyer journey и intent-слоям, отделяет
-                  real-value кластеры от vanity-зон, фиксирует trust- и AI-барьеры, выдаёт sequencing roadmap.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[
-                  { icon: Database, title: 'Источники данных', desc: 'Параметры формы + экспертная модель спроса, intent-таксономия, SERP-знание.' },
-                  { icon: Brain, title: 'Как считаем', desc: '4 score 0–100 (attractiveness, commercial, AI-resilience, trust-feasibility), risk-adjusted интерпретация.' },
-                  { icon: FileText, title: 'Что получите', desc: 'Buyer journey, intent split, vanity-vs-value, trust-adjusted барьеры, AI/SERP риски, 30d / Q1 / 6–12m roadmap.' },
-                ].map((it) => {
-                  const Icon = it.icon;
-                  return (
-                    <div key={it.title} className="rounded-lg border border-border bg-muted/20 p-4 flex gap-3">
-                      <div className="w-9 h-9 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="space-y-1 min-w-0">
-                        <div className="text-sm font-medium text-foreground">{it.title}</div>
-                        <div className="text-xs text-muted-foreground leading-relaxed">{it.desc}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
+            <PageDescription
+              items={[
+                { label: 'Что это', text: 'Decision-grade карта спроса в нише: раскладывает рынок по слоям buyer journey (Problem Awareness → Solution → Vendor Research → Evaluation → Purchase → Post-Purchase) и intent-слоям, отделяя реальные деньги от ложного объёма.' },
+                { label: 'Что анализируем', text: 'Сила спроса по стадиям и бизнес-ценность стадий, распределение intent (commercial / informational / local / support), high-value vs vanity кластеры, trust-adjusted барьеры (raw demand × E-E-A-T × accessibility), AI upside, SERP openness, zero-click risk.' },
+                { label: 'Зачем', text: 'Чтобы выбирать стратегический scope не по интуиции и не по объёмам Wordstat, а по risk-adjusted модели — где реально лежат деньги, где спрос ложный, где барьер E-E-A-T убивает ROI, и какие слои отдадут трафик зерокликам и AI.' },
+                { label: 'Результат', text: '4 score 0–100 (overall attractiveness, commercial value, AI resilience, trust feasibility), executive summary, топ-5 quick wins / avoid zones, карта buyer journey с запросами и sequencing roadmap на 30 дней / квартал / 6–12 месяцев с конкретными page types.' },
+              ]}
+              help={{
+                title: 'Методология карты спроса',
+                content: [
+                  'Карта спроса (demand map) — это decomposition ниши не по ключевым словам, а по слоям пользовательского намерения. Мы исходим из модели buyer journey: каждая стадия (Problem Awareness, Solution Awareness, Vendor Research, Evaluation, Purchase, Post-Purchase / Advocacy) генерирует свой тип запросов, свою конверсионную ценность и требует своего page type.',
+                  'Risk-adjusted scoring отличает реальный коммерческий спрос от vanity-зон: высокочастотные кластеры с низкой конверсией, размытым intent или жёстким E-E-A-T барьером (YMYL: медицина, финансы) могут давать миллионы показов и ноль выручки. Мы фиксируем такие зоны явно — чтобы их не таргетить.',
+                  'AI/SERP-блок оценивает три вещи: AI upside (citation потенциал, structured data, прямые ответы), SERP openness (насколько открыта выдача для нового домена vs marketplace/aggregator dominance) и zero-click risk — доля запросов, на которые пользователь получает ответ прямо в SERP.',
+                  'Sequencing roadmap привязывает выводы к исполнению: 30 дней — быстрые wins, low-EEAT, high openness; квартал — доменный трафик, glossary, comparison; 6–12 месяцев — authority, money pages, локальные кластеры. Page types конкретные: blog, glossary, comparison, calculator, pricing, service, case-study, FAQ, local.',
+                ],
+                sources: [
+                  { label: 'Google Search Central — Helpful, reliable, people-first content', url: 'https://developers.google.com/search/docs/fundamentals/creating-helpful-content' },
+                  { label: 'Google — E-E-A-T and Quality Rater Guidelines', url: 'https://developers.google.com/search/blog/2022/12/google-raters-guidelines-e-e-a-t' },
+                  { label: 'Google Search Central — SEO Starter Guide', url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide' },
+                  { label: 'SparkToro — Zero-click search study', url: 'https://sparktoro.com/blog/2024-zero-click-search-study/' },
+                ],
+              }}
+            />
           )}
 
           {!data && !isLoading && (
