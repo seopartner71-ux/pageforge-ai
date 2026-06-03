@@ -4,8 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  HelpCircle, Target, Sparkles, Shield, Bot, Rocket, Route, Layers,
-  FileType, MessageSquare, Crown, AlertTriangle, Flame, Zap, EyeOff, Compass,
+  HelpCircle, Target, Sparkles, Shield, Rocket, Route, Layers,
+  FileType, Crown, AlertTriangle, Flame, Zap, EyeOff, Compass,
   Wind, Bell, Link2,
 } from 'lucide-react';
 import {
