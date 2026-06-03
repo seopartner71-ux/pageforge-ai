@@ -1,6 +1,8 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { HelpCircle } from 'lucide-react';
 import {
   Target, TrendingUp, ShieldCheck, Brain, AlertTriangle, CheckCircle2, XCircle,
   Map, Compass, Sparkles, Layers,
@@ -150,12 +152,35 @@ const INTENT_LABELS: Record<keyof IntentDistribution, string> = {
   support: 'Поддержка',
 };
 
-function ScoreCard({ label, value, icon: Icon }: { label: string; value: number; icon: any }) {
+const INTENT_HINTS: Record<keyof IntentDistribution, string> = {
+  commercial: 'Запросы с намерением купить / выбрать поставщика. Самый ценный intent.',
+  informational: 'Запросы «как / что такое / почему». Верх воронки, готовят к покупке.',
+  local: 'Запросы с географической привязкой («рядом», «в Москве»). Триггер локальных карточек.',
+  support: 'Запросы существующих пользователей: помощь, инструкции, FAQ.',
+};
+
+function Hint({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" className="inline-flex items-center text-muted-foreground/70 hover:text-foreground transition-colors">
+          <HelpCircle className="w-3.5 h-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ScoreCard({ label, value, icon: Icon, hint }: { label: string; value: number; icon: any; hint?: string }) {
   return (
     <div className="rounded-lg border border-border p-4 space-y-2">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="w-4 h-4" />
         <span className="text-[11px] uppercase tracking-wider font-medium">{label}</span>
+        {hint && <Hint text={hint} />}
       </div>
       <div className={`text-3xl font-bold tabular-nums ${scoreColor(value)}`}>{value}</div>
       <Progress value={value} className="h-1.5" />
@@ -177,14 +202,37 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
           </div>
           <div>
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Карта спроса</div>
-            <h3 className="text-base font-semibold text-foreground">Risk-adjusted scoring</h3>
+            <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+              Оценка ниши с поправкой на риски
+              <Hint text="Четыре оси оценки 0–100. Учитывают не только объём спроса, но и реальную выручку, барьеры E-E-A-T и риски AI-выдачи." />
+            </h3>
           </div>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <ScoreCard label="Overall attractiveness" value={data.scoring.overall_attractiveness} icon={Sparkles} />
-          <ScoreCard label="Commercial value" value={data.scoring.commercial_value} icon={TrendingUp} />
-          <ScoreCard label="AI resilience" value={data.scoring.ai_resilience} icon={Brain} />
-          <ScoreCard label="Trust feasibility" value={data.scoring.trust_feasibility} icon={ShieldCheck} />
+          <ScoreCard
+            label="Привлекательность ниши"
+            value={data.scoring.overall_attractiveness}
+            icon={Sparkles}
+            hint="Итоговая оценка: насколько ниша интересна для входа с учётом спроса, маржи, барьеров и AI-рисков."
+          />
+          <ScoreCard
+            label="Коммерческая ценность"
+            value={data.scoring.commercial_value}
+            icon={TrendingUp}
+            hint="Сколько реальных денег в нише: доля коммерческого intent, средний чек, конверсионный потенциал."
+          />
+          <ScoreCard
+            label="Устойчивость к AI"
+            value={data.scoring.ai_resilience}
+            icon={Brain}
+            hint="Насколько ниша защищена от вытеснения AI-ответами (ChatGPT, Google AI Overviews, Яндекс Нейро). Чем выше — тем меньше потеряете трафика."
+          />
+          <ScoreCard
+            label="Реализуемость доверия"
+            value={data.scoring.trust_feasibility}
+            icon={ShieldCheck}
+            hint="Насколько реально набрать нужный уровень E-E-A-T (опыт, экспертиза, авторитетность, доверие). Низкий балл = YMYL-тематика, где новичку не пробиться."
+          />
         </div>
         {data.scoring.scoring_reasoning && (
           <p className="text-sm text-foreground/90 leading-relaxed">{data.scoring.scoring_reasoning}</p>
@@ -210,7 +258,8 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-6 space-y-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Топ-5 quick wins
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Топ-5 быстрых побед
+            <Hint text="Что можно запустить быстро и получить результат за 30–90 дней без больших инвестиций в авторитет." />
           </h3>
           <ul className="space-y-1.5">
             {data.executive_summary.top_5_quick_wins.map((w, i) => (
@@ -223,7 +272,8 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
         </Card>
         <Card className="p-6 space-y-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <XCircle className="w-4 h-4 text-rose-500" /> Топ-5 avoid zones
+            <XCircle className="w-4 h-4 text-rose-500" /> Топ-5 зон, куда не идти
+            <Hint text="Кластеры и направления, в которые лучше не вкладывать ресурсы: ложный спрос, нереальный E-E-A-T-барьер или 100% AI-каннибализация." />
           </h3>
           <ul className="space-y-1.5">
             {data.executive_summary.top_5_avoid_zones.map((w, i) => (
@@ -240,7 +290,8 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
       {data.buyer_journey.length > 0 && (
         <Card className="p-6 space-y-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Compass className="w-4 h-4 text-primary" /> Buyer journey: сила спроса по стадиям
+            <Compass className="w-4 h-4 text-primary" /> Путь покупателя: сила спроса по стадиям
+            <Hint text="Декомпозиция спроса по этапам принятия решения: от осознания проблемы до выбора поставщика и удержания. Показывает, на каких стадиях больше всего запросов и где они стоят дороже всего." />
           </h3>
           <div className="space-y-3">
             {data.buyer_journey.map((j, i) => (
@@ -252,7 +303,7 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className={levelBadge(j.business_value as Level)}>
-                      Value: {j.business_value}
+                      Ценность: {j.business_value === 'High' ? 'Высокая' : j.business_value === 'Low' ? 'Низкая' : 'Средняя'}
                     </Badge>
                     <Badge variant="outline" className="border-border tabular-nums">
                       {j.demand_strength_percent}%
@@ -276,7 +327,8 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
       {/* Intent distribution */}
       <Card className="p-6 space-y-4">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Layers className="w-4 h-4 text-primary" /> Intent distribution
+          <Layers className="w-4 h-4 text-primary" /> Распределение намерений пользователей
+          <Hint text="Какую долю спроса занимает каждый тип намерения. Помогает решить, какие типы страниц делать в первую очередь: коммерческие, информационные, локальные или поддержки." />
         </h3>
         <div className="flex h-3 w-full rounded-full overflow-hidden bg-muted">
           {(Object.keys(data.intent_distribution) as (keyof IntentDistribution)[]).map((k) => {
@@ -294,6 +346,7 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
                 <span className="font-medium">{INTENT_LABELS[k]}</span>
                 <span className="text-muted-foreground ml-1.5 tabular-nums">{data.intent_distribution[k]}%</span>
               </div>
+              <Hint text={INTENT_HINTS[k]} />
             </div>
           ))}
         </div>
@@ -303,7 +356,8 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-6 space-y-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> High-value кластеры
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Денежные кластеры
+            <Hint text="Кластеры, которые реально приносят деньги: высокая конверсия, чёткий коммерческий intent, посильный E-E-A-T-барьер." />
           </h3>
           <ul className="space-y-2.5">
             {data.vanity_vs_value.high_value.map((v, i) => (
@@ -319,7 +373,8 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
         </Card>
         <Card className="p-6 space-y-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-500" /> Vanity / misleading кластеры
+            <AlertTriangle className="w-4 h-4 text-rose-500" /> Ложные кластеры (vanity)
+            <Hint text="Кластеры с огромным объёмом, но без денег: размытый intent, zero-click, аудитория без бюджета или нерелевантна продукту. Туда легко слить ресурсы впустую." />
           </h3>
           <ul className="space-y-2.5">
             {data.vanity_vs_value.vanity_misleading.map((v, i) => (
@@ -338,7 +393,8 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
       {/* Barriers */}
       <Card className="p-6 space-y-4">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-primary" /> Trust-adjusted барьеры
+          <ShieldCheck className="w-4 h-4 text-primary" /> Барьеры доверия и доступности
+          <Hint text="Сопоставление: где спрос высокий, но требования к E-E-A-T (опыт, экспертиза, авторитетность) высокие, а доступность входа — низкая. Это зоны, куда новичку лучше не идти без авторитета." />
         </h3>
         {data.barriers.trust_adjusted.length > 0 ? (
           <div className="overflow-x-auto">
@@ -346,9 +402,21 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
               <thead>
                 <tr className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
                   <th className="text-left py-2 pr-4 font-medium">Кластер</th>
-                  <th className="text-left py-2 px-3 font-medium">Raw demand</th>
-                  <th className="text-left py-2 px-3 font-medium">E-E-A-T requirement</th>
-                  <th className="text-left py-2 px-3 font-medium">Accessibility</th>
+                  <th className="text-left py-2 px-3 font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      Сырой спрос <Hint text="Объём поискового спроса без учёта барьеров. High = много трафика, Low = мало." />
+                    </span>
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      Требование к E-E-A-T <Hint text="Насколько Google требует доказанной экспертизы. High = YMYL (медицина, финансы, право) — нужны авторы-эксперты, сертификаты, ссылки." />
+                    </span>
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      Доступность входа <Hint text="Насколько легко новому домену пробиться в ТОП. High = выдача открыта, Low = доминируют маркетплейсы и старые бренды." />
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -356,13 +424,13 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
                   <tr key={i} className="border-b border-border/50 last:border-0">
                     <td className="py-2.5 pr-4 font-medium text-foreground">{t.cluster}</td>
                     <td className="py-2.5 px-3">
-                      <Badge variant="outline" className={levelBadge(t.raw_demand)}>{t.raw_demand}</Badge>
+                      <Badge variant="outline" className={levelBadge(t.raw_demand)}>{lvlRu(t.raw_demand)}</Badge>
                     </td>
                     <td className="py-2.5 px-3">
-                      <Badge variant="outline" className={levelBadgeInverse(t.ee_a_t_requirement)}>{t.ee_a_t_requirement}</Badge>
+                      <Badge variant="outline" className={levelBadgeInverse(t.ee_a_t_requirement)}>{lvlRu(t.ee_a_t_requirement)}</Badge>
                     </td>
                     <td className="py-2.5 px-3">
-                      <Badge variant="outline" className={levelBadge(t.accessibility)}>{t.accessibility}</Badge>
+                      <Badge variant="outline" className={levelBadge(t.accessibility)}>{lvlRu(t.accessibility)}</Badge>
                     </td>
                   </tr>
                 ))}
@@ -373,16 +441,32 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
           <div className="text-xs text-muted-foreground">—</div>
         )}
         <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
-          <ScoreCard label="AI upside" value={data.barriers.ai_and_serp.ai_upside} icon={Brain} />
-          <ScoreCard label="SERP openness" value={data.barriers.ai_and_serp.serp_openness} icon={Target} />
-          <ScoreCard label="Zero-click risk" value={data.barriers.ai_and_serp.zero_click_risk} icon={AlertTriangle} />
+          <ScoreCard
+            label="Потенциал в AI-выдаче"
+            value={data.barriers.ai_and_serp.ai_upside}
+            icon={Brain}
+            hint="Шанс попасть в цитирования ChatGPT, Perplexity, Google AI Overviews и Яндекс Нейро. Высокий балл = ниша любит структурированный контент и прямые ответы."
+          />
+          <ScoreCard
+            label="Открытость выдачи"
+            value={data.barriers.ai_and_serp.serp_openness}
+            icon={Target}
+            hint="Насколько SERP свободен для нового домена. Низкий балл = доминируют маркетплейсы, агрегаторы и крупные бренды."
+          />
+          <ScoreCard
+            label="Риск zero-click"
+            value={data.barriers.ai_and_serp.zero_click_risk}
+            icon={AlertTriangle}
+            hint="Доля запросов, на которые ответ выдаётся прямо в поиске (featured snippet, AI Overview, карточка) — без клика на сайт. Высокий балл = трафика будет мало даже из ТОП-1."
+          />
         </div>
       </Card>
 
       {/* Sequencing roadmap */}
       <Card className="p-6 space-y-4">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Map className="w-4 h-4 text-primary" /> Sequencing roadmap
+          <Map className="w-4 h-4 text-primary" /> Дорожная карта запуска
+          <Hint text="Что запускать в каком порядке: быстрые победы в первые 30 дней, наращивание трафика за квартал, и борьба за авторитет и money-страницы на горизонте 6–12 месяцев." />
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {([
@@ -395,7 +479,7 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
               <div key={k} className={`rounded-lg border p-4 space-y-3 ${tone}`}>
                 <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Targets</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Цели этапа</div>
                   {phase.targets.length > 0 ? (
                     <ul className="space-y-1">
                       {phase.targets.map((t, i) => (
@@ -405,7 +489,7 @@ export function DemandMapView({ data }: { data: DemandMapData }) {
                   ) : <div className="text-xs text-muted-foreground">—</div>}
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Page types</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Типы страниц</div>
                   <div className="flex flex-wrap gap-1.5">
                     {phase.page_types.length > 0 ? phase.page_types.map((p, i) => (
                       <Badge key={i} variant="secondary" className="text-[10px]">{p}</Badge>
