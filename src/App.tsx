@@ -51,6 +51,7 @@ const AdsAccountsPage = lazy(() => import('./pages/AdsAccountsPage.tsx'));
 const AnalyticsPlaceholderPage = lazy(() => import('./pages/AnalyticsPlaceholderPage.tsx'));
 const NicheOverviewPage = lazy(() => import('./pages/analytics/NicheOverviewPage.tsx'));
 const NicheOpportunitiesPage = lazy(() => import('./pages/analytics/NicheOpportunitiesPage.tsx'));
+const DemandMapPage = lazy(() => import('./pages/analytics/DemandMapPage.tsx'));
 const SeoPlaceholderPage = lazy(() => import('./pages/SeoPlaceholderPage.tsx'));
 const AppLayout = lazy(() => import('./components/AppLayout.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
