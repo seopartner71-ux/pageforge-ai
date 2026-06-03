@@ -162,6 +162,7 @@ const App = () => (
                   <Route path="/analytics/niche/opportunities" element={<NicheOpportunitiesPage />} />
                   <Route path="/analytics/demand/map" element={<DemandMapPage />} />
                   <Route path="/analytics/demand/trends" element={<TrendsPage />} />
+                  <Route path="/analytics/audience/pains" element={<AudiencePainsPage />} />
                   <Route path="/analytics/ln/overview" element={<NicheOverviewPage />} />
                   <Route path="/analytics/*" element={<AnalyticsPlaceholderPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
