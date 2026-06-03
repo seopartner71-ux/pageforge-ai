@@ -56,6 +56,7 @@ const lvl = (x: any): Level => {
   return 'Med';
 };
 const bv = (x: any): BusinessValue => lvl(x) as BusinessValue;
+const lvlRu = (l: Level) => l === 'High' ? 'Высокий' : l === 'Low' ? 'Низкий' : 'Средний';
 
 export function normalizeDemandMap(raw: any): DemandMapData | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
