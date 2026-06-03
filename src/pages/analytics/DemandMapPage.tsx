@@ -222,8 +222,8 @@ export default function DemandMapPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
-                  <h2 className="text-lg font-semibold text-foreground">Demand map · «{formData.niche}»</h2>
-                  <p className="text-xs text-muted-foreground mt-1">Risk-adjusted карта спроса по слоям</p>
+                  <h2 className="text-lg font-semibold text-foreground">Карта спроса · «{formData.niche}»</h2>
+                  <p className="text-xs text-muted-foreground mt-1">Оценка ниши по слоям с поправкой на риски</p>
                 </div>
                 <Button variant="outline" onClick={() => { setData(null); setFormData(DEFAULT_FORM); }}>
                   Новый анализ
