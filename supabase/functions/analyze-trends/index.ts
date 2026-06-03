@@ -148,8 +148,9 @@ Deno.serve(async (req) => {
         "X-Title": "SEO-Audit Trend Discovery",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.5-flash",
         response_format: { type: "json_object" },
+        temperature: 0.6,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: buildUserPrompt(body) },
