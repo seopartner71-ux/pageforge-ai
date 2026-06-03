@@ -54,6 +54,7 @@ const NicheOpportunitiesPage = lazy(() => import('./pages/analytics/NicheOpportu
 const DemandMapPage = lazy(() => import('./pages/analytics/DemandMapPage.tsx'));
 const TrendsPage = lazy(() => import('./pages/analytics/TrendsPage.tsx'));
 const AudiencePainsPage = lazy(() => import('./pages/analytics/AudiencePainsPage.tsx'));
+const AudienceSegmentsPage = lazy(() => import('./pages/analytics/AudienceSegmentsPage.tsx'));
 const SeoPlaceholderPage = lazy(() => import('./pages/SeoPlaceholderPage.tsx'));
 const AppLayout = lazy(() => import('./components/AppLayout.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
@@ -163,6 +164,7 @@ const App = () => (
                   <Route path="/analytics/demand/map" element={<DemandMapPage />} />
                   <Route path="/analytics/demand/trends" element={<TrendsPage />} />
                   <Route path="/analytics/audience/pains" element={<AudiencePainsPage />} />
+                  <Route path="/analytics/audience/segments" element={<AudienceSegmentsPage />} />
                   <Route path="/analytics/ln/overview" element={<NicheOverviewPage />} />
                   <Route path="/analytics/*" element={<AnalyticsPlaceholderPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
