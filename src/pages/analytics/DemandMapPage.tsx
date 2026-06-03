@@ -6,12 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Map, Sparkles } from 'lucide-react';
+import { Loader2, Map, Sparkles, FileDown } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { DemandMapView, DemandMapData, normalizeDemandMap } from '@/components/analytics/DemandMapView';
 import { PageDescription } from '@/components/PageDescription';
+import { exportDemandMapDocx } from '@/lib/analytics/exportDemandMapDocx';
 
 type FormData = {
   niche: string; geo: string; businessType: string; monetization: string;
@@ -36,6 +37,19 @@ export default function DemandMapPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [stageIndex, setStageIndex] = useState(0);
   const [data, setData] = useState<DemandMapData | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  async function downloadDocx() {
+    if (!data) return;
+    setIsExporting(true);
+    try {
+      await exportDemandMapDocx(formData.niche, data);
+    } catch (e: any) {
+      toast({ title: 'Не удалось сформировать DOCX', description: e?.message || 'Ошибка', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
 
   useEffect(() => {
     if (!isLoading) return;
@@ -225,9 +239,15 @@ export default function DemandMapPage() {
                   <h2 className="text-lg font-semibold text-foreground">Карта спроса · «{formData.niche}»</h2>
                   <p className="text-xs text-muted-foreground mt-1">Оценка ниши по слоям с поправкой на риски</p>
                 </div>
-                <Button variant="outline" onClick={() => { setData(null); setFormData(DEFAULT_FORM); }}>
-                  Новый анализ
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button onClick={downloadDocx} disabled={isExporting}>
+                    {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                    Скачать DOCX
+                  </Button>
+                  <Button variant="outline" onClick={() => { setData(null); setFormData(DEFAULT_FORM); }}>
+                    Новый анализ
+                  </Button>
+                </div>
               </div>
               <DemandMapView data={data} />
             </div>
