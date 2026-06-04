@@ -18,7 +18,6 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
       { label: 'Рыночные возможности', path: '/analytics/niche/opportunities', icon: TrendingUp },
       { label: 'Свободные темы', path: '/analytics/niche/free-topics', icon: Sparkles },
       { label: 'Сложность входа', path: '/analytics/niche/entry-barrier', icon: Lock },
-      { label: 'Потенциал монетизации', path: '/analytics/niche/monetization', icon: Coins },
     ],
   },
   {
@@ -28,7 +27,6 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
       { label: 'Тренды', path: '/analytics/demand/trends', icon: LineChart },
       { label: 'Сезонность', path: '/analytics/demand/seasonality', icon: CalendarRange },
       { label: 'География спроса', path: '/analytics/demand/geo', icon: Globe2 },
-      { label: 'Коммерческий потенциал', path: '/analytics/demand/commercial', icon: ShoppingCart },
     ],
   },
   {
@@ -52,14 +50,28 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     ],
   },
   {
-    label: 'AI-Аналитика рынка',
+    label: 'Монетизация',
+    items: [
+      { label: 'Коммерческий потенциал', path: '/analytics/demand/commercial', icon: ShoppingCart },
+      { label: 'Потенциал монетизации', path: '/analytics/niche/monetization', icon: Coins },
+      { label: 'Ценность сегментов', path: '/analytics/monetization/segment-value', icon: Coins },
+    ],
+  },
+  {
+    label: 'AI и сущности',
     items: [
       { label: 'Возможности AI Search', path: '/analytics/ai/search', icon: Bot },
       { label: 'Карта сущностей', path: '/analytics/ai/entities', icon: Network },
       { label: 'Экосистема ниши', path: '/analytics/ai/ecosystem', icon: Layers },
       { label: 'Требования E-E-A-T', path: '/analytics/ai/eeat', icon: Award },
       { label: 'Риски ниши', path: '/analytics/ai/risks', icon: AlertTriangle },
+    ],
+  },
+  {
+    label: 'Контентная стратегия',
+    items: [
       { label: 'Форматы контента', path: '/analytics/ai/formats', icon: FileType },
+      { label: 'Рекомендации по развитию', path: '/analytics/growth/recommendations', icon: Lightbulb },
     ],
   },
   {
@@ -68,8 +80,6 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
       { label: 'Быстрые победы', path: '/analytics/growth/quick-wins', icon: Zap },
       { label: 'Незанятые запросы', path: '/analytics/growth/free-queries', icon: Search },
       { label: 'Новые сегменты', path: '/analytics/growth/new-segments', icon: UserPlus },
-      { label: 'Возможности AI Search', path: '/analytics/growth/ai-search', icon: Brain },
-      { label: 'Рекомендации по развитию', path: '/analytics/growth/recommendations', icon: Lightbulb },
     ],
   },
 ];
