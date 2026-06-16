@@ -31,6 +31,49 @@ async function rawFetch(url: string): Promise<string> {
   } catch { return ""; }
 }
 
+// Fallback: if direct fetch fails (site blocks cloud IPs), try via Jina Reader.
+// Returns markdown text that can be scanned for title/links.
+async function rawFetchOrJina(url: string): Promise<string> {
+  const direct = await rawFetch(url);
+  if (direct && direct.length > 200) return direct;
+  const md = await jinaFetch(url);
+  return md || direct || "";
+}
+
+function extractTitleAny(s: string): string {
+  const t = extractTitle(s);
+  if (t) return t;
+  // Jina markdown often starts with "Title: ..." metadata or "# Heading"
+  const mt = s.match(/^\s*Title:\s*([^\n]+)/i);
+  if (mt) return mt[1].trim().slice(0, 200);
+  const mh = s.match(/^\s*#\s+([^\n]+)/m);
+  return mh ? mh[1].trim().slice(0, 200) : "";
+}
+function extractH1Any(s: string): string {
+  const h = extractH1(s);
+  if (h) return h;
+  const mh = s.match(/^\s*#\s+([^\n]+)/m);
+  return mh ? mh[1].trim().slice(0, 200) : "";
+}
+function extractLinksAny(s: string, origin: string): string[] {
+  const html = extractInternalLinks(s, origin);
+  if (html.length) return html;
+  // Markdown links [text](url)
+  const links = new Set<string>();
+  const re = /\]\(([^)\s#]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s))) {
+    let href = m[1].trim();
+    if (href.startsWith("/")) href = origin + href;
+    if (!href.startsWith("http")) continue;
+    try {
+      const u = new URL(href);
+      if (u.origin === origin) links.add(u.origin + u.pathname);
+    } catch {}
+  }
+  return [...links].slice(0, 300);
+}
+
 function originOf(url: string): string { try { return new URL(url).origin; } catch { return url; } }
 
 function extractTitle(html: string): string {
@@ -127,12 +170,12 @@ const PLAN_TARGETS = [
 
 async function runPlan(siteUrl: string) {
   const origin = originOf(siteUrl);
-  const homeHtml = await rawFetch(siteUrl);
-  if (!homeHtml) throw new Error("Не удалось загрузить главную страницу сайта.");
+  const homeHtml = await rawFetchOrJina(siteUrl);
+  if (!homeHtml) throw new Error("Не удалось загрузить главную страницу сайта. Возможно сайт недоступен или блокирует запросы.");
 
-  const homeTitle = extractTitle(homeHtml);
-  const homeH1 = extractH1(homeHtml);
-  const internalLinks = extractInternalLinks(homeHtml, origin);
+  const homeTitle = extractTitleAny(homeHtml);
+  const homeH1 = extractH1Any(homeHtml);
+  const internalLinks = extractLinksAny(homeHtml, origin);
   const sitemapLinks = await getSitemapUrls(origin);
   const allLinks = [...new Set([...internalLinks, ...sitemapLinks])].slice(0, 400);
 
