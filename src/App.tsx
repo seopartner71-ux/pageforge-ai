@@ -57,6 +57,8 @@ const AudiencePainsPage = lazy(() => import('./pages/analytics/AudiencePainsPage
 const AudienceSegmentsPage = lazy(() => import('./pages/analytics/AudienceSegmentsPage.tsx'));
 const AudienceJtbdPage = lazy(() => import('./pages/analytics/AudienceJtbdPage.tsx'));
 const FreeTopicsPage = lazy(() => import('./pages/analytics/FreeTopicsPage.tsx'));
+const SeoRecoveryPage = lazy(() => import('./pages/analytics/SeoRecoveryPage.tsx'));
+const SeoMonitoringPage = lazy(() => import('./pages/analytics/SeoMonitoringPage.tsx'));
 const SeoPlaceholderPage = lazy(() => import('./pages/SeoPlaceholderPage.tsx'));
 const AppLayout = lazy(() => import('./components/AppLayout.tsx'));
 const DataCopilotWidget = lazy(() => import('./components/DataCopilotWidget.tsx'));
@@ -169,6 +171,8 @@ const App = () => (
                   <Route path="/analytics/audience/pains" element={<AudiencePainsPage />} />
                   <Route path="/analytics/audience/segments" element={<AudienceSegmentsPage />} />
                   <Route path="/analytics/audience/jtbd" element={<AudienceJtbdPage />} />
+                  <Route path="/analytics/recovery/main" element={<SeoRecoveryPage />} />
+                  <Route path="/analytics/recovery/monitoring" element={<SeoMonitoringPage />} />
                   <Route path="/analytics/ln/overview" element={<NicheOverviewPage />} />
                   <Route path="/analytics/*" element={<AnalyticsPlaceholderPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
