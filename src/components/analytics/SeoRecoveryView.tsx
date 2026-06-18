@@ -1,0 +1,265 @@
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { ArrowDown, ArrowUp, Minus, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+
+type Props = { data: any };
+
+function fmt(n: any): string {
+  if (n == null) return '—';
+  if (typeof n === 'number') return n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+  return String(n);
+}
+
+function Delta({ value, suffix = '%' }: { value: number; suffix?: string }) {
+  if (value === 0 || value == null) return <span className="text-muted-foreground inline-flex items-center gap-1"><Minus className="w-3 h-3" />0{suffix}</span>;
+  const positive = value > 0;
+  const Icon = positive ? ArrowUp : ArrowDown;
+  const color = positive ? 'text-emerald-500' : 'text-rose-500';
+  return <span className={`inline-flex items-center gap-1 font-medium ${color}`}><Icon className="w-3 h-3" />{value > 0 ? '+' : ''}{value}{suffix}</span>;
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const color = score >= 70 ? 'text-emerald-500' : score >= 40 ? 'text-amber-500' : 'text-rose-500';
+  const ring = score >= 70 ? 'stroke-emerald-500' : score >= 40 ? 'stroke-amber-500' : 'stroke-rose-500';
+  const c = 2 * Math.PI * 42;
+  return (
+    <div className="relative w-32 h-32 shrink-0">
+      <svg className="w-32 h-32 -rotate-90" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="42" className="stroke-muted" strokeWidth="8" fill="none" />
+        <circle cx="50" cy="50" r="42" className={ring} strokeWidth="8" fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c - (c * score) / 100} />
+      </svg>
+      <div className={`absolute inset-0 flex flex-col items-center justify-center ${color}`}>
+        <div className="text-3xl font-bold">{score}</div>
+        <div className="text-[10px] text-muted-foreground uppercase">SEO Score</div>
+      </div>
+    </div>
+  );
+}
+
+const confidenceBadge: Record<string, string> = {
+  high: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+  medium: 'bg-amber-500/10 text-amber-600 border-amber-500/30',
+  low: 'bg-muted text-muted-foreground',
+};
+
+export function SeoRecoveryView({ data }: Props) {
+  const ai = data.ai ?? {};
+  const m = data.metrika;
+  const g = data.gsc;
+  const headline = ai.headline ?? {};
+
+  return (
+    <div className="space-y-6">
+      {/* TOP: Score + Headline */}
+      <Card className="p-6">
+        <div className="flex items-center gap-6 flex-wrap">
+          <ScoreRing score={ai.seo_score ?? 50} />
+          <div className="flex-1 min-w-[280px] space-y-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase">
+              <span>Период:</span>
+              <span className="text-foreground">{data.period?.current?.date1} → {data.period?.current?.date2}</span>
+              <span>vs</span>
+              <span>{data.period?.previous?.date1} → {data.period?.previous?.date2}</span>
+            </div>
+            <h2 className="text-2xl font-semibold leading-tight" title="Главный тезис на основе данных">
+              {headline.summary ?? 'Анализ завершён'}
+            </h2>
+            <div className="flex items-center gap-3 flex-wrap text-sm">
+              {typeof headline.delta_pct === 'number' && <Delta value={headline.delta_pct} />}
+              {headline.main_metric && <Badge variant="outline">{headline.main_metric}</Badge>}
+              {ai.score_reasoning && <span className="text-muted-foreground">{ai.score_reasoning}</span>}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Errors */}
+      {Array.isArray(data.errors) && data.errors.length > 0 && (
+        <Card className="p-4 border-amber-500/40 bg-amber-500/5">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5" />
+            <div className="text-sm space-y-1">
+              {data.errors.map((e: string, i: number) => <div key={i}>{e}</div>)}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Metric cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {m && (
+          <>
+            <MetricCard title="Органические визиты" tooltip="Источник: Яндекс Метрика. Визиты из поисковых систем." now={m.current.organic_visits} was={m.previous.organic_visits} delta={m.delta.organic_visits} />
+            <MetricCard title="Все визиты" tooltip="Источник: Метрика. Все визиты сайта." now={m.current.visits} was={m.previous.visits} delta={m.delta.visits} />
+            <MetricCard title="Пользователи" tooltip="Источник: Метрика. Уникальные посетители." now={m.current.users} was={m.previous.users} delta={m.delta.users} />
+          </>
+        )}
+        {g && (
+          <>
+            <MetricCard title="Клики из Google" tooltip="Источник: GSC. Клики из поиска Google." now={g.current.clicks} was={g.previous.clicks} delta={g.delta.clicks} />
+            <MetricCard title="Показы Google" tooltip="Источник: GSC. Показы сайта в выдаче." now={g.current.impressions} was={g.previous.impressions} delta={g.delta.impressions} />
+            <MetricCard title="Средняя позиция" tooltip="Источник: GSC. Средняя позиция в выдаче." now={g.current.position?.toFixed?.(1)} was={g.previous.position?.toFixed?.(1)} delta={g.delta.position} suffix="" />
+          </>
+        )}
+      </div>
+
+      {/* Main cause */}
+      {ai.main_cause && (
+        <Card className="p-6 border-primary/40 bg-primary/5">
+          <div className="flex items-center gap-2 mb-3 text-xs uppercase text-primary font-medium">
+            <Info className="w-4 h-4" /> Главная причина изменения
+          </div>
+          <h3 className="text-lg font-semibold mb-2">{ai.main_cause.title}</h3>
+          <Badge className={`mb-3 ${confidenceBadge[ai.main_cause.confidence] ?? ''}`} variant="outline">
+            Уверенность: {ai.main_cause.confidence === 'high' ? 'высокая' : ai.main_cause.confidence === 'medium' ? 'средняя' : 'низкая'}
+          </Badge>
+          <EvidenceList items={ai.main_cause.evidence ?? []} />
+          <div className="text-sm mt-3 text-muted-foreground">{ai.main_cause.conclusion}</div>
+        </Card>
+      )}
+
+      <Tabs defaultValue="causes">
+        <TabsList>
+          <TabsTrigger value="causes">Причины</TabsTrigger>
+          <TabsTrigger value="pages">Потерянные страницы</TabsTrigger>
+          <TabsTrigger value="queries">Запросы</TabsTrigger>
+          <TabsTrigger value="recs">Рекомендации</TabsTrigger>
+          <TabsTrigger value="raw">Данные</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="causes" className="space-y-3 mt-4">
+          {(ai.causes ?? []).map((c: any, i: number) => (
+            <Card key={i} className="p-4">
+              <div className="flex items-center justify-between mb-2 gap-3">
+                <h4 className="font-medium">{c.title}</h4>
+                <Badge variant="outline" className={confidenceBadge[c.confidence] ?? ''}>
+                  {c.confidence === 'high' ? 'высокая' : c.confidence === 'medium' ? 'средняя' : 'низкая'}
+                </Badge>
+              </div>
+              <EvidenceList items={c.evidence ?? []} />
+              <div className="text-sm mt-2 text-muted-foreground">{c.conclusion}</div>
+            </Card>
+          ))}
+          {(ai.causes ?? []).length === 0 && <Card className="p-6 text-sm text-muted-foreground">Дополнительных причин не выявлено.</Card>}
+        </TabsContent>
+
+        <TabsContent value="pages" className="mt-4">
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>URL</TableHead>
+                  <TableHead className="text-right">Было</TableHead>
+                  <TableHead className="text-right">Стало</TableHead>
+                  <TableHead className="text-right">Изменение</TableHead>
+                  <TableHead>Источник</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(ai.lost_pages ?? []).map((p: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-mono text-xs max-w-[400px] truncate">{p.url}</TableCell>
+                    <TableCell className="text-right">{fmt(p.was)}</TableCell>
+                    <TableCell className="text-right">{fmt(p.now)}</TableCell>
+                    <TableCell className="text-right"><Delta value={p.delta_pct} /></TableCell>
+                    <TableCell><Badge variant="outline">{p.source}</Badge></TableCell>
+                  </TableRow>
+                ))}
+                {(ai.lost_pages ?? []).length === 0 && (
+                  <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">Существенных потерь по страницам не обнаружено.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="queries" className="mt-4">
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Запрос</TableHead>
+                  <TableHead className="text-right">Клики (было/стало)</TableHead>
+                  <TableHead className="text-right">Позиция (было/стало)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(ai.lost_queries ?? []).map((q: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell>{q.query}</TableCell>
+                    <TableCell className="text-right">{fmt(q.clicks_was)} → {fmt(q.clicks_now)}</TableCell>
+                    <TableCell className="text-right">{fmt(q.position_was)} → {fmt(q.position_now)}</TableCell>
+                  </TableRow>
+                ))}
+                {(ai.lost_queries ?? []).length === 0 && (
+                  <TableRow><TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-6">Данных по запросам нет.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="recs" className="space-y-3 mt-4">
+          {(ai.recommendations ?? []).map((r: any, i: number) => (
+            <Card key={i} className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant={r.priority === 'p1' ? 'destructive' : 'outline'}>{r.priority?.toUpperCase()}</Badge>
+                <h4 className="font-medium">{r.title}</h4>
+              </div>
+              <div className="text-sm text-muted-foreground mb-1"><b className="text-foreground">Почему:</b> {r.why}</div>
+              <div className="text-sm"><b>Действие:</b> {r.action}</div>
+            </Card>
+          ))}
+          {(ai.recommendations ?? []).length === 0 && <Card className="p-6 text-sm text-muted-foreground">Рекомендации не сформированы.</Card>}
+        </TabsContent>
+
+        <TabsContent value="raw" className="mt-4">
+          <Card className="p-4">
+            <pre className="text-xs overflow-auto max-h-[500px]">{JSON.stringify({ metrika: m, gsc: g }, null, 2)}</pre>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {Array.isArray(ai.timeline_notes) && ai.timeline_notes.length > 0 && (
+        <Card className="p-4">
+          <div className="text-xs uppercase text-muted-foreground mb-2">Заметки по timeline</div>
+          <ul className="space-y-1 text-sm">{ai.timeline_notes.map((n: string, i: number) => <li key={i}>• {n}</li>)}</ul>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({ title, tooltip, now, was, delta, suffix }: { title: string; tooltip: string; now: any; was: any; delta: number; suffix?: string }) {
+  return (
+    <Card className="p-4" title={tooltip}>
+      <div className="text-xs text-muted-foreground mb-1">{title}</div>
+      <div className="text-xl font-semibold">{fmt(now)}</div>
+      <div className="flex items-center gap-2 mt-1 text-xs">
+        <span className="text-muted-foreground">было {fmt(was)}</span>
+        <Delta value={delta} suffix={suffix ?? '%'} />
+      </div>
+    </Card>
+  );
+}
+
+function EvidenceList({ items }: { items: any[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="space-y-1 text-sm">
+      {items.map((e, i) => (
+        <div key={i} className="flex items-start gap-2 p-2 rounded bg-muted/40">
+          <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
+          <div>
+            <Badge variant="outline" className="mr-2 text-[10px]">{e.source}</Badge>
+            <span className="font-medium">{e.metric}:</span>{' '}
+            <span className="text-muted-foreground">{e.was} → {e.now}</span>{' '}
+            <span className="text-foreground">({e.delta})</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
