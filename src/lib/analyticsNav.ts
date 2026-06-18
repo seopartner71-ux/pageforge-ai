@@ -5,6 +5,7 @@ import {
   Swords, ClipboardList, GitCompare, ShieldAlert, Link2,
   Bot, Network, Layers, Award, AlertTriangle, FileType,
   Zap, Search, UserPlus, Brain, Lightbulb,
+  Activity, LifeBuoy,
 } from 'lucide-react';
 
 export type AnalyticsItem = { label: string; path: string; icon: any };
@@ -80,6 +81,13 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
       { label: 'Быстрые победы', path: '/analytics/growth/quick-wins', icon: Zap },
       { label: 'Незанятые запросы', path: '/analytics/growth/free-queries', icon: Search },
       { label: 'Новые сегменты', path: '/analytics/growth/new-segments', icon: UserPlus },
+    ],
+  },
+  {
+    label: 'SEO Recovery',
+    items: [
+      { label: 'SEO Recovery AI', path: '/analytics/recovery/main', icon: LifeBuoy },
+      { label: 'SEO Мониторинг', path: '/analytics/recovery/monitoring', icon: Activity },
     ],
   },
 ];
