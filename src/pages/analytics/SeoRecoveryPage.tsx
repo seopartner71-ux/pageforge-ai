@@ -11,6 +11,8 @@ import { LifeBuoy, Loader2, Play, RefreshCw, AlertCircle, Link as LinkIcon } fro
 import { toast } from 'sonner';
 import { SeoRecoveryView } from '@/components/analytics/SeoRecoveryView';
 import { useNavigate } from 'react-router-dom';
+import { MetrikaConnectWizard } from '@/components/analytics/MetrikaConnectWizard';
+import { Wand2 } from 'lucide-react';
 
 type Status = { metrika_connected: boolean; metrika_login: string | null; gsc_available: boolean };
 
@@ -38,6 +40,7 @@ export default function SeoRecoveryPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   async function checkStatus() {
     try {
@@ -150,8 +153,13 @@ export default function SeoRecoveryPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="counter">ID счётчика Яндекс Метрики</Label>
-              <Input id="counter" placeholder="напр. 12345678" value={counterId} onChange={(e) => setCounterId(e.target.value.trim())} />
-              <p className="text-xs text-muted-foreground">Главный источник фактического трафика</p>
+              <div className="flex gap-2">
+                <Input id="counter" placeholder="напр. 12345678" value={counterId} onChange={(e) => setCounterId(e.target.value.trim())} />
+                <Button type="button" variant="outline" onClick={() => setWizardOpen(true)}>
+                  <Wand2 className="w-4 h-4 mr-1" />Мастер
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Мастер подключит аккаунт, покажет ваши счётчики и проверит права доступа</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="gsc">Сайт Google Search Console</Label>
@@ -205,6 +213,12 @@ export default function SeoRecoveryPage() {
 
         {data && <SeoRecoveryView data={data} />}
       </main>
+      <MetrikaConnectWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        initialCounterId={counterId}
+        onConfirmed={(id) => { setCounterId(id); toast.success('Счётчик подключён: ' + id); checkStatus(); }}
+      />
     </div>
   );
 }
