@@ -255,7 +255,7 @@ Deno.serve(async (req) => {
     }
 
     if (!result.metrika && !result.gsc) {
-      return new Response(JSON.stringify({ error: "Нет данных для анализа", details: errors }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Нет данных для анализа", details: errors }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // AI
