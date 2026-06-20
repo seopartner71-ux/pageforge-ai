@@ -384,13 +384,13 @@ Deno.serve(async (req) => {
 
     const prev = shiftRange(date1, date2);
     const result: any = { period: { current: { date1, date2 }, previous: prev } };
-    const errors: string[] = [];
+    const errors: any[] = [];
 
     // Metrika
     if (counter_id) {
       const { data: tok } = await sb.from("yandex_tokens").select("access_token").eq("user_id", user.id).maybeSingle();
       if (!tok?.access_token) {
-        errors.push("Яндекс Метрика не подключена. Подключите в разделе Яндекс Вебмастер.");
+        errors.push({ code: "metrika_not_connected", title: "Яндекс Метрика не подключена.", hint: "Нажмите «Подключить» в карточке Яндекс Метрики выше и авторизуйтесь." });
       } else {
         try {
           const [cur, prv] = await Promise.all([
@@ -403,14 +403,14 @@ Deno.serve(async (req) => {
             organic_visits: pct(cur.organic_visits, prv.organic_visits),
             pageviews: pct(cur.pageviews, prv.pageviews),
           }};
-        } catch (e) { errors.push("Метрика: " + (e as Error).message); }
+        } catch (e) { errors.push(friendlyError("Метрика", e, { counter_id })); }
       }
     }
 
     // GSC
     if (gsc_site) {
       if (!LOVABLE_API_KEY || !GSC_KEY) {
-        errors.push("Google Search Console не подключен (нужен коннектор).");
+        errors.push({ code: "gsc_not_connected", title: "Google Search Console не подключён.", hint: "Подключите коннектор GSC в настройках рабочего пространства." });
       } else {
         try {
           const [cur, prv] = await Promise.all([
@@ -423,13 +423,16 @@ Deno.serve(async (req) => {
             ctr: pct(cur.ctr, prv.ctr),
             position: Math.round((cur.position - prv.position) * 10) / 10,
           }};
-        } catch (e) { errors.push("GSC: " + (e as Error).message); }
+        } catch (e) { errors.push(friendlyError("GSC", e, { gsc_site })); }
       }
     }
 
     if (!result.metrika && !result.gsc) {
       return new Response(JSON.stringify({ error: "Нет данных для анализа", details: errors }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    // Pre-computed diagnostics for AI grounding
+    result.diagnostics = buildDiagnostics(result, gsc_site);
 
     // AI
     const orKey = await getOpenRouterKey(sb);
