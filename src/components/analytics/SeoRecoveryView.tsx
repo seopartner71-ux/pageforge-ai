@@ -2,7 +2,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { ArrowDown, ArrowUp, Minus, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { ArrowDown, ArrowUp, Minus, AlertTriangle, CheckCircle2, Info, Target, Lightbulb, ListChecks } from 'lucide-react';
 
 type Props = { data: any };
 
@@ -77,14 +77,26 @@ export function SeoRecoveryView({ data }: Props) {
 
       {/* Errors */}
       {Array.isArray(data.errors) && data.errors.length > 0 && (
-        <Card className="p-4 border-amber-500/40 bg-amber-500/5">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5" />
-            <div className="text-sm space-y-1">
-              {data.errors.map((e: string, i: number) => <div key={i}>{e}</div>)}
-            </div>
-          </div>
-        </Card>
+        <div className="space-y-2">
+          {data.errors.map((e: any, i: number) => {
+            const isObj = e && typeof e === 'object';
+            const title = isObj ? (e.title || e.code || 'Ошибка источника данных') : String(e);
+            const hint = isObj ? e.hint : null;
+            const raw = isObj ? e.raw : null;
+            return (
+              <Card key={i} className="p-4 border-amber-500/40 bg-amber-500/5">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                  <div className="text-sm space-y-1 min-w-0">
+                    <div className="font-medium">{title}</div>
+                    {hint && <div className="text-muted-foreground">{hint}</div>}
+                    {raw && <details className="text-xs text-muted-foreground/70"><summary className="cursor-pointer">Технические детали</summary><pre className="mt-1 whitespace-pre-wrap break-all">{raw}</pre></details>}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       )}
 
       {/* Metric cards */}
@@ -112,9 +124,17 @@ export function SeoRecoveryView({ data }: Props) {
             <Info className="w-4 h-4" /> Главная причина изменения
           </div>
           <h3 className="text-lg font-semibold mb-2">{ai.main_cause.title}</h3>
-          <Badge className={`mb-3 ${confidenceBadge[ai.main_cause.confidence] ?? ''}`} variant="outline">
-            Уверенность: {ai.main_cause.confidence === 'high' ? 'высокая' : ai.main_cause.confidence === 'medium' ? 'средняя' : 'низкая'}
-          </Badge>
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <Badge className={confidenceBadge[ai.main_cause.confidence] ?? ''} variant="outline">
+              Уверенность: {ai.main_cause.confidence === 'high' ? 'высокая' : ai.main_cause.confidence === 'medium' ? 'средняя' : 'низкая'}
+            </Badge>
+            {ai.diagnosis_pattern?.code && (
+              <Badge variant="outline" className="bg-background">Паттерн: {ai.diagnosis_pattern.code}</Badge>
+            )}
+          </div>
+          {ai.diagnosis_pattern?.explanation && (
+            <div className="text-xs text-muted-foreground mb-3 italic">{ai.diagnosis_pattern.explanation}</div>
+          )}
           <EvidenceList items={ai.main_cause.evidence ?? []} />
           <div className="text-sm mt-3 text-muted-foreground">{ai.main_cause.conclusion}</div>
         </Card>
@@ -122,14 +142,30 @@ export function SeoRecoveryView({ data }: Props) {
 
       <Tabs defaultValue="causes">
         <TabsList>
-          <TabsTrigger value="causes">Причины</TabsTrigger>
+          <TabsTrigger value="causes">Гипотезы</TabsTrigger>
+          <TabsTrigger value="impact">Impact</TabsTrigger>
           <TabsTrigger value="pages">Потерянные страницы</TabsTrigger>
           <TabsTrigger value="queries">Запросы</TabsTrigger>
-          <TabsTrigger value="recs">Рекомендации</TabsTrigger>
+          <TabsTrigger value="recs">План действий</TabsTrigger>
+          <TabsTrigger value="next">Ручные проверки</TabsTrigger>
           <TabsTrigger value="raw">Данные</TabsTrigger>
         </TabsList>
 
         <TabsContent value="causes" className="space-y-3 mt-4">
+          {(ai.root_cause_hypotheses ?? []).map((h: any, i: number) => (
+            <Card key={`h${i}`} className="p-4">
+              <div className="flex items-center justify-between mb-2 gap-3">
+                <h4 className="font-medium flex items-center gap-2"><Lightbulb className="w-4 h-4 text-amber-500" />{h.hypothesis}</h4>
+                <Badge variant="outline" className="font-mono">P = {h.probability}%</Badge>
+              </div>
+              <EvidenceList items={h.evidence ?? []} />
+              {h.verification_step && (
+                <div className="text-sm mt-2 p-2 rounded bg-muted/40 border-l-2 border-primary/60">
+                  <span className="text-xs uppercase text-muted-foreground mr-2">Как проверить:</span>{h.verification_step}
+                </div>
+              )}
+            </Card>
+          ))}
           {(ai.causes ?? []).map((c: any, i: number) => (
             <Card key={i} className="p-4">
               <div className="flex items-center justify-between mb-2 gap-3">
@@ -142,7 +178,43 @@ export function SeoRecoveryView({ data }: Props) {
               <div className="text-sm mt-2 text-muted-foreground">{c.conclusion}</div>
             </Card>
           ))}
-          {(ai.causes ?? []).length === 0 && <Card className="p-6 text-sm text-muted-foreground">Дополнительных причин не выявлено.</Card>}
+          {(ai.root_cause_hypotheses ?? []).length === 0 && (ai.causes ?? []).length === 0 && <Card className="p-6 text-sm text-muted-foreground">Гипотезы не сформированы.</Card>}
+        </TabsContent>
+
+        <TabsContent value="impact" className="mt-4 space-y-3">
+          {ai.impact_breakdown ? (
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="w-4 h-4 text-primary" />
+                <div className="text-sm">Всего потеряно кликов: <b>{fmt(ai.impact_breakdown.total_clicks_lost)}</b></div>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow><TableHead>Тип</TableHead><TableHead>Объект</TableHead><TableHead className="text-right">Потеря кликов</TableHead><TableHead className="text-right">Доля</TableHead></TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(ai.impact_breakdown.top_loss_contributors ?? []).map((c: any, i: number) => (
+                    <TableRow key={i}>
+                      <TableCell><Badge variant="outline">{c.type}</Badge></TableCell>
+                      <TableCell className="font-mono text-xs max-w-[420px] truncate">{c.name}</TableCell>
+                      <TableCell className="text-right text-rose-500">−{fmt(c.clicks_lost)}</TableCell>
+                      <TableCell className="text-right font-medium">{c.share_of_loss_pct}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          ) : <Card className="p-6 text-sm text-muted-foreground">Декомпозиция потерь недоступна.</Card>}
+          {ai.brand_analysis && (
+            <Card className="p-4">
+              <div className="text-xs uppercase text-muted-foreground mb-2">Brand vs Non-brand</div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="p-3 rounded bg-muted/40"><div className="text-xs text-muted-foreground">Brand-клики</div><Delta value={ai.brand_analysis.brand_clicks_delta_pct ?? 0} /></div>
+                <div className="p-3 rounded bg-muted/40"><div className="text-xs text-muted-foreground">Non-brand-клики</div><Delta value={ai.brand_analysis.non_brand_clicks_delta_pct ?? 0} /></div>
+              </div>
+              {ai.brand_analysis.interpretation && <div className="text-sm text-muted-foreground mt-3">{ai.brand_analysis.interpretation}</div>}
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="pages" className="mt-4">
@@ -183,6 +255,7 @@ export function SeoRecoveryView({ data }: Props) {
                   <TableHead>Запрос</TableHead>
                   <TableHead className="text-right">Клики (было/стало)</TableHead>
                   <TableHead className="text-right">Позиция (было/стало)</TableHead>
+                  <TableHead>Диагноз</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -191,10 +264,11 @@ export function SeoRecoveryView({ data }: Props) {
                     <TableCell>{q.query}</TableCell>
                     <TableCell className="text-right">{fmt(q.clicks_was)} → {fmt(q.clicks_now)}</TableCell>
                     <TableCell className="text-right">{fmt(q.position_was)} → {fmt(q.position_now)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[300px]">{q.diagnosis}</TableCell>
                   </TableRow>
                 ))}
                 {(ai.lost_queries ?? []).length === 0 && (
-                  <TableRow><TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-6">Данных по запросам нет.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">Данных по запросам нет.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -204,20 +278,48 @@ export function SeoRecoveryView({ data }: Props) {
         <TabsContent value="recs" className="space-y-3 mt-4">
           {(ai.recommendations ?? []).map((r: any, i: number) => (
             <Card key={i} className="p-4">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Badge variant={r.priority === 'p1' ? 'destructive' : 'outline'}>{r.priority?.toUpperCase()}</Badge>
-                <h4 className="font-medium">{r.title}</h4>
+                <h4 className="font-medium flex-1">{r.title}</h4>
+                {r.ice?.score != null && (
+                  <Badge variant="outline" className="font-mono" title={`Impact ${r.ice.impact} · Confidence ${r.ice.confidence} · Ease ${r.ice.ease}`}>
+                    ICE: {r.ice.score}
+                  </Badge>
+                )}
               </div>
               <div className="text-sm text-muted-foreground mb-1"><b className="text-foreground">Почему:</b> {r.why}</div>
-              <div className="text-sm"><b>Действие:</b> {r.action}</div>
+              <div className="text-sm mb-2"><b>Действие:</b> {r.action}</div>
+              {r.kpi && (
+                <div className="text-xs flex items-center gap-2 mt-2 p-2 rounded bg-primary/5 border border-primary/20">
+                  <Target className="w-3.5 h-3.5 text-primary" />
+                  <span className="uppercase text-muted-foreground">KPI:</span>
+                  <span className="font-mono">{r.kpi.metric}</span>
+                  <span className="text-foreground font-medium">{r.kpi.target_delta}</span>
+                </div>
+              )}
             </Card>
           ))}
           {(ai.recommendations ?? []).length === 0 && <Card className="p-6 text-sm text-muted-foreground">Рекомендации не сформированы.</Card>}
         </TabsContent>
 
+        <TabsContent value="next" className="mt-4">
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3 text-sm font-medium"><ListChecks className="w-4 h-4 text-primary" />Что проверить вручную</div>
+            {Array.isArray(ai.next_steps) && ai.next_steps.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {ai.next_steps.map((s: string, i: number) => (
+                  <li key={i} className="flex items-start gap-2 p-2 rounded bg-muted/40">
+                    <span className="text-primary mt-0.5">→</span><span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : <div className="text-sm text-muted-foreground">Дополнительных ручных проверок не требуется.</div>}
+          </Card>
+        </TabsContent>
+
         <TabsContent value="raw" className="mt-4">
           <Card className="p-4">
-            <pre className="text-xs overflow-auto max-h-[500px]">{JSON.stringify({ metrika: m, gsc: g }, null, 2)}</pre>
+            <pre className="text-xs overflow-auto max-h-[500px]">{JSON.stringify({ metrika: m, gsc: g, diagnostics: data.diagnostics }, null, 2)}</pre>
           </Card>
         </TabsContent>
       </Tabs>
