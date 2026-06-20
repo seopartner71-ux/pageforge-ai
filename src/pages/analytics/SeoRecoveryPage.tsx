@@ -76,7 +76,11 @@ export default function SeoRecoveryPage() {
         body: { counter_id: counterId || undefined, gsc_site: gscSite || undefined, date1, date2 },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error + ((data as any).details ? ': ' + (data as any).details.join('; ') : ''));
+      if ((data as any)?.error) {
+        const det = (data as any).details;
+        const msg = Array.isArray(det) ? det.map((d: any) => typeof d === 'string' ? d : (d?.title || d?.code || JSON.stringify(d))).join(' • ') : '';
+        throw new Error((data as any).error + (msg ? ': ' + msg : ''));
+      }
       setData(data);
     } catch (e: any) {
       setError(e?.message || 'Ошибка анализа');
