@@ -26,6 +26,7 @@ type CheckResult = {
   counter?: { id: number; name: string; site: string; owner_login?: string; status?: string };
   message?: string;
   yandex_login?: string | null;
+  details?: unknown;
 };
 
 type Props = {
@@ -47,6 +48,14 @@ export function MetrikaConnectWizard({ open, onOpenChange, onConfirmed, initialC
   const [counterId, setCounterId] = useState(initialCounterId ?? '');
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+
+  function edgeErrorMessage(error: unknown, fallback: string) {
+    const message = error instanceof Error ? error.message : String(error || '');
+    if (message.includes('Failed to send a request to the Edge Function')) {
+      return 'Браузер не смог вызвать функцию проверки. Я усилил CORS и обработку ошибок; обновите страницу и повторите. Если сообщение останется — используйте ручной ввод ID, проверка доступа продолжит работать через сервер.';
+    }
+    return message || fallback;
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -84,7 +93,7 @@ export function MetrikaConnectWizard({ open, onOpenChange, onConfirmed, initialC
       if (d?.error) { setListError(d.message || d.error); setCounters([]); return; }
       setCounters(d.counters ?? []);
     } catch (e: any) {
-      setListError(e?.message || 'Ошибка загрузки счётчиков');
+      setListError(edgeErrorMessage(e, 'Ошибка загрузки счётчиков'));
       setCounters([]);
     } finally { setLoading(false); }
   }
@@ -124,7 +133,7 @@ export function MetrikaConnectWizard({ open, onOpenChange, onConfirmed, initialC
       if (error) throw error;
       setCheck(data as CheckResult);
       setStep(3);
-    } catch (e: any) { toast.error('Проверка: ' + (e?.message || 'ошибка')); }
+    } catch (e: any) { toast.error('Проверка: ' + edgeErrorMessage(e, 'ошибка')); }
     finally { setLoading(false); }
   }
 
