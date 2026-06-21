@@ -186,7 +186,13 @@ export function MetrikaConnectWizard({ open, onOpenChange, onConfirmed, initialC
             </div>
 
             {listError && (
-              <Card className="p-3 border-rose-500/40 bg-rose-500/5 text-sm">{listError}</Card>
+              <Card className="p-4 border-amber-500/40 bg-amber-500/5 text-sm space-y-2">
+                <div className="font-medium text-amber-700 dark:text-amber-400">Не удалось получить список счётчиков</div>
+                <div>{listError}</div>
+                <div className="text-xs text-muted-foreground">
+                  Это не значит, что счётчик привязан неправильно. Введите ID ниже — мастер проверит доступ к конкретному счётчику и покажет точную причину.
+                </div>
+              </Card>
             )}
 
             {loading && !counters && (
@@ -258,8 +264,7 @@ export function MetrikaConnectWizard({ open, onOpenChange, onConfirmed, initialC
                   <XCircle className="w-5 h-5" />Нет доступа к счётчику
                 </div>
                 <div className="text-sm">
-                  Аккаунт <span className="font-medium">{check.yandex_login}</span> не имеет прав на счётчик <span className="font-mono">{counterId}</span>.
-                  Владелец должен предоставить доступ — это бесплатно и занимает 30 секунд.
+                  {check.message || <>Аккаунт <span className="font-medium">{check.yandex_login}</span> не имеет прав на счётчик <span className="font-mono">{counterId}</span>.</>}
                 </div>
                 <div className="rounded-md border bg-background p-3 space-y-2 text-sm">
                   <div className="font-medium">Как предоставить доступ (инструкция для владельца):</div>
