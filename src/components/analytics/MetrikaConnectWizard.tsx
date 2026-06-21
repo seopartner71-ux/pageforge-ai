@@ -26,6 +26,7 @@ type CheckResult = {
   counter?: { id: number; name: string; site: string; owner_login?: string; status?: string };
   message?: string;
   yandex_login?: string | null;
+  details?: unknown;
 };
 
 type Props = {
@@ -47,6 +48,14 @@ export function MetrikaConnectWizard({ open, onOpenChange, onConfirmed, initialC
   const [counterId, setCounterId] = useState(initialCounterId ?? '');
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+
+  function edgeErrorMessage(error: unknown, fallback: string) {
+    const message = error instanceof Error ? error.message : String(error || '');
+    if (message.includes('Failed to send a request to the Edge Function')) {
+      return 'Браузер не смог вызвать функцию проверки. Я усилил CORS и обработку ошибок; обновите страницу и повторите. Если сообщение останется — используйте ручной ввод ID, проверка доступа продолжит работать через сервер.';
+    }
+    return message || fallback;
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -84,7 +93,7 @@ export function MetrikaConnectWizard({ open, onOpenChange, onConfirmed, initialC
       if (d?.error) { setListError(d.message || d.error); setCounters([]); return; }
       setCounters(d.counters ?? []);
     } catch (e: any) {
-      setListError(e?.message || 'Ошибка загрузки счётчиков');
+      setListError(edgeErrorMessage(e, 'Ошибка загрузки счётчиков'));
       setCounters([]);
     } finally { setLoading(false); }
   }
@@ -124,7 +133,7 @@ export function MetrikaConnectWizard({ open, onOpenChange, onConfirmed, initialC
       if (error) throw error;
       setCheck(data as CheckResult);
       setStep(3);
-    } catch (e: any) { toast.error('Проверка: ' + (e?.message || 'ошибка')); }
+    } catch (e: any) { toast.error('Проверка: ' + edgeErrorMessage(e, 'ошибка')); }
     finally { setLoading(false); }
   }
 
@@ -177,7 +186,13 @@ export function MetrikaConnectWizard({ open, onOpenChange, onConfirmed, initialC
             </div>
 
             {listError && (
-              <Card className="p-3 border-rose-500/40 bg-rose-500/5 text-sm">{listError}</Card>
+              <Card className="p-4 border-amber-500/40 bg-amber-500/5 text-sm space-y-2">
+                <div className="font-medium text-amber-700 dark:text-amber-400">Не удалось получить список счётчиков</div>
+                <div>{listError}</div>
+                <div className="text-xs text-muted-foreground">
+                  Это не значит, что счётчик привязан неправильно. Введите ID ниже — мастер проверит доступ к конкретному счётчику и покажет точную причину.
+                </div>
+              </Card>
             )}
 
             {loading && !counters && (
@@ -249,8 +264,7 @@ export function MetrikaConnectWizard({ open, onOpenChange, onConfirmed, initialC
                   <XCircle className="w-5 h-5" />Нет доступа к счётчику
                 </div>
                 <div className="text-sm">
-                  Аккаунт <span className="font-medium">{check.yandex_login}</span> не имеет прав на счётчик <span className="font-mono">{counterId}</span>.
-                  Владелец должен предоставить доступ — это бесплатно и занимает 30 секунд.
+                  {check.message || <>Аккаунт <span className="font-medium">{check.yandex_login}</span> не имеет прав на счётчик <span className="font-mono">{counterId}</span>.</>}
                 </div>
                 <div className="rounded-md border bg-background p-3 space-y-2 text-sm">
                   <div className="font-medium">Как предоставить доступ (инструкция для владельца):</div>
