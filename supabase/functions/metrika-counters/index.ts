@@ -1,11 +1,12 @@
 // Metrika Management API: list counters available to the user and verify access to a given counter.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { corsHeaders as sdkCorsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  ...sdkCorsHeaders,
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+    `${sdkCorsHeaders["Access-Control-Allow-Headers"]}, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version`,
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 };
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -14,6 +15,14 @@ const CLIENT_SECRET = Deno.env.get("YANDEX_OAUTH_CLIENT_SECRET") ?? "";
 
 function j(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+function yandexMessage(data: any, fallback = "Ошибка Яндекс Метрики") {
+  return data?.message || data?.errors?.[0]?.message || data?.error_description || data?.error || fallback;
+}
+
+function deniedMessage(login?: string | null) {
+  return `Яндекс ответил «Access is denied». Чаще всего это означает, что текущий токен выдан без прав metrika:read или у аккаунта ${login ?? "Яндекса"} нет доступа к счётчику. Переподключите Яндекс и подтвердите доступ к Метрике; если счётчик чужой — владелец должен добавить этот логин в Метрике в разделе «Настройки → Доступ».`;
 }
 
 async function refreshAccess(sb: any, userId: string, refresh: string) {
@@ -85,8 +94,8 @@ Deno.serve(async (req) => {
     if (action === "list") {
       const res = await call("/management/v1/counters?per_page=200&field=permission,site,name,status,owner_login");
       if (!res.ok) {
-        const msg = (res.data as any)?.message || (res.data as any)?.errors?.[0]?.message || "Ошибка Яндекс Метрики";
-        return j({ error: "metrika_error", message: `${msg} (HTTP ${res.status}). Попробуйте переподключить аккаунт.`, status: res.status, details: res.data, yandex_login: tok.yandex_login }, 200);
+        const msg = res.status === 403 ? deniedMessage(tok.yandex_login) : `${yandexMessage(res.data)} (HTTP ${res.status}). Попробуйте переподключить аккаунт.`;
+        return j({ error: res.status === 403 ? "metrika_access_denied" : "metrika_error", message: msg, status: res.status, details: res.data, yandex_login: tok.yandex_login }, 200);
       }
       const counters = (res.data?.counters ?? []).map((c: any) => ({
         id: c.id,
@@ -104,13 +113,13 @@ Deno.serve(async (req) => {
       if (!counterId) return j({ error: "counter_id_required" }, 400);
       const res = await call(`/management/v1/counter/${counterId}?field=permission,site,name,owner_login,status`);
       if (res.status === 403) {
-        return j({ ok: false, access: "denied", yandex_login: tok.yandex_login, message: "Нет доступа к счётчику. Владелец должен предоставить доступ." }, 200);
+        return j({ ok: false, access: "denied", yandex_login: tok.yandex_login, message: deniedMessage(tok.yandex_login), details: res.data }, 200);
       }
       if (res.status === 404) {
         return j({ ok: false, access: "not_found", message: "Счётчик не найден. Проверьте ID." }, 200);
       }
       if (!res.ok) {
-        const msg = (res.data as any)?.message || (res.data as any)?.errors?.[0]?.message || "Ошибка Яндекс Метрики";
+        const msg = yandexMessage(res.data);
         return j({ ok: false, access: "error", status: res.status, message: msg, details: res.data }, 200);
       }
       const c = res.data?.counter;
