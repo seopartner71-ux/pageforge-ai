@@ -572,33 +572,28 @@ const CHANNEL_LABELS: Record<string, string> = {
 };
 
 function YandexChannelsChart({ metrika, yandex }: { metrika: any; yandex: any }) {
-  const combined: any[] = Array.isArray(metrika?.current?.daily_combined) ? metrika.current.daily_combined : [];
-  const yDaily: any[] = Array.isArray(yandex?.current?.daily_data) ? yandex.current.daily_data : [];
-  if (combined.length === 0 && yDaily.length === 0) {
+  const daily: any[] = Array.isArray(metrika?.current?.daily_data) ? metrika.current.daily_data : [];
+  if (daily.length === 0) {
     return <div className="text-sm text-muted-foreground text-center py-10">Нет данных по дням</div>;
   }
-  // Build merged rows by date
-  const map: Record<string, any> = {};
-  combined.forEach((r) => { map[r.date] = { date: r.date, label: formatDM(r.date), organic: r.organic ?? 0, direct: r.direct ?? 0, ad: r.ad ?? 0, social: r.social ?? 0, referral: r.referral ?? 0 }; });
-  yDaily.forEach((r) => { const d = r.date; map[d] = { ...(map[d] || { date: d, label: formatDM(d) }), wm_clicks: Number(r.clicks ?? 0) }; });
-  const rows = Object.values(map).sort((a: any, b: any) => a.date.localeCompare(b.date));
+  const rows = daily
+    .map((r: any) => ({ date: r.date, label: formatDM(r.date), organic: Number(r.visits ?? 0) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
   return (
-    <div className="h-80 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-          <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-          <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-          <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-          {combined.length > 0 && (['organic', 'direct', 'ad', 'social', 'referral'] as const).map((k) => (
-            <Area key={k} type="monotone" dataKey={k} stackId="1" name={CHANNEL_LABELS[k]} stroke={CHANNEL_COLORS[k]} fill={CHANNEL_COLORS[k]} fillOpacity={0.6} />
-          ))}
-          {yDaily.length > 0 && (
-            <Area type="monotone" dataKey="wm_clicks" name="Клики Вебмастера" stroke="#0F172A" fill="transparent" strokeWidth={2} />
-          )}
-        </AreaChart>
-      </ResponsiveContainer>
+    <div className="space-y-2">
+      <div className="text-sm font-medium text-muted-foreground">Органический трафик (Яндекс Метрика)</div>
+      <div className="h-80 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+            <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Line type="monotone" dataKey="organic" name="Органика" stroke={CHANNEL_COLORS.organic} strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
