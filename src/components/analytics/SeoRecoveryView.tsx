@@ -23,6 +23,17 @@ function Delta({ value, suffix = '%' }: { value: number; suffix?: string }) {
   return <span className={`inline-flex items-center gap-1 font-medium ${color}`}><Icon className="w-3 h-3" />{value > 0 ? '+' : ''}{value}{suffix}</span>;
 }
 
+function ruLabel(val: string): string {
+  const map: Record<string, string> = {
+    Yandex: 'Яндекс',
+    GSC: 'Google',
+    Metrika: 'Метрика',
+    query: 'запрос',
+    page: 'страница',
+  };
+  return map[val] ?? val;
+}
+
 function ScoreRing({ score }: { score: number }) {
   const color = score >= 70 ? 'text-emerald-500' : score >= 40 ? 'text-amber-500' : 'text-rose-500';
   const ring = score >= 70 ? 'stroke-emerald-500' : score >= 40 ? 'stroke-amber-500' : 'stroke-rose-500';
