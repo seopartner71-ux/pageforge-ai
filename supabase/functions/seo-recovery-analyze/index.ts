@@ -595,7 +595,7 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик. Твоя задач
 ФОРМАТ ВЫВОДА — СТРОГО валидный JSON без markdown:
 {
   "seo_score": 0-100,
-  "score_reasoning": "1–2 предложения, почему именно столько",
+  "score_reasoning": "1–2 предложения, почему именно столько. ПРАВИЛА расчёта (строго): если клики упали >20% в обеих системах (GSC и Яндекс/Метрика) — seo_score не выше 55. Если >20% только в одной системе — не выше 65. Если падение >35% хотя бы в одной — не выше 45. Стабильно (±5%) — 70–80. Рост >10% — 80+.",
   "headline": {
     "direction": "up|down|stable",
     "main_metric": "organic_visits|clicks|impressions|position|ctr",
