@@ -149,40 +149,81 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
   const weightedPosition = queries.reduce((sum: number, r: any) => sum + (Number(r.position ?? 0) * Math.max(1, Number(r.impressions ?? 0))), 0);
   const positionWeight = queries.reduce((sum: number, r: any) => sum + Math.max(1, Number(r.impressions ?? 0)), 0);
 
-  // Daily history via indicators/history endpoint
+  // Daily history — Yandex Webmaster supports several endpoints; try them in order.
   async function fetchHistory(d1: string, d2: string) {
+    const byDate = new Map<string, { date: string; clicks: number; impressions: number }>();
+    const setVal = (date: string, field: "clicks" | "impressions", value: number) => {
+      const key = String(date || "").slice(0, 10);
+      if (!key) return;
+      const cur = byDate.get(key) ?? { date: key, clicks: 0, impressions: 0 };
+      cur[field] = Number(value) || 0;
+      byDate.set(key, cur);
+    };
+
+    // 1) search-queries/all-history — основной эндпоинт ежедневной истории по сайту
     try {
-      const histParams = new URLSearchParams({ date_from: d1, date_to: d2 });
-      histParams.append("indicator", "SEARCH_TRAFFIC_TOTAL_CLICKS_PER_DAY");
-      histParams.append("indicator", "SEARCH_TRAFFIC_TOTAL_SHOWS_PER_DAY");
-      const hist = await yandexWebmasterRequest(
+      const p = new URLSearchParams({ date_from: d1, date_to: d2 });
+      p.append("query_indicator", "TOTAL_CLICKS");
+      p.append("query_indicator", "TOTAL_SHOWS");
+      const res: any = await yandexWebmasterRequest(
         token,
-        `/user/${userId}/hosts/${encodeURIComponent(hostId)}/indicators/?${histParams.toString()}`,
+        `/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/all-history/?${p.toString()}`,
       );
-      const indicators = hist?.indicators ?? hist?.data ?? [];
-      const byDate = new Map<string, { date: string; clicks: number; impressions: number }>();
-      const ingest = (entry: any, field: "clicks" | "impressions") => {
-        const points = entry?.history ?? entry?.points ?? entry?.values ?? [];
-        for (const p of points) {
-          const date = String(p?.date ?? p?.day ?? p?.dt ?? "").slice(0, 10);
-          if (!date) continue;
-          const value = Number(p?.value ?? p?.count ?? 0) || 0;
-          const cur = byDate.get(date) ?? { date, clicks: 0, impressions: 0 };
-          cur[field] = value;
-          byDate.set(date, cur);
+      const indicators = res?.indicators ?? res?.history ?? {};
+      if (indicators && typeof indicators === "object") {
+        for (const [name, points] of Object.entries(indicators)) {
+          const arr = Array.isArray(points) ? points : (points as any)?.history ?? [];
+          const field = String(name).includes("CLICK") ? "clicks" : "impressions";
+          for (const pt of arr) setVal(pt?.date ?? pt?.day, field, pt?.value ?? pt?.count ?? 0);
         }
-      };
-      for (const ind of Array.isArray(indicators) ? indicators : []) {
-        const name = String(ind?.indicator ?? ind?.name ?? "");
-        if (name.includes("CLICK")) ingest(ind, "clicks");
-        else if (name.includes("SHOW")) ingest(ind, "impressions");
       }
-      return Array.from(byDate.values())
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .map((r) => ({ ...r, ctr: r.impressions ? r.clicks / r.impressions : 0 }));
-    } catch {
-      return [];
+    } catch (_e) { /* fall through */ }
+
+    // 2) Фолбэк: indicators/history — общая история по индикаторам
+    if (byDate.size === 0) {
+      try {
+        const p = new URLSearchParams({ date_from: d1, date_to: d2 });
+        p.append("indicator", "SEARCH_TRAFFIC_TOTAL_CLICKS_PER_DAY");
+        p.append("indicator", "SEARCH_TRAFFIC_TOTAL_SHOWS_PER_DAY");
+        const res: any = await yandexWebmasterRequest(
+          token,
+          `/user/${userId}/hosts/${encodeURIComponent(hostId)}/indicators/history/?${p.toString()}`,
+        );
+        const indicators = res?.indicators ?? res?.data ?? [];
+        for (const ind of Array.isArray(indicators) ? indicators : []) {
+          const name = String(ind?.indicator ?? ind?.name ?? "");
+          const field = name.includes("CLICK") ? "clicks" : (name.includes("SHOW") ? "impressions" : null);
+          if (!field) continue;
+          const points = ind?.history ?? ind?.points ?? ind?.values ?? [];
+          for (const pt of points) setVal(pt?.date ?? pt?.day ?? pt?.dt, field, pt?.value ?? pt?.count ?? 0);
+        }
+      } catch (_e) { /* ignore */ }
     }
+
+    // 3) Последний фолбэк — старый endpoint /indicators/
+    if (byDate.size === 0) {
+      try {
+        const p = new URLSearchParams({ date_from: d1, date_to: d2 });
+        p.append("indicator", "SEARCH_TRAFFIC_TOTAL_CLICKS_PER_DAY");
+        p.append("indicator", "SEARCH_TRAFFIC_TOTAL_SHOWS_PER_DAY");
+        const res: any = await yandexWebmasterRequest(
+          token,
+          `/user/${userId}/hosts/${encodeURIComponent(hostId)}/indicators/?${p.toString()}`,
+        );
+        const indicators = res?.indicators ?? res?.data ?? [];
+        for (const ind of Array.isArray(indicators) ? indicators : []) {
+          const name = String(ind?.indicator ?? ind?.name ?? "");
+          const field = name.includes("CLICK") ? "clicks" : (name.includes("SHOW") ? "impressions" : null);
+          if (!field) continue;
+          const points = ind?.history ?? ind?.points ?? ind?.values ?? [];
+          for (const pt of points) setVal(pt?.date ?? pt?.day ?? pt?.dt, field, pt?.value ?? pt?.count ?? 0);
+        }
+      } catch (_e) { /* ignore */ }
+    }
+
+    return Array.from(byDate.values())
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((r) => ({ ...r, ctr: r.impressions ? r.clicks / r.impressions : 0 }));
   }
 
   const daily_data = await fetchHistory(date1, date2);
