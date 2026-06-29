@@ -454,28 +454,28 @@ export default function SeoRecoveryPage() {
               <Button size="sm" variant="ghost" onClick={() => navigate('/projects')}>Открыть проекты</Button>
             </div>
           </div>
-          {!yandexConnected && (
-            <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
+          <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
+            <div className="flex flex-wrap items-end gap-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Код авторизации Яндекса</Label>
                 <Input
-                  className="h-9 w-[220px]"
-                  placeholder="Код от Яндекса"
+                  className="h-9 w-[260px]"
+                  placeholder="Вставьте код со страницы Яндекса"
                   value={yandexCode}
                   onChange={(e) => setYandexCode(e.target.value)}
                 />
               </div>
-              <Button size="sm" variant="secondary" onClick={exchangeYandexCode} disabled={!yandexCode.trim() || yandexCodeLoading}>
-                {yandexCodeLoading ? 'Проверка…' : 'Вставить код'}
-              </Button>
               <Button size="sm" onClick={startYandexOAuth}>
                 <Link2 className="h-4 w-4 mr-1.5" /> Получить код
               </Button>
-              <div className="text-xs text-muted-foreground max-w-md">
-                Подключение сделано так же, как на странице «Проекты»: сначала получите код у Яндекса, затем вставьте его здесь.
-              </div>
+              <Button size="sm" variant="secondary" onClick={exchangeYandexCode} disabled={!yandexCode.trim() || yandexCodeLoading}>
+                {yandexCodeLoading ? 'Проверка…' : 'Подтвердить код'}
+              </Button>
             </div>
-          )}
+            <div className="text-xs text-muted-foreground max-w-3xl">
+              Redirect URI в приложении Яндекса должен быть постоянным: https://oauth.yandex.ru/verification_code. После авторизации Яндекс покажет код — вставьте его в это поле и нажмите «Подтвердить код».
+            </div>
+          </div>
         </Card>
 
         {/* Form */}
