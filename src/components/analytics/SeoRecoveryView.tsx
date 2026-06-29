@@ -412,29 +412,49 @@ function AiVerdictCard({ ai, gsc, yandex, metrika }: { ai: any; gsc: any; yandex
   const headline = ai?.headline ?? {};
   const conclusion = ai?.main_cause?.conclusion;
   const reasoning = ai?.score_reasoning;
-  // Собираем 3-4 предложения вывода
-  const sentences: string[] = [];
-  if (headline.summary) sentences.push(String(headline.summary));
-  if (ai?.main_cause?.title) sentences.push(`Главная причина — ${String(ai.main_cause.title).toLowerCase().replace(/\.$/, '')}.`);
-  if (conclusion) sentences.push(String(conclusion));
-  if (reasoning) sentences.push(String(reasoning));
-  const verdict = sentences.slice(0, 4).join(' ');
+  // Развёрнутый вывод — без дублирования заголовка
+  const norm = (s: string) => String(s).toLowerCase().replace(/[.!?\s]+$/g, '').trim();
+  const headlineNorm = headline.summary ? norm(headline.summary) : '';
+  const parts: string[] = [];
+  if (conclusion && norm(conclusion) !== headlineNorm) parts.push(String(conclusion));
+  if (ai?.main_cause?.title) {
+    const t = `Главная причина — ${String(ai.main_cause.title).toLowerCase().replace(/\.$/, '')}.`;
+    if (norm(t) !== headlineNorm) parts.push(t);
+  }
+  if (reasoning && norm(reasoning) !== headlineNorm) parts.push(String(reasoning));
+  const verdict = parts.slice(0, 3).join(' ');
 
-  const gClicks = gsc?.delta?.clicks;
-  const yClicks = yandex?.delta?.clicks;
-  const mOrg = metrika?.delta?.organic_visits;
+  const gClicksNow = gsc?.current?.clicks;
+  const gClicksPrev = gsc?.previous?.clicks;
+  const gClicksDelta = gsc?.delta?.clicks;
+  const yClicksNow = yandex?.current?.clicks;
+  const yClicksPrev = yandex?.previous?.clicks;
+  const yClicksDelta = yandex?.delta?.clicks;
+  const mOrgNow = metrika?.current?.organic_visits;
+  const mOrgPrev = metrika?.previous?.organic_visits;
+  const mOrgDelta = metrika?.delta?.organic_visits;
   const score = ai?.seo_score;
 
   if (!verdict && score == null) return null;
 
-  const pill = (label: string, value: number | undefined, color: string) => {
-    if (value == null || !Number.isFinite(value)) return null;
-    const neg = value < 0;
+  const pill = (label: string, now: number | undefined, prev: number | undefined, delta: number | undefined, color: string) => {
+    const hasNow = now != null && Number.isFinite(now);
+    const hasPrev = prev != null && Number.isFinite(prev) && prev > 0;
+    if (!hasNow && !hasPrev) return null;
+    const showDelta = hasPrev && delta != null && Number.isFinite(delta);
+    const neg = showDelta && (delta as number) < 0;
+    const pos = showDelta && (delta as number) > 0;
     return (
       <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm ${color}`}>
         <span className="text-xs uppercase tracking-wide opacity-80">{label}</span>
-        <span className="font-semibold">{value > 0 ? '+' : ''}{value}%</span>
-        {neg ? <ArrowDown className="w-3.5 h-3.5" /> : value > 0 ? <ArrowUp className="w-3.5 h-3.5" /> : null}
+        {showDelta ? (
+          <>
+            <span className="font-semibold">{pos ? '+' : ''}{delta}%</span>
+            {neg ? <ArrowDown className="w-3.5 h-3.5" /> : pos ? <ArrowUp className="w-3.5 h-3.5" /> : null}
+          </>
+        ) : (
+          <span className="font-semibold">{hasNow ? Number(now).toLocaleString('ru-RU') : '—'}</span>
+        )}
       </div>
     );
   };
@@ -456,9 +476,9 @@ function AiVerdictCard({ ai, gsc, yandex, metrika }: { ai: any; gsc: any; yandex
             <p className="text-sm text-muted-foreground leading-relaxed">{verdict}</p>
           )}
           <div className="flex flex-wrap gap-2 pt-1">
-            {pill('Google клики', gClicks, 'bg-[#3B82F6]/10 border-[#3B82F6]/40 text-[#3B82F6]')}
-            {pill('Яндекс клики', yClicks, 'bg-[#F97316]/10 border-[#F97316]/40 text-[#F97316]')}
-            {pill('Орг. визиты', mOrg, 'bg-[#F97316]/10 border-[#F97316]/40 text-[#F97316]')}
+            {pill('Google клики', gClicksNow, gClicksPrev, gClicksDelta, 'bg-[#3B82F6]/10 border-[#3B82F6]/40 text-[#3B82F6]')}
+            {pill('Яндекс клики', yClicksNow, yClicksPrev, yClicksDelta, 'bg-[#F97316]/10 border-[#F97316]/40 text-[#F97316]')}
+            {pill('Орг. визиты', mOrgNow, mOrgPrev, mOrgDelta, 'bg-[#F97316]/10 border-[#F97316]/40 text-[#F97316]')}
             {typeof score === 'number' && (
               <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm ${score >= 70 ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600' : score >= 40 ? 'bg-amber-500/10 border-amber-500/40 text-amber-600' : 'bg-rose-500/10 border-rose-500/40 text-rose-600'}`}>
                 <span className="text-xs uppercase tracking-wide opacity-80">SEO Score</span>
