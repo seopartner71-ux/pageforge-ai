@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { supabase } from '@/integrations/supabase/client';
 import {
   LifeBuoy, Loader2, Play, RefreshCw, AlertCircle, Link as LinkIcon,
-  Gauge, CheckCircle2, XCircle, Link2,
+  Gauge, CheckCircle2, XCircle, Link2, BarChart3, TrendingDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SeoRecoveryView } from '@/components/analytics/SeoRecoveryView';
@@ -82,6 +82,24 @@ function shiftDates(preset: string): { date1: string; date2: string; comparison1
 function fmtDMY(iso: string) {
   const [y, m, d] = iso.split('-');
   return `${d}.${m}.${y}`;
+}
+
+const PRESET_LABELS: Record<string, string> = {
+  '30d': 'Последние 30 дней',
+  mom: 'Месяц к месяцу',
+  yoy: 'Год к году',
+  custom: 'Свой период',
+};
+
+function autoPrev(date1: string, date2: string): { comparison1: string; comparison2: string } {
+  if (!date1 || !date2) return { comparison1: '', comparison2: '' };
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  const days = Math.max(1, Math.round((+d2 - +d1) / 86400000) + 1);
+  const compEnd = new Date(+d1 - 86400000);
+  const compStart = new Date(+compEnd - (days - 1) * 86400000);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { comparison1: fmt(compStart), comparison2: fmt(compEnd) };
 }
 
 export default function SeoRecoveryPage() {
