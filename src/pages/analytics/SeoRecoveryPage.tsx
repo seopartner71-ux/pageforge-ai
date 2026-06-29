@@ -427,7 +427,14 @@ export default function SeoRecoveryPage() {
                 <div className="text-xs text-muted-foreground">{yandexConnected ? `Подключено: ${yandexLogin ?? 'аккаунт'}` : 'Не подключено'}</div>
               </div>
               {yandexConnected
-                ? <Badge variant="outline" className="border-emerald-500/40 text-emerald-600">OK</Badge>
+                ? (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="border-emerald-500/40 text-emerald-600">OK</Badge>
+                    <Button size="sm" variant="outline" onClick={connectYandex} title="Переподключить, чтобы выдать права на Метрику">
+                      <RefreshCw className="w-3.5 h-3.5 mr-1" />Переподключить
+                    </Button>
+                  </div>
+                )
                 : <Button size="sm" variant="outline" onClick={connectYandex}><LinkIcon className="w-3.5 h-3.5 mr-1" />Подключить</Button>}
             </div>
             <div className="flex items-center justify-between p-3 border rounded-md">
