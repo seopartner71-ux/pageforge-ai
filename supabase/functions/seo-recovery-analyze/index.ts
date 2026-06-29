@@ -312,6 +312,92 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
 }
 
 // ============ Google Search Console (via connector gateway) ============
+// ============ Topvisor ============
+async function fetchTopvisor(apiKey: string, userId: string, projectId: string, date1: string, date2: string) {
+  const url = "https://api.topvisor.com/v2/json/get/positions_2/history";
+  const body = {
+    project_id: Number(projectId) || projectId,
+    date1,
+    date2,
+    show_headers: 1,
+    positions_fields: ["position"],
+  };
+  const r = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: {
+      "User-Id": String(userId),
+      "Authorization": `bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  }, 12_000, "topvisor");
+  const j: any = await r.json().catch(() => ({}));
+  if (!r.ok || j?.errors) {
+    const err: any = new Error(`topvisor_${r.status}`);
+    err.status = r.status;
+    err.payload = j;
+    throw err;
+  }
+
+  // Parse Topvisor response
+  // headers.dates: ["2026-06-01", ...]
+  // keywords: [{ id, name, positionsData: { "YYYY-MM-DD:<region>:<group>": { position: "5" } } }]
+  const dates: string[] = j?.result?.headers?.dates ?? j?.headers?.dates ?? [];
+  const keywords: any[] = j?.result?.keywords ?? j?.keywords ?? [];
+
+  // history: average position per date
+  const history: Array<{ date: string; avg_position: number }> = dates.map((d) => {
+    let sum = 0, cnt = 0;
+    for (const kw of keywords) {
+      const pd = kw?.positionsData ?? {};
+      for (const k of Object.keys(pd)) {
+        if (k.startsWith(d)) {
+          const p = Number(pd[k]?.position);
+          if (Number.isFinite(p) && p > 0 && p <= 200) { sum += p; cnt++; }
+          break;
+        }
+      }
+    }
+    return { date: d, avg_position: cnt ? Math.round((sum / cnt) * 10) / 10 : 0 };
+  });
+
+  // top3 / top10 / top30 — count at LAST date
+  const lastDate = dates[dates.length - 1];
+  const firstDate = dates[0];
+  let top3 = 0, top10 = 0, top30 = 0;
+  const lostList: Array<{ query: string; pos_was: number; pos_now: number; delta: number }> = [];
+  for (const kw of keywords) {
+    const name = String(kw?.name ?? kw?.keyword ?? kw?.id ?? "");
+    const pd = kw?.positionsData ?? {};
+    let last: number | null = null;
+    let first: number | null = null;
+    for (const k of Object.keys(pd)) {
+      const p = Number(pd[k]?.position);
+      if (!Number.isFinite(p) || p <= 0) continue;
+      if (lastDate && k.startsWith(lastDate)) last = p;
+      if (firstDate && k.startsWith(firstDate)) first = p;
+    }
+    if (last != null) {
+      if (last <= 3) top3++;
+      if (last <= 10) top10++;
+      if (last <= 30) top30++;
+    }
+    if (last != null && first != null && last > first) {
+      lostList.push({ query: name, pos_was: first, pos_now: last, delta: Math.round((last - first) * 10) / 10 });
+    }
+  }
+  lostList.sort((a, b) => b.delta - a.delta);
+
+  return {
+    top3,
+    top10,
+    top30,
+    keywords_total: keywords.length,
+    history,
+    lost_positions: lostList.slice(0, 10),
+  };
+}
+
 async function gscQuery(siteUrl: string, body: any) {
   const enc = encodeURIComponent(siteUrl);
   const url = `https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/${enc}/searchAnalytics/query`;
