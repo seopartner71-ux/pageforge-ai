@@ -219,13 +219,15 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
 async function fetchMetrika(token: string, counterId: string, date1: string, date2: string, opts: { withChannels?: boolean } = {}) {
   const base = { ids: counterId, date1, date2, accuracy: "full" };
   const [totals, sources, engines, pages] = await Promise.all([
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds" }),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<lastTrafficSource>", limit: "20" }),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<searchEngine>", filters: "ym:s:lastTrafficSource=='organic'", limit: "20" }),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:startURL", filters: "ym:s:lastTrafficSource=='organic'", limit: "50", sort: "-ym:s:visits" }),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds" }).catch((e) => ({ __error: e, totals: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<lastTrafficSource>", limit: "20" }).catch((e) => ({ __error: e, data: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<searchEngine>", filters: "ym:s:lastTrafficSource=='organic'", limit: "20" }).catch((e) => ({ __error: e, data: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:startURL", filters: "ym:s:lastTrafficSource=='organic'", limit: "25", sort: "-ym:s:visits" }).catch((e) => ({ __error: e, data: [] })),
   ]);
-  const t = totals.totals ?? [];
-  const organic = (sources.data ?? []).find((r: any) => r.dimensions[0]?.id === "organic")?.metrics?.[0] ?? 0;
+  const hardError = [totals, sources, engines, pages].find((x: any) => x?.__error?.status === 401 || x?.__error?.status === 403 || x?.__error?.status === 404)?.__error;
+  if (hardError) throw hardError;
+  const t = (totals as any).totals ?? [];
+  const organic = ((sources as any).data ?? []).find((r: any) => r.dimensions[0]?.id === "organic")?.metrics?.[0] ?? 0;
 
   // Daily organic visits via /bytime endpoint
   let daily_data: Array<{ date: string; visits: number }> = [];
@@ -299,17 +301,17 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
   if (opts.withChannels) {
     try {
       const [devRes, regRes] = await Promise.all([
-        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:deviceCategory", limit: "10" }),
-        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:regionCity", limit: "10", sort: "-ym:s:visits" }),
+        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:deviceCategory", limit: "10" }).catch(() => ({ data: [] })),
+        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:regionCity", limit: "10", sort: "-ym:s:visits" }).catch(() => ({ data: [] })),
       ]);
-      const devTotal = (devRes.data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
-      devices = (devRes.data ?? []).map((r: any) => ({
+      const devTotal = ((devRes as any).data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
+      devices = ((devRes as any).data ?? []).map((r: any) => ({
         name: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
         visits: r.metrics[0] ?? 0,
         pct: Math.round(((r.metrics[0] ?? 0) / devTotal) * 1000) / 10,
       }));
-      const regTotal = (regRes.data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
-      regions = (regRes.data ?? []).map((r: any) => ({
+      const regTotal = ((regRes as any).data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
+      regions = ((regRes as any).data ?? []).map((r: any) => ({
         name: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
         visits: r.metrics[0] ?? 0,
         pct: Math.round(((r.metrics[0] ?? 0) / regTotal) * 1000) / 10,
@@ -357,9 +359,9 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
     bounce: t[3] ?? 0,
     duration: t[4] ?? 0,
     organic_visits: organic,
-    sources: (sources.data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
-    engines: (engines.data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
-    top_pages: (pages.data ?? []).map((r: any) => ({ url: r.dimensions[0]?.name, visits: r.metrics[0] })),
+    sources: ((sources as any).data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
+    engines: ((engines as any).data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
+    top_pages: ((pages as any).data ?? []).map((r: any) => ({ url: r.dimensions[0]?.name, visits: r.metrics[0] })),
     daily_data,
     daily_channels,
     daily_combined: merged_daily,
