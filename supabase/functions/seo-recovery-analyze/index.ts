@@ -13,6 +13,9 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENROUTER_KEY_ENV = Deno.env.get("OPENROUTER_API_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const GSC_KEY = Deno.env.get("GOOGLE_SEARCH_CONSOLE_API_KEY") ?? "";
+const YANDEX_CLIENT_ID = Deno.env.get("YANDEX_OAUTH_CLIENT_ID") ?? "";
+const YANDEX_CLIENT_SECRET = Deno.env.get("YANDEX_OAUTH_CLIENT_SECRET") ?? "";
+const YANDEX_WEBMASTER_API = "https://api.webmaster.yandex.net/v4";
 
 async function getOpenRouterKey(sb: any): Promise<string> {
   if (OPENROUTER_KEY_ENV) return OPENROUTER_KEY_ENV;
@@ -37,6 +40,34 @@ function shiftRange(date1: string, date2: string) {
   return { date1: fmt(prev1), date2: fmt(prev2) };
 }
 
+async function refreshYandexAccess(sb: any, userId: string, refreshToken: string) {
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: YANDEX_CLIENT_ID,
+    client_secret: YANDEX_CLIENT_SECRET,
+  });
+  const res = await fetch("https://oauth.yandex.ru/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const tok = await res.json().catch(() => ({}));
+  if (!res.ok || !tok.access_token) {
+    const err: any = new Error("yandex_refresh_failed");
+    err.status = res.status;
+    err.payload = tok;
+    throw err;
+  }
+  const expiresAt = new Date(Date.now() + (Number(tok.expires_in) || 3600) * 1000).toISOString();
+  await sb.from("yandex_tokens").update({
+    access_token: tok.access_token,
+    refresh_token: tok.refresh_token ?? refreshToken,
+    expires_at: expiresAt,
+  }).eq("user_id", userId);
+  return tok.access_token as string;
+}
+
 // ============ Yandex Metrika ============
 async function metrikaRequest(token: string, params: Record<string, string>) {
   const url = "https://api-metrika.yandex.net/stat/v1/data?" + new URLSearchParams(params).toString();
@@ -49,6 +80,81 @@ async function metrikaRequest(token: string, params: Record<string, string>) {
     throw err;
   }
   return j;
+}
+
+// ============ Yandex Webmaster ==========
+async function yandexWebmasterRequest(token: string, path: string) {
+  const r = await fetch(`${YANDEX_WEBMASTER_API}${path}`, { headers: { Authorization: `OAuth ${token}` } });
+  const text = await r.text();
+  let payload: any;
+  try { payload = JSON.parse(text); } catch { payload = text; }
+  if (!r.ok) {
+    const err: any = new Error(`yandex_webmaster_${r.status}`);
+    err.status = r.status;
+    err.payload = payload;
+    throw err;
+  }
+  return payload;
+}
+
+function indicatorValue(row: any, names: string[]): number {
+  const indicators = row?.indicators ?? row?.statistics ?? row?.data ?? {};
+  for (const name of names) {
+    if (row?.[name] != null) return Number(row[name]) || 0;
+    if (indicators?.[name] != null) {
+      const value = typeof indicators[name] === "object" ? indicators[name]?.value : indicators[name];
+      return Number(value) || 0;
+    }
+    const found = Array.isArray(indicators)
+      ? indicators.find((x: any) => x?.name === name || x?.indicator === name || x?.field === name)
+      : null;
+    if (found?.value != null) return Number(found.value) || 0;
+  }
+  return 0;
+}
+
+function queryText(row: any): string {
+  return String(row?.query_text ?? row?.query ?? row?.text ?? row?.keys?.[0] ?? row?.query_id ?? "");
+}
+
+async function fetchYandexWebmaster(token: string, hostId: string, date1: string, date2: string) {
+  const userInfo = await yandexWebmasterRequest(token, "/user/");
+  const userId = userInfo?.user_id;
+  if (!userId) throw new Error("yandex_user_id_not_found");
+  const params = new URLSearchParams({
+    order_by: "TOTAL_SHOWS",
+    date_from: date1,
+    date_to: date2,
+    limit: "500",
+  });
+  params.append("query_indicator", "TOTAL_SHOWS");
+  params.append("query_indicator", "TOTAL_CLICKS");
+  params.append("query_indicator", "AVG_SHOW_POSITION");
+  params.append("query_indicator", "AVG_CLICK_POSITION");
+
+  const data = await yandexWebmasterRequest(
+    token,
+    `/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/popular/?${params.toString()}`,
+  );
+  const rawQueries = data?.queries ?? data?.data ?? data?.rows ?? [];
+  const queries = (Array.isArray(rawQueries) ? rawQueries : []).map((r: any) => {
+    const clicks = indicatorValue(r, ["TOTAL_CLICKS", "clicks"]);
+    const impressions = indicatorValue(r, ["TOTAL_SHOWS", "shows", "impressions"]);
+    const position = indicatorValue(r, ["AVG_SHOW_POSITION", "AVG_CLICK_POSITION", "position"]);
+    return { query: queryText(r), clicks, impressions, position };
+  }).filter((r: any) => r.query);
+
+  const clicks = queries.reduce((sum: number, r: any) => sum + Number(r.clicks ?? 0), 0);
+  const impressions = queries.reduce((sum: number, r: any) => sum + Number(r.impressions ?? 0), 0);
+  const weightedPosition = queries.reduce((sum: number, r: any) => sum + (Number(r.position ?? 0) * Math.max(1, Number(r.impressions ?? 0))), 0);
+  const positionWeight = queries.reduce((sum: number, r: any) => sum + Math.max(1, Number(r.impressions ?? 0)), 0);
+  return {
+    clicks,
+    impressions,
+    ctr: impressions ? clicks / impressions : 0,
+    position: positionWeight ? weightedPosition / positionWeight : 0,
+    queries,
+  };
 }
 
 async function fetchMetrika(token: string, counterId: string, date1: string, date2: string) {
@@ -167,6 +273,7 @@ function detectBrand(host: string): string | null {
 function buildDiagnostics(result: any, gscSite?: string) {
   const d: any = {};
   const g = result.gsc;
+  const y = result.yandex;
   const m = result.metrika;
   if (g) {
     const queriesDiff = diffSeries(g.current.queries, g.previous.queries, "query", "clicks");
@@ -222,6 +329,35 @@ function buildDiagnostics(result: any, gscSite?: string) {
         : "mixed",
     };
   }
+  if (y) {
+    const queriesDiff = diffSeries(y.current.queries, y.previous.queries, "query", "clicks");
+    const impressionsDiff = diffSeries(y.current.queries, y.previous.queries, "query", "impressions");
+    d.yandex = {
+      lost_queries_by_clicks: topLosers(queriesDiff).map(q => {
+        const cq = y.current.queries.find((x: any) => x.query === q.key);
+        const pq = y.previous.queries.find((x: any) => x.query === q.key);
+        return {
+          query: q.key, clicks_was: q.was, clicks_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct,
+          impr_was: pq?.impressions ?? 0, impr_now: cq?.impressions ?? 0,
+          pos_was: pq?.position ?? null, pos_now: cq?.position ?? null,
+        };
+      }),
+      lost_queries_by_impr: topLosers(impressionsDiff).slice(0, 10).map(q => ({ query: q.key, impr_was: q.was, impr_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct })),
+      gained_queries_by_clicks: topGainers(queriesDiff).map(q => ({ query: q.key, clicks_was: q.was, clicks_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct })),
+      signals: {
+        impressions_drop_pct: y.delta.impressions,
+        clicks_drop_pct: y.delta.clicks,
+        ctr_change_pct: y.delta.ctr,
+        position_change_abs: y.delta.position,
+        pattern:
+          y.delta.impressions < -10 && y.delta.position > 0.3 ? "visibility_loss"
+          : y.delta.position < -0.3 && y.delta.clicks < -5 ? "position_up_clicks_down_anomaly"
+          : y.delta.ctr < -10 && Math.abs(y.delta.position) < 0.3 ? "ctr_decay"
+          : y.delta.impressions < -10 && y.delta.clicks > -5 ? "impressions_drop_clicks_stable"
+          : "mixed",
+      },
+    };
+  }
   if (m) {
     const pagesDiff = diffSeries(m.current.top_pages, m.previous.top_pages, "url", "visits");
     d.metrika = {
@@ -238,7 +374,7 @@ function buildDiagnostics(result: any, gscSite?: string) {
 const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик (10+ лет опыта, специализация: технический SEO, аналитика, восстановление трафика).
 Твой стиль: сухой, доказательный, без воды. Уровень: для in-house head of SEO / агентства уровня A.
 
-ЗАДАЧА: дать профессиональное диагностическое заключение по динамике органического трафика на основе РЕАЛЬНЫХ метрик из Яндекс Метрики и Google Search Console. Не консультация в духе "пишите хороший контент" — а инженерный разбор.
+ЗАДАЧА: дать профессиональное диагностическое заключение по динамике органического трафика на основе РЕАЛЬНЫХ метрик из Яндекс.Вебмастера/Яндекс Метрики и Google Search Console. Не консультация в духе "пишите хороший контент" — а инженерный разбор.
 
 МЕТОДОЛОГИЯ (применяй последовательно):
 1. Определи паттерн изменения по signals.pattern и подтверди его цифрами:
@@ -249,7 +385,7 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик (10+ лет опыт
    • mixed — комбинированный, разбирай по сегментам.
 2. Сравни brand vs non-brand (если brand_split есть): расхождение указывает на источник проблемы (репутация vs алгоритм).
 3. Сегментный анализ: какие страницы и запросы дали основной отрицательный вклад (lost_queries_by_clicks, lost_pages). Считай долю потерь.
-4. Проверь источники Метрики (sources_diff): просел ли именно organic, или общий трафик. Если падает только organic — это SEO, если всё — общий фактор.
+4. Проверь источники Метрики (sources_diff), если они есть: просел ли именно organic, или общий трафик. Если есть только Яндекс.Вебмастер/GSC — анализируй клики, показы, CTR и позиции поисковой выдачи.
 5. Сезонность: учитывай дату периода, но не выдумывай — пиши только если паттерн чисто сезонный (укажи на это явно).
 
 ЖЁСТКИЕ ПРАВИЛА:
@@ -280,7 +416,7 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик (10+ лет опыт
   "main_cause": {
     "title": "Краткая формулировка корневой причины",
     "confidence": "high|medium|low",
-    "evidence": [ { "source": "Metrika|GSC", "metric": "...", "was": "...", "now": "...", "delta": "..." } ],
+    "evidence": [ { "source": "Yandex|Metrika|GSC", "metric": "...", "was": "...", "now": "...", "delta": "..." } ],
     "conclusion": "Развёрнутый вывод в 2–3 предложения, как senior SEO формулирует в отчёте клиенту"
   },
   "root_cause_hypotheses": [
@@ -321,7 +457,7 @@ async function callAI(key: string, payload: any) {
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: "Данные для анализа (фактические выгрузки из Metrika и GSC, включая diagnostics с предрасчитанными signals и lost-листами):\n" + JSON.stringify(payload, null, 2) },
+        { role: "user", content: "Данные для анализа (фактические выгрузки из Яндекс.Вебмастера/Метрики и GSC, включая diagnostics с предрасчитанными signals и lost-листами):\n" + JSON.stringify(payload, null, 2) },
       ],
       temperature: 0.2,
     }),
@@ -333,18 +469,29 @@ async function callAI(key: string, payload: any) {
 }
 
 // ============ Friendly error formatter ============
-function friendlyError(source: "Метрика" | "GSC", err: any, ctx: { counter_id?: string; gsc_site?: string }): { code: string; title: string; hint: string; raw?: string } {
+function friendlyError(source: "Метрика" | "Яндекс" | "GSC", err: any, ctx: { counter_id?: string; yandex_host?: string; gsc_site?: string }): { code: string; title: string; hint: string; raw?: string } {
   const status = err?.status;
   const payload = err?.payload;
   if (source === "Метрика") {
     if (status === 403) return {
       code: "metrika_access_denied",
       title: `Нет доступа к счётчику Яндекс Метрики${ctx.counter_id ? ` #${ctx.counter_id}` : ""}.`,
-      hint: "Подключённый Яндекс-аккаунт не имеет прав на чтение этого счётчика. Откройте «Мастер» и выберите счётчик из доступных, либо попросите владельца счётчика выдать гостевой доступ (Метрика → Настройки → Доступ → Добавить пользователя).",
+      hint: "Подключённый Яндекс-аккаунт не имеет прав на чтение этого счётчика. Переподключите Яндекс так же, как на странице «Проекты», либо попросите владельца счётчика выдать гостевой доступ (Метрика → Настройки → Доступ → Добавить пользователя).",
     };
     if (status === 404) return { code: "metrika_not_found", title: "Счётчик Метрики не найден.", hint: "Проверьте правильность ID счётчика — он должен быть числовым (например, 12345678)." };
     if (status === 401) return { code: "metrika_unauthorized", title: "Токен Яндекс Метрики истёк.", hint: "Переподключите Яндекс-аккаунт через кнопку «Подключить»." };
     return { code: "metrika_error", title: `Метрика ответила ошибкой ${status ?? ""}.`, hint: "Попробуйте позже или проверьте параметры счётчика.", raw: typeof payload === "object" ? JSON.stringify(payload).slice(0, 200) : String(payload).slice(0, 200) };
+  }
+  if (source === "Яндекс") {
+    if (status === 403) return {
+      code: "yandex_webmaster_access_denied",
+      title: `Нет доступа к сайту в Яндекс.Вебмастере${ctx.yandex_host ? `: ${ctx.yandex_host}` : ""}.`,
+      hint: "Используйте тот же сайт, который выбран и подтверждён на странице «Проекты». Если сайт чужой — владелец должен выдать доступ к нему в Яндекс.Вебмастере.",
+      raw: typeof payload === "object" ? JSON.stringify(payload).slice(0, 200) : String(payload).slice(0, 200),
+    };
+    if (status === 404) return { code: "yandex_webmaster_not_found", title: "Сайт Яндекса не найден.", hint: "Откройте «Выбрать» и выберите сайт из списка доступных в подключённом Яндекс-аккаунте." };
+    if (status === 401) return { code: "yandex_unauthorized", title: "Токен Яндекса истёк.", hint: "Переподключите Яндекс так же, как на странице «Проекты»." };
+    return { code: "yandex_webmaster_error", title: `Яндекс.Вебмастер ответил ошибкой ${status ?? ""}.`, hint: "Попробуйте позже или выберите другой сайт из списка проектов.", raw: typeof payload === "object" ? JSON.stringify(payload).slice(0, 200) : String(payload).slice(0, 200) };
   }
   // GSC
   if (status === 403) return {
@@ -370,12 +517,14 @@ Deno.serve(async (req) => {
     if (!user) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const body = await req.json();
-    const { counter_id, gsc_site, date1, date2, mode } = body as { counter_id?: string; gsc_site?: string; date1: string; date2: string; mode?: string };
+    const { counter_id, yandex_host, gsc_site, date1, date2, mode } = body as { counter_id?: string; yandex_host?: string; gsc_site?: string; date1: string; date2: string; mode?: string };
 
     if (!date1 || !date2) return new Response(JSON.stringify({ error: "date1/date2 required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     if (mode === "check") {
       const { data: tok } = await sb.from("yandex_tokens").select("yandex_login,expires_at").eq("user_id", user.id).maybeSingle();
       return new Response(JSON.stringify({
+        yandex_connected: !!tok,
+        yandex_login: tok?.yandex_login ?? null,
         metrika_connected: !!tok,
         metrika_login: tok?.yandex_login ?? null,
         gsc_available: !!(LOVABLE_API_KEY && GSC_KEY),
@@ -388,14 +537,18 @@ Deno.serve(async (req) => {
 
     // Metrika
     if (counter_id) {
-      const { data: tok } = await sb.from("yandex_tokens").select("access_token").eq("user_id", user.id).maybeSingle();
+      const { data: tok } = await sb.from("yandex_tokens").select("access_token, refresh_token, expires_at").eq("user_id", user.id).maybeSingle();
       if (!tok?.access_token) {
         errors.push({ code: "metrika_not_connected", title: "Яндекс Метрика не подключена.", hint: "Нажмите «Подключить» в карточке Яндекс Метрики выше и авторизуйтесь." });
       } else {
         try {
+          let accessToken = tok.access_token as string;
+          if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now() + 60_000 && tok.refresh_token) {
+            accessToken = await refreshYandexAccess(sb, user.id, tok.refresh_token);
+          }
           const [cur, prv] = await Promise.all([
-            fetchMetrika(tok.access_token, counter_id, date1, date2),
-            fetchMetrika(tok.access_token, counter_id, prev.date1, prev.date2),
+            fetchMetrika(accessToken, counter_id, date1, date2),
+            fetchMetrika(accessToken, counter_id, prev.date1, prev.date2),
           ]);
           result.metrika = { current: cur, previous: prv, delta: {
             visits: pct(cur.visits, prv.visits),
@@ -404,6 +557,31 @@ Deno.serve(async (req) => {
             pageviews: pct(cur.pageviews, prv.pageviews),
           }};
         } catch (e) { errors.push(friendlyError("Метрика", e, { counter_id })); }
+      }
+    }
+
+    // Yandex Webmaster — same project connection as /projects
+    if (yandex_host) {
+      const { data: tok } = await sb.from("yandex_tokens").select("access_token, refresh_token, expires_at").eq("user_id", user.id).maybeSingle();
+      if (!tok?.access_token) {
+        errors.push({ code: "yandex_not_connected", title: "Яндекс не подключён.", hint: "Подключите Яндекс так же, как на странице «Проекты», затем выберите сайт из списка." });
+      } else {
+        try {
+          let accessToken = tok.access_token as string;
+          if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now() + 60_000 && tok.refresh_token) {
+            accessToken = await refreshYandexAccess(sb, user.id, tok.refresh_token);
+          }
+          const [cur, prv] = await Promise.all([
+            fetchYandexWebmaster(accessToken, yandex_host, date1, date2),
+            fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2),
+          ]);
+          result.yandex = { current: cur, previous: prv, delta: {
+            clicks: pct(cur.clicks, prv.clicks),
+            impressions: pct(cur.impressions, prv.impressions),
+            ctr: pct(cur.ctr, prv.ctr),
+            position: Math.round((cur.position - prv.position) * 10) / 10,
+          }};
+        } catch (e) { errors.push(friendlyError("Яндекс", e, { yandex_host })); }
       }
     }
 
@@ -427,7 +605,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!result.metrika && !result.gsc) {
+    if (!result.metrika && !result.yandex && !result.gsc) {
       return new Response(JSON.stringify({ error: "Нет данных для анализа", details: errors }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

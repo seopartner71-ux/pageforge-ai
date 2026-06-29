@@ -48,6 +48,7 @@ export function SeoRecoveryView({ data }: Props) {
   const ai = data.ai ?? {};
   const m = data.metrika;
   const g = data.gsc;
+  const y = data.yandex;
   const headline = ai.headline ?? {};
 
   return (
@@ -106,6 +107,13 @@ export function SeoRecoveryView({ data }: Props) {
             <MetricCard title="Органические визиты" tooltip="Источник: Яндекс Метрика. Визиты из поисковых систем." now={m.current.organic_visits} was={m.previous.organic_visits} delta={m.delta.organic_visits} />
             <MetricCard title="Все визиты" tooltip="Источник: Метрика. Все визиты сайта." now={m.current.visits} was={m.previous.visits} delta={m.delta.visits} />
             <MetricCard title="Пользователи" tooltip="Источник: Метрика. Уникальные посетители." now={m.current.users} was={m.previous.users} delta={m.delta.users} />
+          </>
+        )}
+        {y && (
+          <>
+            <MetricCard title="Клики из Яндекса" tooltip="Источник: Яндекс.Вебмастер. Клики из поиска Яндекса." now={y.current.clicks} was={y.previous.clicks} delta={y.delta.clicks} />
+            <MetricCard title="Показы Яндекса" tooltip="Источник: Яндекс.Вебмастер. Показы сайта в выдаче Яндекса." now={y.current.impressions} was={y.previous.impressions} delta={y.delta.impressions} />
+            <MetricCard title="Позиция в Яндексе" tooltip="Источник: Яндекс.Вебмастер. Средняя позиция в выдаче Яндекса." now={y.current.position?.toFixed?.(1)} was={y.previous.position?.toFixed?.(1)} delta={y.delta.position} suffix="" />
           </>
         )}
         {g && (
