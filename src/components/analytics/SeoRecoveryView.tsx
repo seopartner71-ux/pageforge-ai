@@ -573,12 +573,34 @@ const CHANNEL_LABELS: Record<string, string> = {
 
 function YandexChannelsChart({ metrika, yandex }: { metrika: any; yandex: any }) {
   const daily: any[] = Array.isArray(metrika?.current?.daily_data) ? metrika.current.daily_data : [];
+  const dailyPrev: any[] = Array.isArray(metrika?.current?.daily_data_prev)
+    ? metrika.current.daily_data_prev
+    : (Array.isArray(metrika?.previous?.daily_data) ? metrika.previous.daily_data : []);
   if (daily.length === 0) {
     return <div className="text-sm text-muted-foreground text-center py-10">Нет данных по дням</div>;
   }
-  const rows = daily
-    .map((r: any) => ({ date: r.date, label: formatDM(r.date), organic: Number(r.visits ?? 0) }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const curSorted = [...daily].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const prevSorted = [...dailyPrev].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const len = Math.max(curSorted.length, prevSorted.length);
+  const rows = Array.from({ length: len }).map((_, i) => {
+    const c = curSorted[i];
+    const p = prevSorted[i];
+    return {
+      date: c?.date ?? p?.date ?? '',
+      label: formatDM(c?.date ?? p?.date ?? ''),
+      organic_current: c ? Number(c.visits ?? 0) : undefined,
+      organic_previous: p ? Number(p.visits ?? 0) : undefined,
+    };
+  });
+  // breakpoint — максимальное падение current vs previous
+  let bpIdx = -1, maxDrop = 0;
+  rows.forEach((r, i) => {
+    if (typeof r.organic_current === 'number' && typeof r.organic_previous === 'number') {
+      const d = r.organic_previous - r.organic_current;
+      if (d > maxDrop) { maxDrop = d; bpIdx = i; }
+    }
+  });
+  const bpLabel = bpIdx >= 0 ? rows[bpIdx].label : null;
   return (
     <div className="space-y-2">
       <div className="text-sm font-medium text-muted-foreground">Органический трафик (Яндекс Метрика)</div>
@@ -590,7 +612,11 @@ function YandexChannelsChart({ metrika, yandex }: { metrika: any; yandex: any })
             <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
             <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line type="monotone" dataKey="organic" name="Органика" stroke={CHANNEL_COLORS.organic} strokeWidth={2} dot={false} />
+            {bpLabel && (
+              <ReferenceLine x={bpLabel} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{ value: `↓ ${bpLabel}`, fill: 'hsl(var(--destructive))', fontSize: 11, position: 'insideBottomRight' }} />
+            )}
+            <Line type="monotone" dataKey="organic_current" name="Органика — текущий период" stroke={CHANNEL_COLORS.organic} strokeWidth={2} dot={false} connectNulls />
+            <Line type="monotone" dataKey="organic_previous" name="Органика — предыдущий период" stroke={CHANNEL_COLORS.organic} strokeWidth={1.5} strokeDasharray="4 4" dot={false} connectNulls />
           </LineChart>
         </ResponsiveContainer>
       </div>
