@@ -179,8 +179,10 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
     }
   }
 
-  const daily_data = await fetchHistory(date1, date2);
-  const daily_data_prev = prevDate1 && prevDate2 ? await fetchHistory(prevDate1, prevDate2) : [];
+  const [daily_data, daily_data_prev] = await Promise.all([
+    fetchHistory(date1, date2),
+    prevDate1 && prevDate2 ? fetchHistory(prevDate1, prevDate2) : Promise.resolve([] as any[]),
+  ]);
 
   return {
     clicks,
