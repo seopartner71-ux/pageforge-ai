@@ -13,6 +13,9 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENROUTER_KEY_ENV = Deno.env.get("OPENROUTER_API_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const GSC_KEY = Deno.env.get("GOOGLE_SEARCH_CONSOLE_API_KEY") ?? "";
+const YANDEX_CLIENT_ID = Deno.env.get("YANDEX_OAUTH_CLIENT_ID") ?? "";
+const YANDEX_CLIENT_SECRET = Deno.env.get("YANDEX_OAUTH_CLIENT_SECRET") ?? "";
+const YANDEX_WEBMASTER_API = "https://api.webmaster.yandex.net/v4";
 
 async function getOpenRouterKey(sb: any): Promise<string> {
   if (OPENROUTER_KEY_ENV) return OPENROUTER_KEY_ENV;
@@ -37,6 +40,34 @@ function shiftRange(date1: string, date2: string) {
   return { date1: fmt(prev1), date2: fmt(prev2) };
 }
 
+async function refreshYandexAccess(sb: any, userId: string, refreshToken: string) {
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: YANDEX_CLIENT_ID,
+    client_secret: YANDEX_CLIENT_SECRET,
+  });
+  const res = await fetch("https://oauth.yandex.ru/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const tok = await res.json().catch(() => ({}));
+  if (!res.ok || !tok.access_token) {
+    const err: any = new Error("yandex_refresh_failed");
+    err.status = res.status;
+    err.payload = tok;
+    throw err;
+  }
+  const expiresAt = new Date(Date.now() + (Number(tok.expires_in) || 3600) * 1000).toISOString();
+  await sb.from("yandex_tokens").update({
+    access_token: tok.access_token,
+    refresh_token: tok.refresh_token ?? refreshToken,
+    expires_at: expiresAt,
+  }).eq("user_id", userId);
+  return tok.access_token as string;
+}
+
 // ============ Yandex Metrika ============
 async function metrikaRequest(token: string, params: Record<string, string>) {
   const url = "https://api-metrika.yandex.net/stat/v1/data?" + new URLSearchParams(params).toString();
@@ -49,6 +80,78 @@ async function metrikaRequest(token: string, params: Record<string, string>) {
     throw err;
   }
   return j;
+}
+
+// ============ Yandex Webmaster ==========
+async function yandexWebmasterRequest(token: string, path: string) {
+  const r = await fetch(`${YANDEX_WEBMASTER_API}${path}`, { headers: { Authorization: `OAuth ${token}` } });
+  const text = await r.text();
+  let payload: any;
+  try { payload = JSON.parse(text); } catch { payload = text; }
+  if (!r.ok) {
+    const err: any = new Error(`yandex_webmaster_${r.status}`);
+    err.status = r.status;
+    err.payload = payload;
+    throw err;
+  }
+  return payload;
+}
+
+function indicatorValue(row: any, names: string[]): number {
+  const indicators = row?.indicators ?? row?.statistics ?? row?.data ?? {};
+  for (const name of names) {
+    if (row?.[name] != null) return Number(row[name]) || 0;
+    if (indicators?.[name] != null) return Number(indicators[name]) || 0;
+    const found = Array.isArray(indicators)
+      ? indicators.find((x: any) => x?.name === name || x?.indicator === name || x?.field === name)
+      : null;
+    if (found?.value != null) return Number(found.value) || 0;
+  }
+  return 0;
+}
+
+function queryText(row: any): string {
+  return String(row?.query_text ?? row?.query ?? row?.text ?? row?.keys?.[0] ?? row?.query_id ?? "");
+}
+
+async function fetchYandexWebmaster(token: string, hostId: string, date1: string, date2: string) {
+  const userInfo = await yandexWebmasterRequest(token, "/user/");
+  const userId = userInfo?.user_id;
+  if (!userId) throw new Error("yandex_user_id_not_found");
+  const params = new URLSearchParams({
+    order_by: "TOTAL_SHOWS",
+    date_from: date1,
+    date_to: date2,
+    limit: "500",
+  });
+  params.append("query_indicator", "TOTAL_SHOWS");
+  params.append("query_indicator", "TOTAL_CLICKS");
+  params.append("query_indicator", "AVG_SHOW_POSITION");
+  params.append("query_indicator", "AVG_CLICK_POSITION");
+
+  const data = await yandexWebmasterRequest(
+    token,
+    `/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/popular/?${params.toString()}`,
+  );
+  const rawQueries = data?.queries ?? data?.data ?? data?.rows ?? [];
+  const queries = (Array.isArray(rawQueries) ? rawQueries : []).map((r: any) => {
+    const clicks = indicatorValue(r, ["TOTAL_CLICKS", "clicks"]);
+    const impressions = indicatorValue(r, ["TOTAL_SHOWS", "shows", "impressions"]);
+    const position = indicatorValue(r, ["AVG_SHOW_POSITION", "AVG_CLICK_POSITION", "position"]);
+    return { query: queryText(r), clicks, impressions, position };
+  }).filter((r: any) => r.query);
+
+  const clicks = queries.reduce((sum: number, r: any) => sum + Number(r.clicks ?? 0), 0);
+  const impressions = queries.reduce((sum: number, r: any) => sum + Number(r.impressions ?? 0), 0);
+  const weightedPosition = queries.reduce((sum: number, r: any) => sum + (Number(r.position ?? 0) * Math.max(1, Number(r.impressions ?? 0))), 0);
+  const positionWeight = queries.reduce((sum: number, r: any) => sum + Math.max(1, Number(r.impressions ?? 0)), 0);
+  return {
+    clicks,
+    impressions,
+    ctr: impressions ? clicks / impressions : 0,
+    position: positionWeight ? weightedPosition / positionWeight : 0,
+    queries,
+  };
 }
 
 async function fetchMetrika(token: string, counterId: string, date1: string, date2: string) {
