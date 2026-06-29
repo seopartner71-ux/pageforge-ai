@@ -133,6 +133,10 @@ export default function SeoRecoveryPage() {
   const [useGsc, setUseGsc] = useState(true);
   const [useYandex, setUseYandex] = useState(true);
   const [useMetrika, setUseMetrika] = useState(false);
+  const [useTopvisor, setUseTopvisor] = useState(false);
+  const [topvisorKey, setTopvisorKey] = useState('');
+  const [topvisorUserId, setTopvisorUserId] = useState('');
+  const [topvisorProjectId, setTopvisorProjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -188,6 +192,16 @@ export default function SeoRecoveryPage() {
   useEffect(() => {
     checkStatus();
     loadProjects();
+    try {
+      const raw = localStorage.getItem('topvisor_creds');
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c?.api_key) setTopvisorKey(String(c.api_key));
+        if (c?.user_id) setTopvisorUserId(String(c.user_id));
+        if (c?.project_id) setTopvisorProjectId(String(c.project_id));
+        if (c?.enabled) setUseTopvisor(true);
+      }
+    } catch (_) { /* ignore */ }
     const onMsg = (e: MessageEvent) => {
       if (e.data?.type === 'yandex-oauth-done') {
         toast.success('Яндекс подключён');
@@ -198,6 +212,17 @@ export default function SeoRecoveryPage() {
     return () => window.removeEventListener('message', onMsg);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('topvisor_creds', JSON.stringify({
+        enabled: useTopvisor,
+        api_key: topvisorKey,
+        user_id: topvisorUserId,
+        project_id: topvisorProjectId,
+      }));
+    } catch (_) { /* ignore */ }
+  }, [useTopvisor, topvisorKey, topvisorUserId, topvisorProjectId]);
 
   function applyProject(project: Project, notify = true) {
     setSelectedProjectId(project.id);
@@ -249,6 +274,10 @@ export default function SeoRecoveryPage() {
       toast.error('Укажите ID счётчика Яндекс.Метрики');
       return;
     }
+    if (useTopvisor && (!topvisorKey.trim() || !topvisorUserId.trim() || !topvisorProjectId.trim())) {
+      toast.error('Укажите API-ключ, User ID и Project ID Топвизора');
+      return;
+    }
     setLoading(true);
     setError(null);
     setData(null);
@@ -257,6 +286,11 @@ export default function SeoRecoveryPage() {
       if (useYandex) body.yandex_host = yandexHost;
       if (useGsc) body.gsc_site = gscSite;
       if (useMetrika) body.counter_id = counterId.trim() || undefined;
+      if (useTopvisor) {
+        body.topvisor_key = topvisorKey.trim();
+        body.topvisor_user_id = topvisorUserId.trim();
+        body.topvisor_project_id = topvisorProjectId.trim();
+      }
       const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', { body });
       if (error) throw error;
       if ((data as any)?.error) {
@@ -566,6 +600,36 @@ export default function SeoRecoveryPage() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0 pt-0.5">
                   <Switch checked={useMetrika} onCheckedChange={setUseMetrika} />
+                </div>
+              </div>
+
+              {/* Topvisor */}
+              <div className="flex items-start justify-between gap-3 p-3 border rounded-md">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <div className="w-8 h-8 rounded-md bg-violet-600 text-white flex items-center justify-center text-sm font-bold shrink-0">T</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">Топвизор</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">Необязательно — добавит динамику позиций по ключевым запросам</div>
+                    {useTopvisor && (
+                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-2xl">
+                        <div className="space-y-1">
+                          <Label htmlFor="tvKey" className="text-xs">API ключ</Label>
+                          <Input id="tvKey" className="h-8" placeholder="api_key" value={topvisorKey} onChange={(e) => setTopvisorKey(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="tvUser" className="text-xs">User ID</Label>
+                          <Input id="tvUser" className="h-8" placeholder="user_id" value={topvisorUserId} onChange={(e) => setTopvisorUserId(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="tvProj" className="text-xs">Project ID</Label>
+                          <Input id="tvProj" className="h-8" placeholder="project_id" value={topvisorProjectId} onChange={(e) => setTopvisorProjectId(e.target.value)} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                  <Switch checked={useTopvisor} onCheckedChange={setUseTopvisor} />
                 </div>
               </div>
             </div>
