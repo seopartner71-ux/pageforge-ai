@@ -572,9 +572,11 @@ const CHANNEL_LABELS: Record<string, string> = {
 };
 
 function YandexChannelsChart({ metrika, yandex }: { metrika: any; yandex: any }) {
-  const daily: any[] = Array.isArray(metrika?.current?.daily_data) ? metrika.current.daily_data : [];
-  const dailyPrev: any[] = Array.isArray(metrika?.current?.daily_data_prev)
-    ? metrika.current.daily_data_prev
+  const daily: any[] = Array.isArray(metrika?.daily_data)
+    ? metrika.daily_data
+    : (Array.isArray(metrika?.current?.daily_data) ? metrika.current.daily_data : []);
+  const dailyPrev: any[] = Array.isArray(metrika?.daily_data_prev)
+    ? metrika.daily_data_prev
     : (Array.isArray(metrika?.previous?.daily_data) ? metrika.previous.daily_data : []);
   if (daily.length === 0) {
     return <div className="text-sm text-muted-foreground text-center py-10">Нет данных по дням</div>;
