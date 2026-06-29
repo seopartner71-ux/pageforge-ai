@@ -1014,7 +1014,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!result.metrika && !result.yandex && !result.gsc) {
+    if (!result.metrika && !result.yandex && !result.gsc && !result.topvisor) {
       return new Response(JSON.stringify({ error: "Нет данных для анализа", details: errors }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
