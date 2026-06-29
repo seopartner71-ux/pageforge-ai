@@ -208,6 +208,10 @@ export default function SeoRecoveryPage() {
       setDate2(d.date2);
       setComparison1(d.comparison1);
       setComparison2(d.comparison2);
+    } else {
+      const auto = autoPrev(date1, date2);
+      setComparison1(auto.comparison1);
+      setComparison2(auto.comparison2);
     }
   }
 
