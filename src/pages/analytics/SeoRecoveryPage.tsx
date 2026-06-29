@@ -549,16 +549,17 @@ export default function SeoRecoveryPage() {
                     <div className="text-sm font-medium">Яндекс.Метрика</div>
                     {useMetrika && (
                       <div className="mt-2 space-y-1">
-                        <Label htmlFor="counterId" className="text-xs">ID счётчика</Label>
+                        <Label htmlFor="counterId" className="text-xs">ID счётчика <span className="text-red-500">*</span></Label>
                         <Input
                           id="counterId"
                           className="h-8 w-[180px]"
                           inputMode="numeric"
                           placeholder="Например: 12345678"
+                          required
                           value={counterId}
                           onChange={(e) => setCounterId(e.target.value.replace(/\D/g, ''))}
                         />
-                        <p className="text-[11px] text-muted-foreground">Необязательно — добавит каналы, устройства, регионы</p>
+                        <p className="text-[11px] text-muted-foreground">Обязательно — добавит каналы, устройства, регионы</p>
                       </div>
                     )}
                   </div>
