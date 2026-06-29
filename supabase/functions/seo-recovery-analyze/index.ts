@@ -160,14 +160,32 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
       byDate.set(key, cur);
     };
 
+    async function fetchWithLog(path: string, label: string) {
+      const url = `${YANDEX_WEBMASTER_API}${path}`;
+      console.log(label, url);
+      const r = await fetch(url, { headers: { Authorization: `OAuth ${token}` } });
+      console.log("Response status:", r.status);
+      const text = await r.text();
+      console.log("Response body:", text.slice(0, 500));
+      let payload: any;
+      try { payload = JSON.parse(text); } catch { payload = text; }
+      if (!r.ok) {
+        const err: any = new Error(`yandex_webmaster_${r.status}`);
+        err.status = r.status;
+        err.payload = payload;
+        throw err;
+      }
+      return payload;
+    }
+
     // 1) search-queries/all-history — основной эндпоинт ежедневной истории по сайту
     try {
       const p = new URLSearchParams({ date_from: d1, date_to: d2 });
       p.append("query_indicator", "TOTAL_CLICKS");
       p.append("query_indicator", "TOTAL_SHOWS");
-      const res: any = await yandexWebmasterRequest(
-        token,
+      const res: any = await fetchWithLog(
         `/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/all-history/?${p.toString()}`,
+        "Trying Yandex history endpoint 1:",
       );
       const indicators = res?.indicators ?? res?.history ?? {};
       if (indicators && typeof indicators === "object") {
@@ -185,9 +203,9 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
         const p = new URLSearchParams({ date_from: d1, date_to: d2 });
         p.append("indicator", "SEARCH_TRAFFIC_TOTAL_CLICKS_PER_DAY");
         p.append("indicator", "SEARCH_TRAFFIC_TOTAL_SHOWS_PER_DAY");
-        const res: any = await yandexWebmasterRequest(
-          token,
+        const res: any = await fetchWithLog(
           `/user/${userId}/hosts/${encodeURIComponent(hostId)}/indicators/history/?${p.toString()}`,
+          "Trying Yandex history endpoint 2:",
         );
         const indicators = res?.indicators ?? res?.data ?? [];
         for (const ind of Array.isArray(indicators) ? indicators : []) {
@@ -206,9 +224,9 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
         const p = new URLSearchParams({ date_from: d1, date_to: d2 });
         p.append("indicator", "SEARCH_TRAFFIC_TOTAL_CLICKS_PER_DAY");
         p.append("indicator", "SEARCH_TRAFFIC_TOTAL_SHOWS_PER_DAY");
-        const res: any = await yandexWebmasterRequest(
-          token,
+        const res: any = await fetchWithLog(
           `/user/${userId}/hosts/${encodeURIComponent(hostId)}/indicators/?${p.toString()}`,
+          "Trying Yandex history endpoint 3:",
         );
         const indicators = res?.indicators ?? res?.data ?? [];
         for (const ind of Array.isArray(indicators) ? indicators : []) {
