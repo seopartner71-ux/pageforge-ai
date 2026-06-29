@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { supabase } from '@/integrations/supabase/client';
 import {
   LifeBuoy, Loader2, Play, RefreshCw, AlertCircle, Link as LinkIcon,
-  Gauge, Search as SearchIcon, CheckCircle2, XCircle, Link2, FolderKanban,
+  Gauge, CheckCircle2, XCircle, Link2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SeoRecoveryView } from '@/components/analytics/SeoRecoveryView';
