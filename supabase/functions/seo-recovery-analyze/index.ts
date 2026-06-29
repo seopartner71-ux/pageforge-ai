@@ -18,7 +18,8 @@ const YANDEX_CLIENT_SECRET = Deno.env.get("YANDEX_OAUTH_CLIENT_SECRET") ?? "";
 const YANDEX_WEBMASTER_API = "https://api.webmaster.yandex.net/v4";
 const DEFAULT_FETCH_TIMEOUT_MS = 8_000;
 const GSC_FETCH_TIMEOUT_MS = 12_000;
-const AI_FETCH_TIMEOUT_MS = 18_000;
+const AI_FETCH_TIMEOUT_MS = 75_000;
+const AI_HARD_TIMEOUT_MS = 85_000;
 
 async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, label = "request") {
   const controller = new AbortController();
@@ -639,7 +640,7 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик. Твоя задач
 }`;
 
 async function callAI(key: string, payload: any) {
-  const r = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+  const fetchPromise = fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -647,12 +648,21 @@ async function callAI(key: string, payload: any) {
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: "Данные для анализа (фактические выгрузки из Яндекс.Вебмастера/Метрики и GSC, включая diagnostics с предрасчитанными signals и lost-листами):\n" + JSON.stringify(payload, null, 2) },
+        { role: "user", content: "Данные для анализа (фактические выгрузки из Яндекс.Вебмастера/Метрики и GSC, включая diagnostics с предрасчитанными signals и lost-листами):\n" + JSON.stringify(payload) },
       ],
       temperature: 0.2,
+      max_tokens: 4000,
     }),
   }, AI_FETCH_TIMEOUT_MS, "ai_analysis");
-  const j = await r.json();
+  // Hard wall-clock guard — гарантирует, что мы не подвиснем сверх лимита edge-функции (150s)
+  const r = await Promise.race<Response>([
+    fetchPromise,
+    new Promise<Response>((_, reject) => setTimeout(() => reject(new Error(`ai_hard_timeout_${AI_HARD_TIMEOUT_MS}ms`)), AI_HARD_TIMEOUT_MS)),
+  ]);
+  const j = await Promise.race<any>([
+    r.json(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("ai_json_parse_timeout")), 10_000)),
+  ]);
   if (!r.ok) throw new Error(`OpenRouter ${r.status}: ${JSON.stringify(j).slice(0, 400)}`);
   const txt = j.choices?.[0]?.message?.content ?? "{}";
   try { return JSON.parse(txt); } catch { return { raw: txt }; }
@@ -668,15 +678,15 @@ function compactForAI(result: any) {
     current: { clicks: result.gsc.current.clicks, impressions: result.gsc.current.impressions, ctr: result.gsc.current.ctr, position: result.gsc.current.position },
     previous: { clicks: result.gsc.previous.clicks, impressions: result.gsc.previous.impressions, ctr: result.gsc.previous.ctr, position: result.gsc.previous.position },
     delta: result.gsc.delta,
-    daily_data: take(result.gsc.current.daily_data, 45),
-    daily_data_prev: take(result.gsc.previous.daily_data, 45),
+    daily_data: take(result.gsc.current.daily_data, 30),
+    daily_data_prev: take(result.gsc.previous.daily_data, 30),
   };
   if (result.yandex) compact.yandex = {
     current: { clicks: result.yandex.current.clicks, impressions: result.yandex.current.impressions, ctr: result.yandex.current.ctr, position: result.yandex.current.position },
     previous: { clicks: result.yandex.previous.clicks, impressions: result.yandex.previous.impressions, ctr: result.yandex.previous.ctr, position: result.yandex.previous.position },
     delta: result.yandex.delta,
-    daily_data: take(result.yandex.current.daily_data, 45),
-    daily_data_prev: take(result.yandex.previous.daily_data, 45),
+    daily_data: take(result.yandex.current.daily_data, 30),
+    daily_data_prev: take(result.yandex.previous.daily_data, 30),
   };
   if (result.metrika) compact.metrika = {
     current: {
@@ -684,11 +694,11 @@ function compactForAI(result: any) {
       users: result.metrika.current.users,
       organic_visits: result.metrika.current.organic_visits,
       pageviews: result.metrika.current.pageviews,
-      sources: result.metrika.current.sources,
-      engines: result.metrika.current.engines,
-      devices: result.metrika.current.devices,
-      regions: result.metrika.current.regions,
-      daily_combined: take(result.metrika.current.daily_combined, 45),
+      sources: take(result.metrika.current.sources, 10),
+      engines: take(result.metrika.current.engines, 10),
+      devices: take(result.metrika.current.devices, 10),
+      regions: take(result.metrika.current.regions, 10),
+      daily_combined: take(result.metrika.current.daily_combined, 30),
     },
     previous: { visits: result.metrika.previous.visits, users: result.metrika.previous.users, organic_visits: result.metrika.previous.organic_visits, pageviews: result.metrika.previous.pageviews, sources: result.metrika.previous.sources },
     delta: result.metrika.delta,
