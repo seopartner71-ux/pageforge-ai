@@ -491,6 +491,11 @@ export default function SeoRecoveryPage() {
               <Label>Дата по</Label>
               <Input type="date" value={date2} onChange={(e) => { setDate2(e.target.value); setPreset('custom'); }} />
             </div>
+          {preset !== 'custom' && comparison1 && comparison2 && (
+            <p className="text-sm text-muted-foreground">
+              Период сравнения: {fmtDMY(comparison1)} → {fmtDMY(comparison2)}
+            </p>
+          )}
           </div>
           <div className="flex justify-end">
             <Button onClick={runAnalysis} disabled={loading}>
