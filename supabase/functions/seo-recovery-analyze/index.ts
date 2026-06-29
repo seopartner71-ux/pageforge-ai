@@ -159,10 +159,11 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
     try {
       const r = await fetch(url, { headers: { Authorization: `OAuth ${token}` } });
       const text = await r.text();
-      console.log("all-history status:", r.status, "body:", text.slice(0, 500));
+      console.log("Yandex history raw response status:", r.status);
+      console.log("Yandex history raw response:", text.slice(0, 1000));
       if (!r.ok) return [];
       const res = JSON.parse(text);
-      console.log("Webmaster history response:", JSON.stringify(res).slice(0, 300));
+      console.log("Webmaster history parsed (history_items count):", Array.isArray(res?.history_items) ? res.history_items.length : "n/a");
       const items: any[] = res?.history_items ?? res?.history ?? res?.items ?? [];
       const rows = items.map((it: any) => {
         const date = String(it?.date ?? it?.day ?? "").slice(0, 10);
