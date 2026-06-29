@@ -548,8 +548,8 @@ function DailyCharts({ gsc, yandex }: { gsc: any; yandex: any }) {
             {breakpoint && metric !== 'position' && (
               <ReferenceLine x={breakpoint.label} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{ value: `Точка перелома: ${breakpoint.label}`, fill: 'hsl(var(--destructive))', fontSize: 11, position: 'top' }} />
             )}
-            {hasGsc && <Line type="monotone" dataKey="gsc_current" name="Google · текущий" stroke="#3B82F6" strokeWidth={2} dot={false} />}
-            {hasGsc && <Line type="monotone" dataKey="gsc_previous" name="Google · предыдущий" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
+            {hasGsc && <Line type="monotone" dataKey="gsc_current" name="Google текущий период" stroke="#3B82F6" strokeWidth={2} dot={false} />}
+            {hasGsc && <Line type="monotone" dataKey="gsc_previous" name="Google предыдущий период" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
             {hasY && <Line type="monotone" dataKey="yandex_current" name="Яндекс · текущий" stroke="#EF4444" strokeWidth={2} dot={false} />}
             {hasY && <Line type="monotone" dataKey="yandex_previous" name="Яндекс · предыдущий" stroke="#CBD5E1" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
           </LineChart>
@@ -569,8 +569,8 @@ function DailyCharts({ gsc, yandex }: { gsc: any; yandex: any }) {
                 formatter={(v: any) => `${v}%`}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              {hasGsc && <Line type="monotone" dataKey="gsc_current" name="Google CTR · текущий" stroke="#3B82F6" strokeWidth={2} dot={false} />}
-              {hasGsc && <Line type="monotone" dataKey="gsc_previous" name="Google CTR · предыдущий" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
+              {hasGsc && <Line type="monotone" dataKey="gsc_current" name="CTR текущий период" stroke="#3B82F6" strokeWidth={2} dot={false} />}
+              {hasGsc && <Line type="monotone" dataKey="gsc_previous" name="CTR предыдущий период" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
               {hasY && <Line type="monotone" dataKey="yandex_current" name="Яндекс CTR · текущий" stroke="#EF4444" strokeWidth={2} dot={false} />}
               {hasY && <Line type="monotone" dataKey="yandex_previous" name="Яндекс CTR · предыдущий" stroke="#CBD5E1" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
             </LineChart>
