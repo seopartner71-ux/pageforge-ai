@@ -691,11 +691,11 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик (10+ лет опыт
 }`;
 
 async function callAI(key: string, payload: any) {
-  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const r = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "google/gemini-2.0-flash-001",
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -703,11 +703,92 @@ async function callAI(key: string, payload: any) {
       ],
       temperature: 0.2,
     }),
-  });
+  }, AI_FETCH_TIMEOUT_MS, "ai_analysis");
   const j = await r.json();
   if (!r.ok) throw new Error(`OpenRouter ${r.status}: ${JSON.stringify(j).slice(0, 400)}`);
   const txt = j.choices?.[0]?.message?.content ?? "{}";
   try { return JSON.parse(txt); } catch { return { raw: txt }; }
+}
+
+function compactForAI(result: any) {
+  const take = (arr: any[], n: number) => Array.isArray(arr) ? arr.slice(0, n) : [];
+  const compact: any = {
+    period: result.period,
+    diagnostics: result.diagnostics,
+  };
+  if (result.gsc) compact.gsc = {
+    current: { clicks: result.gsc.current.clicks, impressions: result.gsc.current.impressions, ctr: result.gsc.current.ctr, position: result.gsc.current.position },
+    previous: { clicks: result.gsc.previous.clicks, impressions: result.gsc.previous.impressions, ctr: result.gsc.previous.ctr, position: result.gsc.previous.position },
+    delta: result.gsc.delta,
+    daily_data: take(result.gsc.current.daily_data, 45),
+    daily_data_prev: take(result.gsc.previous.daily_data, 45),
+  };
+  if (result.yandex) compact.yandex = {
+    current: { clicks: result.yandex.current.clicks, impressions: result.yandex.current.impressions, ctr: result.yandex.current.ctr, position: result.yandex.current.position },
+    previous: { clicks: result.yandex.previous.clicks, impressions: result.yandex.previous.impressions, ctr: result.yandex.previous.ctr, position: result.yandex.previous.position },
+    delta: result.yandex.delta,
+    daily_data: take(result.yandex.current.daily_data, 45),
+    daily_data_prev: take(result.yandex.previous.daily_data, 45),
+  };
+  if (result.metrika) compact.metrika = {
+    current: {
+      visits: result.metrika.current.visits,
+      users: result.metrika.current.users,
+      organic_visits: result.metrika.current.organic_visits,
+      pageviews: result.metrika.current.pageviews,
+      sources: result.metrika.current.sources,
+      engines: result.metrika.current.engines,
+      devices: result.metrika.current.devices,
+      regions: result.metrika.current.regions,
+      daily_combined: take(result.metrika.current.daily_combined, 45),
+    },
+    previous: { visits: result.metrika.previous.visits, users: result.metrika.previous.users, organic_visits: result.metrika.previous.organic_visits, pageviews: result.metrika.previous.pageviews, sources: result.metrika.previous.sources },
+    delta: result.metrika.delta,
+  };
+  return compact;
+}
+
+function fallbackAI(result: any, reason = "ai_unavailable") {
+  const primary = result.metrika?.delta?.organic_visits != null
+    ? { metric: "organic_visits", delta: result.metrika.delta.organic_visits, source: "Метрика" }
+    : result.gsc?.delta?.clicks != null
+      ? { metric: "clicks", delta: result.gsc.delta.clicks, source: "GSC" }
+      : result.yandex?.delta?.clicks != null
+        ? { metric: "clicks", delta: result.yandex.delta.clicks, source: "Yandex" }
+        : { metric: "clicks", delta: 0, source: "GSC" };
+  const direction = primary.delta < -5 ? "down" : primary.delta > 5 ? "up" : "stable";
+  const score = direction === "down" ? Math.max(35, 70 + Math.round(primary.delta / 2)) : direction === "up" ? 78 : 65;
+  return {
+    seo_score: score,
+    score_reasoning: "Автоматическое заключение построено по метрикам без расширенного AI-вывода: внешний AI-ответ не успел завершиться в безопасный лимит.",
+    headline: {
+      direction,
+      main_metric: primary.metric,
+      delta_pct: primary.delta,
+      summary: direction === "down" ? `Зафиксировано снижение по ключевой метрике ${primary.metric}: ${primary.delta}%` : direction === "up" ? `Зафиксирован рост по ключевой метрике ${primary.metric}: +${primary.delta}%` : "Существенного изменения органического трафика не зафиксировано",
+    },
+    diagnosis_pattern: { code: result.diagnostics?.gsc?.signals?.pattern ?? result.diagnostics?.yandex?.signals?.pattern ?? "mixed", explanation: "Паттерн рассчитан автоматически по кликам, показам, CTR и позиции." },
+    main_cause: {
+      title: "Требуется ручная верификация причины изменения",
+      confidence: "low",
+      evidence: [{ source: primary.source, metric: primary.metric, was: "предыдущий период", now: "текущий период", delta: `${primary.delta}%` }],
+      conclusion: `Данные источников получены, но расширенный AI-анализ был ограничен по времени (${reason}). Используйте вкладки графиков, потерянных страниц и запросов для первичной диагностики.`,
+    },
+    root_cause_hypotheses: [],
+    causes: [],
+    impact_breakdown: { total_clicks_lost: 0, top_loss_contributors: [] },
+    brand_analysis: null,
+    lost_pages: [
+      ...(result.diagnostics?.gsc?.lost_pages ?? []).slice(0, 5).map((p: any) => ({ url: p.url, was: p.clicks_was, now: p.clicks_now, delta_pct: p.delta_pct, source: "GSC" })),
+      ...(result.diagnostics?.metrika?.lost_pages ?? []).slice(0, 5).map((p: any) => ({ url: p.url, was: p.visits_was, now: p.visits_now, delta_pct: p.delta_pct, source: "Metrika" })),
+    ],
+    lost_queries: (result.diagnostics?.gsc?.lost_queries_by_clicks ?? result.diagnostics?.yandex?.lost_queries_by_clicks ?? []).slice(0, 10).map((q: any) => ({ query: q.query, clicks_was: q.clicks_was, clicks_now: q.clicks_now, position_was: q.pos_was, position_now: q.pos_now, diagnosis: "Падение кликов требует проверки сниппета, позиции и индексации страницы." })),
+    recommendations: [
+      { priority: "p1", title: "Проверить страницы и запросы с максимальной потерей", why: "Это самый быстрый способ локализовать вклад в падение.", action: "Откройте вкладки «Потерянные страницы» и «Запросы», проверьте индексацию, canonical, robots, title/description и изменения шаблона для топ-потерь.", kpi: { metric: primary.metric, target_delta: "+10–15% за 2 недели" }, ice: { impact: 8, confidence: 6, ease: 7, score: 336 } },
+    ],
+    next_steps: ["Проверить Coverage/Индексирование в GSC и Яндекс.Вебмастере", "Сверить даты падения с релизами, изменениями шаблонов, robots.txt, sitemap и логами сервера"],
+    timeline_notes: [],
+  };
 }
 
 // ============ Friendly error formatter ============
