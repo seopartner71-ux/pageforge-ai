@@ -838,7 +838,7 @@ Deno.serve(async (req) => {
             users: pct(cur.users, prv.users),
             organic_visits: pct(cur.organic_visits, prv.organic_visits),
             pageviews: pct(cur.pageviews, prv.pageviews),
-          }};
+          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data };
         } catch (e: any) {
           if (e?.status === 403) {
             const { data: tokDbg } = await sb.from("yandex_tokens").select("yandex_login").eq("user_id", user.id).maybeSingle();
