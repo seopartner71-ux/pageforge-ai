@@ -110,6 +110,7 @@ export default function SeoRecoveryPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [yandexHost, setYandexHost] = useState('');
   const [gscSite, setGscSite] = useState('');
+  const [counterId, setCounterId] = useState('');
   const [preset, setPreset] = useState('30d');
   const initial = shiftDates('30d');
   const [date1, setDate1] = useState(initial.date1);
@@ -225,7 +226,12 @@ export default function SeoRecoveryPage() {
     setData(null);
     try {
       const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', {
-        body: { yandex_host: yandexHost || undefined, gsc_site: gscSite || undefined, date1, date2, comparison1, comparison2 },
+        body: {
+          yandex_host: yandexHost || undefined,
+          gsc_site: gscSite || undefined,
+          counter_id: counterId.trim() || undefined,
+          date1, date2, comparison1, comparison2,
+        },
       });
       if (error) throw error;
       if ((data as any)?.error) {
@@ -490,6 +496,19 @@ export default function SeoRecoveryPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">Точно как в GSC, включая протокол и слэш</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="counterId">ID счётчика Яндекс Метрики</Label>
+              <Input
+                id="counterId"
+                inputMode="numeric"
+                placeholder="Например: 12345678"
+                value={counterId}
+                onChange={(e) => setCounterId(e.target.value.replace(/\D/g, ''))}
+              />
+              <p className="text-xs text-muted-foreground">Числовой ID из Метрики (необязательно) — добавит разбивку по устройствам, регионам и каналам</p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
