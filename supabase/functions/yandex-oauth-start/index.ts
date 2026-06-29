@@ -23,7 +23,6 @@ Deno.serve(async (req) => {
       redirect_uri: callback,
       state: token,
       force_confirm: 'yes',
-      scope: 'webmaster:read metrika:read metrika:write direct:read',
     });
     return new Response(
       JSON.stringify({ url: `https://oauth.yandex.ru/authorize?${params.toString()}` }),
