@@ -162,6 +162,7 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
       console.log("all-history status:", r.status, "body:", text.slice(0, 500));
       if (!r.ok) return [];
       const res = JSON.parse(text);
+      console.log("Webmaster history response:", JSON.stringify(res).slice(0, 300));
       const items: any[] = res?.history_items ?? res?.history ?? res?.items ?? [];
       const rows = items.map((it: any) => {
         const date = String(it?.date ?? it?.day ?? "").slice(0, 10);
