@@ -101,7 +101,10 @@ function indicatorValue(row: any, names: string[]): number {
   const indicators = row?.indicators ?? row?.statistics ?? row?.data ?? {};
   for (const name of names) {
     if (row?.[name] != null) return Number(row[name]) || 0;
-    if (indicators?.[name] != null) return Number(indicators[name]) || 0;
+    if (indicators?.[name] != null) {
+      const value = typeof indicators[name] === "object" ? indicators[name]?.value : indicators[name];
+      return Number(value) || 0;
+    }
     const found = Array.isArray(indicators)
       ? indicators.find((x: any) => x?.name === name || x?.indicator === name || x?.field === name)
       : null;
