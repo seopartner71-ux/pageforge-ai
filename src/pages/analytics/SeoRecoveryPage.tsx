@@ -13,6 +13,7 @@ import {
   Gauge, CheckCircle2, XCircle, Link2, ArrowRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
 import { SeoRecoveryView } from '@/components/analytics/SeoRecoveryView';
 import { useNavigate } from 'react-router-dom';
 
@@ -129,6 +130,9 @@ export default function SeoRecoveryPage() {
   const [comparison1, setComparison1] = useState(initial.comparison1);
   const [comparison2, setComparison2] = useState(initial.comparison2);
   const [compMode, setCompMode] = useState<'auto' | 'custom'>('auto');
+  const [useGsc, setUseGsc] = useState(true);
+  const [useYandex, setUseYandex] = useState(true);
+  const [useMetrika, setUseMetrika] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -229,22 +233,27 @@ export default function SeoRecoveryPage() {
   }
 
   async function runAnalysis() {
-    if (!yandexHost && !gscSite) {
-      toast.error('Выберите сайт Яндекса из проекта или укажите сайт GSC');
+    if (!useGsc && !useYandex && !useMetrika) {
+      toast.error('Включите хотя бы один источник данных');
+      return;
+    }
+    if (useGsc && !gscSite) {
+      toast.error('Укажите сайт Google Search Console');
+      return;
+    }
+    if (useYandex && !yandexHost) {
+      toast.error('Укажите сайт в Яндекс.Вебмастере');
       return;
     }
     setLoading(true);
     setError(null);
     setData(null);
     try {
-      const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', {
-        body: {
-          yandex_host: yandexHost || undefined,
-          gsc_site: gscSite || undefined,
-          counter_id: counterId.trim() || undefined,
-          date1, date2, comparison1, comparison2,
-        },
-      });
+      const body: Record<string, any> = { date1, date2, comparison1, comparison2 };
+      if (useYandex) body.yandex_host = yandexHost;
+      if (useGsc) body.gsc_site = gscSite;
+      if (useMetrika) body.counter_id = counterId.trim() || undefined;
+      const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', { body });
       if (error) throw error;
       if ((data as any)?.error) {
         const det = (data as any).details;
@@ -479,57 +488,102 @@ export default function SeoRecoveryPage() {
         </Card>
 
         {/* Form */}
-        <Card className="p-5 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label>Проект</Label>
-              <Select value={selectedProjectId || 'none'} onValueChange={onProjectChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder={projectsLoading ? 'Загрузка…' : 'Выберите проект'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Без проекта</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Берём подключения из /projects</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="yandexHost">Сайт в Яндексе</Label>
-              <div className="flex gap-2">
-                <Input id="yandexHost" placeholder="host_id из Яндекс.Вебмастера" value={yandexHost} onChange={(e) => setYandexHost(e.target.value.trim())} />
-                <Button type="button" variant="outline" onClick={openHostPicker} disabled={!yandexConnected}>
-                  <Gauge className="w-4 h-4 mr-1" />Выбрать
-                </Button>
+        <Card className="p-5 space-y-5">
+          {/* Sources */}
+          <div className="space-y-3">
+            <div className="text-sm font-medium">Источники данных</div>
+            <div className="space-y-2">
+              {/* GSC */}
+              <div className="flex items-center justify-between gap-3 p-3 border rounded-md">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-md bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">G</div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Google Search Console</div>
+                    {useGsc && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-muted-foreground truncate">{gscSite || 'Сайт не выбран'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {useGsc && (
+                    <Button type="button" variant="outline" size="sm" onClick={openGscPicker} disabled={!status?.gsc_available}>
+                      <Gauge className="w-3.5 h-3.5 mr-1" />Выбрать
+                    </Button>
+                  )}
+                  <Switch checked={useGsc} onCheckedChange={setUseGsc} />
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">То же подключение Яндекса, что на странице «Проекты»</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="gsc">Сайт Google Search Console</Label>
-              <div className="flex gap-2">
-                <Input id="gsc" placeholder="https://example.ru/ или sc-domain:example.ru" value={gscSite} onChange={(e) => setGscSite(e.target.value.trim())} />
-                <Button type="button" variant="outline" onClick={openGscPicker} disabled={!status?.gsc_available}>
-                  <Gauge className="w-4 h-4 mr-1" />Выбрать
-                </Button>
+
+              {/* Yandex Webmaster */}
+              <div className="flex items-center justify-between gap-3 p-3 border rounded-md">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-md bg-amber-500 text-white flex items-center justify-center text-sm font-bold shrink-0">Я</div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Яндекс.Вебмастер</div>
+                    {useYandex && (
+                      <div className="text-xs text-muted-foreground truncate mt-0.5">{yandexHost || 'Сайт не выбран'}</div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {useYandex && (
+                    <Button type="button" variant="outline" size="sm" onClick={openHostPicker} disabled={!yandexConnected}>
+                      <Gauge className="w-3.5 h-3.5 mr-1" />Выбрать
+                    </Button>
+                  )}
+                  <Switch checked={useYandex} onCheckedChange={setUseYandex} />
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">Точно как в GSC, включая протокол и слэш</p>
+
+              {/* Yandex Metrika */}
+              <div className="flex items-start justify-between gap-3 p-3 border rounded-md">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <div className="w-8 h-8 rounded-md bg-amber-500 text-white flex items-center justify-center text-sm font-bold shrink-0">Я</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">Яндекс.Метрика</div>
+                    {useMetrika && (
+                      <div className="mt-2 space-y-1">
+                        <Label htmlFor="counterId" className="text-xs">ID счётчика</Label>
+                        <Input
+                          id="counterId"
+                          className="h-8 w-[180px]"
+                          inputMode="numeric"
+                          placeholder="Например: 12345678"
+                          value={counterId}
+                          onChange={(e) => setCounterId(e.target.value.replace(/\D/g, ''))}
+                        />
+                        <p className="text-[11px] text-muted-foreground">Необязательно — добавит каналы, устройства, регионы</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                  <Switch checked={useMetrika} onCheckedChange={setUseMetrika} />
+                </div>
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="counterId">ID счётчика Яндекс Метрики</Label>
-              <Input
-                id="counterId"
-                inputMode="numeric"
-                placeholder="Например: 12345678"
-                value={counterId}
-                onChange={(e) => setCounterId(e.target.value.replace(/\D/g, ''))}
-              />
-              <p className="text-xs text-muted-foreground">Числовой ID из Метрики (необязательно) — добавит разбивку по устройствам, регионам и каналам</p>
-            </div>
+
+          {/* Project selector */}
+          <div className="space-y-1.5">
+            <Label>Проект</Label>
+            <Select value={selectedProjectId || 'none'} onValueChange={onProjectChange}>
+              <SelectTrigger>
+                <SelectValue placeholder={projectsLoading ? 'Загрузка…' : 'Выберите проект'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Без проекта</SelectItem>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Берём подключения из /projects</p>
           </div>
+
+          {/* Period */}
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               {([
@@ -624,6 +678,7 @@ export default function SeoRecoveryPage() {
               </div>
             )}
           </div>
+
           <div className="flex justify-end">
             <Button onClick={runAnalysis} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
