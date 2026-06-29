@@ -531,7 +531,7 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const prev = shiftRange(date1, date2);
+    const prev = comparison1 && comparison2 ? { date1: comparison1, date2: comparison2 } : shiftRange(date1, date2);
     const result: any = { period: { current: { date1, date2 }, previous: prev } };
     const errors: any[] = [];
 
