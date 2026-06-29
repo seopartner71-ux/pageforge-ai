@@ -16,6 +16,27 @@ const GSC_KEY = Deno.env.get("GOOGLE_SEARCH_CONSOLE_API_KEY") ?? "";
 const YANDEX_CLIENT_ID = Deno.env.get("YANDEX_OAUTH_CLIENT_ID") ?? "";
 const YANDEX_CLIENT_SECRET = Deno.env.get("YANDEX_OAUTH_CLIENT_SECRET") ?? "";
 const YANDEX_WEBMASTER_API = "https://api.webmaster.yandex.net/v4";
+const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
+const GSC_FETCH_TIMEOUT_MS = 20_000;
+const AI_FETCH_TIMEOUT_MS = 35_000;
+
+async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, label = "request") {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(`${label}_timeout_${timeoutMs}ms`), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (e) {
+    if ((e as any)?.name === "AbortError") {
+      const err: any = new Error(`${label}_timeout`);
+      err.status = 408;
+      err.payload = { timeout_ms: timeoutMs };
+      throw err;
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function getOpenRouterKey(sb: any): Promise<string> {
   if (OPENROUTER_KEY_ENV) return OPENROUTER_KEY_ENV;
@@ -47,11 +68,11 @@ async function refreshYandexAccess(sb: any, userId: string, refreshToken: string
     client_id: YANDEX_CLIENT_ID,
     client_secret: YANDEX_CLIENT_SECRET,
   });
-  const res = await fetch("https://oauth.yandex.ru/token", {
+  const res = await fetchWithTimeout("https://oauth.yandex.ru/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
-  });
+  }, 12_000, "yandex_refresh");
   const tok = await res.json().catch(() => ({}));
   if (!res.ok || !tok.access_token) {
     const err: any = new Error("yandex_refresh_failed");
@@ -71,7 +92,7 @@ async function refreshYandexAccess(sb: any, userId: string, refreshToken: string
 // ============ Yandex Metrika ============
 async function metrikaRequest(token: string, params: Record<string, string>) {
   const url = "https://api-metrika.yandex.net/stat/v1/data?" + new URLSearchParams(params).toString();
-  const r = await fetch(url, { headers: { Authorization: `OAuth ${token}` } });
+  const r = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, DEFAULT_FETCH_TIMEOUT_MS, "metrika_data");
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const err: any = new Error(`metrika_${r.status}`);
@@ -84,7 +105,7 @@ async function metrikaRequest(token: string, params: Record<string, string>) {
 
 // ============ Yandex Webmaster ==========
 async function yandexWebmasterRequest(token: string, path: string) {
-  const r = await fetch(`${YANDEX_WEBMASTER_API}${path}`, { headers: { Authorization: `OAuth ${token}` } });
+  const r = await fetchWithTimeout(`${YANDEX_WEBMASTER_API}${path}`, { headers: { Authorization: `OAuth ${token}` } }, 18_000, "yandex_webmaster");
   const text = await r.text();
   let payload: any;
   try { payload = JSON.parse(text); } catch { payload = text; }
@@ -157,7 +178,7 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
     const url = `${YANDEX_WEBMASTER_API}/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/all-history/?${p.toString()}`;
     console.log("Yandex all-history URL:", url);
     try {
-      const r = await fetch(url, { headers: { Authorization: `OAuth ${token}` } });
+      const r = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, DEFAULT_FETCH_TIMEOUT_MS, "yandex_history");
       const text = await r.text();
       console.log("Yandex history raw response status:", r.status);
       console.log("Yandex history raw response:", text.slice(0, 1000));
@@ -219,7 +240,7 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
       filters: "ym:s:lastTrafficSource=='organic'",
     }).toString();
     console.log("Metrika bytime URL:", dailyUrl);
-    const dr = await fetch(dailyUrl, { headers: { Authorization: `OAuth ${token}` } });
+    const dr = await fetchWithTimeout(dailyUrl, { headers: { Authorization: `OAuth ${token}` } }, 12_000, "metrika_bytime_organic");
     const dtext = await dr.text();
     console.log("bytime status:", dr.status, "body:", dtext.slice(0, 300));
     if (dr.ok) {
@@ -251,7 +272,7 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
         accuracy: "full",
         filters: `ym:s:lastSignTrafficSource=='${channel}'`,
       }).toString();
-      const dr = await fetch(url, { headers: { Authorization: `OAuth ${token}` } });
+      const dr = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, 10_000, `metrika_bytime_${channel}`);
       const dtext = await dr.text();
       console.log(`Metrika bytime [${channel}] status:`, dr.status, "body:", dtext.slice(0, 200));
       if (!dr.ok) return [];
@@ -351,7 +372,7 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
 async function gscQuery(siteUrl: string, body: any) {
   const enc = encodeURIComponent(siteUrl);
   const url = `https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/${enc}/searchAnalytics/query`;
-  const r = await fetch(url, {
+  const r = await fetchWithTimeout(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -359,7 +380,7 @@ async function gscQuery(siteUrl: string, body: any) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  });
+  }, GSC_FETCH_TIMEOUT_MS, "gsc_query");
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const err: any = new Error(`gsc_${r.status}`);
