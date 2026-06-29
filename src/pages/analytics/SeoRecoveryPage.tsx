@@ -133,6 +133,10 @@ export default function SeoRecoveryPage() {
   const [useGsc, setUseGsc] = useState(true);
   const [useYandex, setUseYandex] = useState(true);
   const [useMetrika, setUseMetrika] = useState(false);
+  const [useTopvisor, setUseTopvisor] = useState(false);
+  const [topvisorKey, setTopvisorKey] = useState('');
+  const [topvisorUserId, setTopvisorUserId] = useState('');
+  const [topvisorProjectId, setTopvisorProjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -188,6 +192,16 @@ export default function SeoRecoveryPage() {
   useEffect(() => {
     checkStatus();
     loadProjects();
+    try {
+      const raw = localStorage.getItem('topvisor_creds');
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c?.api_key) setTopvisorKey(String(c.api_key));
+        if (c?.user_id) setTopvisorUserId(String(c.user_id));
+        if (c?.project_id) setTopvisorProjectId(String(c.project_id));
+        if (c?.enabled) setUseTopvisor(true);
+      }
+    } catch (_) { /* ignore */ }
     const onMsg = (e: MessageEvent) => {
       if (e.data?.type === 'yandex-oauth-done') {
         toast.success('Яндекс подключён');
@@ -198,6 +212,17 @@ export default function SeoRecoveryPage() {
     return () => window.removeEventListener('message', onMsg);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('topvisor_creds', JSON.stringify({
+        enabled: useTopvisor,
+        api_key: topvisorKey,
+        user_id: topvisorUserId,
+        project_id: topvisorProjectId,
+      }));
+    } catch (_) { /* ignore */ }
+  }, [useTopvisor, topvisorKey, topvisorUserId, topvisorProjectId]);
 
   function applyProject(project: Project, notify = true) {
     setSelectedProjectId(project.id);
@@ -249,6 +274,10 @@ export default function SeoRecoveryPage() {
       toast.error('Укажите ID счётчика Яндекс.Метрики');
       return;
     }
+    if (useTopvisor && (!topvisorKey.trim() || !topvisorUserId.trim() || !topvisorProjectId.trim())) {
+      toast.error('Укажите API-ключ, User ID и Project ID Топвизора');
+      return;
+    }
     setLoading(true);
     setError(null);
     setData(null);
@@ -257,6 +286,11 @@ export default function SeoRecoveryPage() {
       if (useYandex) body.yandex_host = yandexHost;
       if (useGsc) body.gsc_site = gscSite;
       if (useMetrika) body.counter_id = counterId.trim() || undefined;
+      if (useTopvisor) {
+        body.topvisor_key = topvisorKey.trim();
+        body.topvisor_user_id = topvisorUserId.trim();
+        body.topvisor_project_id = topvisorProjectId.trim();
+      }
       const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', { body });
       if (error) throw error;
       if ((data as any)?.error) {
