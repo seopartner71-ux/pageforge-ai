@@ -6,15 +6,43 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { LifeBuoy, Loader2, Play, RefreshCw, AlertCircle, Link as LinkIcon } from 'lucide-react';
+import {
+  LifeBuoy, Loader2, Play, RefreshCw, AlertCircle, Link as LinkIcon,
+  Gauge, Search as SearchIcon, CheckCircle2, XCircle, Link2, FolderKanban,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { SeoRecoveryView } from '@/components/analytics/SeoRecoveryView';
 import { useNavigate } from 'react-router-dom';
-import { MetrikaConnectWizard } from '@/components/analytics/MetrikaConnectWizard';
-import { Wand2 } from 'lucide-react';
 
-type Status = { metrika_connected: boolean; metrika_login: string | null; gsc_available: boolean };
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+
+type Status = {
+  yandex_connected?: boolean;
+  yandex_login?: string | null;
+  metrika_connected?: boolean;
+  metrika_login?: string | null;
+  gsc_available: boolean;
+};
+
+type Project = {
+  id: string;
+  name: string;
+  domain: string | null;
+  gsc_site_url: string | null;
+  yandex_host: string | null;
+  gsc_connected: boolean;
+  yandex_connected: boolean;
+};
+
+type YandexHost = {
+  host_id: string;
+  ascii_host_url?: string;
+  unicode_host_url?: string;
+  verified?: boolean;
+};
 
 function shiftDates(preset: string): { date1: string; date2: string } {
   const today = new Date();
@@ -31,7 +59,10 @@ function shiftDates(preset: string): { date1: string; date2: string } {
 export default function SeoRecoveryPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status | null>(null);
-  const [counterId, setCounterId] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [yandexHost, setYandexHost] = useState('');
   const [gscSite, setGscSite] = useState('');
   const [preset, setPreset] = useState('30d');
   const initial = shiftDates('30d');
@@ -40,7 +71,13 @@ export default function SeoRecoveryPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const [yandexConnected, setYandexConnected] = useState(false);
+  const [yandexLogin, setYandexLogin] = useState<string | null>(null);
+  const [yandexCode, setYandexCode] = useState('');
+  const [yandexCodeLoading, setYandexCodeLoading] = useState(false);
+  const [yandexHosts, setYandexHosts] = useState<YandexHost[]>([]);
+  const [yandexLoadingHosts, setYandexLoadingHosts] = useState(false);
+  const [hostPickerOpen, setHostPickerOpen] = useState(false);
 
   async function checkStatus() {
     try {
@@ -48,11 +85,69 @@ export default function SeoRecoveryPage() {
         body: { mode: 'check', date1, date2 },
       });
       if (error) throw error;
-      setStatus(data as Status);
+      const s = data as Status;
+      setStatus(s);
+      setYandexConnected(Boolean(s?.yandex_connected ?? s?.metrika_connected));
+      setYandexLogin(s?.yandex_login ?? s?.metrika_login ?? null);
     } catch (e) { console.error(e); }
   }
 
-  useEffect(() => { checkStatus(); /* eslint-disable-next-line */ }, []);
+  async function loadProjects() {
+    setProjectsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setProjects([]); return; }
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, domain, gsc_site_url, yandex_host, gsc_connected, yandex_connected')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const list = (data ?? []) as Project[];
+      setProjects(list);
+
+      if (!selectedProjectId && list.length > 0) {
+        const preferred = list.find((p) => p.gsc_connected || p.yandex_connected) ?? list[0];
+        applyProject(preferred, false);
+      }
+    } catch (e: any) {
+      toast.error('Не удалось загрузить проекты: ' + (e?.message || 'ошибка'));
+    } finally {
+      setProjectsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    checkStatus();
+    loadProjects();
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'yandex-oauth-done') {
+        toast.success('Яндекс подключён');
+        checkStatus();
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function applyProject(project: Project, notify = true) {
+    setSelectedProjectId(project.id);
+    setGscSite(project.gsc_site_url || (project.domain ? `https://${project.domain}/` : ''));
+    setYandexHost(project.yandex_connected && project.yandex_host ? project.yandex_host : '');
+    if (notify) toast.success('Проект выбран: ' + project.name);
+  }
+
+  function onProjectChange(id: string) {
+    if (id === 'none') {
+      setSelectedProjectId('');
+      setGscSite('');
+      setYandexHost('');
+      return;
+    }
+    const p = projects.find((x) => x.id === id);
+    if (p) applyProject(p);
+  }
 
   function applyPreset(p: string) {
     setPreset(p);
@@ -64,8 +159,8 @@ export default function SeoRecoveryPage() {
   }
 
   async function runAnalysis() {
-    if (!counterId && !gscSite) {
-      toast.error('Укажите счётчик Метрики или сайт GSC');
+    if (!yandexHost && !gscSite) {
+      toast.error('Выберите сайт Яндекса из проекта или укажите сайт GSC');
       return;
     }
     setLoading(true);
@@ -73,7 +168,7 @@ export default function SeoRecoveryPage() {
     setData(null);
     try {
       const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', {
-        body: { counter_id: counterId || undefined, gsc_site: gscSite || undefined, date1, date2 },
+        body: { yandex_host: yandexHost || undefined, gsc_site: gscSite || undefined, date1, date2 },
       });
       if (error) throw error;
       if ((data as any)?.error) {
@@ -90,19 +185,112 @@ export default function SeoRecoveryPage() {
   }
 
   async function connectYandex() {
+    await startYandexOAuth();
+  }
+
+  async function startYandexOAuth() {
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      const { data, error } = await supabase.functions.invoke('yandex-oauth-start', {
-        body: {},
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Войдите в систему');
+        return;
+      }
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/yandex-oauth-start`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: SUPABASE_KEY,
+        },
       });
-      if (error) throw error;
-      if ((data as any)?.url) window.open((data as any).url, '_blank', 'width=600,height=720');
-      else throw new Error('Не получен URL авторизации');
+      const json = await res.json();
+      if (!res.ok || !json.url) throw new Error(json.error || 'oauth_start_failed');
+      const w = window.open(json.url, 'yandex_oauth', 'width=560,height=720');
+      if (!w) window.location.href = json.url;
     } catch (e: any) {
       toast.error('Ошибка: ' + (e?.message || 'неизвестная'));
     }
+  }
+
+  async function exchangeYandexCode() {
+    const code = yandexCode.trim();
+    if (!code) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error('Войдите в систему');
+      return;
+    }
+    setYandexCodeLoading(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/yandex-oauth-exchange-code`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_KEY,
+        },
+        body: JSON.stringify({ code }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || 'token_exchange_failed');
+      setYandexCode('');
+      toast.success(json.yandex_login ? `Яндекс подключён: ${json.yandex_login}` : 'Яндекс подключён');
+      await checkStatus();
+    } catch (e: any) {
+      toast.error('Не удалось подключить Яндекс: ' + (e?.message || 'ошибка'));
+    } finally {
+      setYandexCodeLoading(false);
+    }
+  }
+
+  async function callYandex(body: Record<string, unknown>) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/yandex-webmaster-api`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session?.access_token}`,
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'request failed');
+    return json;
+  }
+
+  async function openHostPicker() {
+    if (!yandexConnected) {
+      toast.error('Сначала подключите Яндекс-аккаунт');
+      return;
+    }
+    setHostPickerOpen(true);
+    setYandexLoadingHosts(true);
+    setYandexHosts([]);
+    try {
+      const r = await callYandex({ action: 'hosts' });
+      setYandexHosts(r.hosts ?? []);
+    } catch (e: any) {
+      toast.error('Не удалось получить сайты Яндекса: ' + (e?.message || 'ошибка'));
+    } finally {
+      setYandexLoadingHosts(false);
+    }
+  }
+
+  async function useYandexHost(host: YandexHost) {
+    setYandexHost(host.host_id);
+    if (selectedProjectId) {
+      const { error } = await supabase
+        .from('projects')
+        .update({ yandex_host: host.host_id, yandex_connected: true })
+        .eq('id', selectedProjectId);
+      if (error) {
+        toast.error('Не удалось сохранить сайт в проекте: ' + error.message);
+      } else {
+        await loadProjects();
+      }
+    }
+    toast.success('Сайт Яндекса выбран: ' + (host.unicode_host_url || host.host_id));
+    setHostPickerOpen(false);
   }
 
   return (
@@ -113,7 +301,7 @@ export default function SeoRecoveryPage() {
           <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><LifeBuoy className="w-5 h-5" /></div>
           <div>
             <h1 className="text-2xl font-semibold">SEO Recovery AI</h1>
-            <p className="text-sm text-muted-foreground max-w-2xl">AI-аналитик причин изменения органического трафика. Анализ строго на фактах из Яндекс Метрики и Google Search Console — без догадок.</p>
+            <p className="text-sm text-muted-foreground max-w-2xl">AI-аналитик причин изменения органического трафика. Использует те же подключения проектов к Яндексу и Google Search Console — без отдельного ошибочного мастера Метрики.</p>
           </div>
         </div>
 
@@ -126,10 +314,10 @@ export default function SeoRecoveryPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="flex items-center justify-between p-3 border rounded-md">
               <div>
-                <div className="text-sm font-medium">Яндекс Метрика</div>
-                <div className="text-xs text-muted-foreground">{status?.metrika_connected ? `Подключено: ${status.metrika_login ?? 'аккаунт'}` : 'Не подключено'}</div>
+                <div className="text-sm font-medium">Яндекс</div>
+                <div className="text-xs text-muted-foreground">{yandexConnected ? `Подключено: ${yandexLogin ?? 'аккаунт'}` : 'Не подключено'}</div>
               </div>
-              {status?.metrika_connected
+              {yandexConnected
                 ? <Badge variant="outline" className="border-emerald-500/40 text-emerald-600">OK</Badge>
                 : <Button size="sm" variant="outline" onClick={connectYandex}><LinkIcon className="w-3.5 h-3.5 mr-1" />Подключить</Button>}
             </div>
@@ -147,23 +335,60 @@ export default function SeoRecoveryPage() {
                 <div className="text-sm font-medium">Яндекс Вебмастер</div>
                 <div className="text-xs text-muted-foreground">Дополнительно (индексация)</div>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => navigate('/yandex-webmaster')}>Открыть</Button>
+              <Button size="sm" variant="ghost" onClick={() => navigate('/projects')}>Открыть проекты</Button>
             </div>
           </div>
+          {!yandexConnected && (
+            <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Код авторизации Яндекса</Label>
+                <Input
+                  className="h-9 w-[220px]"
+                  placeholder="Код от Яндекса"
+                  value={yandexCode}
+                  onChange={(e) => setYandexCode(e.target.value)}
+                />
+              </div>
+              <Button size="sm" variant="secondary" onClick={exchangeYandexCode} disabled={!yandexCode.trim() || yandexCodeLoading}>
+                {yandexCodeLoading ? 'Проверка…' : 'Вставить код'}
+              </Button>
+              <Button size="sm" onClick={startYandexOAuth}>
+                <Link2 className="h-4 w-4 mr-1.5" /> Получить код
+              </Button>
+              <div className="text-xs text-muted-foreground max-w-md">
+                Подключение сделано так же, как на странице «Проекты»: сначала получите код у Яндекса, затем вставьте его здесь.
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Form */}
         <Card className="p-5 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="counter">ID счётчика Яндекс Метрики</Label>
+              <Label>Проект</Label>
+              <Select value={selectedProjectId || 'none'} onValueChange={onProjectChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder={projectsLoading ? 'Загрузка…' : 'Выберите проект'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Без проекта</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Берём подключения из /projects</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="yandexHost">Сайт в Яндексе</Label>
               <div className="flex gap-2">
-                <Input id="counter" placeholder="напр. 12345678" value={counterId} onChange={(e) => setCounterId(e.target.value.trim())} />
-                <Button type="button" variant="outline" onClick={() => setWizardOpen(true)}>
-                  <Wand2 className="w-4 h-4 mr-1" />Мастер
+                <Input id="yandexHost" placeholder="host_id из Яндекс.Вебмастера" value={yandexHost} onChange={(e) => setYandexHost(e.target.value.trim())} />
+                <Button type="button" variant="outline" onClick={openHostPicker} disabled={!yandexConnected}>
+                  <Gauge className="w-4 h-4 mr-1" />Выбрать
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">Мастер подключит аккаунт, покажет ваши счётчики и проверит права доступа</p>
+              <p className="text-xs text-muted-foreground">То же подключение Яндекса, что на странице «Проекты»</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="gsc">Сайт Google Search Console</Label>
@@ -217,12 +442,50 @@ export default function SeoRecoveryPage() {
 
         {data && <SeoRecoveryView data={data} />}
       </main>
-      <MetrikaConnectWizard
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        initialCounterId={counterId}
-        onConfirmed={(id) => { setCounterId(id); toast.success('Счётчик подключён: ' + id); checkStatus(); }}
-      />
+      <Dialog open={hostPickerOpen} onOpenChange={setHostPickerOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Выберите сайт в Яндексе</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            {yandexLoadingHosts ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center">
+                <Loader2 className="h-4 w-4 animate-spin" /> Загрузка сайтов…
+              </div>
+            ) : yandexHosts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                В подключённом Яндекс-аккаунте нет доступных сайтов. Добавьте сайт в /projects или Яндекс.Вебмастер.
+              </p>
+            ) : (
+              <div className="space-y-1 max-h-[420px] overflow-y-auto">
+                {yandexHosts.map((h) => (
+                  <button
+                    key={h.host_id}
+                    onClick={() => useYandexHost(h)}
+                    className="w-full text-left flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-border/60 hover:bg-secondary transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm text-foreground truncate">
+                        {h.unicode_host_url || h.ascii_host_url || h.host_id}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground truncate">{h.host_id}</div>
+                    </div>
+                    {h.verified ? (
+                      <Badge variant="secondary" className="gap-1 shrink-0">
+                        <CheckCircle2 className="h-3 w-3 text-green-500" /> Подтверждён
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="gap-1 shrink-0 text-muted-foreground">
+                        <XCircle className="h-3 w-3" /> Не подтверждён
+                      </Badge>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
