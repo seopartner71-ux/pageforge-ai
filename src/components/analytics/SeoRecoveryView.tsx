@@ -3,6 +3,9 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ArrowDown, ArrowUp, Minus, AlertTriangle, CheckCircle2, Info, Target, Lightbulb, ListChecks } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useMemo, useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend, ReferenceLine, ResponsiveContainer } from 'recharts';
 
 type Props = { data: any };
 
@@ -124,6 +127,9 @@ export function SeoRecoveryView({ data }: Props) {
           </>
         )}
       </div>
+
+      {/* Daily charts */}
+      <DailyCharts gsc={g} yandex={y} />
 
       {/* Main cause */}
       {ai.main_cause && (
