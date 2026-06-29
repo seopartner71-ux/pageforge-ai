@@ -695,7 +695,7 @@ async function callAI(key: string, payload: any) {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-2.0-flash-001",
+      model: "google/gemini-2.5-flash",
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
