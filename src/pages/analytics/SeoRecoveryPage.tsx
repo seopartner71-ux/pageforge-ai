@@ -91,6 +91,8 @@ export default function SeoRecoveryPage() {
   const initial = shiftDates('30d');
   const [date1, setDate1] = useState(initial.date1);
   const [date2, setDate2] = useState(initial.date2);
+  const [comparison1, setComparison1] = useState(initial.comparison1);
+  const [comparison2, setComparison2] = useState(initial.comparison2);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
