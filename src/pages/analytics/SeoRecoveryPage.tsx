@@ -500,6 +500,19 @@ export default function SeoRecoveryPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
+              <Label htmlFor="counterId">ID счётчика Яндекс Метрики</Label>
+              <Input
+                id="counterId"
+                inputMode="numeric"
+                placeholder="Например: 12345678"
+                value={counterId}
+                onChange={(e) => setCounterId(e.target.value.replace(/\D/g, ''))}
+              />
+              <p className="text-xs text-muted-foreground">Числовой ID из Метрики (необязательно) — добавит разбивку по устройствам, регионам и каналам</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
               <Label>Период сравнения</Label>
               <Select value={preset} onValueChange={applyPreset}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
