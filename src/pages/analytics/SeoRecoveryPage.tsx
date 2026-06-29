@@ -183,6 +183,8 @@ export default function SeoRecoveryPage() {
       const d = shiftDates(p);
       setDate1(d.date1);
       setDate2(d.date2);
+      setComparison1(d.comparison1);
+      setComparison2(d.comparison2);
     }
   }
 
