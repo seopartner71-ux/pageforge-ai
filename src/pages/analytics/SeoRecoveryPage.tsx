@@ -233,22 +233,27 @@ export default function SeoRecoveryPage() {
   }
 
   async function runAnalysis() {
-    if (!yandexHost && !gscSite) {
-      toast.error('Выберите сайт Яндекса из проекта или укажите сайт GSC');
+    if (!useGsc && !useYandex && !useMetrika) {
+      toast.error('Включите хотя бы один источник данных');
+      return;
+    }
+    if (useGsc && !gscSite) {
+      toast.error('Укажите сайт Google Search Console');
+      return;
+    }
+    if (useYandex && !yandexHost) {
+      toast.error('Укажите сайт в Яндекс.Вебмастере');
       return;
     }
     setLoading(true);
     setError(null);
     setData(null);
     try {
-      const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', {
-        body: {
-          yandex_host: yandexHost || undefined,
-          gsc_site: gscSite || undefined,
-          counter_id: counterId.trim() || undefined,
-          date1, date2, comparison1, comparison2,
-        },
-      });
+      const body: Record<string, any> = { date1, date2, comparison1, comparison2 };
+      if (useYandex) body.yandex_host = yandexHost;
+      if (useGsc) body.gsc_site = gscSite;
+      if (useMetrika) body.counter_id = counterId.trim() || undefined;
+      const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', { body });
       if (error) throw error;
       if ((data as any)?.error) {
         const det = (data as any).details;
