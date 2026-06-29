@@ -245,6 +245,10 @@ export default function SeoRecoveryPage() {
       toast.error('Укажите сайт в Яндекс.Вебмастере');
       return;
     }
+    if (useMetrika && !counterId.trim()) {
+      toast.error('Укажите ID счётчика Яндекс.Метрики');
+      return;
+    }
     setLoading(true);
     setError(null);
     setData(null);
