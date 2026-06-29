@@ -117,7 +117,7 @@ function queryText(row: any): string {
   return String(row?.query_text ?? row?.query ?? row?.text ?? row?.keys?.[0] ?? row?.query_id ?? "");
 }
 
-async function fetchYandexWebmaster(token: string, hostId: string, date1: string, date2: string) {
+async function fetchYandexWebmaster(token: string, hostId: string, date1: string, date2: string, prevDate1?: string, prevDate2?: string) {
   const userInfo = await yandexWebmasterRequest(token, "/user/");
   const userId = userInfo?.user_id;
   if (!userId) throw new Error("yandex_user_id_not_found");
@@ -148,12 +148,54 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
   const impressions = queries.reduce((sum: number, r: any) => sum + Number(r.impressions ?? 0), 0);
   const weightedPosition = queries.reduce((sum: number, r: any) => sum + (Number(r.position ?? 0) * Math.max(1, Number(r.impressions ?? 0))), 0);
   const positionWeight = queries.reduce((sum: number, r: any) => sum + Math.max(1, Number(r.impressions ?? 0)), 0);
+
+  // Daily history via indicators/history endpoint
+  async function fetchHistory(d1: string, d2: string) {
+    try {
+      const histParams = new URLSearchParams({ date_from: d1, date_to: d2 });
+      histParams.append("indicator", "SEARCH_TRAFFIC_TOTAL_CLICKS_PER_DAY");
+      histParams.append("indicator", "SEARCH_TRAFFIC_TOTAL_SHOWS_PER_DAY");
+      const hist = await yandexWebmasterRequest(
+        token,
+        `/user/${userId}/hosts/${encodeURIComponent(hostId)}/indicators/?${histParams.toString()}`,
+      );
+      const indicators = hist?.indicators ?? hist?.data ?? [];
+      const byDate = new Map<string, { date: string; clicks: number; impressions: number }>();
+      const ingest = (entry: any, field: "clicks" | "impressions") => {
+        const points = entry?.history ?? entry?.points ?? entry?.values ?? [];
+        for (const p of points) {
+          const date = String(p?.date ?? p?.day ?? p?.dt ?? "").slice(0, 10);
+          if (!date) continue;
+          const value = Number(p?.value ?? p?.count ?? 0) || 0;
+          const cur = byDate.get(date) ?? { date, clicks: 0, impressions: 0 };
+          cur[field] = value;
+          byDate.set(date, cur);
+        }
+      };
+      for (const ind of Array.isArray(indicators) ? indicators : []) {
+        const name = String(ind?.indicator ?? ind?.name ?? "");
+        if (name.includes("CLICK")) ingest(ind, "clicks");
+        else if (name.includes("SHOW")) ingest(ind, "impressions");
+      }
+      return Array.from(byDate.values())
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((r) => ({ ...r, ctr: r.impressions ? r.clicks / r.impressions : 0 }));
+    } catch {
+      return [];
+    }
+  }
+
+  const daily_data = await fetchHistory(date1, date2);
+  const daily_data_prev = prevDate1 && prevDate2 ? await fetchHistory(prevDate1, prevDate2) : [];
+
   return {
     clicks,
     impressions,
     ctr: impressions ? clicks / impressions : 0,
     position: positionWeight ? weightedPosition / positionWeight : 0,
     queries,
+    daily_data,
+    daily_data_prev,
   };
 }
 
@@ -222,10 +264,14 @@ async function gscQuery(siteUrl: string, body: any) {
   return j;
 }
 
-async function fetchGSC(siteUrl: string, date1: string, date2: string) {
+async function fetchGSC(siteUrl: string, date1: string, date2: string, prevDate1?: string, prevDate2?: string) {
   const totals = await gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: [], rowLimit: 1 });
   const pages = await gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["page"], rowLimit: 50 });
   const queries = await gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["query"], rowLimit: 50 });
+  const daily = await gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["date"], rowLimit: 90 });
+  const daily_prev = prevDate1 && prevDate2
+    ? await gscQuery(siteUrl, { startDate: prevDate1, endDate: prevDate2, dimensions: ["date"], rowLimit: 90 })
+    : { rows: [] };
   const t = totals.rows?.[0] ?? { clicks: 0, impressions: 0, ctr: 0, position: 0 };
   return {
     clicks: t.clicks ?? 0,
@@ -234,6 +280,8 @@ async function fetchGSC(siteUrl: string, date1: string, date2: string) {
     position: t.position ?? 0,
     pages: (pages.rows ?? []).map((r: any) => ({ url: r.keys[0], clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position })),
     queries: (queries.rows ?? []).map((r: any) => ({ query: r.keys[0], clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position })),
+    daily_data: (daily.rows ?? []).map((r: any) => ({ date: r.keys[0], clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position })),
+    daily_data_prev: (daily_prev.rows ?? []).map((r: any) => ({ date: r.keys[0], clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position })),
   };
 }
 
@@ -572,7 +620,7 @@ Deno.serve(async (req) => {
             accessToken = await refreshYandexAccess(sb, user.id, tok.refresh_token);
           }
           const [cur, prv] = await Promise.all([
-            fetchYandexWebmaster(accessToken, yandex_host, date1, date2),
+            fetchYandexWebmaster(accessToken, yandex_host, date1, date2, prev.date1, prev.date2),
             fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2),
           ]);
           result.yandex = { current: cur, previous: prv, delta: {
@@ -580,7 +628,7 @@ Deno.serve(async (req) => {
             impressions: pct(cur.impressions, prv.impressions),
             ctr: pct(cur.ctr, prv.ctr),
             position: Math.round((cur.position - prv.position) * 10) / 10,
-          }};
+          }, daily_data: cur.daily_data, daily_data_prev: cur.daily_data_prev };
         } catch (e) { errors.push(friendlyError("Яндекс", e, { yandex_host })); }
       }
     }
@@ -592,7 +640,7 @@ Deno.serve(async (req) => {
       } else {
         try {
           const [cur, prv] = await Promise.all([
-            fetchGSC(gsc_site, date1, date2),
+            fetchGSC(gsc_site, date1, date2, prev.date1, prev.date2),
             fetchGSC(gsc_site, prev.date1, prev.date2),
           ]);
           result.gsc = { current: cur, previous: prv, delta: {
@@ -600,7 +648,7 @@ Deno.serve(async (req) => {
             impressions: pct(cur.impressions, prv.impressions),
             ctr: pct(cur.ctr, prv.ctr),
             position: Math.round((cur.position - prv.position) * 10) / 10,
-          }};
+          }, daily_data: cur.daily_data, daily_data_prev: cur.daily_data_prev };
         } catch (e) { errors.push(friendlyError("GSC", e, { gsc_site })); }
       }
     }
