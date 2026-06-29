@@ -198,7 +198,7 @@ export default function SeoRecoveryPage() {
     setData(null);
     try {
       const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', {
-        body: { yandex_host: yandexHost || undefined, gsc_site: gscSite || undefined, date1, date2 },
+        body: { yandex_host: yandexHost || undefined, gsc_site: gscSite || undefined, date1, date2, comparison1, comparison2 },
       });
       if (error) throw error;
       if ((data as any)?.error) {
