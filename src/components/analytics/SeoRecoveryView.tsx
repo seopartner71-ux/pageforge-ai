@@ -821,7 +821,82 @@ function YandexPanel({ metrika, yandex }: { metrika: any; yandex: any }) {
   );
 }
 
-function DailyChartsTabs({ gsc, yandex, metrika }: { gsc: any; yandex: any; metrika: any }) {
+function TopvisorPanel({ tv, tvPrev }: { tv: any; tvPrev?: any }) {
+  if (!tv) {
+    return <div className="text-sm text-muted-foreground text-center py-12 px-4">Подключите Топвизор для динамики позиций по ключевым запросам.</div>;
+  }
+  const curHist: Array<{ date: string; avg_position: number }> = Array.isArray(tv?.history) ? tv.history : [];
+  const prevHist: Array<{ date: string; avg_position: number }> = Array.isArray(tvPrev?.history) ? tvPrev.history : [];
+  const len = Math.max(curHist.length, prevHist.length);
+  const rows = Array.from({ length: len }).map((_, i) => {
+    const c = curHist[i];
+    const p = prevHist[i];
+    return {
+      label: formatDM(c?.date ?? p?.date ?? ''),
+      current: c?.avg_position ?? null,
+      previous: p?.avg_position ?? null,
+    };
+  });
+  const lost: Array<{ query: string; pos_was: number; pos_now: number; delta: number }> = Array.isArray(tv?.lost_positions) ? tv.lost_positions : [];
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="p-4"><div className="text-xs text-muted-foreground mb-1">В топ-3</div><div className="text-2xl font-semibold">{fmt(tv.top3)}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground mb-1">В топ-10</div><div className="text-2xl font-semibold">{fmt(tv.top10)}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground mb-1">В топ-30</div><div className="text-2xl font-semibold">{fmt(tv.top30)}</div></Card>
+      </div>
+      <div className="space-y-2">
+        <div className="text-sm font-medium text-muted-foreground">Средняя позиция по дням</div>
+        {rows.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center py-10">Нет данных по дням</div>
+        ) : (
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis reversed tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line type="monotone" dataKey="current" name="Средняя позиция — текущий" stroke="#8B5CF6" strokeWidth={2} dot={false} connectNulls />
+                <Line type="monotone" dataKey="previous" name="Средняя позиция — предыдущий" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+      <div className="space-y-2">
+        <div className="text-sm font-medium text-muted-foreground">Запросы с наибольшим ухудшением позиций</div>
+        <Card className="overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Запрос</TableHead>
+                <TableHead className="text-right">Было</TableHead>
+                <TableHead className="text-right">Стало</TableHead>
+                <TableHead className="text-right">Δ</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {lost.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">Существенных потерь по позициям не обнаружено.</TableCell></TableRow>
+              ) : lost.map((q, i) => (
+                <TableRow key={i}>
+                  <TableCell className="text-sm">{q.query}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmt(q.pos_was)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmt(q.pos_now)}</TableCell>
+                  <TableCell className="text-right text-rose-500 font-medium">+{fmt(q.delta)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function DailyChartsTabs({ gsc, yandex, metrika, topvisor, topvisorPrev }: { gsc: any; yandex: any; metrika: any; topvisor?: any; topvisorPrev?: any }) {
   const hasGsc = !!gsc;
   const defaultTab = hasGsc ? 'google' : 'yandex';
   return (
@@ -835,12 +910,18 @@ function DailyChartsTabs({ gsc, yandex, metrika }: { gsc: any; yandex: any; metr
           <TabsTrigger value="yandex" className="data-[state=active]:border-b-2 data-[state=active]:border-[#F97316]">
             <span className="inline-block w-2 h-2 rounded-full bg-[#F97316] mr-2" /> Яндекс
           </TabsTrigger>
+          <TabsTrigger value="topvisor" className="data-[state=active]:border-b-2 data-[state=active]:border-[#8B5CF6]">
+            <span className="inline-block w-2 h-2 rounded-full bg-[#8B5CF6] mr-2" /> Топвизор
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="google" className="mt-4">
           {hasGsc ? <GoogleDailyChart gsc={gsc} /> : <div className="text-sm text-muted-foreground text-center py-10">Подключите Google Search Console для графиков</div>}
         </TabsContent>
         <TabsContent value="yandex" className="mt-4">
           <YandexPanel metrika={metrika} yandex={yandex} />
+        </TabsContent>
+        <TabsContent value="topvisor" className="mt-4">
+          <TopvisorPanel tv={topvisor} tvPrev={topvisorPrev} />
         </TabsContent>
       </Tabs>
     </Card>
