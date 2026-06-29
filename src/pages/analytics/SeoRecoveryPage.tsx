@@ -44,6 +44,8 @@ type YandexHost = {
   verified?: boolean;
 };
 
+type GscSite = { siteUrl: string; permissionLevel?: string };
+
 function shiftDates(preset: string): { date1: string; date2: string } {
   const today = new Date();
   today.setDate(today.getDate() - 2); // GSC задержка
@@ -78,6 +80,9 @@ export default function SeoRecoveryPage() {
   const [yandexHosts, setYandexHosts] = useState<YandexHost[]>([]);
   const [yandexLoadingHosts, setYandexLoadingHosts] = useState(false);
   const [hostPickerOpen, setHostPickerOpen] = useState(false);
+  const [gscPickerOpen, setGscPickerOpen] = useState(false);
+  const [gscSites, setGscSites] = useState<GscSite[]>([]);
+  const [gscSitesLoading, setGscSitesLoading] = useState(false);
 
   async function checkStatus() {
     try {
@@ -291,6 +296,40 @@ export default function SeoRecoveryPage() {
     }
     toast.success('Сайт Яндекса выбран: ' + (host.unicode_host_url || host.host_id));
     setHostPickerOpen(false);
+  }
+
+  async function openGscPicker() {
+    if (!status?.gsc_available) {
+      toast.error('Google Search Console не подключен');
+      return;
+    }
+    setGscPickerOpen(true);
+    setGscSitesLoading(true);
+    setGscSites([]);
+    try {
+      const { data, error } = await supabase.functions.invoke('gsc-sites-list', { body: {} });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setGscSites(((data as any)?.sites ?? []) as GscSite[]);
+    } catch (e: any) {
+      toast.error('Не удалось получить сайты GSC: ' + (e?.message || 'ошибка'));
+    } finally {
+      setGscSitesLoading(false);
+    }
+  }
+
+  async function useGscSite(site: GscSite) {
+    setGscSite(site.siteUrl);
+    if (selectedProjectId) {
+      const { error } = await supabase
+        .from('projects')
+        .update({ gsc_site_url: site.siteUrl, gsc_connected: true })
+        .eq('id', selectedProjectId);
+      if (error) toast.error('Не удалось сохранить сайт в проекте: ' + error.message);
+      else await loadProjects();
+    }
+    toast.success('Сайт GSC выбран: ' + site.siteUrl);
+    setGscPickerOpen(false);
   }
 
   return (
