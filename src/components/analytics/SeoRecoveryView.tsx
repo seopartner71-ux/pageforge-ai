@@ -23,6 +23,17 @@ function Delta({ value, suffix = '%' }: { value: number; suffix?: string }) {
   return <span className={`inline-flex items-center gap-1 font-medium ${color}`}><Icon className="w-3 h-3" />{value > 0 ? '+' : ''}{value}{suffix}</span>;
 }
 
+function ruLabel(val: string): string {
+  const map: Record<string, string> = {
+    Yandex: 'Яндекс',
+    GSC: 'Google',
+    Metrika: 'Метрика',
+    query: 'запрос',
+    page: 'страница',
+  };
+  return map[val] ?? val;
+}
+
 function ScoreRing({ score }: { score: number }) {
   const color = score >= 70 ? 'text-emerald-500' : score >= 40 ? 'text-amber-500' : 'text-rose-500';
   const ring = score >= 70 ? 'stroke-emerald-500' : score >= 40 ? 'stroke-amber-500' : 'stroke-rose-500';
@@ -209,7 +220,7 @@ export function SeoRecoveryView({ data }: Props) {
                 <TableBody>
                   {(ai.impact_breakdown.top_loss_contributors ?? []).map((c: any, i: number) => (
                     <TableRow key={i}>
-                      <TableCell><Badge variant="outline">{c.type}</Badge></TableCell>
+                      <TableCell><Badge variant="outline">{ruLabel(c.type)}</Badge></TableCell>
                       <TableCell className="font-mono text-xs max-w-[420px] truncate">{c.name}</TableCell>
                       <TableCell className="text-right text-rose-500">−{fmt(c.clicks_lost)}</TableCell>
                       <TableCell className="text-right font-medium">{c.share_of_loss_pct}%</TableCell>
@@ -221,7 +232,7 @@ export function SeoRecoveryView({ data }: Props) {
           ) : <Card className="p-6 text-sm text-muted-foreground">Декомпозиция потерь недоступна.</Card>}
           {ai.brand_analysis && (
             <Card className="p-4">
-              <div className="text-xs uppercase text-muted-foreground mb-2">Brand vs Non-brand</div>
+              <div className="text-xs uppercase text-muted-foreground mb-2">Бренд vs небренд</div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="p-3 rounded bg-muted/40"><div className="text-xs text-muted-foreground">Brand-клики</div><Delta value={ai.brand_analysis.brand_clicks_delta_pct ?? 0} /></div>
                 <div className="p-3 rounded bg-muted/40"><div className="text-xs text-muted-foreground">Non-brand-клики</div><Delta value={ai.brand_analysis.non_brand_clicks_delta_pct ?? 0} /></div>
@@ -250,7 +261,7 @@ export function SeoRecoveryView({ data }: Props) {
                     <TableCell className="text-right">{fmt(p.was)}</TableCell>
                     <TableCell className="text-right">{fmt(p.now)}</TableCell>
                     <TableCell className="text-right"><Delta value={p.delta_pct} /></TableCell>
-                    <TableCell><Badge variant="outline">{p.source}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{ruLabel(p.source)}</Badge></TableCell>
                   </TableRow>
                 ))}
                 {(ai.lost_pages ?? []).length === 0 && (
@@ -369,7 +380,7 @@ function EvidenceList({ items }: { items: any[] }) {
         <div key={i} className="flex items-start gap-2 p-2 rounded bg-muted/40">
           <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
           <div>
-            <Badge variant="outline" className="mr-2 text-[10px]">{e.source}</Badge>
+            <Badge variant="outline" className="mr-2 text-[10px]">{ruLabel(e.source)}</Badge>
             <span className="font-medium">{e.metric}:</span>{' '}
             <span className="text-muted-foreground">{e.was} → {e.now}</span>{' '}
             <span className="text-foreground">({e.delta})</span>
@@ -546,7 +557,7 @@ function DailyCharts({ gsc, yandex }: { gsc: any; yandex: any }) {
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             {breakpoint && metric !== 'position' && (
-              <ReferenceLine x={breakpoint.label} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{ value: `Точка перелома: ${breakpoint.label}`, fill: 'hsl(var(--destructive))', fontSize: 11, position: 'top' }} />
+              <ReferenceLine x={breakpoint.label} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{ value: `↓ ${breakpoint.label}`, fill: 'hsl(var(--destructive))', fontSize: 11, position: 'insideBottomRight' }} />
             )}
             {hasGsc && <Line type="monotone" dataKey="gsc_current" name="Google текущий период" stroke="#3B82F6" strokeWidth={2} dot={false} />}
             {hasGsc && <Line type="monotone" dataKey="gsc_previous" name="Google предыдущий период" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
