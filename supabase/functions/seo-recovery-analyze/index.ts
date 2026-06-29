@@ -454,7 +454,7 @@ async function callAI(key: string, payload: any) {
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: "Данные для анализа (фактические выгрузки из Metrika и GSC, включая diagnostics с предрасчитанными signals и lost-листами):\n" + JSON.stringify(payload, null, 2) },
+        { role: "user", content: "Данные для анализа (фактические выгрузки из Яндекс.Вебмастера/Метрики и GSC, включая diagnostics с предрасчитанными signals и lost-листами):\n" + JSON.stringify(payload, null, 2) },
       ],
       temperature: 0.2,
     }),
@@ -466,7 +466,7 @@ async function callAI(key: string, payload: any) {
 }
 
 // ============ Friendly error formatter ============
-function friendlyError(source: "Метрика" | "GSC", err: any, ctx: { counter_id?: string; gsc_site?: string }): { code: string; title: string; hint: string; raw?: string } {
+function friendlyError(source: "Метрика" | "Яндекс" | "GSC", err: any, ctx: { counter_id?: string; yandex_host?: string; gsc_site?: string }): { code: string; title: string; hint: string; raw?: string } {
   const status = err?.status;
   const payload = err?.payload;
   if (source === "Метрика") {
@@ -478,6 +478,17 @@ function friendlyError(source: "Метрика" | "GSC", err: any, ctx: { counte
     if (status === 404) return { code: "metrika_not_found", title: "Счётчик Метрики не найден.", hint: "Проверьте правильность ID счётчика — он должен быть числовым (например, 12345678)." };
     if (status === 401) return { code: "metrika_unauthorized", title: "Токен Яндекс Метрики истёк.", hint: "Переподключите Яндекс-аккаунт через кнопку «Подключить»." };
     return { code: "metrika_error", title: `Метрика ответила ошибкой ${status ?? ""}.`, hint: "Попробуйте позже или проверьте параметры счётчика.", raw: typeof payload === "object" ? JSON.stringify(payload).slice(0, 200) : String(payload).slice(0, 200) };
+  }
+  if (source === "Яндекс") {
+    if (status === 403) return {
+      code: "yandex_webmaster_access_denied",
+      title: `Нет доступа к сайту в Яндекс.Вебмастере${ctx.yandex_host ? `: ${ctx.yandex_host}` : ""}.`,
+      hint: "Используйте тот же сайт, который выбран и подтверждён на странице «Проекты». Если сайт чужой — владелец должен выдать доступ к нему в Яндекс.Вебмастере.",
+      raw: typeof payload === "object" ? JSON.stringify(payload).slice(0, 200) : String(payload).slice(0, 200),
+    };
+    if (status === 404) return { code: "yandex_webmaster_not_found", title: "Сайт Яндекса не найден.", hint: "Откройте «Выбрать» и выберите сайт из списка доступных в подключённом Яндекс-аккаунте." };
+    if (status === 401) return { code: "yandex_unauthorized", title: "Токен Яндекса истёк.", hint: "Переподключите Яндекс так же, как на странице «Проекты»." };
+    return { code: "yandex_webmaster_error", title: `Яндекс.Вебмастер ответил ошибкой ${status ?? ""}.`, hint: "Попробуйте позже или выберите другой сайт из списка проектов.", raw: typeof payload === "object" ? JSON.stringify(payload).slice(0, 200) : String(payload).slice(0, 200) };
   }
   // GSC
   if (status === 403) return {
@@ -503,12 +514,14 @@ Deno.serve(async (req) => {
     if (!user) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const body = await req.json();
-    const { counter_id, gsc_site, date1, date2, mode } = body as { counter_id?: string; gsc_site?: string; date1: string; date2: string; mode?: string };
+    const { counter_id, yandex_host, gsc_site, date1, date2, mode } = body as { counter_id?: string; yandex_host?: string; gsc_site?: string; date1: string; date2: string; mode?: string };
 
     if (!date1 || !date2) return new Response(JSON.stringify({ error: "date1/date2 required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     if (mode === "check") {
       const { data: tok } = await sb.from("yandex_tokens").select("yandex_login,expires_at").eq("user_id", user.id).maybeSingle();
       return new Response(JSON.stringify({
+        yandex_connected: !!tok,
+        yandex_login: tok?.yandex_login ?? null,
         metrika_connected: !!tok,
         metrika_login: tok?.yandex_login ?? null,
         gsc_available: !!(LOVABLE_API_KEY && GSC_KEY),
@@ -521,14 +534,18 @@ Deno.serve(async (req) => {
 
     // Metrika
     if (counter_id) {
-      const { data: tok } = await sb.from("yandex_tokens").select("access_token").eq("user_id", user.id).maybeSingle();
+      const { data: tok } = await sb.from("yandex_tokens").select("access_token, refresh_token, expires_at").eq("user_id", user.id).maybeSingle();
       if (!tok?.access_token) {
         errors.push({ code: "metrika_not_connected", title: "Яндекс Метрика не подключена.", hint: "Нажмите «Подключить» в карточке Яндекс Метрики выше и авторизуйтесь." });
       } else {
         try {
+          let accessToken = tok.access_token as string;
+          if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now() + 60_000 && tok.refresh_token) {
+            accessToken = await refreshYandexAccess(sb, user.id, tok.refresh_token);
+          }
           const [cur, prv] = await Promise.all([
-            fetchMetrika(tok.access_token, counter_id, date1, date2),
-            fetchMetrika(tok.access_token, counter_id, prev.date1, prev.date2),
+            fetchMetrika(accessToken, counter_id, date1, date2),
+            fetchMetrika(accessToken, counter_id, prev.date1, prev.date2),
           ]);
           result.metrika = { current: cur, previous: prv, delta: {
             visits: pct(cur.visits, prv.visits),
@@ -537,6 +554,31 @@ Deno.serve(async (req) => {
             pageviews: pct(cur.pageviews, prv.pageviews),
           }};
         } catch (e) { errors.push(friendlyError("Метрика", e, { counter_id })); }
+      }
+    }
+
+    // Yandex Webmaster — same project connection as /projects
+    if (yandex_host) {
+      const { data: tok } = await sb.from("yandex_tokens").select("access_token, refresh_token, expires_at").eq("user_id", user.id).maybeSingle();
+      if (!tok?.access_token) {
+        errors.push({ code: "yandex_not_connected", title: "Яндекс не подключён.", hint: "Подключите Яндекс так же, как на странице «Проекты», затем выберите сайт из списка." });
+      } else {
+        try {
+          let accessToken = tok.access_token as string;
+          if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now() + 60_000 && tok.refresh_token) {
+            accessToken = await refreshYandexAccess(sb, user.id, tok.refresh_token);
+          }
+          const [cur, prv] = await Promise.all([
+            fetchYandexWebmaster(accessToken, yandex_host, date1, date2),
+            fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2),
+          ]);
+          result.yandex = { current: cur, previous: prv, delta: {
+            clicks: pct(cur.clicks, prv.clicks),
+            impressions: pct(cur.impressions, prv.impressions),
+            ctr: pct(cur.ctr, prv.ctr),
+            position: Math.round((cur.position - prv.position) * 10) / 10,
+          }};
+        } catch (e) { errors.push(friendlyError("Яндекс", e, { yandex_host })); }
       }
     }
 
@@ -560,7 +602,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!result.metrika && !result.gsc) {
+    if (!result.metrika && !result.yandex && !result.gsc) {
       return new Response(JSON.stringify({ error: "Нет данных для анализа", details: errors }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
