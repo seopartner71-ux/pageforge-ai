@@ -387,6 +387,46 @@ function detectBrand(host: string): string | null {
   return sld;
 }
 
+// Транслитерация latin → cyrillic для поиска бренда в русскоязычных запросах.
+const LAT_TO_CYR: Record<string, string> = {
+  shch: "щ", sch: "щ", zh: "ж", ch: "ч", sh: "ш", yo: "ё", yu: "ю", ya: "я",
+  kh: "х", ts: "ц", iy: "ий", ay: "ай", ey: "ей", oy: "ой",
+  a: "а", b: "б", v: "в", g: "г", d: "д", e: "е", z: "з", i: "и", j: "й",
+  k: "к", l: "л", m: "м", n: "н", o: "о", p: "п", r: "р", s: "с", t: "т",
+  u: "у", f: "ф", h: "х", c: "к", y: "ы", w: "в", x: "кс", q: "к",
+};
+function translitToCyr(input: string): string {
+  const s = input.toLowerCase();
+  let out = "";
+  let i = 0;
+  while (i < s.length) {
+    let matched = false;
+    for (const len of [4, 3, 2]) {
+      const chunk = s.slice(i, i + len);
+      if (chunk.length === len && LAT_TO_CYR[chunk]) {
+        out += LAT_TO_CYR[chunk];
+        i += len;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      const ch = s[i];
+      out += LAT_TO_CYR[ch] ?? ch;
+      i++;
+    }
+  }
+  return out;
+}
+function brandTerms(brand: string | null): string[] {
+  if (!brand) return [];
+  const terms = new Set<string>();
+  terms.add(brand.toLowerCase());
+  const cyr = translitToCyr(brand);
+  if (cyr && cyr !== brand.toLowerCase()) terms.add(cyr);
+  return Array.from(terms).filter(t => t.length >= 3);
+}
+
 function buildDiagnostics(result: any, gscSite?: string, errors?: any[]) {
   const d: any = {};
   const g = result.gsc;
@@ -414,9 +454,11 @@ function buildDiagnostics(result: any, gscSite?: string, errors?: any[]) {
 
     // Branded vs non-branded
     const brand = detectBrand(gscSite || "");
-    if (brand) {
+    const terms = brandTerms(brand);
+    if (brand && terms.length) {
       const split = (rows: any[]) => rows.reduce((acc, r) => {
-        const isBrand = String(r.query || "").toLowerCase().includes(brand);
+        const q = String(r.query || "").toLowerCase();
+        const isBrand = terms.some(t => q.includes(t));
         acc[isBrand ? "brand" : "non_brand"].clicks += Number(r.clicks ?? 0);
         acc[isBrand ? "brand" : "non_brand"].impressions += Number(r.impressions ?? 0);
         return acc;
@@ -429,6 +471,7 @@ function buildDiagnostics(result: any, gscSite?: string, errors?: any[]) {
         non_brand: { clicks_was: sp.non_brand.clicks, clicks_now: sc.non_brand.clicks, delta_pct: pct(sc.non_brand.clicks, sp.non_brand.clicks),
                      impr_was: sp.non_brand.impressions, impr_now: sc.non_brand.impressions, impr_delta_pct: pct(sc.non_brand.impressions, sp.non_brand.impressions) },
         brand_term: brand,
+        brand_terms: terms,
       };
     }
 

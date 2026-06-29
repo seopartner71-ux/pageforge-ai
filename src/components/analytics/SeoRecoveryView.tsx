@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, Minus, AlertTriangle, CheckCircle2, Info, Target, L
 import { Button } from '@/components/ui/button';
 import { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend, ReferenceLine, ResponsiveContainer } from 'recharts';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 
 type Props = { data: any };
 
@@ -92,26 +93,36 @@ export function SeoRecoveryView({ data }: Props) {
 
       {/* Errors */}
       {Array.isArray(data.errors) && data.errors.length > 0 && (
-        <div className="space-y-2">
-          {data.errors.map((e: any, i: number) => {
-            const isObj = e && typeof e === 'object';
-            const title = isObj ? (e.title || e.code || 'Ошибка источника данных') : String(e);
-            const hint = isObj ? e.hint : null;
-            const raw = isObj ? e.raw : null;
-            return (
-              <Card key={i} className="p-4 border-amber-500/40 bg-amber-500/5">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                  <div className="text-sm space-y-1 min-w-0">
-                    <div className="font-medium">{title}</div>
-                    {hint && <div className="text-muted-foreground">{hint}</div>}
-                    {raw && <details className="text-xs text-muted-foreground/70"><summary className="cursor-pointer">Технические детали</summary><pre className="mt-1 whitespace-pre-wrap break-all">{raw}</pre></details>}
-                  </div>
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <Accordion type="single" collapsible>
+            <AccordionItem value="errors" className="border-0">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className="font-medium">Ошибка источника данных</span>
+                  <Badge variant="outline" className="ml-1 text-[10px]">{data.errors.length}</Badge>
                 </div>
-              </Card>
-            );
-          })}
-        </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4">
+                <div className="space-y-3">
+                  {data.errors.map((e: any, i: number) => {
+                    const isObj = e && typeof e === 'object';
+                    const title = isObj ? (e.title || e.code || 'Ошибка источника данных') : String(e);
+                    const hint = isObj ? e.hint : null;
+                    const raw = isObj ? e.raw : null;
+                    return (
+                      <div key={i} className="text-sm space-y-1 border-l-2 border-amber-500/40 pl-3">
+                        <div className="font-medium">{title}</div>
+                        {hint && <div className="text-muted-foreground">{hint}</div>}
+                        {raw && <details className="text-xs text-muted-foreground/70"><summary className="cursor-pointer">Технические детали</summary><pre className="mt-1 whitespace-pre-wrap break-all">{raw}</pre></details>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </Card>
       )}
 
       {/* Metric cards */}
@@ -360,14 +371,23 @@ export function SeoRecoveryView({ data }: Props) {
 }
 
 function MetricCard({ title, tooltip, now, was, delta, suffix }: { title: string; tooltip: string; now: any; was: any; delta: number; suffix?: string }) {
+  const wasNum = typeof was === 'number' ? was : Number(was);
+  const noPrev = !Number.isFinite(wasNum) || wasNum === 0;
   return (
     <Card className="p-4" title={tooltip}>
       <div className="text-xs text-muted-foreground mb-1">{title}</div>
       <div className="text-xl font-semibold">{fmt(now)}</div>
-      <div className="flex items-center gap-2 mt-1 text-xs">
-        <span className="text-muted-foreground">было {fmt(was)}</span>
-        <Delta value={delta} suffix={suffix ?? '%'} />
-      </div>
+      {noPrev ? (
+        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+          <span>—</span>
+          <span className="italic">нет данных за прошлый период</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 mt-1 text-xs">
+          <span className="text-muted-foreground">было {fmt(was)}</span>
+          <Delta value={delta} suffix={suffix ?? '%'} />
+        </div>
+      )}
     </Card>
   );
 }
