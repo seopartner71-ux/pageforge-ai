@@ -133,7 +133,7 @@ export default function SeoRecoveryPage() {
 
   function applyProject(project: Project, notify = true) {
     setSelectedProjectId(project.id);
-    setGscSite(project.gsc_site_url || (project.domain ? `https://${project.domain}/` : ''));
+    setGscSite(project.gsc_connected && project.gsc_site_url ? project.gsc_site_url : '');
     setYandexHost(project.yandex_connected && project.yandex_host ? project.yandex_host : '');
     if (notify) toast.success('Проект выбран: ' + project.name);
   }
@@ -332,8 +332,8 @@ export default function SeoRecoveryPage() {
             </div>
             <div className="flex items-center justify-between p-3 border rounded-md">
               <div>
-                <div className="text-sm font-medium">Яндекс Вебмастер</div>
-                <div className="text-xs text-muted-foreground">Дополнительно (индексация)</div>
+                <div className="text-sm font-medium">Яндекс.Вебмастер</div>
+                <div className="text-xs text-muted-foreground">Сайты и доступы из /projects</div>
               </div>
               <Button size="sm" variant="ghost" onClick={() => navigate('/projects')}>Открыть проекты</Button>
             </div>
@@ -436,7 +436,7 @@ export default function SeoRecoveryPage() {
         {loading && (
           <Card className="p-8 flex flex-col items-center gap-3 text-sm text-muted-foreground">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            <div>Собираем данные из Метрики и GSC, считаем дельты, формируем AI-анализ…</div>
+            <div>Собираем данные из Яндекса и GSC, считаем дельты, формируем AI-анализ…</div>
           </Card>
         )}
 
