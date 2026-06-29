@@ -181,6 +181,9 @@ export function SeoRecoveryView({ data }: Props) {
         </Card>
       )}
 
+      {/* AI Verdict — общий вывод */}
+      <AiVerdictCard ai={ai} gsc={g} yandex={y} metrika={m} />
+
       <Tabs defaultValue="causes">
         <TabsList>
           <TabsTrigger value="causes">Гипотезы</TabsTrigger>
@@ -194,18 +197,7 @@ export function SeoRecoveryView({ data }: Props) {
 
         <TabsContent value="causes" className="space-y-3 mt-4">
           {(ai.root_cause_hypotheses ?? []).map((h: any, i: number) => (
-            <Card key={`h${i}`} className="p-4">
-              <div className="flex items-center justify-between mb-2 gap-3">
-                <h4 className="font-medium flex items-center gap-2"><Lightbulb className="w-4 h-4 text-amber-500" />{h.hypothesis}</h4>
-                <Badge variant="outline" className="font-mono">P = {h.probability}%</Badge>
-              </div>
-              <EvidenceList items={h.evidence ?? []} />
-              {h.verification_step && (
-                <div className="text-sm mt-2 p-2 rounded bg-muted/40 border-l-2 border-primary/60">
-                  <span className="text-xs uppercase text-muted-foreground mr-2">Как проверить:</span>{h.verification_step}
-                </div>
-              )}
-            </Card>
+            <HypothesisCard key={`h${i}`} index={i + 1} h={h} />
           ))}
           {(ai.causes ?? []).map((c: any, i: number) => (
             <Card key={i} className="p-4">
