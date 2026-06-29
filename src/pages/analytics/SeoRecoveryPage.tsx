@@ -130,6 +130,9 @@ export default function SeoRecoveryPage() {
   const [comparison1, setComparison1] = useState(initial.comparison1);
   const [comparison2, setComparison2] = useState(initial.comparison2);
   const [compMode, setCompMode] = useState<'auto' | 'custom'>('auto');
+  const [useGsc, setUseGsc] = useState(true);
+  const [useYandex, setUseYandex] = useState(true);
+  const [useMetrika, setUseMetrika] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
