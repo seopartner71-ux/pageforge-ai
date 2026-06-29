@@ -523,74 +523,100 @@ export default function SeoRecoveryPage() {
               <p className="text-xs text-muted-foreground">Числовой ID из Метрики (необязательно) — добавит разбивку по устройствам, регионам и каналам</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label>Период сравнения</Label>
-              <Select value={preset} onValueChange={applyPreset}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30d">Последние 30 дней</SelectItem>
-                  <SelectItem value="mom">Месяц к месяцу</SelectItem>
-                  <SelectItem value="yoy">Год к году</SelectItem>
-                  <SelectItem value="custom">Свой период</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {([
+                ['7d', '7 дней'],
+                ['30d', '30 дней'],
+                ['mom', 'Месяц к месяцу'],
+                ['yoy', 'Год к году'],
+                ['custom', 'Свой период'],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => applyPreset(key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    preset === key
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-muted-foreground border-border/60 hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-            <div className="space-y-1.5">
-              <Label>Дата с</Label>
-              <Input type="date" value={date1} onChange={(e) => {
-                const v = e.target.value;
-                setDate1(v);
-                setPreset('custom');
-                const auto = autoPrev(v, date2);
-                setComparison1(auto.comparison1);
-                setComparison2(auto.comparison2);
-              }} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Дата по</Label>
-              <Input type="date" value={date2} onChange={(e) => {
-                const v = e.target.value;
-                setDate2(v);
-                setPreset('custom');
-                const auto = autoPrev(date1, v);
-                setComparison1(auto.comparison1);
-                setComparison2(auto.comparison2);
-              }} />
-            </div>
-          </div>
 
-          {comparison1 && comparison2 && date1 && date2 && (
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                Период сравнения: <span className="text-foreground font-medium normal-case tracking-normal">{PRESET_LABELS[preset] ?? 'Свой период'}</span>
+            {date1 && date2 && (
+              <div className="text-xs text-muted-foreground tabular-nums flex items-center gap-2 flex-wrap">
+                <span className="text-foreground font-semibold">{fmtDMY(date1)} — {fmtDMY(date2)}</span>
+                <ArrowRight className="w-3 h-3 opacity-60" />
+                <span className="opacity-70">vs</span>
+                {comparison1 && comparison2
+                  ? <span>{fmtDMY(comparison1)} — {fmtDMY(comparison2)}</span>
+                  : <span className="italic opacity-70">период сравнения не задан</span>}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5">
-                  <div className="w-8 h-8 rounded-md bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                    <BarChart3 className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Текущий период</div>
-                    <div className="text-sm font-medium text-foreground tabular-nums">
-                      {fmtDMY(date1)} — {fmtDMY(date2)}
-                    </div>
-                  </div>
+            )}
+
+            {preset === 'custom' && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Дата с</Label>
+                  <Input type="date" value={date1} onChange={(e) => {
+                    const v = e.target.value;
+                    setDate1(v);
+                    if (compMode === 'auto') {
+                      const auto = autoPrev(v, date2);
+                      setComparison1(auto.comparison1);
+                      setComparison2(auto.comparison2);
+                    }
+                  }} />
                 </div>
-                <div className="flex items-center gap-3 rounded-md border border-border/60 bg-background/60 px-3 py-2.5">
-                  <div className="w-8 h-8 rounded-md bg-muted text-muted-foreground flex items-center justify-center shrink-0">
-                    <TrendingDown className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Сравниваем с</div>
-                    <div className="text-sm font-medium text-foreground tabular-nums">
-                      {fmtDMY(comparison1)} — {fmtDMY(comparison2)}
-                    </div>
-                  </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Дата по</Label>
+                  <Input type="date" value={date2} onChange={(e) => {
+                    const v = e.target.value;
+                    setDate2(v);
+                    if (compMode === 'auto') {
+                      const auto = autoPrev(date1, v);
+                      setComparison1(auto.comparison1);
+                      setComparison2(auto.comparison2);
+                    }
+                  }} />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Период сравнения</Label>
+                  <Select value={compMode} onValueChange={(v) => {
+                    const mode = v as 'auto' | 'custom';
+                    setCompMode(mode);
+                    if (mode === 'auto') {
+                      const auto = autoPrev(date1, date2);
+                      setComparison1(auto.comparison1);
+                      setComparison2(auto.comparison2);
+                    }
+                  }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Авто (предыдущий)</SelectItem>
+                      <SelectItem value="custom">Свой</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {compMode === 'custom' && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Сравнение с</Label>
+                      <Input type="date" value={comparison1} onChange={(e) => setComparison1(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5 md:col-start-4">
+                      <Label className="text-xs">Сравнение по</Label>
+                      <Input type="date" value={comparison2} onChange={(e) => setComparison2(e.target.value)} />
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
           <div className="flex justify-end">
             <Button onClick={runAnalysis} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
