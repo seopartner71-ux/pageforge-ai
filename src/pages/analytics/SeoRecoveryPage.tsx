@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { supabase } from '@/integrations/supabase/client';
 import {
   LifeBuoy, Loader2, Play, RefreshCw, AlertCircle, Link as LinkIcon,
-  Gauge, CheckCircle2, XCircle, Link2, BarChart3, TrendingDown,
+  Gauge, CheckCircle2, XCircle, Link2, ArrowRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SeoRecoveryView } from '@/components/analytics/SeoRecoveryView';
@@ -52,6 +52,16 @@ function shiftDates(preset: string): { date1: string; date2: string; comparison1
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   const end = new Date(today);
 
+  if (preset === '7d') {
+    const start = new Date(end);
+    start.setDate(start.getDate() - 6);
+    const compEnd = new Date(start);
+    compEnd.setDate(compEnd.getDate() - 1);
+    const compStart = new Date(compEnd);
+    compStart.setDate(compStart.getDate() - 6);
+    return { date1: fmt(start), date2: fmt(end), comparison1: fmt(compStart), comparison2: fmt(compEnd) };
+  }
+
   if (preset === 'yoy') {
     const start = new Date(end);
     start.setDate(start.getDate() - 29);
@@ -85,6 +95,7 @@ function fmtDMY(iso: string) {
 }
 
 const PRESET_LABELS: Record<string, string> = {
+  '7d': '7 дней',
   '30d': 'Последние 30 дней',
   mom: 'Месяц к месяцу',
   yoy: 'Год к году',
@@ -117,6 +128,7 @@ export default function SeoRecoveryPage() {
   const [date2, setDate2] = useState(initial.date2);
   const [comparison1, setComparison1] = useState(initial.comparison1);
   const [comparison2, setComparison2] = useState(initial.comparison2);
+  const [compMode, setCompMode] = useState<'auto' | 'custom'>('auto');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
