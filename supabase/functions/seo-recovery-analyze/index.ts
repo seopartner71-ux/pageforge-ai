@@ -16,6 +16,27 @@ const GSC_KEY = Deno.env.get("GOOGLE_SEARCH_CONSOLE_API_KEY") ?? "";
 const YANDEX_CLIENT_ID = Deno.env.get("YANDEX_OAUTH_CLIENT_ID") ?? "";
 const YANDEX_CLIENT_SECRET = Deno.env.get("YANDEX_OAUTH_CLIENT_SECRET") ?? "";
 const YANDEX_WEBMASTER_API = "https://api.webmaster.yandex.net/v4";
+const DEFAULT_FETCH_TIMEOUT_MS = 8_000;
+const GSC_FETCH_TIMEOUT_MS = 12_000;
+const AI_FETCH_TIMEOUT_MS = 18_000;
+
+async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, label = "request") {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(`${label}_timeout_${timeoutMs}ms`), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (e) {
+    if ((e as any)?.name === "AbortError") {
+      const err: any = new Error(`${label}_timeout`);
+      err.status = 408;
+      err.payload = { timeout_ms: timeoutMs };
+      throw err;
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function getOpenRouterKey(sb: any): Promise<string> {
   if (OPENROUTER_KEY_ENV) return OPENROUTER_KEY_ENV;
@@ -47,11 +68,11 @@ async function refreshYandexAccess(sb: any, userId: string, refreshToken: string
     client_id: YANDEX_CLIENT_ID,
     client_secret: YANDEX_CLIENT_SECRET,
   });
-  const res = await fetch("https://oauth.yandex.ru/token", {
+  const res = await fetchWithTimeout("https://oauth.yandex.ru/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
-  });
+  }, 8_000, "yandex_refresh");
   const tok = await res.json().catch(() => ({}));
   if (!res.ok || !tok.access_token) {
     const err: any = new Error("yandex_refresh_failed");
@@ -71,7 +92,7 @@ async function refreshYandexAccess(sb: any, userId: string, refreshToken: string
 // ============ Yandex Metrika ============
 async function metrikaRequest(token: string, params: Record<string, string>) {
   const url = "https://api-metrika.yandex.net/stat/v1/data?" + new URLSearchParams(params).toString();
-  const r = await fetch(url, { headers: { Authorization: `OAuth ${token}` } });
+  const r = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, DEFAULT_FETCH_TIMEOUT_MS, "metrika_data");
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const err: any = new Error(`metrika_${r.status}`);
@@ -84,7 +105,7 @@ async function metrikaRequest(token: string, params: Record<string, string>) {
 
 // ============ Yandex Webmaster ==========
 async function yandexWebmasterRequest(token: string, path: string) {
-  const r = await fetch(`${YANDEX_WEBMASTER_API}${path}`, { headers: { Authorization: `OAuth ${token}` } });
+  const r = await fetchWithTimeout(`${YANDEX_WEBMASTER_API}${path}`, { headers: { Authorization: `OAuth ${token}` } }, 10_000, "yandex_webmaster");
   const text = await r.text();
   let payload: any;
   try { payload = JSON.parse(text); } catch { payload = text; }
@@ -157,7 +178,7 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
     const url = `${YANDEX_WEBMASTER_API}/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/all-history/?${p.toString()}`;
     console.log("Yandex all-history URL:", url);
     try {
-      const r = await fetch(url, { headers: { Authorization: `OAuth ${token}` } });
+      const r = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, 8_000, "yandex_history");
       const text = await r.text();
       console.log("Yandex history raw response status:", r.status);
       console.log("Yandex history raw response:", text.slice(0, 1000));
@@ -198,13 +219,15 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
 async function fetchMetrika(token: string, counterId: string, date1: string, date2: string, opts: { withChannels?: boolean } = {}) {
   const base = { ids: counterId, date1, date2, accuracy: "full" };
   const [totals, sources, engines, pages] = await Promise.all([
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds" }),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<lastTrafficSource>", limit: "20" }),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<searchEngine>", filters: "ym:s:lastTrafficSource=='organic'", limit: "20" }),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:startURL", filters: "ym:s:lastTrafficSource=='organic'", limit: "50", sort: "-ym:s:visits" }),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds" }).catch((e) => ({ __error: e, totals: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<lastTrafficSource>", limit: "20" }).catch((e) => ({ __error: e, data: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<searchEngine>", filters: "ym:s:lastTrafficSource=='organic'", limit: "20" }).catch((e) => ({ __error: e, data: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:startURL", filters: "ym:s:lastTrafficSource=='organic'", limit: "25", sort: "-ym:s:visits" }).catch((e) => ({ __error: e, data: [] })),
   ]);
-  const t = totals.totals ?? [];
-  const organic = (sources.data ?? []).find((r: any) => r.dimensions[0]?.id === "organic")?.metrics?.[0] ?? 0;
+  const hardError = [totals, sources, engines, pages].find((x: any) => x?.__error?.status === 401 || x?.__error?.status === 403 || x?.__error?.status === 404)?.__error;
+  if (hardError) throw hardError;
+  const t = (totals as any).totals ?? [];
+  const organic = ((sources as any).data ?? []).find((r: any) => r.dimensions[0]?.id === "organic")?.metrics?.[0] ?? 0;
 
   // Daily organic visits via /bytime endpoint
   let daily_data: Array<{ date: string; visits: number }> = [];
@@ -219,7 +242,7 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
       filters: "ym:s:lastTrafficSource=='organic'",
     }).toString();
     console.log("Metrika bytime URL:", dailyUrl);
-    const dr = await fetch(dailyUrl, { headers: { Authorization: `OAuth ${token}` } });
+    const dr = await fetchWithTimeout(dailyUrl, { headers: { Authorization: `OAuth ${token}` } }, 6_000, "metrika_bytime_organic");
     const dtext = await dr.text();
     console.log("bytime status:", dr.status, "body:", dtext.slice(0, 300));
     if (dr.ok) {
@@ -251,7 +274,7 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
         accuracy: "full",
         filters: `ym:s:lastSignTrafficSource=='${channel}'`,
       }).toString();
-      const dr = await fetch(url, { headers: { Authorization: `OAuth ${token}` } });
+      const dr = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, 6_000, `metrika_bytime_${channel}`);
       const dtext = await dr.text();
       console.log(`Metrika bytime [${channel}] status:`, dr.status, "body:", dtext.slice(0, 200));
       if (!dr.ok) return [];
@@ -278,17 +301,17 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
   if (opts.withChannels) {
     try {
       const [devRes, regRes] = await Promise.all([
-        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:deviceCategory", limit: "10" }),
-        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:regionCity", limit: "10", sort: "-ym:s:visits" }),
+        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:deviceCategory", limit: "10" }).catch(() => ({ data: [] })),
+        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:regionCity", limit: "10", sort: "-ym:s:visits" }).catch(() => ({ data: [] })),
       ]);
-      const devTotal = (devRes.data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
-      devices = (devRes.data ?? []).map((r: any) => ({
+      const devTotal = ((devRes as any).data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
+      devices = ((devRes as any).data ?? []).map((r: any) => ({
         name: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
         visits: r.metrics[0] ?? 0,
         pct: Math.round(((r.metrics[0] ?? 0) / devTotal) * 1000) / 10,
       }));
-      const regTotal = (regRes.data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
-      regions = (regRes.data ?? []).map((r: any) => ({
+      const regTotal = ((regRes as any).data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
+      regions = ((regRes as any).data ?? []).map((r: any) => ({
         name: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
         visits: r.metrics[0] ?? 0,
         pct: Math.round(((r.metrics[0] ?? 0) / regTotal) * 1000) / 10,
@@ -336,9 +359,9 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
     bounce: t[3] ?? 0,
     duration: t[4] ?? 0,
     organic_visits: organic,
-    sources: (sources.data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
-    engines: (engines.data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
-    top_pages: (pages.data ?? []).map((r: any) => ({ url: r.dimensions[0]?.name, visits: r.metrics[0] })),
+    sources: ((sources as any).data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
+    engines: ((engines as any).data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
+    top_pages: ((pages as any).data ?? []).map((r: any) => ({ url: r.dimensions[0]?.name, visits: r.metrics[0] })),
     daily_data,
     daily_channels,
     daily_combined: merged_daily,
@@ -351,7 +374,7 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
 async function gscQuery(siteUrl: string, body: any) {
   const enc = encodeURIComponent(siteUrl);
   const url = `https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/${enc}/searchAnalytics/query`;
-  const r = await fetch(url, {
+  const r = await fetchWithTimeout(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -359,7 +382,7 @@ async function gscQuery(siteUrl: string, body: any) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  });
+  }, GSC_FETCH_TIMEOUT_MS, "gsc_query");
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const err: any = new Error(`gsc_${r.status}`);
@@ -668,11 +691,11 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик (10+ лет опыт
 }`;
 
 async function callAI(key: string, payload: any) {
-  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const r = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "google/gemini-2.5-flash",
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -680,11 +703,92 @@ async function callAI(key: string, payload: any) {
       ],
       temperature: 0.2,
     }),
-  });
+  }, AI_FETCH_TIMEOUT_MS, "ai_analysis");
   const j = await r.json();
   if (!r.ok) throw new Error(`OpenRouter ${r.status}: ${JSON.stringify(j).slice(0, 400)}`);
   const txt = j.choices?.[0]?.message?.content ?? "{}";
   try { return JSON.parse(txt); } catch { return { raw: txt }; }
+}
+
+function compactForAI(result: any) {
+  const take = (arr: any[], n: number) => Array.isArray(arr) ? arr.slice(0, n) : [];
+  const compact: any = {
+    period: result.period,
+    diagnostics: result.diagnostics,
+  };
+  if (result.gsc) compact.gsc = {
+    current: { clicks: result.gsc.current.clicks, impressions: result.gsc.current.impressions, ctr: result.gsc.current.ctr, position: result.gsc.current.position },
+    previous: { clicks: result.gsc.previous.clicks, impressions: result.gsc.previous.impressions, ctr: result.gsc.previous.ctr, position: result.gsc.previous.position },
+    delta: result.gsc.delta,
+    daily_data: take(result.gsc.current.daily_data, 45),
+    daily_data_prev: take(result.gsc.previous.daily_data, 45),
+  };
+  if (result.yandex) compact.yandex = {
+    current: { clicks: result.yandex.current.clicks, impressions: result.yandex.current.impressions, ctr: result.yandex.current.ctr, position: result.yandex.current.position },
+    previous: { clicks: result.yandex.previous.clicks, impressions: result.yandex.previous.impressions, ctr: result.yandex.previous.ctr, position: result.yandex.previous.position },
+    delta: result.yandex.delta,
+    daily_data: take(result.yandex.current.daily_data, 45),
+    daily_data_prev: take(result.yandex.previous.daily_data, 45),
+  };
+  if (result.metrika) compact.metrika = {
+    current: {
+      visits: result.metrika.current.visits,
+      users: result.metrika.current.users,
+      organic_visits: result.metrika.current.organic_visits,
+      pageviews: result.metrika.current.pageviews,
+      sources: result.metrika.current.sources,
+      engines: result.metrika.current.engines,
+      devices: result.metrika.current.devices,
+      regions: result.metrika.current.regions,
+      daily_combined: take(result.metrika.current.daily_combined, 45),
+    },
+    previous: { visits: result.metrika.previous.visits, users: result.metrika.previous.users, organic_visits: result.metrika.previous.organic_visits, pageviews: result.metrika.previous.pageviews, sources: result.metrika.previous.sources },
+    delta: result.metrika.delta,
+  };
+  return compact;
+}
+
+function fallbackAI(result: any, reason = "ai_unavailable") {
+  const primary = result.metrika?.delta?.organic_visits != null
+    ? { metric: "organic_visits", delta: result.metrika.delta.organic_visits, source: "Метрика" }
+    : result.gsc?.delta?.clicks != null
+      ? { metric: "clicks", delta: result.gsc.delta.clicks, source: "GSC" }
+      : result.yandex?.delta?.clicks != null
+        ? { metric: "clicks", delta: result.yandex.delta.clicks, source: "Yandex" }
+        : { metric: "clicks", delta: 0, source: "GSC" };
+  const direction = primary.delta < -5 ? "down" : primary.delta > 5 ? "up" : "stable";
+  const score = direction === "down" ? Math.max(35, 70 + Math.round(primary.delta / 2)) : direction === "up" ? 78 : 65;
+  return {
+    seo_score: score,
+    score_reasoning: "Автоматическое заключение построено по метрикам без расширенного AI-вывода: внешний AI-ответ не успел завершиться в безопасный лимит.",
+    headline: {
+      direction,
+      main_metric: primary.metric,
+      delta_pct: primary.delta,
+      summary: direction === "down" ? `Зафиксировано снижение по ключевой метрике ${primary.metric}: ${primary.delta}%` : direction === "up" ? `Зафиксирован рост по ключевой метрике ${primary.metric}: +${primary.delta}%` : "Существенного изменения органического трафика не зафиксировано",
+    },
+    diagnosis_pattern: { code: result.diagnostics?.gsc?.signals?.pattern ?? result.diagnostics?.yandex?.signals?.pattern ?? "mixed", explanation: "Паттерн рассчитан автоматически по кликам, показам, CTR и позиции." },
+    main_cause: {
+      title: "Требуется ручная верификация причины изменения",
+      confidence: "low",
+      evidence: [{ source: primary.source, metric: primary.metric, was: "предыдущий период", now: "текущий период", delta: `${primary.delta}%` }],
+      conclusion: `Данные источников получены, но расширенный AI-анализ был ограничен по времени (${reason}). Используйте вкладки графиков, потерянных страниц и запросов для первичной диагностики.`,
+    },
+    root_cause_hypotheses: [],
+    causes: [],
+    impact_breakdown: { total_clicks_lost: 0, top_loss_contributors: [] },
+    brand_analysis: null,
+    lost_pages: [
+      ...(result.diagnostics?.gsc?.lost_pages ?? []).slice(0, 5).map((p: any) => ({ url: p.url, was: p.clicks_was, now: p.clicks_now, delta_pct: p.delta_pct, source: "GSC" })),
+      ...(result.diagnostics?.metrika?.lost_pages ?? []).slice(0, 5).map((p: any) => ({ url: p.url, was: p.visits_was, now: p.visits_now, delta_pct: p.delta_pct, source: "Metrika" })),
+    ],
+    lost_queries: (result.diagnostics?.gsc?.lost_queries_by_clicks ?? result.diagnostics?.yandex?.lost_queries_by_clicks ?? []).slice(0, 10).map((q: any) => ({ query: q.query, clicks_was: q.clicks_was, clicks_now: q.clicks_now, position_was: q.pos_was, position_now: q.pos_now, diagnosis: "Падение кликов требует проверки сниппета, позиции и индексации страницы." })),
+    recommendations: [
+      { priority: "p1", title: "Проверить страницы и запросы с максимальной потерей", why: "Это самый быстрый способ локализовать вклад в падение.", action: "Откройте вкладки «Потерянные страницы» и «Запросы», проверьте индексацию, canonical, robots, title/description и изменения шаблона для топ-потерь.", kpi: { metric: primary.metric, target_delta: "+10–15% за 2 недели" }, ice: { impact: 8, confidence: 6, ease: 7, score: 336 } },
+    ],
+    next_steps: ["Проверить Coverage/Индексирование в GSC и Яндекс.Вебмастере", "Сверить даты падения с релизами, изменениями шаблонов, robots.txt, sitemap и логами сервера"],
+    timeline_notes: [],
+  };
 }
 
 // ============ Friendly error formatter ============
@@ -723,6 +827,15 @@ function friendlyError(source: "Метрика" | "Яндекс" | "GSC", err: a
   return { code: "gsc_error", title: `Google Search Console вернул ошибку ${status ?? ""}.`, hint: "Повторите попытку позже.", raw: typeof payload === "object" ? JSON.stringify(payload).slice(0, 200) : String(payload).slice(0, 200) };
 }
 
+async function getFreshYandexAccess(sb: any, userId: string) {
+  const { data: tok } = await sb.from("yandex_tokens").select("access_token, refresh_token, expires_at").eq("user_id", userId).maybeSingle();
+  if (!tok?.access_token) return null;
+  if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now() + 60_000 && tok.refresh_token) {
+    return await refreshYandexAccess(sb, userId, tok.refresh_token);
+  }
+  return tok.access_token as string;
+}
+
 // ============ Handler ============
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -754,16 +867,19 @@ Deno.serve(async (req) => {
     const result: any = { period: { current: { date1, date2 }, previous: prev } };
     const errors: any[] = [];
 
+    const yandexAccessPromise = counter_id || yandex_host
+      ? getFreshYandexAccess(sb, user.id)
+      : Promise.resolve(null);
+    const sourceJobs: Promise<void>[] = [];
+
     // Metrika
     if (counter_id) {
-      const { data: tok } = await sb.from("yandex_tokens").select("access_token, refresh_token, expires_at").eq("user_id", user.id).maybeSingle();
-      if (!tok?.access_token) {
-        errors.push({ code: "metrika_not_connected", title: "Яндекс Метрика не подключена.", hint: "Нажмите «Подключить» в карточке Яндекс Метрики выше и авторизуйтесь." });
-      } else {
+      sourceJobs.push((async () => {
         try {
-          let accessToken = tok.access_token as string;
-          if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now() + 60_000 && tok.refresh_token) {
-            accessToken = await refreshYandexAccess(sb, user.id, tok.refresh_token);
+          const accessToken = await yandexAccessPromise;
+          if (!accessToken) {
+            errors.push({ code: "metrika_not_connected", title: "Яндекс Метрика не подключена.", hint: "Подключите Яндекс так же, как на странице «Проекты», затем укажите ID счётчика." });
+            return;
           }
           const [cur, prv] = await Promise.all([
             fetchMetrika(accessToken, counter_id, date1, date2, { withChannels: true }),
@@ -776,22 +892,20 @@ Deno.serve(async (req) => {
             pageviews: pct(cur.pageviews, prv.pageviews),
           }};
         } catch (e) { errors.push(friendlyError("Метрика", e, { counter_id })); }
-      }
+      })());
     }
 
     // Yandex Webmaster — same project connection as /projects
     if (yandex_host) {
-      const { data: tok } = await sb.from("yandex_tokens").select("access_token, refresh_token, expires_at").eq("user_id", user.id).maybeSingle();
-      if (!tok?.access_token) {
-        errors.push({ code: "yandex_not_connected", title: "Яндекс не подключён.", hint: "Подключите Яндекс так же, как на странице «Проекты», затем выберите сайт из списка." });
-      } else {
+      sourceJobs.push((async () => {
         try {
-          let accessToken = tok.access_token as string;
-          if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now() + 60_000 && tok.refresh_token) {
-            accessToken = await refreshYandexAccess(sb, user.id, tok.refresh_token);
+          const accessToken = await yandexAccessPromise;
+          if (!accessToken) {
+            errors.push({ code: "yandex_not_connected", title: "Яндекс не подключён.", hint: "Подключите Яндекс так же, как на странице «Проекты», затем выберите сайт из списка." });
+            return;
           }
           const [cur, prv] = await Promise.all([
-            fetchYandexWebmaster(accessToken, yandex_host, date1, date2, prev.date1, prev.date2),
+            fetchYandexWebmaster(accessToken, yandex_host, date1, date2),
             fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2),
           ]);
           result.yandex = { current: cur, previous: prv, delta: {
@@ -799,19 +913,21 @@ Deno.serve(async (req) => {
             impressions: pct(cur.impressions, prv.impressions),
             ctr: pct(cur.ctr, prv.ctr),
             position: Math.round((cur.position - prv.position) * 10) / 10,
-          }, daily_data: cur.daily_data, daily_data_prev: cur.daily_data_prev };
+          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data };
         } catch (e) { errors.push(friendlyError("Яндекс", e, { yandex_host })); }
-      }
+      })());
     }
 
     // GSC
     if (gsc_site) {
-      if (!LOVABLE_API_KEY || !GSC_KEY) {
-        errors.push({ code: "gsc_not_connected", title: "Google Search Console не подключён.", hint: "Подключите коннектор GSC в настройках рабочего пространства." });
-      } else {
+      sourceJobs.push((async () => {
+        if (!LOVABLE_API_KEY || !GSC_KEY) {
+          errors.push({ code: "gsc_not_connected", title: "Google Search Console не подключён.", hint: "Подключите коннектор GSC в настройках рабочего пространства." });
+          return;
+        }
         try {
           const [cur, prv] = await Promise.all([
-            fetchGSC(gsc_site, date1, date2, prev.date1, prev.date2),
+            fetchGSC(gsc_site, date1, date2),
             fetchGSC(gsc_site, prev.date1, prev.date2),
           ]);
           result.gsc = { current: cur, previous: prv, delta: {
@@ -819,10 +935,12 @@ Deno.serve(async (req) => {
             impressions: pct(cur.impressions, prv.impressions),
             ctr: pct(cur.ctr, prv.ctr),
             position: Math.round((cur.position - prv.position) * 10) / 10,
-          }, daily_data: cur.daily_data, daily_data_prev: cur.daily_data_prev };
+          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data };
         } catch (e) { errors.push(friendlyError("GSC", e, { gsc_site })); }
-      }
+      })());
     }
+
+    await Promise.all(sourceJobs);
 
     if (!result.metrika && !result.yandex && !result.gsc) {
       return new Response(JSON.stringify({ error: "Нет данных для анализа", details: errors }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -835,7 +953,14 @@ Deno.serve(async (req) => {
     const orKey = await getOpenRouterKey(sb);
     if (!orKey) return new Response(JSON.stringify({ error: "OPENROUTER_API_KEY не настроен" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const ai = await callAI(orKey, result);
+    let ai: any;
+    try {
+      ai = await callAI(orKey, compactForAI(result));
+    } catch (e) {
+      console.log("AI fallback used:", (e as any)?.message);
+      errors.push({ code: "ai_timeout_fallback", title: "Расширенный AI-анализ не успел завершиться.", hint: "Данные источников получены, поэтому показано автоматическое заключение и графики. Повторите запуск позже для расширенного текстового вывода." });
+      ai = fallbackAI(result, (e as any)?.message ?? "ai_error");
+    }
     return new Response(JSON.stringify({ ...result, ai, errors }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
