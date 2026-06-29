@@ -891,7 +891,18 @@ Deno.serve(async (req) => {
             organic_visits: pct(cur.organic_visits, prv.organic_visits),
             pageviews: pct(cur.pageviews, prv.pageviews),
           }};
-        } catch (e) { errors.push(friendlyError("Метрика", e, { counter_id })); }
+        } catch (e: any) {
+          if (e?.status === 403) {
+            const { data: tokDbg } = await sb.from("yandex_tokens").select("yandex_login").eq("user_id", user.id).maybeSingle();
+            console.log("Metrika 403 error:", JSON.stringify({
+              counter_id,
+              user_id: user.id,
+              token_login: tokDbg?.yandex_login ?? null,
+              error_payload: JSON.stringify(e?.payload ?? {}).slice(0, 300),
+            }));
+          }
+          errors.push(friendlyError("Метрика", e, { counter_id }));
+        }
       })());
     }
 
