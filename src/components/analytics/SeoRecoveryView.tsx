@@ -156,7 +156,7 @@ export function SeoRecoveryView({ data }: Props) {
       </div>
 
       {/* Daily charts — Google / Яндекс tabs */}
-      <DailyChartsTabs gsc={g} yandex={y} metrika={m} />
+      <DailyChartsTabs gsc={g} yandex={y} metrika={m} topvisor={data.topvisor} topvisorPrev={data.topvisor_prev} />
 
       {/* Main cause */}
       {ai.main_cause && (
