@@ -905,7 +905,7 @@ Deno.serve(async (req) => {
             return;
           }
           const [cur, prv] = await Promise.all([
-            fetchYandexWebmaster(accessToken, yandex_host, date1, date2, prev.date1, prev.date2),
+            fetchYandexWebmaster(accessToken, yandex_host, date1, date2),
             fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2),
           ]);
           result.yandex = { current: cur, previous: prv, delta: {
@@ -913,7 +913,7 @@ Deno.serve(async (req) => {
             impressions: pct(cur.impressions, prv.impressions),
             ctr: pct(cur.ctr, prv.ctr),
             position: Math.round((cur.position - prv.position) * 10) / 10,
-          }, daily_data: cur.daily_data, daily_data_prev: cur.daily_data_prev };
+          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data };
         } catch (e) { errors.push(friendlyError("Яндекс", e, { yandex_host })); }
       })());
     }
@@ -927,7 +927,7 @@ Deno.serve(async (req) => {
         }
         try {
           const [cur, prv] = await Promise.all([
-            fetchGSC(gsc_site, date1, date2, prev.date1, prev.date2),
+            fetchGSC(gsc_site, date1, date2),
             fetchGSC(gsc_site, prev.date1, prev.date2),
           ]);
           result.gsc = { current: cur, previous: prv, delta: {
@@ -935,7 +935,7 @@ Deno.serve(async (req) => {
             impressions: pct(cur.impressions, prv.impressions),
             ctr: pct(cur.ctr, prv.ctr),
             position: Math.round((cur.position - prv.position) * 10) / 10,
-          }, daily_data: cur.daily_data, daily_data_prev: cur.daily_data_prev };
+          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data };
         } catch (e) { errors.push(friendlyError("GSC", e, { gsc_site })); }
       })());
     }
