@@ -408,6 +408,119 @@ function EvidenceList({ items }: { items: any[] }) {
   );
 }
 
+function AiVerdictCard({ ai, gsc, yandex, metrika }: { ai: any; gsc: any; yandex: any; metrika: any }) {
+  const headline = ai?.headline ?? {};
+  const conclusion = ai?.main_cause?.conclusion;
+  const reasoning = ai?.score_reasoning;
+  // Собираем 3-4 предложения вывода
+  const sentences: string[] = [];
+  if (headline.summary) sentences.push(String(headline.summary));
+  if (ai?.main_cause?.title) sentences.push(`Главная причина — ${String(ai.main_cause.title).toLowerCase().replace(/\.$/, '')}.`);
+  if (conclusion) sentences.push(String(conclusion));
+  if (reasoning) sentences.push(String(reasoning));
+  const verdict = sentences.slice(0, 4).join(' ');
+
+  const gClicks = gsc?.delta?.clicks;
+  const yClicks = yandex?.delta?.clicks;
+  const mOrg = metrika?.delta?.organic_visits;
+  const score = ai?.seo_score;
+
+  if (!verdict && score == null) return null;
+
+  const pill = (label: string, value: number | undefined, color: string) => {
+    if (value == null || !Number.isFinite(value)) return null;
+    const neg = value < 0;
+    return (
+      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm ${color}`}>
+        <span className="text-xs uppercase tracking-wide opacity-80">{label}</span>
+        <span className="font-semibold">{value > 0 ? '+' : ''}{value}%</span>
+        {neg ? <ArrowDown className="w-3.5 h-3.5" /> : value > 0 ? <ArrowUp className="w-3.5 h-3.5" /> : null}
+      </div>
+    );
+  };
+
+  return (
+    <Card className="p-6 border-primary/30 bg-gradient-to-br from-primary/5 via-background to-background">
+      <div className="flex items-start gap-4">
+        <div className="shrink-0 w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+          <Sparkles className="w-6 h-6 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0 space-y-3">
+          <div className="flex items-center gap-2 text-xs uppercase text-primary font-medium tracking-wide">
+            AI-вывод
+          </div>
+          {headline.summary && (
+            <h3 className="text-xl font-semibold leading-snug">{headline.summary}</h3>
+          )}
+          {verdict && (
+            <p className="text-sm text-muted-foreground leading-relaxed">{verdict}</p>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {pill('Google клики', gClicks, 'bg-[#3B82F6]/10 border-[#3B82F6]/40 text-[#3B82F6]')}
+            {pill('Яндекс клики', yClicks, 'bg-[#F97316]/10 border-[#F97316]/40 text-[#F97316]')}
+            {pill('Орг. визиты', mOrg, 'bg-[#F97316]/10 border-[#F97316]/40 text-[#F97316]')}
+            {typeof score === 'number' && (
+              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm ${score >= 70 ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600' : score >= 40 ? 'bg-amber-500/10 border-amber-500/40 text-amber-600' : 'bg-rose-500/10 border-rose-500/40 text-rose-600'}`}>
+                <span className="text-xs uppercase tracking-wide opacity-80">SEO Score</span>
+                <span className="font-semibold">{score}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function HypothesisCard({ index, h }: { index: number; h: any }) {
+  const p: number = Number(h?.probability ?? 0);
+  const pColor =
+    p >= 70 ? 'bg-rose-500/15 text-rose-600 border-rose-500/40'
+    : p >= 40 ? 'bg-amber-500/15 text-amber-600 border-amber-500/40'
+    : 'bg-muted text-muted-foreground border-border';
+  const dot =
+    p >= 70 ? 'bg-rose-500'
+    : p >= 40 ? 'bg-amber-500'
+    : 'bg-muted-foreground/50';
+  const evidence: any[] = Array.isArray(h?.evidence) ? h.evidence : [];
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-3 mb-4">
+        <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-xs font-mono font-semibold ${pColor}`}>
+          <span className={`inline-block w-2 h-2 rounded-full ${dot}`} />
+          P = {p}%
+        </span>
+        <h4 className="font-semibold text-base flex-1">Гипотеза {index}: {h?.hypothesis}</h4>
+      </div>
+
+      {evidence.length > 0 && (
+        <div className="mb-4">
+          <div className="text-xs font-bold uppercase tracking-wide text-foreground mb-2">Доказательства:</div>
+          <ul className="space-y-1.5">
+            {evidence.map((e: any, i: number) => (
+              <li key={i} className="text-sm flex items-start gap-2">
+                <span className="text-primary mt-1">•</span>
+                <span>
+                  <span className="font-medium">{ruLabel(e.source)} {e.metric}:</span>{' '}
+                  <span className="font-mono">{e.was} → {e.now}</span>{' '}
+                  <span className="text-rose-500 font-medium">({e.delta})</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {h?.verification_step && (
+        <div className="border-l-4 border-[#3B82F6] bg-[#3B82F6]/5 rounded-r px-4 py-3">
+          <div className="text-xs font-bold uppercase tracking-wide text-[#3B82F6] mb-1">Как проверить</div>
+          <div className="text-sm text-foreground">{h.verification_step}</div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 type Metric = 'clicks' | 'impressions' | 'ctr' | 'position';
 
 function formatDM(iso: string): string {
