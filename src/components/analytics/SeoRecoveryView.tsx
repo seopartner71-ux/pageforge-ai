@@ -495,124 +495,187 @@ function findBreakpoint(rows: any[], prefix: string): { idx: number; label: stri
   return { idx, label: rows[idx]?.label };
 }
 
-function DailyCharts({ gsc, yandex }: { gsc: any; yandex: any }) {
+function GoogleDailyChart({ gsc }: { gsc: any }) {
   const [metric, setMetric] = useState<Metric>('clicks');
-
-  const gscCur = useMemo(() => pickDaily(gsc), [gsc]);
-  const gscPrev = useMemo(() => pickDailyPrev(gsc), [gsc]);
-  const yCur = useMemo(() => pickDaily(yandex), [yandex]);
-  const yPrev = useMemo(() => pickDailyPrev(yandex), [yandex]);
-
-  const hasGsc = gscCur.length > 0;
-  const hasY = yCur.length > 0;
-
-  if (!hasGsc && !hasY) {
-    return (
-      <Card className="p-6 text-sm text-muted-foreground text-center">
-        Детальные данные по дням недоступны
-      </Card>
-    );
+  const cur = useMemo(() => pickDaily(gsc), [gsc]);
+  const prev = useMemo(() => pickDailyPrev(gsc), [gsc]);
+  if (cur.length === 0) {
+    return <div className="text-sm text-muted-foreground text-center py-10">Нет данных GSC по дням</div>;
   }
-
-  // Merge by index — use whichever source has more points as the baseline length
-  const len = Math.max(gscCur.length, gscPrev.length, yCur.length, yPrev.length);
-  const merged: any[] = [];
-  for (let i = 0; i < len; i++) {
-    const gc = gscCur[i], gp = gscPrev[i], yc = yCur[i], yp = yPrev[i];
-    merged.push({
-      idx: i,
-      label: formatDM(gc?.date || yc?.date || gp?.date || yp?.date || ''),
-      gsc_current: hasGsc ? valueByMetric(gc, metric) : null,
-      gsc_previous: hasGsc ? valueByMetric(gp, metric) : null,
-      yandex_current: hasY ? valueByMetric(yc, metric) : null,
-      yandex_previous: hasY ? valueByMetric(yp, metric) : null,
-    });
-  }
-
-  // CTR series for separate chart (always shown when impressions available)
-  const ctrMerged: any[] = [];
-  for (let i = 0; i < len; i++) {
-    const gc = gscCur[i], gp = gscPrev[i], yc = yCur[i], yp = yPrev[i];
-    ctrMerged.push({
-      idx: i,
-      label: formatDM(gc?.date || yc?.date || gp?.date || yp?.date || ''),
-      gsc_current: hasGsc ? valueByMetric(gc, 'ctr') : null,
-      gsc_previous: hasGsc ? valueByMetric(gp, 'ctr') : null,
-      yandex_current: hasY ? valueByMetric(yc, 'ctr') : null,
-      yandex_previous: hasY ? valueByMetric(yp, 'ctr') : null,
-    });
-  }
-
-  // Breakpoint based on primary source (gsc preferred)
-  const breakSrc = hasGsc ? 'gsc' : 'yandex';
-  const breakpoint = findBreakpoint(merged, breakSrc);
-
-  const yAxisFormatter = metric === 'ctr' ? (v: number) => `${v}%` : undefined;
-  const tooltipFormatter = (v: any) => (metric === 'ctr' ? `${v}%` : v);
-
+  const rows = buildSeries(cur, prev, metric, 'gsc');
+  const ctrRows = buildSeries(cur, prev, 'ctr', 'gsc');
+  const bp = findBreakpoint(rows, 'gsc');
+  const yFmt = metric === 'ctr' ? (v: number) => `${v}%` : undefined;
+  const tFmt = (v: any) => (metric === 'ctr' ? `${v}%` : v);
   const metrics: { key: Metric; label: string }[] = [
     { key: 'clicks', label: 'Клики' },
     { key: 'impressions', label: 'Показы' },
     { key: 'ctr', label: 'CTR' },
     { key: 'position', label: 'Позиция' },
   ];
-
   return (
-    <Card className="p-4 space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="text-sm font-medium">Динамика по дням</div>
-        <div className="flex items-center gap-1">
-          {metrics.map((mm) => (
-            <Button key={mm.key} size="sm" variant={metric === mm.key ? 'default' : 'outline'} onClick={() => setMetric(mm.key)}>
-              {mm.label}
-            </Button>
-          ))}
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-1 flex-wrap">
+        {metrics.map((mm) => (
+          <Button key={mm.key} size="sm" variant={metric === mm.key ? 'default' : 'outline'} onClick={() => setMetric(mm.key)}>{mm.label}</Button>
+        ))}
       </div>
-
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={merged} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+          <LineChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={yAxisFormatter as any} reversed={metric === 'position'} />
-            <RTooltip
-              contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }}
-              formatter={tooltipFormatter as any}
-            />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={yFmt as any} reversed={metric === 'position'} />
+            <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={tFmt as any} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            {breakpoint && metric !== 'position' && (
-              <ReferenceLine x={breakpoint.label} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{ value: `↓ ${breakpoint.label}`, fill: 'hsl(var(--destructive))', fontSize: 11, position: 'insideBottomRight' }} />
+            {bp && metric !== 'position' && (
+              <ReferenceLine x={bp.label} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{ value: `↓ ${bp.label}`, fill: 'hsl(var(--destructive))', fontSize: 11, position: 'insideBottomRight' }} />
             )}
-            {hasGsc && <Line type="monotone" dataKey="gsc_current" name="Google текущий период" stroke="#3B82F6" strokeWidth={2} dot={false} />}
-            {hasGsc && <Line type="monotone" dataKey="gsc_previous" name="Google предыдущий период" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
-            {hasY && <Line type="monotone" dataKey="yandex_current" name="Яндекс · текущий" stroke="#EF4444" strokeWidth={2} dot={false} />}
-            {hasY && <Line type="monotone" dataKey="yandex_previous" name="Яндекс · предыдущий" stroke="#CBD5E1" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
+            <Line type="monotone" dataKey="gsc_current" name="Текущий период" stroke="#3B82F6" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="gsc_previous" name="Предыдущий период" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
-
-      <div className="pt-2 border-t border-border">
+      <div className="pt-3 border-t border-border">
         <div className="text-xs text-muted-foreground mb-2 uppercase">CTR по дням</div>
         <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={ctrMerged} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+            <LineChart data={ctrRows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => `${v}%`} />
-              <RTooltip
-                contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }}
-                formatter={(v: any) => `${v}%`}
-              />
+              <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: any) => `${v}%`} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              {hasGsc && <Line type="monotone" dataKey="gsc_current" name="CTR текущий период" stroke="#3B82F6" strokeWidth={2} dot={false} />}
-              {hasGsc && <Line type="monotone" dataKey="gsc_previous" name="CTR предыдущий период" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
-              {hasY && <Line type="monotone" dataKey="yandex_current" name="Яндекс CTR · текущий" stroke="#EF4444" strokeWidth={2} dot={false} />}
-              {hasY && <Line type="monotone" dataKey="yandex_previous" name="Яндекс CTR · предыдущий" stroke="#CBD5E1" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
+              <Line type="monotone" dataKey="gsc_current" name="CTR текущий" stroke="#3B82F6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="gsc_previous" name="CTR предыдущий" stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
+    </div>
+  );
+}
+
+const CHANNEL_COLORS: Record<string, string> = {
+  organic: '#F97316',
+  direct: '#10B981',
+  ad: '#EF4444',
+  social: '#8B5CF6',
+  referral: '#06B6D4',
+};
+const CHANNEL_LABELS: Record<string, string> = {
+  organic: 'Органика',
+  direct: 'Прямые',
+  ad: 'Реклама',
+  social: 'Соцсети',
+  referral: 'Реферальный',
+};
+
+function YandexChannelsChart({ metrika, yandex }: { metrika: any; yandex: any }) {
+  const combined: any[] = Array.isArray(metrika?.current?.daily_combined) ? metrika.current.daily_combined : [];
+  const yDaily: any[] = Array.isArray(yandex?.current?.daily_data) ? yandex.current.daily_data : [];
+  if (combined.length === 0 && yDaily.length === 0) {
+    return <div className="text-sm text-muted-foreground text-center py-10">Нет данных по дням</div>;
+  }
+  // Build merged rows by date
+  const map: Record<string, any> = {};
+  combined.forEach((r) => { map[r.date] = { date: r.date, label: formatDM(r.date), organic: r.organic ?? 0, direct: r.direct ?? 0, ad: r.ad ?? 0, social: r.social ?? 0, referral: r.referral ?? 0 }; });
+  yDaily.forEach((r) => { const d = r.date; map[d] = { ...(map[d] || { date: d, label: formatDM(d) }), wm_clicks: Number(r.clicks ?? 0) }; });
+  const rows = Object.values(map).sort((a: any, b: any) => a.date.localeCompare(b.date));
+  return (
+    <div className="h-80 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+          <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+          <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+          <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          {combined.length > 0 && (['organic', 'direct', 'ad', 'social', 'referral'] as const).map((k) => (
+            <Area key={k} type="monotone" dataKey={k} stackId="1" name={CHANNEL_LABELS[k]} stroke={CHANNEL_COLORS[k]} fill={CHANNEL_COLORS[k]} fillOpacity={0.6} />
+          ))}
+          {yDaily.length > 0 && (
+            <Area type="monotone" dataKey="wm_clicks" name="Клики Вебмастера" stroke="#0F172A" fill="transparent" strokeWidth={2} />
+          )}
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function BreakdownBar({ rows, color }: { rows: Array<{ name: string; visits: number; pct: number }>; color: string }) {
+  if (!rows || rows.length === 0) {
+    return <div className="text-sm text-muted-foreground text-center py-10">Нет данных</div>;
+  }
+  return (
+    <div className="h-80 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={rows} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+          <XAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+          <YAxis dataKey="name" type="category" width={140} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+          <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: any, _n: any, p: any) => [`${v} визитов (${p?.payload?.pct ?? 0}%)`, 'Метрика']} />
+          <Bar dataKey="visits" fill={color} radius={[0, 4, 4, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function YandexPanel({ metrika, yandex }: { metrika: any; yandex: any }) {
+  const hasMetrika = !!metrika;
+  const hasY = !!yandex;
+  if (!hasMetrika && !hasY) {
+    return (
+      <div className="text-sm text-muted-foreground text-center py-12 px-4">
+        Подключите Яндекс Метрику (counter_id) для детального анализа по каналам, устройствам и регионам.
+      </div>
+    );
+  }
+  const devices = metrika?.current?.devices ?? [];
+  const regions = metrika?.current?.regions ?? [];
+  return (
+    <Tabs defaultValue="channels">
+      <TabsList>
+        <TabsTrigger value="channels">Каналы</TabsTrigger>
+        <TabsTrigger value="devices">Устройства</TabsTrigger>
+        <TabsTrigger value="regions">Регионы</TabsTrigger>
+      </TabsList>
+      <TabsContent value="channels" className="mt-4">
+        <YandexChannelsChart metrika={metrika} yandex={yandex} />
+      </TabsContent>
+      <TabsContent value="devices" className="mt-4">
+        <BreakdownBar rows={devices} color="#F97316" />
+      </TabsContent>
+      <TabsContent value="regions" className="mt-4">
+        <BreakdownBar rows={regions} color="#F97316" />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function DailyChartsTabs({ gsc, yandex, metrika }: { gsc: any; yandex: any; metrika: any }) {
+  const hasGsc = !!gsc;
+  const defaultTab = hasGsc ? 'google' : 'yandex';
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="text-sm font-medium">Динамика по дням</div>
+      <Tabs defaultValue={defaultTab}>
+        <TabsList>
+          <TabsTrigger value="google" className="data-[state=active]:border-b-2 data-[state=active]:border-[#3B82F6]">
+            <span className="inline-block w-2 h-2 rounded-full bg-[#3B82F6] mr-2" /> Google
+          </TabsTrigger>
+          <TabsTrigger value="yandex" className="data-[state=active]:border-b-2 data-[state=active]:border-[#F97316]">
+            <span className="inline-block w-2 h-2 rounded-full bg-[#F97316] mr-2" /> Яндекс
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="google" className="mt-4">
+          {hasGsc ? <GoogleDailyChart gsc={gsc} /> : <div className="text-sm text-muted-foreground text-center py-10">Подключите Google Search Console для графиков</div>}
+        </TabsContent>
+        <TabsContent value="yandex" className="mt-4">
+          <YandexPanel metrika={metrika} yandex={yandex} />
+        </TabsContent>
+      </Tabs>
     </Card>
   );
 }
