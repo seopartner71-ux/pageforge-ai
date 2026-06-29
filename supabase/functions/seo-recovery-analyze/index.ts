@@ -517,7 +517,7 @@ Deno.serve(async (req) => {
     if (!user) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const body = await req.json();
-    const { counter_id, yandex_host, gsc_site, date1, date2, mode } = body as { counter_id?: string; yandex_host?: string; gsc_site?: string; date1: string; date2: string; mode?: string };
+    const { counter_id, yandex_host, gsc_site, date1, date2, mode, comparison1, comparison2 } = body as { counter_id?: string; yandex_host?: string; gsc_site?: string; date1: string; date2: string; mode?: string; comparison1?: string; comparison2?: string };
 
     if (!date1 || !date2) return new Response(JSON.stringify({ error: "date1/date2 required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     if (mode === "check") {
