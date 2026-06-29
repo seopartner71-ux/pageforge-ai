@@ -182,7 +182,7 @@ export function SeoRecoveryView({ data }: Props) {
       )}
 
       {/* AI Verdict — общий вывод */}
-      <AiVerdictCard ai={ai} gsc={g} yandex={y} metrika={m} />
+      <AiVerdictCard ai={ai} gsc={g} yandex={y} metrika={m} period={data.period} />
 
       <Tabs defaultValue="causes">
         <TabsList>
