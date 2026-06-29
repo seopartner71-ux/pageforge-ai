@@ -893,7 +893,7 @@ Deno.serve(async (req) => {
     if (!user) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const body = await req.json();
-    const { counter_id, yandex_host, gsc_site, date1, date2, mode, comparison1, comparison2 } = body as { counter_id?: string; yandex_host?: string; gsc_site?: string; date1: string; date2: string; mode?: string; comparison1?: string; comparison2?: string };
+    const { counter_id, yandex_host, gsc_site, date1, date2, mode, comparison1, comparison2, topvisor_key, topvisor_user_id, topvisor_project_id } = body as { counter_id?: string; yandex_host?: string; gsc_site?: string; date1: string; date2: string; mode?: string; comparison1?: string; comparison2?: string; topvisor_key?: string; topvisor_user_id?: string; topvisor_project_id?: string };
 
     if (!date1 || !date2) return new Response(JSON.stringify({ error: "date1/date2 required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     if (mode === "check") {
@@ -996,6 +996,23 @@ Deno.serve(async (req) => {
     }
 
     await Promise.all(sourceJobs);
+
+    // Topvisor (independent, runs alongside)
+    if (topvisor_key && topvisor_project_id && topvisor_user_id) {
+      try {
+        result.topvisor = await fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, date1, date2);
+        try {
+          result.topvisor_prev = await fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, prev.date1, prev.date2);
+        } catch (_e) { /* предыдущий период необязателен */ }
+      } catch (e: any) {
+        errors.push({
+          code: "topvisor_error",
+          title: `Топвизор ответил ошибкой${e?.status ? ` ${e.status}` : ""}.`,
+          hint: "Проверьте API-ключ, User ID и Project ID. Убедитесь, что проект содержит ключевые запросы и собранные позиции за выбранный период.",
+          raw: typeof e?.payload === "object" ? JSON.stringify(e.payload).slice(0, 240) : undefined,
+        });
+      }
+    }
 
     if (!result.metrika && !result.yandex && !result.gsc) {
       return new Response(JSON.stringify({ error: "Нет данных для анализа", details: errors }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
