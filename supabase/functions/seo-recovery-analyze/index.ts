@@ -270,6 +270,7 @@ function detectBrand(host: string): string | null {
 function buildDiagnostics(result: any, gscSite?: string) {
   const d: any = {};
   const g = result.gsc;
+  const y = result.yandex;
   const m = result.metrika;
   if (g) {
     const queriesDiff = diffSeries(g.current.queries, g.previous.queries, "query", "clicks");
@@ -323,6 +324,35 @@ function buildDiagnostics(result: any, gscSite?: string) {
         : g.delta.ctr < -10 && Math.abs(g.delta.position) < 0.3 ? "ctr_decay"
         : g.delta.impressions < -10 && g.delta.clicks > -5 ? "impressions_drop_clicks_stable"
         : "mixed",
+    };
+  }
+  if (y) {
+    const queriesDiff = diffSeries(y.current.queries, y.previous.queries, "query", "clicks");
+    const impressionsDiff = diffSeries(y.current.queries, y.previous.queries, "query", "impressions");
+    d.yandex = {
+      lost_queries_by_clicks: topLosers(queriesDiff).map(q => {
+        const cq = y.current.queries.find((x: any) => x.query === q.key);
+        const pq = y.previous.queries.find((x: any) => x.query === q.key);
+        return {
+          query: q.key, clicks_was: q.was, clicks_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct,
+          impr_was: pq?.impressions ?? 0, impr_now: cq?.impressions ?? 0,
+          pos_was: pq?.position ?? null, pos_now: cq?.position ?? null,
+        };
+      }),
+      lost_queries_by_impr: topLosers(impressionsDiff).slice(0, 10).map(q => ({ query: q.key, impr_was: q.was, impr_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct })),
+      gained_queries_by_clicks: topGainers(queriesDiff).map(q => ({ query: q.key, clicks_was: q.was, clicks_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct })),
+      signals: {
+        impressions_drop_pct: y.delta.impressions,
+        clicks_drop_pct: y.delta.clicks,
+        ctr_change_pct: y.delta.ctr,
+        position_change_abs: y.delta.position,
+        pattern:
+          y.delta.impressions < -10 && y.delta.position > 0.3 ? "visibility_loss"
+          : y.delta.position < -0.3 && y.delta.clicks < -5 ? "position_up_clicks_down_anomaly"
+          : y.delta.ctr < -10 && Math.abs(y.delta.position) < 0.3 ? "ctr_decay"
+          : y.delta.impressions < -10 && y.delta.clicks > -5 ? "impressions_drop_clicks_stable"
+          : "mixed",
+      },
     };
   }
   if (m) {
