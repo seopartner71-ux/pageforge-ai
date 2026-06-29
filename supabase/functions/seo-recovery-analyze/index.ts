@@ -827,6 +827,15 @@ function friendlyError(source: "Метрика" | "Яндекс" | "GSC", err: a
   return { code: "gsc_error", title: `Google Search Console вернул ошибку ${status ?? ""}.`, hint: "Повторите попытку позже.", raw: typeof payload === "object" ? JSON.stringify(payload).slice(0, 200) : String(payload).slice(0, 200) };
 }
 
+async function getFreshYandexAccess(sb: any, userId: string) {
+  const { data: tok } = await sb.from("yandex_tokens").select("access_token, refresh_token, expires_at").eq("user_id", userId).maybeSingle();
+  if (!tok?.access_token) return null;
+  if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now() + 60_000 && tok.refresh_token) {
+    return await refreshYandexAccess(sb, userId, tok.refresh_token);
+  }
+  return tok.access_token as string;
+}
+
 // ============ Handler ============
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -858,16 +867,19 @@ Deno.serve(async (req) => {
     const result: any = { period: { current: { date1, date2 }, previous: prev } };
     const errors: any[] = [];
 
+    const yandexAccessPromise = counter_id || yandex_host
+      ? getFreshYandexAccess(sb, user.id)
+      : Promise.resolve(null);
+    const sourceJobs: Promise<void>[] = [];
+
     // Metrika
     if (counter_id) {
-      const { data: tok } = await sb.from("yandex_tokens").select("access_token, refresh_token, expires_at").eq("user_id", user.id).maybeSingle();
-      if (!tok?.access_token) {
-        errors.push({ code: "metrika_not_connected", title: "Яндекс Метрика не подключена.", hint: "Нажмите «Подключить» в карточке Яндекс Метрики выше и авторизуйтесь." });
-      } else {
+      sourceJobs.push((async () => {
         try {
-          let accessToken = tok.access_token as string;
-          if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now() + 60_000 && tok.refresh_token) {
-            accessToken = await refreshYandexAccess(sb, user.id, tok.refresh_token);
+          const accessToken = await yandexAccessPromise;
+          if (!accessToken) {
+            errors.push({ code: "metrika_not_connected", title: "Яндекс Метрика не подключена.", hint: "Подключите Яндекс так же, как на странице «Проекты», затем укажите ID счётчика." });
+            return;
           }
           const [cur, prv] = await Promise.all([
             fetchMetrika(accessToken, counter_id, date1, date2, { withChannels: true }),
@@ -880,19 +892,17 @@ Deno.serve(async (req) => {
             pageviews: pct(cur.pageviews, prv.pageviews),
           }};
         } catch (e) { errors.push(friendlyError("Метрика", e, { counter_id })); }
-      }
+      })());
     }
 
     // Yandex Webmaster — same project connection as /projects
     if (yandex_host) {
-      const { data: tok } = await sb.from("yandex_tokens").select("access_token, refresh_token, expires_at").eq("user_id", user.id).maybeSingle();
-      if (!tok?.access_token) {
-        errors.push({ code: "yandex_not_connected", title: "Яндекс не подключён.", hint: "Подключите Яндекс так же, как на странице «Проекты», затем выберите сайт из списка." });
-      } else {
+      sourceJobs.push((async () => {
         try {
-          let accessToken = tok.access_token as string;
-          if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now() + 60_000 && tok.refresh_token) {
-            accessToken = await refreshYandexAccess(sb, user.id, tok.refresh_token);
+          const accessToken = await yandexAccessPromise;
+          if (!accessToken) {
+            errors.push({ code: "yandex_not_connected", title: "Яндекс не подключён.", hint: "Подключите Яндекс так же, как на странице «Проекты», затем выберите сайт из списка." });
+            return;
           }
           const [cur, prv] = await Promise.all([
             fetchYandexWebmaster(accessToken, yandex_host, date1, date2, prev.date1, prev.date2),
@@ -905,14 +915,16 @@ Deno.serve(async (req) => {
             position: Math.round((cur.position - prv.position) * 10) / 10,
           }, daily_data: cur.daily_data, daily_data_prev: cur.daily_data_prev };
         } catch (e) { errors.push(friendlyError("Яндекс", e, { yandex_host })); }
-      }
+      })());
     }
 
     // GSC
     if (gsc_site) {
-      if (!LOVABLE_API_KEY || !GSC_KEY) {
-        errors.push({ code: "gsc_not_connected", title: "Google Search Console не подключён.", hint: "Подключите коннектор GSC в настройках рабочего пространства." });
-      } else {
+      sourceJobs.push((async () => {
+        if (!LOVABLE_API_KEY || !GSC_KEY) {
+          errors.push({ code: "gsc_not_connected", title: "Google Search Console не подключён.", hint: "Подключите коннектор GSC в настройках рабочего пространства." });
+          return;
+        }
         try {
           const [cur, prv] = await Promise.all([
             fetchGSC(gsc_site, date1, date2, prev.date1, prev.date2),
@@ -925,8 +937,10 @@ Deno.serve(async (req) => {
             position: Math.round((cur.position - prv.position) * 10) / 10,
           }, daily_data: cur.daily_data, daily_data_prev: cur.daily_data_prev };
         } catch (e) { errors.push(friendlyError("GSC", e, { gsc_site })); }
-      }
+      })());
     }
+
+    await Promise.all(sourceJobs);
 
     if (!result.metrika && !result.yandex && !result.gsc) {
       return new Response(JSON.stringify({ error: "Нет данных для анализа", details: errors }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -939,7 +953,14 @@ Deno.serve(async (req) => {
     const orKey = await getOpenRouterKey(sb);
     if (!orKey) return new Response(JSON.stringify({ error: "OPENROUTER_API_KEY не настроен" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const ai = await callAI(orKey, result);
+    let ai: any;
+    try {
+      ai = await callAI(orKey, compactForAI(result));
+    } catch (e) {
+      console.log("AI fallback used:", (e as any)?.message);
+      errors.push({ code: "ai_timeout_fallback", title: "Расширенный AI-анализ не успел завершиться.", hint: "Данные источников получены, поэтому показано автоматическое заключение и графики. Повторите запуск позже для расширенного текстового вывода." });
+      ai = fallbackAI(result, (e as any)?.message ?? "ai_error");
+    }
     return new Response(JSON.stringify({ ...result, ai, errors }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
