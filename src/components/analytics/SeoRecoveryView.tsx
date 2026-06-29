@@ -125,33 +125,38 @@ export function SeoRecoveryView({ data }: Props) {
         </Card>
       )}
 
-      {/* Metric cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {m && (
-          <>
-            <MetricCard title="Органические визиты" tooltip="Источник: Яндекс Метрика. Визиты из поисковых систем." now={m.current.organic_visits} was={m.previous.organic_visits} delta={m.delta.organic_visits} />
-            <MetricCard title="Все визиты" tooltip="Источник: Метрика. Все визиты сайта." now={m.current.visits} was={m.previous.visits} delta={m.delta.visits} />
-            <MetricCard title="Пользователи" tooltip="Источник: Метрика. Уникальные посетители." now={m.current.users} was={m.previous.users} delta={m.delta.users} />
-          </>
-        )}
-        {y && (
-          <>
-            <MetricCard title="Клики из Яндекса" tooltip="Источник: Яндекс.Вебмастер. Клики из поиска Яндекса." now={y.current.clicks} was={y.previous.clicks} delta={y.delta.clicks} />
-            <MetricCard title="Показы Яндекса" tooltip="Источник: Яндекс.Вебмастер. Показы сайта в выдаче Яндекса." now={y.current.impressions} was={y.previous.impressions} delta={y.delta.impressions} />
-            <MetricCard title="Позиция в Яндексе" tooltip="Источник: Яндекс.Вебмастер. Средняя позиция в выдаче Яндекса." now={y.current.position?.toFixed?.(1)} was={y.previous.position?.toFixed?.(1)} delta={y.delta.position} suffix="" />
-          </>
-        )}
-        {g && (
-          <>
-            <MetricCard title="Клики из Google" tooltip="Источник: GSC. Клики из поиска Google." now={g.current.clicks} was={g.previous.clicks} delta={g.delta.clicks} />
-            <MetricCard title="Показы Google" tooltip="Источник: GSC. Показы сайта в выдаче." now={g.current.impressions} was={g.previous.impressions} delta={g.delta.impressions} />
-            <MetricCard title="Средняя позиция" tooltip="Источник: GSC. Средняя позиция в выдаче." now={g.current.position?.toFixed?.(1)} was={g.previous.position?.toFixed?.(1)} delta={g.delta.position} suffix="" />
-          </>
-        )}
+      {/* Metric cards — Google vs Яндекс */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <Card className="p-4 border-l-4 border-l-[#3B82F6]">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-[#3B82F6]" /> Google Search Console
+          </div>
+          {g ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <MetricCard title="Клики" tooltip="Источник: GSC. Клики из поиска Google." now={g.current.clicks} was={g.previous.clicks} delta={g.delta.clicks} />
+              <MetricCard title="Показы" tooltip="Источник: GSC. Показы сайта в выдаче." now={g.current.impressions} was={g.previous.impressions} delta={g.delta.impressions} />
+              <MetricCard title="CTR" tooltip="Источник: GSC. Кликабельность." now={typeof g.current.ctr === 'number' ? (g.current.ctr * 100).toFixed(2) : g.current.ctr} was={typeof g.previous.ctr === 'number' ? (g.previous.ctr * 100).toFixed(2) : g.previous.ctr} delta={g.delta.ctr} suffix="%" />
+              <MetricCard title="Позиция" tooltip="Источник: GSC. Средняя позиция в выдаче." now={g.current.position?.toFixed?.(1)} was={g.previous.position?.toFixed?.(1)} delta={g.delta.position} suffix="" />
+            </div>
+          ) : <div className="text-sm text-muted-foreground py-4">Подключите Google Search Console</div>}
+        </Card>
+        <Card className="p-4 border-l-4 border-l-[#F97316]">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-[#F97316]" /> Яндекс (Вебмастер + Метрика)
+          </div>
+          {(y || m) ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {y && <MetricCard title="Клики" tooltip="Источник: Яндекс.Вебмастер. Клики из поиска Яндекса." now={y.current.clicks} was={y.previous.clicks} delta={y.delta.clicks} />}
+              {y && <MetricCard title="Показы" tooltip="Источник: Яндекс.Вебмастер." now={y.current.impressions} was={y.previous.impressions} delta={y.delta.impressions} />}
+              {y && <MetricCard title="Позиция" tooltip="Источник: Яндекс.Вебмастер. Средняя позиция." now={y.current.position?.toFixed?.(1)} was={y.previous.position?.toFixed?.(1)} delta={y.delta.position} suffix="" />}
+              {m && <MetricCard title="Орг. визиты" tooltip="Источник: Яндекс Метрика. Визиты из поиска." now={m.current.organic_visits} was={m.previous.organic_visits} delta={m.delta.organic_visits} />}
+            </div>
+          ) : <div className="text-sm text-muted-foreground py-4">Подключите Яндекс.Вебмастер или Метрику</div>}
+        </Card>
       </div>
 
-      {/* Daily charts */}
-      <DailyCharts gsc={g} yandex={y} />
+      {/* Daily charts — Google / Яндекс tabs */}
+      <DailyChartsTabs gsc={g} yandex={y} metrika={m} />
 
       {/* Main cause */}
       {ai.main_cause && (
