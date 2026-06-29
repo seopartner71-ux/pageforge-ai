@@ -602,6 +602,36 @@ export default function SeoRecoveryPage() {
                   <Switch checked={useMetrika} onCheckedChange={setUseMetrika} />
                 </div>
               </div>
+
+              {/* Topvisor */}
+              <div className="flex items-start justify-between gap-3 p-3 border rounded-md">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <div className="w-8 h-8 rounded-md bg-violet-600 text-white flex items-center justify-center text-sm font-bold shrink-0">T</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">Топвизор</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">Необязательно — добавит динамику позиций по ключевым запросам</div>
+                    {useTopvisor && (
+                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-2xl">
+                        <div className="space-y-1">
+                          <Label htmlFor="tvKey" className="text-xs">API ключ</Label>
+                          <Input id="tvKey" className="h-8" placeholder="api_key" value={topvisorKey} onChange={(e) => setTopvisorKey(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="tvUser" className="text-xs">User ID</Label>
+                          <Input id="tvUser" className="h-8" placeholder="user_id" value={topvisorUserId} onChange={(e) => setTopvisorUserId(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="tvProj" className="text-xs">Project ID</Label>
+                          <Input id="tvProj" className="h-8" placeholder="project_id" value={topvisorProjectId} onChange={(e) => setTopvisorProjectId(e.target.value)} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                  <Switch checked={useTopvisor} onCheckedChange={setUseTopvisor} />
+                </div>
+              </div>
             </div>
           </div>
 
