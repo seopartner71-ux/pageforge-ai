@@ -79,6 +79,11 @@ function shiftDates(preset: string): { date1: string; date2: string; comparison1
   return { date1: fmt(start), date2: fmt(end), comparison1: fmt(compStart), comparison2: fmt(compEnd) };
 }
 
+function fmtDMY(iso: string) {
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+
 export default function SeoRecoveryPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status | null>(null);
