@@ -110,6 +110,7 @@ export default function SeoRecoveryPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [yandexHost, setYandexHost] = useState('');
   const [gscSite, setGscSite] = useState('');
+  const [counterId, setCounterId] = useState('');
   const [preset, setPreset] = useState('30d');
   const initial = shiftDates('30d');
   const [date1, setDate1] = useState(initial.date1);
@@ -225,7 +226,12 @@ export default function SeoRecoveryPage() {
     setData(null);
     try {
       const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', {
-        body: { yandex_host: yandexHost || undefined, gsc_site: gscSite || undefined, date1, date2, comparison1, comparison2 },
+        body: {
+          yandex_host: yandexHost || undefined,
+          gsc_site: gscSite || undefined,
+          counter_id: counterId.trim() || undefined,
+          date1, date2, comparison1, comparison2,
+        },
       });
       if (error) throw error;
       if ((data as any)?.error) {
