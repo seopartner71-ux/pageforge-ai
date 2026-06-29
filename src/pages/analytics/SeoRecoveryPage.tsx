@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { supabase } from '@/integrations/supabase/client';
 import {
   LifeBuoy, Loader2, Play, RefreshCw, AlertCircle, Link as LinkIcon,
-  Gauge, CheckCircle2, XCircle, Link2,
+  Gauge, CheckCircle2, XCircle, Link2, BarChart3, TrendingDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SeoRecoveryView } from '@/components/analytics/SeoRecoveryView';
@@ -82,6 +82,24 @@ function shiftDates(preset: string): { date1: string; date2: string; comparison1
 function fmtDMY(iso: string) {
   const [y, m, d] = iso.split('-');
   return `${d}.${m}.${y}`;
+}
+
+const PRESET_LABELS: Record<string, string> = {
+  '30d': 'Последние 30 дней',
+  mom: 'Месяц к месяцу',
+  yoy: 'Год к году',
+  custom: 'Свой период',
+};
+
+function autoPrev(date1: string, date2: string): { comparison1: string; comparison2: string } {
+  if (!date1 || !date2) return { comparison1: '', comparison2: '' };
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  const days = Math.max(1, Math.round((+d2 - +d1) / 86400000) + 1);
+  const compEnd = new Date(+d1 - 86400000);
+  const compStart = new Date(+compEnd - (days - 1) * 86400000);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { comparison1: fmt(compStart), comparison2: fmt(compEnd) };
 }
 
 export default function SeoRecoveryPage() {
@@ -190,6 +208,10 @@ export default function SeoRecoveryPage() {
       setDate2(d.date2);
       setComparison1(d.comparison1);
       setComparison2(d.comparison2);
+    } else {
+      const auto = autoPrev(date1, date2);
+      setComparison1(auto.comparison1);
+      setComparison2(auto.comparison2);
     }
   }
 
@@ -485,18 +507,59 @@ export default function SeoRecoveryPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Дата с</Label>
-              <Input type="date" value={date1} onChange={(e) => { setDate1(e.target.value); setPreset('custom'); }} />
+              <Input type="date" value={date1} onChange={(e) => {
+                const v = e.target.value;
+                setDate1(v);
+                setPreset('custom');
+                const auto = autoPrev(v, date2);
+                setComparison1(auto.comparison1);
+                setComparison2(auto.comparison2);
+              }} />
             </div>
             <div className="space-y-1.5">
               <Label>Дата по</Label>
-              <Input type="date" value={date2} onChange={(e) => { setDate2(e.target.value); setPreset('custom'); }} />
+              <Input type="date" value={date2} onChange={(e) => {
+                const v = e.target.value;
+                setDate2(v);
+                setPreset('custom');
+                const auto = autoPrev(date1, v);
+                setComparison1(auto.comparison1);
+                setComparison2(auto.comparison2);
+              }} />
             </div>
-          {preset !== 'custom' && comparison1 && comparison2 && (
-            <p className="text-sm text-muted-foreground">
-              Период сравнения: {fmtDMY(comparison1)} → {fmtDMY(comparison2)}
-            </p>
-          )}
           </div>
+
+          {comparison1 && comparison2 && date1 && date2 && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                Период сравнения: <span className="text-foreground font-medium normal-case tracking-normal">{PRESET_LABELS[preset] ?? 'Свой период'}</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5">
+                  <div className="w-8 h-8 rounded-md bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                    <BarChart3 className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Текущий период</div>
+                    <div className="text-sm font-medium text-foreground tabular-nums">
+                      {fmtDMY(date1)} — {fmtDMY(date2)}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 rounded-md border border-border/60 bg-background/60 px-3 py-2.5">
+                  <div className="w-8 h-8 rounded-md bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+                    <TrendingDown className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Сравниваем с</div>
+                    <div className="text-sm font-medium text-foreground tabular-nums">
+                      {fmtDMY(comparison1)} — {fmtDMY(comparison2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex justify-end">
             <Button onClick={runAnalysis} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
