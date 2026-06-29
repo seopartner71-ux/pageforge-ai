@@ -193,33 +193,14 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
   };
 }
 
-async function fetchMetrika(token: string, counterId: string, date1: string, date2: string) {
+async function fetchMetrika(token: string, counterId: string, date1: string, date2: string, opts: { withChannels?: boolean } = {}) {
   const base = { ids: counterId, date1, date2, accuracy: "full" };
-  const totals = await metrikaRequest(token, {
-    ...base,
-    metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds",
-  });
-  const sources = await metrikaRequest(token, {
-    ...base,
-    metrics: "ym:s:visits",
-    dimensions: "ym:s:<lastTrafficSource>",
-    limit: "20",
-  });
-  const engines = await metrikaRequest(token, {
-    ...base,
-    metrics: "ym:s:visits",
-    dimensions: "ym:s:<searchEngine>",
-    filters: "ym:s:lastTrafficSource=='organic'",
-    limit: "20",
-  });
-  const pages = await metrikaRequest(token, {
-    ...base,
-    metrics: "ym:s:visits",
-    dimensions: "ym:s:startURL",
-    filters: "ym:s:lastTrafficSource=='organic'",
-    limit: "50",
-    sort: "-ym:s:visits",
-  });
+  const [totals, sources, engines, pages] = await Promise.all([
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds" }),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<lastTrafficSource>", limit: "20" }),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<searchEngine>", filters: "ym:s:lastTrafficSource=='organic'", limit: "20" }),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:startURL", filters: "ym:s:lastTrafficSource=='organic'", limit: "50", sort: "-ym:s:visits" }),
+  ]);
   const t = totals.totals ?? [];
   const organic = (sources.data ?? []).find((r: any) => r.dimensions[0]?.id === "organic")?.metrics?.[0] ?? 0;
 
@@ -252,7 +233,7 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
     console.log("Metrika bytime error:", (e as any)?.message);
   }
 
-  // Daily visits segmented by traffic source
+  // Daily visits segmented by traffic source — только для текущего периода (для графиков)
   const CHANNEL_KEYS = ["organic", "ad", "direct", "social", "referral"] as const;
   const daily_channels: Record<string, Array<{ date: string; visits: number }>> = {
     organic: [], ad: [], direct: [], social: [], referral: [],
@@ -284,8 +265,10 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
       return [];
     }
   }
-  const channelResults = await Promise.all(CHANNEL_KEYS.map((c) => fetchChannel(c)));
-  CHANNEL_KEYS.forEach((c, i) => { daily_channels[c] = channelResults[i]; });
+  if (opts.withChannels) {
+    const channelResults = await Promise.all(CHANNEL_KEYS.map((c) => fetchChannel(c)));
+    CHANNEL_KEYS.forEach((c, i) => { daily_channels[c] = channelResults[i]; });
+  }
 
   return {
     visits: t[0] ?? 0,
@@ -326,13 +309,15 @@ async function gscQuery(siteUrl: string, body: any) {
 }
 
 async function fetchGSC(siteUrl: string, date1: string, date2: string, prevDate1?: string, prevDate2?: string) {
-  const totals = await gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: [], rowLimit: 1, searchType: "web" });
-  const pages = await gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["page"], rowLimit: 50, searchType: "web" });
-  const queries = await gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["query"], rowLimit: 50, searchType: "web" });
-  const daily = await gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["date"], rowLimit: 90, searchType: "web" });
-  const daily_prev = prevDate1 && prevDate2
-    ? await gscQuery(siteUrl, { startDate: prevDate1, endDate: prevDate2, dimensions: ["date"], rowLimit: 90, searchType: "web" })
-    : { rows: [] };
+  const [totals, pages, queries, daily, daily_prev] = await Promise.all([
+    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: [], rowLimit: 1, searchType: "web" }),
+    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["page"], rowLimit: 50, searchType: "web" }),
+    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["query"], rowLimit: 50, searchType: "web" }),
+    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["date"], rowLimit: 90, searchType: "web" }),
+    prevDate1 && prevDate2
+      ? gscQuery(siteUrl, { startDate: prevDate1, endDate: prevDate2, dimensions: ["date"], rowLimit: 90, searchType: "web" })
+      : Promise.resolve({ rows: [] }),
+  ]);
   const t = totals.rows?.[0] ?? { clicks: 0, impressions: 0, ctr: 0, position: 0 };
   return {
     clicks: t.clicks ?? 0,
