@@ -272,6 +272,63 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
     CHANNEL_KEYS.forEach((c, i) => { daily_channels[c] = channelResults[i]; });
   }
 
+  // Devices and regions — top breakdowns (только для текущего периода, withChannels=true)
+  let devices: Array<{ name: string; visits: number; pct: number }> = [];
+  let regions: Array<{ name: string; visits: number; pct: number }> = [];
+  if (opts.withChannels) {
+    try {
+      const [devRes, regRes] = await Promise.all([
+        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:deviceCategory", limit: "10" }),
+        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:regionCity", limit: "10", sort: "-ym:s:visits" }),
+      ]);
+      const devTotal = (devRes.data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
+      devices = (devRes.data ?? []).map((r: any) => ({
+        name: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
+        visits: r.metrics[0] ?? 0,
+        pct: Math.round(((r.metrics[0] ?? 0) / devTotal) * 1000) / 10,
+      }));
+      const regTotal = (regRes.data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
+      regions = (regRes.data ?? []).map((r: any) => ({
+        name: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
+        visits: r.metrics[0] ?? 0,
+        pct: Math.round(((r.metrics[0] ?? 0) / regTotal) * 1000) / 10,
+      }));
+    } catch (e) {
+      console.log("Metrika devices/regions error:", (e as any)?.message);
+    }
+  }
+
+  // Merge channel series into combined daily_data array
+  let merged_daily: Array<{ date: string; visits: number; organic: number; direct: number; ad: number; social: number; referral: number }> = [];
+  if (opts.withChannels) {
+    const dates = new Set<string>();
+    Object.values(daily_channels).forEach((arr) => arr.forEach((p) => dates.add(p.date)));
+    daily_data.forEach((p) => dates.add(p.date));
+    const sorted = Array.from(dates).sort();
+    const idx = (arr: Array<{ date: string; visits: number }>) => {
+      const m: Record<string, number> = {};
+      arr.forEach((p) => { m[p.date] = p.visits; });
+      return m;
+    };
+    const totalIdx = idx(daily_data);
+    const ch = {
+      organic: idx(daily_channels.organic),
+      direct: idx(daily_channels.direct),
+      ad: idx(daily_channels.ad),
+      social: idx(daily_channels.social),
+      referral: idx(daily_channels.referral),
+    };
+    merged_daily = sorted.map((date) => ({
+      date,
+      visits: totalIdx[date] ?? 0,
+      organic: ch.organic[date] ?? 0,
+      direct: ch.direct[date] ?? 0,
+      ad: ch.ad[date] ?? 0,
+      social: ch.social[date] ?? 0,
+      referral: ch.referral[date] ?? 0,
+    }));
+  }
+
   return {
     visits: t[0] ?? 0,
     users: t[1] ?? 0,
@@ -284,6 +341,9 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
     top_pages: (pages.data ?? []).map((r: any) => ({ url: r.dimensions[0]?.name, visits: r.metrics[0] })),
     daily_data,
     daily_channels,
+    daily_combined: merged_daily,
+    devices,
+    regions,
   };
 }
 
