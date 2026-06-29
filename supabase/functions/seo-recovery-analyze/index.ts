@@ -218,16 +218,18 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
 
 async function fetchMetrika(token: string, counterId: string, date1: string, date2: string, opts: { withChannels?: boolean } = {}) {
   const base = { ids: counterId, date1, date2, accuracy: "full" };
+  const ORGANIC_FILTER = "ym:s:lastSignTrafficSource=='organic'";
   const [totals, sources, engines, pages] = await Promise.all([
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds" }).catch((e) => ({ __error: e, totals: [] })),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<lastTrafficSource>", limit: "20" }).catch((e) => ({ __error: e, data: [] })),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<searchEngine>", filters: "ym:s:lastTrafficSource=='organic'", limit: "20" }).catch((e) => ({ __error: e, data: [] })),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:startURL", filters: "ym:s:lastTrafficSource=='organic'", limit: "25", sort: "-ym:s:visits" }).catch((e) => ({ __error: e, data: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds", filters: ORGANIC_FILTER }).catch((e) => ({ __error: e, totals: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<lastSignTrafficSource>", filters: ORGANIC_FILTER, limit: "20" }).catch((e) => ({ __error: e, data: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<searchEngine>", filters: ORGANIC_FILTER, limit: "20" }).catch((e) => ({ __error: e, data: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:startURL", filters: ORGANIC_FILTER, limit: "25", sort: "-ym:s:visits" }).catch((e) => ({ __error: e, data: [] })),
   ]);
   const hardError = [totals, sources, engines, pages].find((x: any) => x?.__error?.status === 401 || x?.__error?.status === 403 || x?.__error?.status === 404)?.__error;
   if (hardError) throw hardError;
   const t = (totals as any).totals ?? [];
-  const organic = ((sources as any).data ?? []).find((r: any) => r.dimensions[0]?.id === "organic")?.metrics?.[0] ?? 0;
+  // С фильтром organic — totals visits уже равны органическим визитам
+  const organic = t[0] ?? 0;
 
   // Daily organic visits via /bytime endpoint
   let daily_data: Array<{ date: string; visits: number }> = [];
@@ -258,42 +260,8 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
     console.log("Metrika bytime error:", (e as any)?.message);
   }
 
-  // Daily visits segmented by traffic source — только для текущего периода (для графиков)
-  const CHANNEL_KEYS = ["organic", "ad", "direct", "social", "referral"] as const;
-  const daily_channels: Record<string, Array<{ date: string; visits: number }>> = {
-    organic: [], ad: [], direct: [], social: [], referral: [],
-  };
-  async function fetchChannel(channel: string) {
-    try {
-      const url = `https://api-metrika.yandex.net/stat/v1/data/bytime?` + new URLSearchParams({
-        id: counterId,
-        metrics: "ym:s:visits",
-        date1,
-        date2,
-        group: "day",
-        accuracy: "full",
-        filters: `ym:s:lastSignTrafficSource=='${channel}'`,
-      }).toString();
-      const dr = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, 6_000, `metrika_bytime_${channel}`);
-      const dtext = await dr.text();
-      console.log(`Metrika bytime [${channel}] status:`, dr.status, "body:", dtext.slice(0, 200));
-      if (!dr.ok) return [];
-      const dj = JSON.parse(dtext);
-      const intervals: string[] = dj?.time_intervals?.map((i: any) => (Array.isArray(i) ? i[0] : i)) ?? [];
-      const series: number[] = dj?.data?.[0]?.metrics?.[0] ?? [];
-      return intervals.map((date: string, i: number) => ({
-        date: String(date).slice(0, 10),
-        visits: Number(series[i] ?? 0) || 0,
-      }));
-    } catch (e) {
-      console.log(`Metrika bytime [${channel}] error:`, (e as any)?.message);
-      return [];
-    }
-  }
-  if (opts.withChannels) {
-    const channelResults = await Promise.all(CHANNEL_KEYS.map((c) => fetchChannel(c)));
-    CHANNEL_KEYS.forEach((c, i) => { daily_channels[c] = channelResults[i]; });
-  }
+  // Только органический канал — отдельные запросы по каналам не нужны
+  const daily_channels: Record<string, Array<{ date: string; visits: number }>> = { organic: daily_data };
 
   // Devices and regions — top breakdowns (только для текущего периода, withChannels=true)
   let devices: Array<{ name: string; visits: number; pct: number }> = [];
@@ -301,8 +269,8 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
   if (opts.withChannels) {
     try {
       const [devRes, regRes] = await Promise.all([
-        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:deviceCategory", limit: "10" }).catch(() => ({ data: [] })),
-        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:regionCity", limit: "10", sort: "-ym:s:visits" }).catch(() => ({ data: [] })),
+        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:deviceCategory", filters: ORGANIC_FILTER, limit: "10" }).catch(() => ({ data: [] })),
+        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:regionCity", filters: ORGANIC_FILTER, limit: "10", sort: "-ym:s:visits" }).catch(() => ({ data: [] })),
       ]);
       const devTotal = ((devRes as any).data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
       devices = ((devRes as any).data ?? []).map((r: any) => ({
@@ -321,36 +289,8 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
     }
   }
 
-  // Merge channel series into combined daily_data array
-  let merged_daily: Array<{ date: string; visits: number; organic: number; direct: number; ad: number; social: number; referral: number }> = [];
-  if (opts.withChannels) {
-    const dates = new Set<string>();
-    Object.values(daily_channels).forEach((arr) => arr.forEach((p) => dates.add(p.date)));
-    daily_data.forEach((p) => dates.add(p.date));
-    const sorted = Array.from(dates).sort();
-    const idx = (arr: Array<{ date: string; visits: number }>) => {
-      const m: Record<string, number> = {};
-      arr.forEach((p) => { m[p.date] = p.visits; });
-      return m;
-    };
-    const totalIdx = idx(daily_data);
-    const ch = {
-      organic: idx(daily_channels.organic),
-      direct: idx(daily_channels.direct),
-      ad: idx(daily_channels.ad),
-      social: idx(daily_channels.social),
-      referral: idx(daily_channels.referral),
-    };
-    merged_daily = sorted.map((date) => ({
-      date,
-      visits: totalIdx[date] ?? 0,
-      organic: ch.organic[date] ?? 0,
-      direct: ch.direct[date] ?? 0,
-      ad: ch.ad[date] ?? 0,
-      social: ch.social[date] ?? 0,
-      referral: ch.referral[date] ?? 0,
-    }));
-  }
+  // Совмещённый ряд: только органика (фильтр применён ко всем запросам)
+  const merged_daily = daily_data.map((p) => ({ date: p.date, visits: p.visits, organic: p.visits }));
 
   return {
     visits: t[0] ?? 0,
