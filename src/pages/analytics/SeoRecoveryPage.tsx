@@ -46,16 +46,42 @@ type YandexHost = {
 
 type GscSite = { siteUrl: string; permissionLevel?: string };
 
-function shiftDates(preset: string): { date1: string; date2: string } {
+function shiftDates(preset: string): { date1: string; date2: string; comparison1: string; comparison2: string } {
   const today = new Date();
   today.setDate(today.getDate() - 2); // GSC задержка
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   const end = new Date(today);
-  let start = new Date(today);
-  if (preset === '30d') start.setDate(end.getDate() - 29);
-  else if (preset === 'mom') start.setDate(end.getDate() - 29);
-  else if (preset === 'yoy') start.setDate(end.getDate() - 29);
-  return { date1: fmt(start), date2: fmt(end) };
+
+  if (preset === 'yoy') {
+    const start = new Date(end);
+    start.setDate(start.getDate() - 29);
+    const compStart = new Date(start);
+    compStart.setFullYear(compStart.getFullYear() - 1);
+    const compEnd = new Date(end);
+    compEnd.setFullYear(compEnd.getFullYear() - 1);
+    return { date1: fmt(start), date2: fmt(end), comparison1: fmt(compStart), comparison2: fmt(compEnd) };
+  }
+
+  if (preset === 'mom') {
+    const start = new Date(end.getFullYear(), end.getMonth(), 1);
+    const compEnd = new Date(end.getFullYear(), end.getMonth(), 0);
+    const compStart = new Date(end.getFullYear(), end.getMonth() - 1, 1);
+    return { date1: fmt(start), date2: fmt(end), comparison1: fmt(compStart), comparison2: fmt(compEnd) };
+  }
+
+  // 30d
+  const start = new Date(end);
+  start.setDate(start.getDate() - 29);
+  const compEnd = new Date(start);
+  compEnd.setDate(compEnd.getDate() - 1);
+  const compStart = new Date(compEnd);
+  compStart.setDate(compStart.getDate() - 29);
+  return { date1: fmt(start), date2: fmt(end), comparison1: fmt(compStart), comparison2: fmt(compEnd) };
+}
+
+function fmtDMY(iso: string) {
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}.${y}`;
 }
 
 export default function SeoRecoveryPage() {
@@ -70,6 +96,8 @@ export default function SeoRecoveryPage() {
   const initial = shiftDates('30d');
   const [date1, setDate1] = useState(initial.date1);
   const [date2, setDate2] = useState(initial.date2);
+  const [comparison1, setComparison1] = useState(initial.comparison1);
+  const [comparison2, setComparison2] = useState(initial.comparison2);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -160,6 +188,8 @@ export default function SeoRecoveryPage() {
       const d = shiftDates(p);
       setDate1(d.date1);
       setDate2(d.date2);
+      setComparison1(d.comparison1);
+      setComparison2(d.comparison2);
     }
   }
 
@@ -173,7 +203,7 @@ export default function SeoRecoveryPage() {
     setData(null);
     try {
       const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', {
-        body: { yandex_host: yandexHost || undefined, gsc_site: gscSite || undefined, date1, date2 },
+        body: { yandex_host: yandexHost || undefined, gsc_site: gscSite || undefined, date1, date2, comparison1, comparison2 },
       });
       if (error) throw error;
       if ((data as any)?.error) {
@@ -461,6 +491,11 @@ export default function SeoRecoveryPage() {
               <Label>Дата по</Label>
               <Input type="date" value={date2} onChange={(e) => { setDate2(e.target.value); setPreset('custom'); }} />
             </div>
+          {preset !== 'custom' && comparison1 && comparison2 && (
+            <p className="text-sm text-muted-foreground">
+              Период сравнения: {fmtDMY(comparison1)} → {fmtDMY(comparison2)}
+            </p>
+          )}
           </div>
           <div className="flex justify-end">
             <Button onClick={runAnalysis} disabled={loading}>
