@@ -354,12 +354,21 @@ function topGainers<T extends { delta_abs: number }>(rows: T[], n = 10): T[] {
 
 function detectBrand(host: string): string | null {
   if (!host) return null;
-  const parts = host.replace(/^https?:\/\//, "").split("/")[0].split(".");
+  const cleanHost = host.replace(/^sc-domain:/i, "").replace(/^https?:\/\//, "").split("/")[0];
+  const parts = cleanHost.split(".");
   if (parts.length < 2) return null;
-  return parts[parts.length - 2].toLowerCase();
+  const sld = parts[parts.length - 2].toLowerCase();
+  // Для составных доменов вида "kupit-minitraktor" берём последнюю часть после дефиса,
+  // так как первая часть обычно — это коммерческий префикс (kupit/buy/shop/online…), а не бренд.
+  if (sld.includes("-")) {
+    const tokens = sld.split("-").filter(Boolean);
+    const last = tokens[tokens.length - 1];
+    if (last && last.length >= 3) return last;
+  }
+  return sld;
 }
 
-function buildDiagnostics(result: any, gscSite?: string) {
+function buildDiagnostics(result: any, gscSite?: string, errors?: any[]) {
   const d: any = {};
   const g = result.gsc;
   const y = result.yandex;
@@ -419,20 +428,30 @@ function buildDiagnostics(result: any, gscSite?: string) {
     };
   }
   if (y) {
-    const queriesDiff = diffSeries(y.current.queries, y.previous.queries, "query", "clicks");
-    const impressionsDiff = diffSeries(y.current.queries, y.previous.queries, "query", "impressions");
+    const prevQueries = Array.isArray(y.previous?.queries) ? y.previous.queries : [];
+    const hasPrev = prevQueries.length > 0;
+    const queriesDiff = hasPrev ? diffSeries(y.current.queries, prevQueries, "query", "clicks") : [];
+    const impressionsDiff = hasPrev ? diffSeries(y.current.queries, prevQueries, "query", "impressions") : [];
+    if (!hasPrev && errors) {
+      errors.push({
+        source: "Yandex",
+        type: "no_previous_data",
+        message: "Яндекс.Вебмастер не вернул данные за предыдущий период — сравнение по запросам недоступно (часто бывает при YoY: API хранит детальную историю запросов ограниченное время).",
+      });
+    }
     d.yandex = {
-      lost_queries_by_clicks: topLosers(queriesDiff).map(q => {
+      previous_data_available: hasPrev,
+      lost_queries_by_clicks: hasPrev ? topLosers(queriesDiff).map(q => {
         const cq = y.current.queries.find((x: any) => x.query === q.key);
-        const pq = y.previous.queries.find((x: any) => x.query === q.key);
+        const pq = prevQueries.find((x: any) => x.query === q.key);
         return {
           query: q.key, clicks_was: q.was, clicks_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct,
           impr_was: pq?.impressions ?? 0, impr_now: cq?.impressions ?? 0,
           pos_was: pq?.position ?? null, pos_now: cq?.position ?? null,
         };
-      }),
-      lost_queries_by_impr: topLosers(impressionsDiff).slice(0, 10).map(q => ({ query: q.key, impr_was: q.was, impr_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct })),
-      gained_queries_by_clicks: topGainers(queriesDiff).map(q => ({ query: q.key, clicks_was: q.was, clicks_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct })),
+      }) : [],
+      lost_queries_by_impr: hasPrev ? topLosers(impressionsDiff).slice(0, 10).map(q => ({ query: q.key, impr_was: q.was, impr_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct })) : [],
+      gained_queries_by_clicks: hasPrev ? topGainers(queriesDiff).map(q => ({ query: q.key, clicks_was: q.was, clicks_now: q.now, delta_abs: q.delta_abs, delta_pct: q.delta_pct })) : [],
       signals: {
         impressions_drop_pct: y.delta.impressions,
         clicks_drop_pct: y.delta.clicks,
@@ -481,6 +500,7 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик (10+ лет опыт
 - Каждое утверждение — со ссылкой на конкретную метрику (источник, было → стало, дельта).
 - Запрещены формулировки: "возможно Google понизил", "конкуренты усилились", "контент устарел" — БЕЗ доказательств из данных.
 - Если данных не хватает для гипотезы — явно: "Требуется проверка вручную: ..." и в next_steps укажи что именно проверить (логи сервера, индексация в GSC, изменения шаблона, robots.txt, sitemap, hreflang и т.д.).
+- Если по источнику (Яндекс или GSC) поле previous_data_available=false либо массив previous.queries пуст — НЕ строй гипотезы на сравнении запросов по этому источнику. Явно укажи в выводе и в next_steps: "Данных за предыдущий период по <источник> недостаточно для сравнения — анализ ограничен текущим периодом." Используй для такого источника только абсолютные значения и тренды по daily_data, если они есть.
 - Числа округляй: проценты до 1 знака, абсолюты — без дробей.
 - Тон: на "вы" не нужно, инженерный. Без эмоджи, без маркетинговой воды.
 
@@ -699,7 +719,7 @@ Deno.serve(async (req) => {
     }
 
     // Pre-computed diagnostics for AI grounding
-    result.diagnostics = buildDiagnostics(result, gsc_site);
+    result.diagnostics = buildDiagnostics(result, gsc_site, errors);
 
     // AI
     const orKey = await getOpenRouterKey(sb);
