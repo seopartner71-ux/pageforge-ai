@@ -600,14 +600,14 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик. Твоя задач
     "direction": "up|down|stable",
     "main_metric": "organic_visits|clicks|impressions|position|ctr",
     "delta_pct": -100..100,
-    "summary": "Профессиональный тезис в 1 предложение: что произошло, насколько серьёзно"
+    "summary": "ТОЛЬКО краткий тезис в одно предложение: что произошло. Без деталей, без причин, без рекомендаций."
   },
   "diagnosis_pattern": { "code": "visibility_loss|ctr_decay|impressions_drop_clicks_stable|position_up_clicks_down_anomaly|seasonality|mixed", "explanation": "..." },
   "main_cause": {
     "title": "Краткая формулировка корневой причины",
     "confidence": "high|medium|low",
     "evidence": [ { "source": "Yandex|Metrika|GSC", "metric": "...", "was": "...", "now": "...", "delta": "..." } ],
-    "conclusion": "Развёрнутый вывод в 2–3 предложения, как senior SEO формулирует в отчёте клиенту"
+    "conclusion": "Развёрнутый вывод в 3–4 предложения с цифрами и контекстом. НЕ ПОВТОРЯЙ дословно headline.summary — это должен быть другой текст, раскрывающий тезис глубже: причины, механика, последствия."
   },
   "root_cause_hypotheses": [
     { "hypothesis": "...", "probability": 0-100, "evidence": [{ "source":"...","metric":"...","was":"...","now":"...","delta":"..." }], "verification_step": "Что конкретно проверить, чтобы подтвердить/опровергнуть" }
