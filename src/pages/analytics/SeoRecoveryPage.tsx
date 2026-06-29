@@ -431,7 +431,12 @@ export default function SeoRecoveryPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="gsc">Сайт Google Search Console</Label>
-              <Input id="gsc" placeholder="https://example.ru/ или sc-domain:example.ru" value={gscSite} onChange={(e) => setGscSite(e.target.value.trim())} />
+              <div className="flex gap-2">
+                <Input id="gsc" placeholder="https://example.ru/ или sc-domain:example.ru" value={gscSite} onChange={(e) => setGscSite(e.target.value.trim())} />
+                <Button type="button" variant="outline" onClick={openGscPicker} disabled={!status?.gsc_available}>
+                  <Gauge className="w-4 h-4 mr-1" />Выбрать
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">Точно как в GSC, включая протокол и слэш</p>
             </div>
           </div>
@@ -516,6 +521,43 @@ export default function SeoRecoveryPage() {
                     ) : (
                       <Badge variant="outline" className="gap-1 shrink-0 text-muted-foreground">
                         <XCircle className="h-3 w-3" /> Не подтверждён
+                      </Badge>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={gscPickerOpen} onOpenChange={setGscPickerOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Выберите сайт в Google Search Console</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            {gscSitesLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center">
+                <Loader2 className="h-4 w-4 animate-spin" /> Загрузка сайтов…
+              </div>
+            ) : gscSites.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                В подключённом GSC-аккаунте нет доступных сайтов.
+              </p>
+            ) : (
+              <div className="space-y-1 max-h-[420px] overflow-y-auto">
+                {gscSites.map((s) => (
+                  <button
+                    key={s.siteUrl}
+                    onClick={() => useGscSite(s)}
+                    className="w-full text-left flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-border/60 hover:bg-secondary transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm text-foreground truncate">{s.siteUrl}</div>
+                    </div>
+                    {s.permissionLevel && (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        {s.permissionLevel}
                       </Badge>
                     )}
                   </button>
