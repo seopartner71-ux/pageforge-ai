@@ -595,19 +595,19 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик. Твоя задач
 ФОРМАТ ВЫВОДА — СТРОГО валидный JSON без markdown:
 {
   "seo_score": 0-100,
-  "score_reasoning": "1–2 предложения, почему именно столько",
+  "score_reasoning": "1–2 предложения, почему именно столько. ПРАВИЛА расчёта (строго): если клики упали >20% в обеих системах (GSC и Яндекс/Метрика) — seo_score не выше 55. Если >20% только в одной системе — не выше 65. Если падение >35% хотя бы в одной — не выше 45. Стабильно (±5%) — 70–80. Рост >10% — 80+.",
   "headline": {
     "direction": "up|down|stable",
     "main_metric": "organic_visits|clicks|impressions|position|ctr",
     "delta_pct": -100..100,
-    "summary": "Профессиональный тезис в 1 предложение: что произошло, насколько серьёзно"
+    "summary": "ТОЛЬКО краткий тезис в одно предложение: что произошло. Без деталей, без причин, без рекомендаций."
   },
   "diagnosis_pattern": { "code": "visibility_loss|ctr_decay|impressions_drop_clicks_stable|position_up_clicks_down_anomaly|seasonality|mixed", "explanation": "..." },
   "main_cause": {
     "title": "Краткая формулировка корневой причины",
     "confidence": "high|medium|low",
     "evidence": [ { "source": "Yandex|Metrika|GSC", "metric": "...", "was": "...", "now": "...", "delta": "..." } ],
-    "conclusion": "Развёрнутый вывод в 2–3 предложения, как senior SEO формулирует в отчёте клиенту"
+    "conclusion": "Развёрнутый вывод в 3–4 предложения с цифрами и контекстом. НЕ ПОВТОРЯЙ дословно headline.summary — это должен быть другой текст, раскрывающий тезис глубже: причины, механика, последствия."
   },
   "root_cause_hypotheses": [
     { "hypothesis": "...", "probability": 0-100, "evidence": [{ "source":"...","metric":"...","was":"...","now":"...","delta":"..." }], "verification_step": "Что конкретно проверить, чтобы подтвердить/опровергнуть" }
