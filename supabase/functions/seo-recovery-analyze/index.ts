@@ -704,7 +704,7 @@ Deno.serve(async (req) => {
             accessToken = await refreshYandexAccess(sb, user.id, tok.refresh_token);
           }
           const [cur, prv] = await Promise.all([
-            fetchMetrika(accessToken, counter_id, date1, date2),
+            fetchMetrika(accessToken, counter_id, date1, date2, { withChannels: true }),
             fetchMetrika(accessToken, counter_id, prev.date1, prev.date2),
           ]);
           result.metrika = { current: cur, previous: prv, delta: {
