@@ -182,7 +182,7 @@ export function SeoRecoveryView({ data }: Props) {
       )}
 
       {/* AI Verdict — общий вывод */}
-      <AiVerdictCard ai={ai} gsc={g} yandex={y} metrika={m} />
+      <AiVerdictCard ai={ai} gsc={g} yandex={y} metrika={m} period={data.period} />
 
       <Tabs defaultValue="causes">
         <TabsList>
@@ -408,21 +408,17 @@ function EvidenceList({ items }: { items: any[] }) {
   );
 }
 
-function AiVerdictCard({ ai, gsc, yandex, metrika }: { ai: any; gsc: any; yandex: any; metrika: any }) {
+function AiVerdictCard({ ai, gsc, yandex, metrika, period }: { ai: any; gsc: any; yandex: any; metrika: any; period?: any }) {
   const headline = ai?.headline ?? {};
   const conclusion = ai?.main_cause?.conclusion;
   const reasoning = ai?.score_reasoning;
-  // Развёрнутый вывод — без дублирования заголовка
+  // Развёрнутый вывод — только причина + что делать, без дублирования заголовка
   const norm = (s: string) => String(s).toLowerCase().replace(/[.!?\s]+$/g, '').trim();
   const headlineNorm = headline.summary ? norm(headline.summary) : '';
-  const parts: string[] = [];
-  if (conclusion && norm(conclusion) !== headlineNorm) parts.push(String(conclusion));
-  if (ai?.main_cause?.title) {
-    const t = `Главная причина — ${String(ai.main_cause.title).toLowerCase().replace(/\.$/, '')}.`;
-    if (norm(t) !== headlineNorm) parts.push(t);
-  }
-  if (reasoning && norm(reasoning) !== headlineNorm) parts.push(String(reasoning));
-  const verdict = parts.slice(0, 3).join(' ');
+  const verdictParts: string[] = [];
+  if (conclusion && norm(conclusion) !== headlineNorm) verdictParts.push(String(conclusion));
+  if (verdictParts.length === 0 && reasoning && norm(reasoning) !== headlineNorm) verdictParts.push(String(reasoning));
+  const verdict = verdictParts.join(' ');
 
   const gClicksNow = gsc?.current?.clicks;
   const gClicksPrev = gsc?.previous?.clicks;
@@ -437,7 +433,22 @@ function AiVerdictCard({ ai, gsc, yandex, metrika }: { ai: any; gsc: any; yandex
 
   if (!verdict && score == null) return null;
 
-  const pill = (label: string, now: number | undefined, prev: number | undefined, delta: number | undefined, color: string) => {
+  const fmtDate = (iso: string) => {
+    if (!iso) return '';
+    const [y, m, d] = String(iso).split('-');
+    return d && m && y ? `${d}.${m}.${y}` : String(iso);
+  };
+
+  const sources: string[] = [];
+  if (gsc) sources.push('GSC');
+  if (yandex) sources.push('Яндекс.Вебмастер');
+  if (metrika) sources.push('Метрика');
+  const sourceStr = sources.join(' + ') || '—';
+  const d1 = fmtDate(period?.current?.date1);
+  const d2 = fmtDate(period?.current?.date2);
+  const footnote = d1 && d2 ? `Анализ основан на данных ${sourceStr} за период ${d1}–${d2}` : '';
+
+  const pill = (label: string, now: number | undefined, prev: number | undefined, delta: number | undefined, color: string, unit?: string) => {
     const hasNow = now != null && Number.isFinite(now);
     const hasPrev = prev != null && Number.isFinite(prev) && prev > 0;
     if (!hasNow && !hasPrev) return null;
@@ -453,7 +464,10 @@ function AiVerdictCard({ ai, gsc, yandex, metrika }: { ai: any; gsc: any; yandex
             {neg ? <ArrowDown className="w-3.5 h-3.5" /> : pos ? <ArrowUp className="w-3.5 h-3.5" /> : null}
           </>
         ) : (
-          <span className="font-semibold">{hasNow ? Number(now).toLocaleString('ru-RU') : '—'}</span>
+          <>
+            <span className="font-semibold">{hasNow ? Number(now).toLocaleString('ru-RU') : '—'}</span>
+            {unit && <span className="text-xs opacity-80">{unit}</span>}
+          </>
         )}
       </div>
     );
@@ -478,7 +492,7 @@ function AiVerdictCard({ ai, gsc, yandex, metrika }: { ai: any; gsc: any; yandex
           <div className="flex flex-wrap gap-2 pt-1">
             {pill('Google клики', gClicksNow, gClicksPrev, gClicksDelta, 'bg-[#3B82F6]/10 border-[#3B82F6]/40 text-[#3B82F6]')}
             {pill('Яндекс клики', yClicksNow, yClicksPrev, yClicksDelta, 'bg-[#F97316]/10 border-[#F97316]/40 text-[#F97316]')}
-            {pill('Орг. визиты', mOrgNow, mOrgPrev, mOrgDelta, 'bg-[#F97316]/10 border-[#F97316]/40 text-[#F97316]')}
+            {pill('Орг. визиты', mOrgNow, mOrgPrev, mOrgDelta, 'bg-[#F97316]/10 border-[#F97316]/40 text-[#F97316]', 'визитов за период')}
             {typeof score === 'number' && (
               <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm ${score >= 70 ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600' : score >= 40 ? 'bg-amber-500/10 border-amber-500/40 text-amber-600' : 'bg-rose-500/10 border-rose-500/40 text-rose-600'}`}>
                 <span className="text-xs uppercase tracking-wide opacity-80">SEO Score</span>
@@ -486,6 +500,11 @@ function AiVerdictCard({ ai, gsc, yandex, metrika }: { ai: any; gsc: any; yandex
               </div>
             )}
           </div>
+          {footnote && (
+            <div className="text-xs text-muted-foreground pt-2 border-t border-border/50 mt-1">
+              {footnote}
+            </div>
+          )}
         </div>
       </div>
     </Card>
