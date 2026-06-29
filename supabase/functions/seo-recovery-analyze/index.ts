@@ -718,7 +718,7 @@ Deno.serve(async (req) => {
     }
 
     // Pre-computed diagnostics for AI grounding
-    result.diagnostics = buildDiagnostics(result, gsc_site);
+    result.diagnostics = buildDiagnostics(result, gsc_site, errors);
 
     // AI
     const orKey = await getOpenRouterKey(sb);
