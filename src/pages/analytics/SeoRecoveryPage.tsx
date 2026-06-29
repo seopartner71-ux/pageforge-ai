@@ -13,6 +13,7 @@ import {
   Gauge, CheckCircle2, XCircle, Link2, ArrowRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
 import { SeoRecoveryView } from '@/components/analytics/SeoRecoveryView';
 import { useNavigate } from 'react-router-dom';
 
