@@ -149,99 +149,32 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
   const weightedPosition = queries.reduce((sum: number, r: any) => sum + (Number(r.position ?? 0) * Math.max(1, Number(r.impressions ?? 0))), 0);
   const positionWeight = queries.reduce((sum: number, r: any) => sum + Math.max(1, Number(r.impressions ?? 0)), 0);
 
-  // Daily history — Yandex Webmaster supports several endpoints; try them in order.
+  // Daily history via search-queries/all-history/ — основной рабочий эндпоинт Вебмастера
   async function fetchHistory(d1: string, d2: string) {
-    const byDate = new Map<string, { date: string; clicks: number; impressions: number }>();
-    const setVal = (date: string, field: "clicks" | "impressions", value: number) => {
-      const key = String(date || "").slice(0, 10);
-      if (!key) return;
-      const cur = byDate.get(key) ?? { date: key, clicks: 0, impressions: 0 };
-      cur[field] = Number(value) || 0;
-      byDate.set(key, cur);
-    };
-
-    async function fetchWithLog(path: string, label: string) {
-      const url = `${YANDEX_WEBMASTER_API}${path}`;
-      console.log(label, url);
-      const r = await fetch(url, { headers: { Authorization: `OAuth ${token}` } });
-      console.log("Response status:", r.status);
-      const text = await r.text();
-      console.log("Response body:", text.slice(0, 500));
-      let payload: any;
-      try { payload = JSON.parse(text); } catch { payload = text; }
-      if (!r.ok) {
-        const err: any = new Error(`yandex_webmaster_${r.status}`);
-        err.status = r.status;
-        err.payload = payload;
-        throw err;
-      }
-      return payload;
-    }
-
-    // 1) search-queries/all-history — основной эндпоинт ежедневной истории по сайту
+    const p = new URLSearchParams({ date_from: d1, date_to: d2 });
+    p.append("query_indicator", "TOTAL_CLICKS");
+    p.append("query_indicator", "TOTAL_SHOWS");
+    const url = `${YANDEX_WEBMASTER_API}/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/all-history/?${p.toString()}`;
+    console.log("Yandex all-history URL:", url);
     try {
-      const p = new URLSearchParams({ date_from: d1, date_to: d2 });
-      p.append("query_indicator", "TOTAL_CLICKS");
-      p.append("query_indicator", "TOTAL_SHOWS");
-      const res: any = await fetchWithLog(
-        `/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/all-history/?${p.toString()}`,
-        "Trying Yandex history endpoint 1:",
-      );
-      const indicators = res?.indicators ?? res?.history ?? {};
-      if (indicators && typeof indicators === "object") {
-        for (const [name, points] of Object.entries(indicators)) {
-          const arr = Array.isArray(points) ? points : (points as any)?.history ?? [];
-          const field = String(name).includes("CLICK") ? "clicks" : "impressions";
-          for (const pt of arr) setVal(pt?.date ?? pt?.day, field, pt?.value ?? pt?.count ?? 0);
-        }
-      }
-    } catch (_e) { /* fall through */ }
-
-    // 2) Фолбэк: indicators/history — общая история по индикаторам
-    if (byDate.size === 0) {
-      try {
-        const p = new URLSearchParams({ date_from: d1, date_to: d2 });
-        p.append("indicator", "SEARCH_TRAFFIC_TOTAL_CLICKS_PER_DAY");
-        p.append("indicator", "SEARCH_TRAFFIC_TOTAL_SHOWS_PER_DAY");
-        const res: any = await fetchWithLog(
-          `/user/${userId}/hosts/${encodeURIComponent(hostId)}/indicators/history/?${p.toString()}`,
-          "Trying Yandex history endpoint 2:",
-        );
-        const indicators = res?.indicators ?? res?.data ?? [];
-        for (const ind of Array.isArray(indicators) ? indicators : []) {
-          const name = String(ind?.indicator ?? ind?.name ?? "");
-          const field = name.includes("CLICK") ? "clicks" : (name.includes("SHOW") ? "impressions" : null);
-          if (!field) continue;
-          const points = ind?.history ?? ind?.points ?? ind?.values ?? [];
-          for (const pt of points) setVal(pt?.date ?? pt?.day ?? pt?.dt, field, pt?.value ?? pt?.count ?? 0);
-        }
-      } catch (_e) { /* ignore */ }
+      const r = await fetch(url, { headers: { Authorization: `OAuth ${token}` } });
+      const text = await r.text();
+      console.log("all-history status:", r.status, "body:", text.slice(0, 500));
+      if (!r.ok) return [];
+      const res = JSON.parse(text);
+      const items: any[] = res?.history_items ?? res?.history ?? res?.items ?? [];
+      const rows = items.map((it: any) => {
+        const date = String(it?.date ?? it?.day ?? "").slice(0, 10);
+        const ind = it?.indicators ?? {};
+        const clicks = Number(ind?.TOTAL_CLICKS?.value ?? ind?.TOTAL_CLICKS ?? 0) || 0;
+        const impressions = Number(ind?.TOTAL_SHOWS?.value ?? ind?.TOTAL_SHOWS ?? 0) || 0;
+        return { date, clicks, impressions, ctr: impressions ? clicks / impressions : 0 };
+      }).filter((r: any) => r.date);
+      return rows.sort((a: any, b: any) => a.date.localeCompare(b.date));
+    } catch (e) {
+      console.log("all-history error:", (e as any)?.message);
+      return [];
     }
-
-    // 3) Последний фолбэк — старый endpoint /indicators/
-    if (byDate.size === 0) {
-      try {
-        const p = new URLSearchParams({ date_from: d1, date_to: d2 });
-        p.append("indicator", "SEARCH_TRAFFIC_TOTAL_CLICKS_PER_DAY");
-        p.append("indicator", "SEARCH_TRAFFIC_TOTAL_SHOWS_PER_DAY");
-        const res: any = await fetchWithLog(
-          `/user/${userId}/hosts/${encodeURIComponent(hostId)}/indicators/?${p.toString()}`,
-          "Trying Yandex history endpoint 3:",
-        );
-        const indicators = res?.indicators ?? res?.data ?? [];
-        for (const ind of Array.isArray(indicators) ? indicators : []) {
-          const name = String(ind?.indicator ?? ind?.name ?? "");
-          const field = name.includes("CLICK") ? "clicks" : (name.includes("SHOW") ? "impressions" : null);
-          if (!field) continue;
-          const points = ind?.history ?? ind?.points ?? ind?.values ?? [];
-          for (const pt of points) setVal(pt?.date ?? pt?.day ?? pt?.dt, field, pt?.value ?? pt?.count ?? 0);
-        }
-      } catch (_e) { /* ignore */ }
-    }
-
-    return Array.from(byDate.values())
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((r) => ({ ...r, ctr: r.impressions ? r.clicks / r.impressions : 0 }));
   }
 
   const daily_data = await fetchHistory(date1, date2);
@@ -287,6 +220,36 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
   });
   const t = totals.totals ?? [];
   const organic = (sources.data ?? []).find((r: any) => r.dimensions[0]?.id === "organic")?.metrics?.[0] ?? 0;
+
+  // Daily organic visits via /bytime endpoint
+  let daily_data: Array<{ date: string; visits: number }> = [];
+  try {
+    const dailyUrl = `https://api-metrika.yandex.net/stat/v1/data/bytime?` + new URLSearchParams({
+      id: counterId,
+      metrics: "ym:s:visits",
+      date1,
+      date2,
+      group: "day",
+      accuracy: "full",
+      filters: "ym:s:lastTrafficSource=='organic'",
+    }).toString();
+    console.log("Metrika bytime URL:", dailyUrl);
+    const dr = await fetch(dailyUrl, { headers: { Authorization: `OAuth ${token}` } });
+    const dtext = await dr.text();
+    console.log("bytime status:", dr.status, "body:", dtext.slice(0, 300));
+    if (dr.ok) {
+      const dj = JSON.parse(dtext);
+      const intervals: string[] = dj?.time_intervals?.map((i: any) => (Array.isArray(i) ? i[0] : i)) ?? [];
+      const series: number[] = dj?.data?.[0]?.metrics?.[0] ?? [];
+      daily_data = intervals.map((date: string, i: number) => ({
+        date: String(date).slice(0, 10),
+        visits: Number(series[i] ?? 0) || 0,
+      }));
+    }
+  } catch (e) {
+    console.log("Metrika bytime error:", (e as any)?.message);
+  }
+
   return {
     visits: t[0] ?? 0,
     users: t[1] ?? 0,
@@ -297,6 +260,7 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
     sources: (sources.data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
     engines: (engines.data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
     top_pages: (pages.data ?? []).map((r: any) => ({ url: r.dimensions[0]?.name, visits: r.metrics[0] })),
+    daily_data,
   };
 }
 
