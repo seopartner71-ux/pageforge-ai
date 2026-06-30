@@ -18,8 +18,8 @@ const YANDEX_CLIENT_SECRET = Deno.env.get("YANDEX_OAUTH_CLIENT_SECRET") ?? "";
 const YANDEX_WEBMASTER_API = "https://api.webmaster.yandex.net/v4";
 const DEFAULT_FETCH_TIMEOUT_MS = 8_000;
 const GSC_FETCH_TIMEOUT_MS = 12_000;
-const AI_FETCH_TIMEOUT_MS = 75_000;
-const AI_HARD_TIMEOUT_MS = 85_000;
+const AI_FETCH_TIMEOUT_MS = 12_000;
+const AI_HARD_TIMEOUT_MS = 18_000;
 
 async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, label = "request") {
   const controller = new AbortController();
@@ -890,14 +890,14 @@ async function callAIOnce(key: string, payload: any, strictJson = false, timeout
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.5-flash",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userContent },
         ],
         temperature: 0.2,
-        max_tokens: 8000,
+        max_tokens: 5000,
       }),
     });
     console.log("OpenRouter response status:", r.status);
@@ -910,6 +910,10 @@ async function callAIOnce(key: string, payload: any, strictJson = false, timeout
     console.log("Content length:", String(txt).length);
     if (!txt) throw new Error("ai_empty_response");
     return extractJson(txt);
+  } catch (e) {
+    if (controller.signal.aborted) throw new Error(`ai_timeout_${timeoutMs}ms`);
+    if (typeof e === "string") throw new Error(e);
+    throw e;
   } finally {
     clearTimeout(timer);
   }
@@ -919,17 +923,18 @@ async function callAI(key: string, payload: any) {
   const size = JSON.stringify(payload).length;
   console.log("AI payload size:", size);
   try {
-    return await callAIOnce(key, payload, false, 55_000);
+    if (size > 18_000) throw new Error("ai_skipped_large_payload");
+    return await callAIOnce(key, payload, false, AI_FETCH_TIMEOUT_MS);
   } catch (e1) {
     console.log("AI attempt 1 failed:", (e1 as any)?.message);
     const message = String((e1 as any)?.message ?? "");
-    if (message.includes("aborted") || message.includes("timeout")) {
+    if (message.includes("aborted") || message.includes("timeout") || message.includes("skipped_large_payload")) {
       const err = new Error("ai_unavailable");
       (err as any).cause = message || "ai_timeout";
       throw err;
     }
     try {
-      return await callAIOnce(key, payload, true, 25_000);
+      return await callAIOnce(key, payload, true, Math.min(8_000, AI_HARD_TIMEOUT_MS - AI_FETCH_TIMEOUT_MS));
     } catch (e2) {
       console.log("AI attempt 2 failed:", (e2 as any)?.message);
       const err = new Error("ai_unavailable");
