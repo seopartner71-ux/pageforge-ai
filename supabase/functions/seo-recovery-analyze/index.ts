@@ -1000,45 +1000,206 @@ function compactForAI(result: any) {
 }
 
 function fallbackAI(result: any, reason = "ai_unavailable") {
-  const primary = result.metrika?.delta?.organic_visits != null
-    ? { metric: "organic_visits", delta: result.metrika.delta.organic_visits, source: "Метрика" }
-    : result.gsc?.delta?.clicks != null
-      ? { metric: "clicks", delta: result.gsc.delta.clicks, source: "GSC" }
-      : result.yandex?.delta?.clicks != null
-        ? { metric: "clicks", delta: result.yandex.delta.clicks, source: "Yandex" }
-        : { metric: "clicks", delta: 0, source: "GSC" };
-  const direction = primary.delta < -5 ? "down" : primary.delta > 5 ? "up" : "stable";
-  const score = direction === "down" ? Math.max(35, 70 + Math.round(primary.delta / 2)) : direction === "up" ? 78 : 65;
+  const num = (v: any) => Number.isFinite(Number(v)) ? Number(v) : 0;
+  const fmt = (v: any, suffix = "") => `${Math.round(num(v) * 100) / 100}${suffix}`;
+  const pctText = (v: any) => `${num(v) > 0 ? "+" : ""}${fmt(v)}%`;
+  const sourceRu = (s: string) => s === "GSC" ? "Google Search Console" : s === "Yandex" ? "Яндекс.Вебмастер" : s;
+  const metricRu: Record<string, string> = {
+    clicks: "клики",
+    impressions: "показы",
+    ctr: "CTR",
+    position: "средняя позиция",
+    organic_visits: "органические визиты",
+  };
+  const evidence = (source: string, metric: string, was: any, now: any, delta: any) => ({
+    source,
+    metric: metricRu[metric] ?? metric,
+    was: fmt(was),
+    now: fmt(now),
+    delta: pctText(delta),
+  });
+  const metrics = [
+    result.gsc ? { source: "GSC", metric: "clicks", now: result.gsc.current?.clicks, was: result.gsc.previous?.clicks, delta: result.gsc.delta?.clicks } : null,
+    result.yandex ? { source: "Yandex", metric: "clicks", now: result.yandex.current?.clicks, was: result.yandex.previous?.clicks, delta: result.yandex.delta?.clicks } : null,
+    result.metrika ? { source: "Metrika", metric: "organic_visits", now: result.metrika.current?.organic_visits, was: result.metrika.previous?.organic_visits, delta: result.metrika.delta?.organic_visits } : null,
+    result.topvisor?.delta ? { source: "Топвизор", metric: "top10", now: result.topvisor.current?.top10, was: result.topvisor.previous?.top10, delta: result.topvisor.delta?.top10 } : null,
+  ].filter(Boolean) as Array<{ source: string; metric: string; now: number; was: number; delta: number }>;
+  const primary = [...metrics].sort((a, b) => Math.abs(num(b.delta)) - Math.abs(num(a.delta)))[0]
+    ?? { source: "GSC", metric: "clicks", now: 0, was: 0, delta: 0 };
+  const direction = num(primary.delta) < -5 ? "down" : num(primary.delta) > 5 ? "up" : "stable";
+
+  const dropDeltas = metrics.filter(m => ["GSC", "Yandex", "Metrika"].includes(m.source)).map(m => num(m.delta));
+  const majorDrops = dropDeltas.filter(d => d <= -20).length;
+  const severeDrop = dropDeltas.some(d => d <= -35);
+  let score = 72;
+  if (direction === "up") score = 80;
+  if (direction === "down") score = Math.max(35, 70 + Math.round(num(primary.delta) / 2));
+  if (majorDrops >= 2) score = Math.min(score, 55);
+  if (majorDrops === 1) score = Math.min(score, 65);
+  if (severeDrop) score = Math.min(score, 45);
+
+  const gscDiag = result.diagnostics?.gsc ?? {};
+  const yaDiag = result.diagnostics?.yandex ?? {};
+  const metrikaDiag = result.diagnostics?.metrika ?? {};
+  const topvisor = result.topvisor;
+  const indexing = result.yandex?.indexing;
+  const indexedStart = indexing?.daily_indexed?.[0]?.count;
+  const indexedEnd = indexing?.daily_indexed?.[indexing.daily_indexed.length - 1]?.count;
+  const indexedDelta = indexedStart ? pct(indexedEnd ?? 0, indexedStart) : 0;
+  const hasIndexingRisk = (num(indexing?.excluded_count) > 0 && num(indexing?.excluded_count) >= 20) || indexedDelta < -5;
+  const gscLosses = (gscDiag.lost_queries_by_clicks ?? []).slice(0, 10);
+  const yLosses = (yaDiag.lost_queries_by_clicks ?? []).slice(0, 10);
+  const queryLosses = gscLosses.length ? gscLosses : yLosses;
+  const pageLosses = [
+    ...(gscDiag.lost_pages ?? []).map((p: any) => ({ url: p.url, was: p.clicks_was, now: p.clicks_now, delta_abs: p.delta_abs, delta_pct: p.delta_pct, source: "GSC" })),
+    ...(metrikaDiag.lost_pages ?? []).map((p: any) => ({ url: p.url, was: p.visits_was, now: p.visits_now, delta_abs: p.delta_abs, delta_pct: p.delta_pct, source: "Metrika" })),
+  ].sort((a: any, b: any) => num(a.delta_abs) - num(b.delta_abs));
+  const totalClicksLost = Math.abs(num(result.gsc?.current?.clicks) - num(result.gsc?.previous?.clicks)) || Math.abs(num(result.yandex?.current?.clicks) - num(result.yandex?.previous?.clicks)) || 0;
+  const contributors = [
+    ...pageLosses.slice(0, 3).map((p: any) => ({ type: "page", name: p.url, clicks_lost: Math.abs(num(p.delta_abs)), share_of_loss_pct: totalClicksLost ? Math.round((Math.abs(num(p.delta_abs)) / totalClicksLost) * 1000) / 10 : 0 })),
+    ...queryLosses.slice(0, 3).map((q: any) => ({ type: "query", name: q.query, clicks_lost: Math.abs(num(q.delta_abs)), share_of_loss_pct: totalClicksLost ? Math.round((Math.abs(num(q.delta_abs)) / totalClicksLost) * 1000) / 10 : 0 })),
+  ].sort((a, b) => b.clicks_lost - a.clicks_lost).slice(0, 5);
+
+  const hypotheses: any[] = [];
+  if (hasIndexingRisk) {
+    hypotheses.push({
+      hypothesis: "Техническая проблема индексации могла стать главным драйвером просадки",
+      probability: indexedDelta < -5 ? 85 : 75,
+      evidence: [
+        ...(indexedStart != null && indexedEnd != null ? [evidence("Yandex", "страниц в поиске", indexedStart, indexedEnd, indexedDelta)] : []),
+        evidence("Yandex", "исключённые страницы", 0, indexing?.excluded_count ?? 0, indexing?.excluded_count ? 100 : 0),
+      ],
+      verification_step: "Проверить первые 20 исключённых URL: robots.txt, canonical, meta noindex, HTTP-статус, sitemap и дату последнего изменения шаблона.",
+    });
+  }
+  if (result.gsc && num(result.gsc.delta?.clicks) < -5) {
+    const ev = [evidence("GSC", "clicks", result.gsc.previous?.clicks, result.gsc.current?.clicks, result.gsc.delta?.clicks)];
+    if (num(result.gsc.delta?.impressions) < -5) ev.push(evidence("GSC", "impressions", result.gsc.previous?.impressions, result.gsc.current?.impressions, result.gsc.delta?.impressions));
+    if (Math.abs(num(result.gsc.delta?.position)) > 0.3) ev.push(evidence("GSC", "position", result.gsc.previous?.position, result.gsc.current?.position, result.gsc.delta?.position));
+    hypotheses.push({
+      hypothesis: num(result.gsc.delta?.impressions) < -10 ? "Падение видимости в Google: сайт стал реже показываться по части запросов" : "Падение кликов в Google без сопоставимой потери показов указывает на CTR/сниппеты или SERP-факторы",
+      probability: ev.length >= 3 ? 85 : ev.length === 2 ? 65 : 40,
+      evidence: ev,
+      verification_step: "Открыть топ запросов/страниц с потерей кликов, сравнить title/description, тип сниппета, наличие спецэлементов выдачи и изменения позиций по датам.",
+    });
+  }
+  if (result.metrika && num(result.metrika.delta?.organic_visits) < -5) {
+    hypotheses.push({
+      hypothesis: "Просадка подтверждается фактическими органическими визитами в Метрике, значит это не только изменение отчёта поисковой консоли",
+      probability: result.gsc || result.yandex ? 65 : 40,
+      evidence: [evidence("Metrika", "organic_visits", result.metrika.previous?.organic_visits, result.metrika.current?.organic_visits, result.metrika.delta?.organic_visits)],
+      verification_step: "Сверить дневной график Метрики с датой перелома в GSC/Яндекс.Вебмастере и проверить, нет ли параллельного падения только на отдельных посадочных страницах.",
+    });
+  }
+  if (topvisor?.delta && ["top3", "top10", "top30"].some(k => num(topvisor.delta?.[k]) < 0)) {
+    hypotheses.push({
+      hypothesis: "Позиционный фактор: часть запросов вышла из важных TOP-диапазонов",
+      probability: [topvisor.delta.top3, topvisor.delta.top10, topvisor.delta.top30].filter((d: any) => num(d) < 0).length >= 2 ? 65 : 40,
+      evidence: [
+        evidence("Топвизор", "TOP-3", topvisor.previous?.top3, topvisor.current?.top3, topvisor.delta?.top3),
+        evidence("Топвизор", "TOP-10", topvisor.previous?.top10, topvisor.current?.top10, topvisor.delta?.top10),
+        evidence("Топвизор", "TOP-30", topvisor.previous?.top30, topvisor.current?.top30, topvisor.delta?.top30),
+      ],
+      verification_step: "Проверить таблицу потерянных позиций в Топвизоре: какие запросы вышли из TOP-3/TOP-10 и какие URL ранжируются сейчас.",
+    });
+  }
+  if (hypotheses.length === 0) {
+    hypotheses.push({
+      hypothesis: "Сильного единого драйвера по подключённым источникам не видно — требуется ручная проверка событий и качества данных",
+      probability: 40,
+      evidence: [evidence(primary.source, primary.metric, primary.was, primary.now, primary.delta)],
+      verification_step: "Проверить корректность выбранных периодов, доступы к источникам, релизы на сайте, robots.txt, sitemap и серверные логи за дату перелома.",
+    });
+  }
+
+  const mainHypothesis = hypotheses[0];
+  const recommendations = [
+    {
+      priority: "p1",
+      title: hasIndexingRisk ? "Разобрать исключённые и выпавшие из поиска URL" : "Разобрать топ страниц и запросов с максимальной потерей",
+      why: contributors[0]
+        ? `Крупнейший вклад в падение даёт ${contributors[0].type === "page" ? "страница" : "запрос"} «${contributors[0].name}»: потеря ${fmt(contributors[0].clicks_lost)} кликов, доля ${fmt(contributors[0].share_of_loss_pct)}%.`
+        : `Главная метрика изменилась: ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${fmt(primary.was)} → ${fmt(primary.now)} (${pctText(primary.delta)}).`,
+      action: hasIndexingRisk
+        ? "Для исключённых URL проверить HTTP-статус, robots.txt, meta robots, canonical, sitemap, внутренние ссылки и дату попадания в исключения; сначала исправить страницы с трафиком/позициями."
+        : "Взять первые 5 URL/запросов из вкладок потерь, проверить индексацию, релевантность интента, title/description, сниппет и фактическую посадочную страницу в выдаче.",
+      kpi: { metric: primary.metric === "organic_visits" ? "organic_visits" : "clicks", target_delta: "+10–15% за 14 дней" },
+      ice: { impact: 9, confidence: 7, ease: 6, score: 378 },
+    },
+    {
+      priority: "p2",
+      title: "Сверить дату перелома с техническими и контентными изменениями",
+      why: "Без внешнего AI-ответа причина рассчитана алгоритмически, поэтому нужно подтвердить её журналами релизов и дневными графиками.",
+      action: "Сопоставить день максимальной просадки на графиках с деплоями, изменениями шаблонов, robots.txt, sitemap, canonical, редиректами и массовыми правками title/H1.",
+      kpi: { metric: "clicks", target_delta: "локализовать 1–2 подтверждённые причины за 72 часа" },
+      ice: { impact: 8, confidence: 6, ease: 7, score: 336 },
+    },
+    {
+      priority: "p3",
+      title: "Собрать контрольный список восстановления по группам URL",
+      why: "Потери обычно концентрируются в нескольких шаблонах страниц или кластерах запросов; исправления нужно раскатывать не точечно, а группами.",
+      action: "Сгруппировать потерянные URL по типу страницы, интенту и шаблону; для каждой группы зафиксировать baseline кликов/позиций и повторно измерить через 2 недели.",
+      kpi: { metric: "position", target_delta: "вернуть 30–50% потерянных запросов в прежний TOP-диапазон" },
+      ice: { impact: 7, confidence: 5, ease: 5, score: 175 },
+    },
+  ];
+
+  const brand = gscDiag.brand_split;
+  const brandAnalysis = brand ? {
+    brand_clicks_delta_pct: brand.brand?.delta_pct ?? 0,
+    non_brand_clicks_delta_pct: brand.non_brand?.delta_pct ?? 0,
+    interpretation: `Бренд: ${fmt(brand.brand?.clicks_was)} → ${fmt(brand.brand?.clicks_now)} (${pctText(brand.brand?.delta_pct)}), небренд: ${fmt(brand.non_brand?.clicks_was)} → ${fmt(brand.non_brand?.clicks_now)} (${pctText(brand.non_brand?.delta_pct)}).`,
+  } : null;
+
   return {
     seo_score: score,
-    score_reasoning: "Автоматическое заключение построено по метрикам без расширенного AI-вывода: внешний AI-ответ не успел завершиться в безопасный лимит.",
+    score_reasoning: `Резервный расчёт без внешнего AI: ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${fmt(primary.was)} → ${fmt(primary.now)} (${pctText(primary.delta)}). Строгий лимит score применён по величине падения в подключённых источниках.`,
     headline: {
       direction,
       main_metric: primary.metric,
-      delta_pct: primary.delta,
-      summary: direction === "down" ? `Зафиксировано снижение по ключевой метрике ${primary.metric}: ${primary.delta}%` : direction === "up" ? `Зафиксирован рост по ключевой метрике ${primary.metric}: +${primary.delta}%` : "Существенного изменения органического трафика не зафиксировано",
+      delta_pct: num(primary.delta),
+      summary: direction === "down"
+        ? `Органический трафик снизился: главный сигнал — ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric} ${pctText(primary.delta)}`
+        : direction === "up"
+          ? `Органический трафик вырос: главный сигнал — ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric} ${pctText(primary.delta)}`
+          : "Существенного изменения органического трафика по подключённым источникам не видно",
     },
-    diagnosis_pattern: { code: result.diagnostics?.gsc?.signals?.pattern ?? result.diagnostics?.yandex?.signals?.pattern ?? "mixed", explanation: "Паттерн рассчитан автоматически по кликам, показам, CTR и позиции." },
+    diagnosis_pattern: {
+      code: result.diagnostics?.gsc?.signals?.pattern ?? result.diagnostics?.yandex?.signals?.pattern ?? (hasIndexingRisk ? "visibility_loss" : "mixed"),
+      explanation: hasIndexingRisk ? "Есть сигнал индексации Яндекса: исключённые URL или снижение страниц в поиске." : "Паттерн рассчитан автоматически по кликам, показам, CTR, позициям и органическим визитам.",
+    },
     main_cause: {
-      title: "Требуется ручная верификация причины изменения",
-      confidence: "low",
-      evidence: [{ source: primary.source, metric: primary.metric, was: "предыдущий период", now: "текущий период", delta: `${primary.delta}%` }],
-      conclusion: `Данные источников получены, но расширенный AI-анализ был ограничен по времени (${reason}). Используйте вкладки графиков, потерянных страниц и запросов для первичной диагностики.`,
+      title: mainHypothesis.hypothesis,
+      confidence: num(mainHypothesis.probability) >= 70 ? "high" : num(mainHypothesis.probability) >= 50 ? "medium" : "low",
+      evidence: mainHypothesis.evidence,
+      conclusion: `${mainHypothesis.hypothesis}. Ключевой факт: ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${fmt(primary.was)} → ${fmt(primary.now)} (${pctText(primary.delta)}). Сначала нужно подтвердить гипотезу через проверку топ-потерь и индексации, затем исправлять наиболее вкладовые URL/запросы.`,
     },
-    root_cause_hypotheses: [],
-    causes: [],
-    impact_breakdown: { total_clicks_lost: 0, top_loss_contributors: [] },
-    brand_analysis: null,
-    lost_pages: [
-      ...(result.diagnostics?.gsc?.lost_pages ?? []).slice(0, 5).map((p: any) => ({ url: p.url, was: p.clicks_was, now: p.clicks_now, delta_pct: p.delta_pct, source: "GSC" })),
-      ...(result.diagnostics?.metrika?.lost_pages ?? []).slice(0, 5).map((p: any) => ({ url: p.url, was: p.visits_was, now: p.visits_now, delta_pct: p.delta_pct, source: "Metrika" })),
+    root_cause_hypotheses: hypotheses.slice(0, 4),
+    causes: hypotheses.slice(0, 3).map((h) => ({
+      title: h.hypothesis,
+      confidence: num(h.probability) >= 70 ? "high" : num(h.probability) >= 50 ? "medium" : "low",
+      evidence: h.evidence,
+      conclusion: h.verification_step,
+    })),
+    impact_breakdown: { total_clicks_lost: totalClicksLost, top_loss_contributors: contributors },
+    brand_analysis: brandAnalysis,
+    lost_pages: pageLosses.slice(0, 10).map((p: any) => ({ url: p.url, was: p.was, now: p.now, delta_pct: p.delta_pct, source: p.source })),
+    lost_queries: queryLosses.slice(0, 10).map((q: any) => ({
+      query: q.query,
+      clicks_was: q.clicks_was,
+      clicks_now: q.clicks_now,
+      position_was: q.pos_was,
+      position_now: q.pos_now,
+      diagnosis: num(q.impr_now) < num(q.impr_was) ? "Падает видимость запроса: проверить позицию, релевантность URL и индексацию." : "Показы не просели пропорционально кликам: проверить CTR, сниппет и SERP-фичи.",
+    })),
+    recommendations,
+    next_steps: [
+      "Проверить дату перелома на графиках Google/Яндекс/Метрика и сопоставить с релизами сайта.",
+      "Проверить индексацию топ URL: robots.txt, canonical, noindex, HTTP-статусы, sitemap и внутренние ссылки.",
+      "Проверить выдачу вручную по топ потерянным запросам: какой URL ранжируется, изменился ли сниппет и появились ли SERP-фичи.",
+      ...(Array.isArray(result.errors) && result.errors.length ? ["Устранить ошибки источников данных, чтобы следующий анализ получил полную доказательную базу."] : []),
     ],
-    lost_queries: (result.diagnostics?.gsc?.lost_queries_by_clicks ?? result.diagnostics?.yandex?.lost_queries_by_clicks ?? []).slice(0, 10).map((q: any) => ({ query: q.query, clicks_was: q.clicks_was, clicks_now: q.clicks_now, position_was: q.pos_was, position_now: q.pos_now, diagnosis: "Падение кликов требует проверки сниппета, позиции и индексации страницы." })),
-    recommendations: [
-      { priority: "p1", title: "Проверить страницы и запросы с максимальной потерей", why: "Это самый быстрый способ локализовать вклад в падение.", action: "Откройте вкладки «Потерянные страницы» и «Запросы», проверьте индексацию, canonical, robots, title/description и изменения шаблона для топ-потерь.", kpi: { metric: primary.metric, target_delta: "+10–15% за 2 недели" }, ice: { impact: 8, confidence: 6, ease: 7, score: 336 } },
-    ],
-    next_steps: ["Проверить Coverage/Индексирование в GSC и Яндекс.Вебмастере", "Сверить даты падения с релизами, изменениями шаблонов, robots.txt, sitemap и логами сервера"],
-    timeline_notes: [],
+    timeline_notes: [`Резервный вывод сформирован автоматически: внешний AI-ответ не был использован (${reason}).`],
   };
 }
 
