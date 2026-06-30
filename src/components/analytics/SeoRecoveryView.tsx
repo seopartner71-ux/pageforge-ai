@@ -222,7 +222,11 @@ export function SeoRecoveryView({ data }: Props) {
               <div className="text-sm mt-2 text-muted-foreground">{c.conclusion}</div>
             </Card>
           ))}
-          {(ai.root_cause_hypotheses ?? []).length === 0 && (ai.causes ?? []).length === 0 && <Card className="p-6 text-sm text-muted-foreground">Гипотезы не сформированы.</Card>}
+          {(ai.root_cause_hypotheses ?? []).length === 0 && (ai.causes ?? []).length === 0 && (
+            <Card className="p-6 text-sm text-muted-foreground">
+              {aiUnavailable ? "AI-анализ временно недоступен, попробуйте запустить анализ ещё раз." : "Гипотезы не сформированы."}
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="impact" className="mt-4 space-y-3">
