@@ -1477,7 +1477,7 @@ Deno.serve(async (req) => {
 
     let ai: any;
     try {
-      ai = await callAI(orKey, compactForAI(result));
+      ai = normalizeAI(await callAI(orKey, compactForAI(result)), result, "ai_incomplete_sections");
     } catch (e) {
       console.log("AI fallback used:", (e as any)?.message);
       ai = fallbackAI(result, (e as any)?.cause ?? (e as any)?.message ?? "ai_error");
