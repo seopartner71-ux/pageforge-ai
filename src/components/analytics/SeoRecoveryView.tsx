@@ -50,8 +50,9 @@ function enrichSeoRecoveryAI(data: any) {
   const direction = n(primary.delta) < -5 ? 'down' : n(primary.delta) > 5 ? 'up' : 'stable';
   const d = data?.diagnostics ?? {};
   const indexing = data?.yandex?.indexing;
-  const indexedStart = indexing?.daily_indexed?.[0]?.count;
-  const indexedEnd = indexing?.daily_indexed?.[indexing?.daily_indexed?.length - 1]?.count;
+  const indexedRows = Array.isArray(indexing?.daily_indexed) ? indexing.daily_indexed : [];
+  const indexedStart = indexedRows[0]?.count;
+  const indexedEnd = indexedRows[indexedRows.length - 1]?.count;
   const indexedDelta = indexedStart ? pct(n(indexedEnd), n(indexedStart)) : 0;
   const hasIndexingRisk = (n(indexing?.excluded_count) >= 20) || indexedDelta < -5;
   const gLosses = Array.isArray(d.gsc?.lost_queries_by_clicks) ? d.gsc.lost_queries_by_clicks : [];
