@@ -1160,7 +1160,7 @@ Deno.serve(async (req) => {
             impressions: pct(cur.impressions, prv.impressions),
             ctr: pct(cur.ctr, prv.ctr),
             position: Math.round((cur.position - prv.position) * 10) / 10,
-          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data };
+          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data, indexing: cur.indexing };
         } catch (e) { errors.push(friendlyError("Яндекс", e, { yandex_host })); }
       })());
     }
