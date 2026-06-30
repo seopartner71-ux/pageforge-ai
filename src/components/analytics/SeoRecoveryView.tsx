@@ -60,7 +60,7 @@ const confidenceBadge: Record<string, string> = {
 };
 
 export function SeoRecoveryView({ data }: Props) {
-  const ai = data.ai ?? {};
+  const ai = useMemo(() => enrichSeoRecoveryAI(data), [data]);
   const m = data.metrika;
   const g = data.gsc;
   const y = data.yandex;
