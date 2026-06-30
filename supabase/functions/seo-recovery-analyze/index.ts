@@ -1473,16 +1473,21 @@ Deno.serve(async (req) => {
 
     // AI
     const orKey = await getOpenRouterKey(sb);
-    if (!orKey) return new Response(JSON.stringify({ error: "OPENROUTER_API_KEY не настроен" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
     let ai: any;
-    try {
-      ai = normalizeAI(await callAI(orKey, compactForAI(result)), result, "ai_incomplete_sections");
-    } catch (e) {
-      console.log("AI fallback used:", (e as any)?.message);
-      ai = fallbackAI(result, (e as any)?.cause ?? (e as any)?.message ?? "ai_error");
+    if (!orKey) {
+      console.log("AI fallback used: openrouter_key_missing");
+      ai = fallbackAI(result, "openrouter_key_missing");
       ai.fallback = true;
-      ai.reason = (e as any)?.cause ?? (e as any)?.message ?? "ai_error";
+      ai.reason = "openrouter_key_missing";
+    } else {
+      try {
+        ai = normalizeAI(await callAI(orKey, compactForAI(result)), result, "ai_incomplete_sections");
+      } catch (e) {
+        console.log("AI fallback used:", (e as any)?.message);
+        ai = fallbackAI(result, (e as any)?.cause ?? (e as any)?.message ?? "ai_error");
+        ai.fallback = true;
+        ai.reason = (e as any)?.cause ?? (e as any)?.message ?? "ai_error";
+      }
     }
     return new Response(JSON.stringify({ ...result, ai, errors }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
