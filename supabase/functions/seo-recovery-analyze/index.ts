@@ -439,8 +439,9 @@ async function fetchTopvisor(apiKey: string, userId: string, projectId: string, 
   // top3 / top10 / top30 — count at LAST date
   const lastDate = dates[dates.length - 1];
   const firstDate = dates[0];
-  let top3 = 0, top10 = 0, top30 = 0;
+  let top1 = 0, top3 = 0, top10 = 0, top30 = 0, outside = 0;
   const lostList: Array<{ query: string; pos_was: number; pos_now: number; delta: number }> = [];
+  const positions: Record<string, number> = {};
   for (const kw of keywords) {
     const name = String(kw?.name ?? kw?.keyword ?? kw?.id ?? "");
     const pd = kw?.positionsData ?? {};
@@ -453,9 +454,14 @@ async function fetchTopvisor(apiKey: string, userId: string, projectId: string, 
       if (firstDate && k.startsWith(firstDate)) first = p;
     }
     if (last != null) {
+      positions[name] = last;
+      if (last === 1) top1++;
       if (last <= 3) top3++;
       if (last <= 10) top10++;
       if (last <= 30) top30++;
+      if (last > 30) outside++;
+    } else {
+      outside++;
     }
     if (last != null && first != null && last > first) {
       lostList.push({ query: name, pos_was: first, pos_now: last, delta: Math.round((last - first) * 10) / 10 });
@@ -464,10 +470,14 @@ async function fetchTopvisor(apiKey: string, userId: string, projectId: string, 
   lostList.sort((a, b) => b.delta - a.delta);
 
   return {
+    top1,
     top3,
     top10,
     top30,
+    outside,
     keywords_total: keywords.length,
+    distribution: { top1, top3, top10, top30, outside, total_keywords: keywords.length },
+    positions,
     history,
     lost_positions: lostList.slice(0, 10),
   };
