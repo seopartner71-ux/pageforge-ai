@@ -725,40 +725,98 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик. Твоя задач
   "timeline_notes": [ "Заметки о датах/событиях, если выявлены в данных" ]
 }`;
 
+function extractJson(text: string): any {
+  let cleaned = String(text || "").replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const start = cleaned.search(/[\{\[]/);
+  if (start === -1) throw new Error("no_json_found");
+  const openChar = cleaned[start];
+  const closeChar = openChar === "[" ? "]" : "}";
+  const end = cleaned.lastIndexOf(closeChar);
+  if (end === -1 || end < start) throw new Error("no_json_close");
+  cleaned = cleaned.substring(start, end + 1);
+  try { return JSON.parse(cleaned); } catch {
+    const repaired = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+    return JSON.parse(repaired);
+  }
+}
+
+async function callAIOnce(key: string, payload: any, strictJson = false): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60_000);
+  const userContent =
+    (strictJson
+      ? "ВЕРНИ ТОЛЬКО валидный JSON-объект без markdown-разметки, без ```json и без пояснений. Строго одна JSON-структура по схеме ответа.\n\n"
+      : "") +
+    "Данные для анализа (фактические выгрузки из Яндекс.Вебмастера/Метрики и GSC, включая diagnostics с предрасчитанными signals и lost-листами):\n" +
+    JSON.stringify(payload);
+  try {
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: "google/gemini-2.5-pro",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userContent },
+        ],
+        temperature: 0.2,
+        max_tokens: 4000,
+      }),
+    });
+    const raw = await r.text();
+    if (!r.ok) throw new Error(`OpenRouter ${r.status}: ${raw.slice(0, 400)}`);
+    let j: any;
+    try { j = JSON.parse(raw); } catch { throw new Error("openrouter_envelope_parse_failed"); }
+    const txt = j.choices?.[0]?.message?.content ?? "";
+    if (!txt) throw new Error("ai_empty_response");
+    return extractJson(txt);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callAI(key: string, payload: any) {
-  const fetchPromise = fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: "Данные для анализа (фактические выгрузки из Яндекс.Вебмастера/Метрики и GSC, включая diagnostics с предрасчитанными signals и lost-листами):\n" + JSON.stringify(payload) },
-      ],
-      temperature: 0.2,
-      max_tokens: 4000,
-    }),
-  }, AI_FETCH_TIMEOUT_MS, "ai_analysis");
-  // Hard wall-clock guard — гарантирует, что мы не подвиснем сверх лимита edge-функции (150s)
-  const r = await Promise.race<Response>([
-    fetchPromise,
-    new Promise<Response>((_, reject) => setTimeout(() => reject(new Error(`ai_hard_timeout_${AI_HARD_TIMEOUT_MS}ms`)), AI_HARD_TIMEOUT_MS)),
-  ]);
-  const j = await Promise.race<any>([
-    r.json(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error("ai_json_parse_timeout")), 10_000)),
-  ]);
-  if (!r.ok) throw new Error(`OpenRouter ${r.status}: ${JSON.stringify(j).slice(0, 400)}`);
-  const txt = j.choices?.[0]?.message?.content ?? "{}";
-  try { return JSON.parse(txt); } catch { return { raw: txt }; }
+  const size = JSON.stringify(payload).length;
+  console.log("AI payload size:", size);
+  try {
+    return await callAIOnce(key, payload, false);
+  } catch (e1) {
+    console.log("AI attempt 1 failed:", (e1 as any)?.message);
+    try {
+      return await callAIOnce(key, payload, true);
+    } catch (e2) {
+      console.log("AI attempt 2 failed:", (e2 as any)?.message);
+      const err = new Error("ai_unavailable");
+      (err as any).cause = (e2 as any)?.message ?? (e1 as any)?.message;
+      throw err;
+    }
+  }
 }
 
 function compactForAI(result: any) {
   const take = (arr: any[], n: number) => Array.isArray(arr) ? arr.slice(0, n) : [];
+  const TOP = 15;
+  const trimDiag = (src: any) => {
+    if (!src || typeof src !== "object") return src;
+    const out: any = {};
+    for (const k of Object.keys(src)) {
+      const v = (src as any)[k];
+      if (Array.isArray(v)) out[k] = v.slice(0, TOP);
+      else out[k] = v;
+    }
+    return out;
+  };
+  const diag = result.diagnostics ? {
+    gsc: result.diagnostics.gsc ? trimDiag(result.diagnostics.gsc) : undefined,
+    yandex: result.diagnostics.yandex ? trimDiag(result.diagnostics.yandex) : undefined,
+    metrika: result.diagnostics.metrika ? trimDiag(result.diagnostics.metrika) : undefined,
+    topvisor: result.diagnostics.topvisor ? trimDiag(result.diagnostics.topvisor) : undefined,
+  } : undefined;
   const compact: any = {
     period: result.period,
-    diagnostics: result.diagnostics,
+    diagnostics: diag,
   };
   if (result.gsc) compact.gsc = {
     current: { clicks: result.gsc.current.clicks, impressions: result.gsc.current.impressions, ctr: result.gsc.current.ctr, position: result.gsc.current.position },
