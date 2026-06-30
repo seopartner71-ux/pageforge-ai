@@ -47,6 +47,22 @@ type YandexHost = {
 
 type GscSite = { siteUrl: string; permissionLevel?: string };
 
+async function functionErrorMessage(error: any, fallback = 'Ошибка анализа') {
+  const ctx = error?.context;
+  try {
+    const payload = typeof ctx?.json === 'function' ? await ctx.json() : null;
+    if (payload?.error) {
+      const details = Array.isArray(payload.details)
+        ? payload.details.map((d: any) => d?.title || d?.code || String(d)).join(' • ')
+        : '';
+      return `${payload.error}${details ? `: ${details}` : ''}`;
+    }
+  } catch (_) { /* response body already consumed or unavailable */ }
+  const msg = String(error?.message || fallback);
+  if (msg.includes('non-2xx')) return 'Серверный анализ не успел завершиться. Я сократил AI-этап: запустите анализ ещё раз.';
+  return msg;
+}
+
 function shiftDates(preset: string): { date1: string; date2: string; comparison1: string; comparison2: string } {
   const today = new Date();
   today.setDate(today.getDate() - 2); // GSC задержка
@@ -156,7 +172,7 @@ export default function SeoRecoveryPage() {
       const { data, error } = await supabase.functions.invoke('seo-recovery-analyze', {
         body: { mode: 'check', date1, date2 },
       });
-      if (error) throw error;
+      if (error) throw new Error(await functionErrorMessage(error, 'Ошибка проверки подключений'));
       const s = data as Status;
       setStatus(s);
       setYandexConnected(Boolean(s?.yandex_connected ?? s?.metrika_connected));
@@ -174,7 +190,7 @@ export default function SeoRecoveryPage() {
         .select('id, name, domain, gsc_site_url, yandex_host, gsc_connected, yandex_connected')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-      if (error) throw error;
+      if (error) throw new Error(await functionErrorMessage(error));
       const list = (data ?? []) as Project[];
       setProjects(list);
 
@@ -300,7 +316,7 @@ export default function SeoRecoveryPage() {
       }
       setData(data);
     } catch (e: any) {
-      setError(e?.message || 'Ошибка анализа');
+      setError(await functionErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -622,7 +638,7 @@ export default function SeoRecoveryPage() {
                         </div>
                         <div className="space-y-1">
                           <Label htmlFor="tvProj" className="text-xs">Project ID</Label>
-                          <Input id="tvProj" className="h-8" placeholder="project_id" value={topvisorProjectId} onChange={(e) => setTopvisorProjectId(e.target.value)} />
+                          <Input id="tvProj" className="h-8" inputMode="numeric" placeholder="числовой ID, не название" value={topvisorProjectId} onChange={(e) => setTopvisorProjectId(e.target.value)} />
                         </div>
                       </div>
                     )}
