@@ -249,6 +249,54 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
     prevDate1 && prevDate2 ? fetchHistory(prevDate1, prevDate2) : Promise.resolve([] as any[]),
   ]);
 
+  // Индексация: история кол-ва страниц в поиске + список исключённых
+  async function fetchIndexing() {
+    const out: { daily_indexed: Array<{ date: string; count: number; added?: number; removed?: number }>; excluded_pages: Array<{ url: string; status: string; date?: string }>; excluded_count: number } = {
+      daily_indexed: [],
+      excluded_pages: [],
+      excluded_count: 0,
+    };
+    try {
+      const url = `${YANDEX_WEBMASTER_API}/user/${userId}/hosts/${encodeURIComponent(hostId)}/indexing/history/?date_from=${date1}&date_to=${date2}`;
+      const r = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, 8_000, "yandex_indexing_history");
+      if (r.ok) {
+        const j = await r.json();
+        const items = j?.history ?? j?.history_items ?? j?.indicators?.SEARCHABLE ?? [];
+        if (Array.isArray(items)) {
+          out.daily_indexed = items.map((it: any) => ({
+            date: String(it?.date ?? it?.day ?? "").slice(0, 10),
+            count: Number(it?.value ?? it?.searchable_count ?? it?.count ?? 0) || 0,
+            added: Number(it?.added ?? it?.added_count ?? 0) || 0,
+            removed: Number(it?.removed ?? it?.removed_count ?? 0) || 0,
+          })).filter((r: any) => r.date);
+        }
+      } else {
+        console.log("yandex indexing/history status:", r.status);
+      }
+    } catch (e) { console.log("indexing history error:", (e as any)?.message); }
+
+    try {
+      const url = `${YANDEX_WEBMASTER_API}/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-urls/excluded/?offset=0&limit=50`;
+      const r = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, 8_000, "yandex_excluded_urls");
+      if (r.ok) {
+        const j = await r.json();
+        const urls = j?.urls ?? j?.excluded_urls ?? j?.items ?? [];
+        if (Array.isArray(urls)) {
+          out.excluded_pages = urls.slice(0, 20).map((u: any) => ({
+            url: String(u?.url ?? u?.page ?? ""),
+            status: String(u?.status ?? u?.exclude_status ?? u?.reason ?? "UNKNOWN"),
+            date: u?.last_access ? String(u.last_access).slice(0, 10) : (u?.date ? String(u.date).slice(0, 10) : undefined),
+          })).filter((x: any) => x.url);
+        }
+        out.excluded_count = Number(j?.count ?? j?.total_count ?? j?.total ?? out.excluded_pages.length) || out.excluded_pages.length;
+      } else {
+        console.log("yandex excluded status:", r.status);
+      }
+    } catch (e) { console.log("indexing excluded error:", (e as any)?.message); }
+    return out;
+  }
+  const indexing = await fetchIndexing();
+
   return {
     clicks,
     impressions,
@@ -257,6 +305,7 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
     queries,
     daily_data,
     daily_data_prev,
+    indexing,
   };
 }
 
