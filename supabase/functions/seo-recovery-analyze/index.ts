@@ -176,29 +176,38 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
     const p = new URLSearchParams({ date_from: d1, date_to: d2 });
     p.append("query_indicator", "TOTAL_CLICKS");
     p.append("query_indicator", "TOTAL_SHOWS");
-    const url = `${YANDEX_WEBMASTER_API}/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/all-history/?${p.toString()}`;
-    console.log("Yandex all-history URL:", url);
-    try {
-      const r = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, 8_000, "yandex_history");
-      const text = await r.text();
-      console.log("Yandex history raw response status:", r.status);
-      console.log("Yandex history raw response:", text.slice(0, 1000));
-      if (!r.ok) return [];
-      const res = JSON.parse(text);
-      console.log("Webmaster history parsed (history_items count):", Array.isArray(res?.history_items) ? res.history_items.length : "n/a");
-      const items: any[] = res?.history_items ?? res?.history ?? res?.items ?? [];
-      const rows = items.map((it: any) => {
-        const date = String(it?.date ?? it?.day ?? "").slice(0, 10);
-        const ind = it?.indicators ?? {};
-        const clicks = Number(ind?.TOTAL_CLICKS?.value ?? ind?.TOTAL_CLICKS ?? 0) || 0;
-        const impressions = Number(ind?.TOTAL_SHOWS?.value ?? ind?.TOTAL_SHOWS ?? 0) || 0;
-        return { date, clicks, impressions, ctr: impressions ? clicks / impressions : 0 };
-      }).filter((r: any) => r.date);
-      return rows.sort((a: any, b: any) => a.date.localeCompare(b.date));
-    } catch (e) {
-      console.log("all-history error:", (e as any)?.message);
-      return [];
+    // В Webmaster API v4 корректные пути — через слэш, а не дефис.
+    // Пробуем несколько вариантов: all/history, popular/history, history.
+    const candidates = [
+      `${YANDEX_WEBMASTER_API}/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/all/history/?${p.toString()}`,
+      `${YANDEX_WEBMASTER_API}/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/popular/history/?${p.toString()}`,
+      `${YANDEX_WEBMASTER_API}/user/${userId}/hosts/${encodeURIComponent(hostId)}/search-queries/history/?${p.toString()}`,
+    ];
+    for (const url of candidates) {
+      console.log("Yandex history URL:", url);
+      try {
+        const r = await fetchWithTimeout(url, { headers: { Authorization: `OAuth ${token}` } }, 8_000, "yandex_history");
+        const text = await r.text();
+        console.log("Yandex history status:", r.status);
+        if (!r.ok) {
+          console.log("Yandex history body:", text.slice(0, 400));
+          continue;
+        }
+        const res = JSON.parse(text);
+        const items: any[] = res?.history_items ?? res?.history ?? res?.items ?? res?.indicators ?? [];
+        const rows = items.map((it: any) => {
+          const date = String(it?.date ?? it?.day ?? "").slice(0, 10);
+          const ind = it?.indicators ?? it;
+          const clicks = Number(ind?.TOTAL_CLICKS?.value ?? ind?.TOTAL_CLICKS ?? 0) || 0;
+          const impressions = Number(ind?.TOTAL_SHOWS?.value ?? ind?.TOTAL_SHOWS ?? 0) || 0;
+          return { date, clicks, impressions, ctr: impressions ? clicks / impressions : 0 };
+        }).filter((r: any) => r.date);
+        if (rows.length > 0) return rows.sort((a: any, b: any) => a.date.localeCompare(b.date));
+      } catch (e) {
+        console.log("history fetch error:", (e as any)?.message);
+      }
     }
+    return [];
   }
 
   const [daily_data, daily_data_prev] = await Promise.all([
