@@ -439,8 +439,9 @@ async function fetchTopvisor(apiKey: string, userId: string, projectId: string, 
   // top3 / top10 / top30 — count at LAST date
   const lastDate = dates[dates.length - 1];
   const firstDate = dates[0];
-  let top3 = 0, top10 = 0, top30 = 0;
+  let top1 = 0, top3 = 0, top10 = 0, top30 = 0, outside = 0;
   const lostList: Array<{ query: string; pos_was: number; pos_now: number; delta: number }> = [];
+  const positions: Record<string, number> = {};
   for (const kw of keywords) {
     const name = String(kw?.name ?? kw?.keyword ?? kw?.id ?? "");
     const pd = kw?.positionsData ?? {};
@@ -453,9 +454,14 @@ async function fetchTopvisor(apiKey: string, userId: string, projectId: string, 
       if (firstDate && k.startsWith(firstDate)) first = p;
     }
     if (last != null) {
+      positions[name] = last;
+      if (last === 1) top1++;
       if (last <= 3) top3++;
       if (last <= 10) top10++;
       if (last <= 30) top30++;
+      if (last > 30) outside++;
+    } else {
+      outside++;
     }
     if (last != null && first != null && last > first) {
       lostList.push({ query: name, pos_was: first, pos_now: last, delta: Math.round((last - first) * 10) / 10 });
@@ -464,10 +470,14 @@ async function fetchTopvisor(apiKey: string, userId: string, projectId: string, 
   lostList.sort((a, b) => b.delta - a.delta);
 
   return {
+    top1,
     top3,
     top10,
     top30,
+    outside,
     keywords_total: keywords.length,
+    distribution: { top1, top3, top10, top30, outside, total_keywords: keywords.length },
+    positions,
     history,
     lost_positions: lostList.slice(0, 10),
   };
@@ -1133,10 +1143,52 @@ Deno.serve(async (req) => {
     // Topvisor (independent, runs alongside)
     if (topvisor_key && topvisor_project_id && topvisor_user_id) {
       try {
-        result.topvisor = await fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, date1, date2);
+        const cur = await fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, date1, date2);
+        let prv: any = null;
         try {
-          result.topvisor_prev = await fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, prev.date1, prev.date2);
+          prv = await fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, prev.date1, prev.date2);
         } catch (_e) { /* предыдущий период необязателен */ }
+
+        const curDist = cur.distribution;
+        const prvDist = prv?.distribution ?? null;
+        const delta = prvDist ? {
+          top1: curDist.top1 - prvDist.top1,
+          top3: curDist.top3 - prvDist.top3,
+          top10: curDist.top10 - prvDist.top10,
+          top30: curDist.top30 - prvDist.top30,
+          outside: curDist.outside - prvDist.outside,
+        } : null;
+
+        // per-keyword movement (only if both periods have data)
+        const lost_positions: Array<{ query: string; pos_was: number; pos_now: number; delta: number }> = [];
+        const gained_positions: Array<{ query: string; pos_was: number; pos_now: number; delta: number }> = [];
+        if (prv?.positions) {
+          for (const [name, posNow] of Object.entries(cur.positions as Record<string, number>)) {
+            const posWas = (prv.positions as Record<string, number>)[name];
+            if (posWas == null || !Number.isFinite(posWas)) continue;
+            const d = Math.round((posNow - posWas) * 10) / 10;
+            if (d > 0.5) lost_positions.push({ query: name, pos_was: posWas, pos_now: posNow, delta: d });
+            else if (d < -0.5) gained_positions.push({ query: name, pos_was: posWas, pos_now: posNow, delta: d });
+          }
+          lost_positions.sort((a, b) => b.delta - a.delta);
+          gained_positions.sort((a, b) => a.delta - b.delta);
+        }
+
+        result.topvisor = {
+          // backward-compat surface
+          top1: cur.top1, top3: cur.top3, top10: cur.top10, top30: cur.top30,
+          keywords_total: cur.keywords_total,
+          history: cur.history,
+          // new comparison surface
+          current: curDist,
+          previous: prvDist,
+          delta,
+          lost_positions: lost_positions.length ? lost_positions.slice(0, 15) : cur.lost_positions,
+          gained_positions: gained_positions.slice(0, 15),
+        };
+        if (prv) {
+          result.topvisor_prev = { history: prv.history, top1: prv.top1, top3: prv.top3, top10: prv.top10, top30: prv.top30, keywords_total: prv.keywords_total };
+        }
       } catch (e: any) {
         errors.push({
           code: "topvisor_error",
