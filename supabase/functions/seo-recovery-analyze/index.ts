@@ -830,7 +830,7 @@ async function callAIOnce(key: string, payload: any, strictJson = false): Promis
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet",
+        model: "google/gemini-2.5-flash",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
