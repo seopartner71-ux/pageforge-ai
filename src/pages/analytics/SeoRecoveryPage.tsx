@@ -274,7 +274,7 @@ export default function SeoRecoveryPage() {
   }
 
   async function runAnalysis() {
-    if (!useGsc && !useYandex && !useMetrika) {
+    if (!useGsc && !useYandex && !useMetrika && !useTopvisor) {
       toast.error('Включите хотя бы один источник данных');
       return;
     }
@@ -292,6 +292,10 @@ export default function SeoRecoveryPage() {
     }
     if (useTopvisor && (!topvisorKey.trim() || !topvisorUserId.trim() || !topvisorProjectId.trim())) {
       toast.error('Укажите API-ключ, User ID и Project ID Топвизора');
+      return;
+    }
+    if (useTopvisor && !/^\d+$/.test(topvisorProjectId.trim())) {
+      toast.error('В поле Project ID Топвизора нужен числовой ID проекта, а не название');
       return;
     }
     setLoading(true);
@@ -638,7 +642,7 @@ export default function SeoRecoveryPage() {
                         </div>
                         <div className="space-y-1">
                           <Label htmlFor="tvProj" className="text-xs">Project ID</Label>
-                          <Input id="tvProj" className="h-8" inputMode="numeric" placeholder="числовой ID, не название" value={topvisorProjectId} onChange={(e) => setTopvisorProjectId(e.target.value)} />
+                          <Input id="tvProj" className="h-8" inputMode="numeric" placeholder="числовой ID, не название" value={topvisorProjectId} onChange={(e) => setTopvisorProjectId(e.target.value.replace(/\D/g, ''))} />
                         </div>
                       </div>
                     )}
