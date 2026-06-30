@@ -853,12 +853,45 @@ function TopvisorPanel({ tv, tvPrev }: { tv: any; tvPrev?: any }) {
     };
   });
   const lost: Array<{ query: string; pos_was: number; pos_now: number; delta: number }> = Array.isArray(tv?.lost_positions) ? tv.lost_positions : [];
+  const gained: Array<{ query: string; pos_was: number; pos_now: number; delta: number }> = Array.isArray(tv?.gained_positions) ? tv.gained_positions : [];
+  const cur = tv?.current ?? null;
+  const prv = tv?.previous ?? null;
+  const buckets: Array<{ key: 'top1' | 'top3' | 'top10' | 'top30'; label: string }> = [
+    { key: 'top1', label: 'ТОП-1' },
+    { key: 'top3', label: 'ТОП-3' },
+    { key: 'top10', label: 'ТОП-10' },
+    { key: 'top30', label: 'ТОП-30' },
+  ];
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="p-4"><div className="text-xs text-muted-foreground mb-1">В топ-3</div><div className="text-2xl font-semibold">{fmt(tv.top3)}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground mb-1">В топ-10</div><div className="text-2xl font-semibold">{fmt(tv.top10)}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground mb-1">В топ-30</div><div className="text-2xl font-semibold">{fmt(tv.top30)}</div></Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {buckets.map((b) => {
+          const curV = cur ? Number(cur[b.key] ?? 0) : Number((tv as any)[b.key] ?? 0);
+          const prvV = prv ? Number(prv[b.key] ?? 0) : null;
+          const d = prvV != null ? curV - prvV : null;
+          const color = d == null ? 'text-muted-foreground' : d < 0 ? 'text-rose-500' : d > 0 ? 'text-emerald-500' : 'text-muted-foreground';
+          const arrow = d == null ? '' : d < 0 ? '↓' : d > 0 ? '↑' : '→';
+          const sign = d != null && d > 0 ? '+' : '';
+          return (
+            <Card key={b.key} className="p-4">
+              <div className="text-xs text-muted-foreground mb-1">{b.label}</div>
+              <div className="flex items-baseline gap-2">
+                {prvV != null ? (
+                  <div className="text-lg font-medium tabular-nums">
+                    <span className="text-muted-foreground">{fmt(prvV)}</span>
+                    <span className="text-muted-foreground mx-1">→</span>
+                    <span>{fmt(curV)}</span>
+                  </div>
+                ) : (
+                  <div className="text-2xl font-semibold tabular-nums">{fmt(curV)}</div>
+                )}
+              </div>
+              {d != null && (
+                <div className={`text-xs mt-1 font-medium ${color}`}>{arrow} {sign}{d}</div>
+              )}
+            </Card>
+          );
+        })}
       </div>
       <div className="space-y-2">
         <div className="text-sm font-medium text-muted-foreground">Средняя позиция по дням</div>
@@ -907,6 +940,33 @@ function TopvisorPanel({ tv, tvPrev }: { tv: any; tvPrev?: any }) {
           </Table>
         </Card>
       </div>
+      {gained.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-muted-foreground">Запросы с улучшением позиций</div>
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Запрос</TableHead>
+                  <TableHead className="text-right">Было</TableHead>
+                  <TableHead className="text-right">Стало</TableHead>
+                  <TableHead className="text-right">Δ</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {gained.map((q, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-sm">{q.query}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(q.pos_was)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(q.pos_now)}</TableCell>
+                    <TableCell className="text-right text-emerald-500 font-medium">{fmt(q.delta)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
