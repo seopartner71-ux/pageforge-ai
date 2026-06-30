@@ -1088,8 +1088,12 @@ Deno.serve(async (req) => {
       ai = await callAI(orKey, compactForAI(result));
     } catch (e) {
       console.log("AI fallback used:", (e as any)?.message);
-      errors.push({ code: "ai_timeout_fallback", title: "Расширенный AI-анализ не успел завершиться.", hint: "Данные источников получены, поэтому показано автоматическое заключение и графики. Повторите запуск позже для расширенного текстового вывода." });
-      ai = fallbackAI(result, (e as any)?.message ?? "ai_error");
+      errors.push({
+        code: "ai_unavailable",
+        title: "AI-анализ временно недоступен, попробуйте запустить анализ ещё раз.",
+        hint: "Данные источников получены и доступны во вкладках графиков и таблиц. Повторный запуск обычно помогает.",
+      });
+      ai = { unavailable: true, reason: (e as any)?.cause ?? (e as any)?.message ?? "ai_error" };
     }
     return new Response(JSON.stringify({ ...result, ai, errors }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
