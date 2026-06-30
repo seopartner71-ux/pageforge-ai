@@ -194,15 +194,49 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
           continue;
         }
         const res = JSON.parse(text);
-        const items: any[] = res?.history_items ?? res?.history ?? res?.items ?? res?.indicators ?? [];
-        const rows = items.map((it: any) => {
-          const date = String(it?.date ?? it?.day ?? "").slice(0, 10);
-          const ind = it?.indicators ?? it;
-          const clicks = Number(ind?.TOTAL_CLICKS?.value ?? ind?.TOTAL_CLICKS ?? 0) || 0;
-          const impressions = Number(ind?.TOTAL_SHOWS?.value ?? ind?.TOTAL_SHOWS ?? 0) || 0;
-          return { date, clicks, impressions, ctr: impressions ? clicks / impressions : 0 };
-        }).filter((r: any) => r.date);
-        if (rows.length > 0) return rows.sort((a: any, b: any) => a.date.localeCompare(b.date));
+        // Shape A: { history_items: [{ date, indicators: { TOTAL_CLICKS, TOTAL_SHOWS } }] }
+        // Shape B: { indicators: { TOTAL_CLICKS: [{date,value}], TOTAL_SHOWS: [...] } }
+        // Shape C: { indicators: [{ indicator, history: [{date,value}] }] }
+        let rows: Array<{ date: string; clicks: number; impressions: number; ctr: number }> = [];
+        const itemsRaw = res?.history_items ?? res?.history ?? res?.items;
+        if (Array.isArray(itemsRaw)) {
+          rows = itemsRaw.map((it: any) => {
+            const date = String(it?.date ?? it?.day ?? "").slice(0, 10);
+            const ind = it?.indicators ?? it;
+            const clicks = Number(ind?.TOTAL_CLICKS?.value ?? ind?.TOTAL_CLICKS ?? 0) || 0;
+            const impressions = Number(ind?.TOTAL_SHOWS?.value ?? ind?.TOTAL_SHOWS ?? 0) || 0;
+            return { date, clicks, impressions, ctr: impressions ? clicks / impressions : 0 };
+          }).filter((r: any) => r.date);
+        } else {
+          const ind = res?.indicators;
+          const byDate = new Map<string, { clicks: number; impressions: number }>();
+          const consume = (arr: any[], field: "clicks" | "impressions") => {
+            for (const pt of arr ?? []) {
+              const date = String(pt?.date ?? pt?.day ?? "").slice(0, 10);
+              if (!date) continue;
+              const val = Number(pt?.value ?? pt?.count ?? 0) || 0;
+              const cur = byDate.get(date) ?? { clicks: 0, impressions: 0 };
+              cur[field] = val;
+              byDate.set(date, cur);
+            }
+          };
+          if (ind && !Array.isArray(ind) && typeof ind === "object") {
+            consume(ind.TOTAL_CLICKS ?? ind.total_clicks ?? [], "clicks");
+            consume(ind.TOTAL_SHOWS ?? ind.total_shows ?? [], "impressions");
+          } else if (Array.isArray(ind)) {
+            for (const block of ind) {
+              const name = String(block?.indicator ?? block?.name ?? "").toUpperCase();
+              const hist = block?.history ?? block?.values ?? [];
+              if (name.includes("CLICKS")) consume(hist, "clicks");
+              else if (name.includes("SHOWS") || name.includes("IMPRESSIONS")) consume(hist, "impressions");
+            }
+          }
+          rows = Array.from(byDate.entries()).map(([date, v]) => ({
+            date, clicks: v.clicks, impressions: v.impressions,
+            ctr: v.impressions ? v.clicks / v.impressions : 0,
+          }));
+        }
+        if (rows.length > 0) return rows.sort((a, b) => a.date.localeCompare(b.date));
       } catch (e) {
         console.log("history fetch error:", (e as any)?.message);
       }
