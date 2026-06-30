@@ -875,9 +875,9 @@ function extractJson(text: string): any {
   }
 }
 
-async function callAIOnce(key: string, payload: any, strictJson = false): Promise<any> {
+async function callAIOnce(key: string, payload: any, strictJson = false, timeoutMs = 55_000): Promise<any> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60_000);
+  const timer = setTimeout(() => controller.abort(`ai_timeout_${timeoutMs}ms`), timeoutMs);
   const userContent =
     (strictJson
       ? "ВЕРНИ ТОЛЬКО валидный JSON-объект без markdown-разметки, без ```json и без пояснений. Строго одна JSON-структура по схеме ответа.\n\n"
@@ -900,11 +900,14 @@ async function callAIOnce(key: string, payload: any, strictJson = false): Promis
         max_tokens: 8000,
       }),
     });
+    console.log("OpenRouter response status:", r.status);
     const raw = await r.text();
     if (!r.ok) throw new Error(`OpenRouter ${r.status}: ${raw.slice(0, 400)}`);
     let j: any;
     try { j = JSON.parse(raw); } catch { throw new Error("openrouter_envelope_parse_failed"); }
     const txt = j.choices?.[0]?.message?.content ?? "";
+    console.log("Finish reason:", j.choices?.[0]?.finish_reason ?? "unknown");
+    console.log("Content length:", String(txt).length);
     if (!txt) throw new Error("ai_empty_response");
     return extractJson(txt);
   } finally {
@@ -916,11 +919,17 @@ async function callAI(key: string, payload: any) {
   const size = JSON.stringify(payload).length;
   console.log("AI payload size:", size);
   try {
-    return await callAIOnce(key, payload, false);
+    return await callAIOnce(key, payload, false, 55_000);
   } catch (e1) {
     console.log("AI attempt 1 failed:", (e1 as any)?.message);
+    const message = String((e1 as any)?.message ?? "");
+    if (message.includes("aborted") || message.includes("timeout")) {
+      const err = new Error("ai_unavailable");
+      (err as any).cause = message || "ai_timeout";
+      throw err;
+    }
     try {
-      return await callAIOnce(key, payload, true);
+      return await callAIOnce(key, payload, true, 25_000);
     } catch (e2) {
       console.log("AI attempt 2 failed:", (e2 as any)?.message);
       const err = new Error("ai_unavailable");
@@ -1270,12 +1279,9 @@ Deno.serve(async (req) => {
       ai = await callAI(orKey, compactForAI(result));
     } catch (e) {
       console.log("AI fallback used:", (e as any)?.message);
-      errors.push({
-        code: "ai_unavailable",
-        title: "AI-анализ временно недоступен, попробуйте запустить анализ ещё раз.",
-        hint: "Данные источников получены и доступны во вкладках графиков и таблиц. Повторный запуск обычно помогает.",
-      });
-      ai = { unavailable: true, reason: (e as any)?.cause ?? (e as any)?.message ?? "ai_error" };
+      ai = fallbackAI(result, (e as any)?.cause ?? (e as any)?.message ?? "ai_error");
+      ai.fallback = true;
+      ai.reason = (e as any)?.cause ?? (e as any)?.message ?? "ai_error";
     }
     return new Response(JSON.stringify({ ...result, ai, errors }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
