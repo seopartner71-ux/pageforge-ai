@@ -65,9 +65,20 @@ export function SeoRecoveryView({ data }: Props) {
   const g = data.gsc;
   const y = data.yandex;
   const headline = ai.headline ?? {};
+  const aiUnavailable = !!ai?.unavailable;
 
   return (
     <div className="space-y-6">
+      {aiUnavailable && (
+        <Card className="p-4 border-amber-500/30 bg-amber-500/5">
+          <div className="text-sm font-medium text-amber-700 dark:text-amber-400">
+            AI-анализ временно недоступен, попробуйте запустить анализ ещё раз.
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Данные источников получены — графики и таблицы ниже доступны.
+          </div>
+        </Card>
+      )}
       {/* TOP: Score + Headline */}
       <Card className="p-6">
         <div className="flex items-center gap-6 flex-wrap">
