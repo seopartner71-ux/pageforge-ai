@@ -916,18 +916,25 @@ function YandexPanel({ metrika, yandex }: { metrika: any; yandex: any }) {
       </TabsContent>
       <TabsContent value="indexing" className="mt-4">
         {hasIndexing ? <IndexingPanel indexing={indexing} /> : (
-          <div className="text-sm text-muted-foreground text-center py-10">Нет данных по индексации от Яндекс.Вебмастера за выбранный период.</div>
+          <div className="text-sm text-muted-foreground text-center py-10">Яндекс.Вебмастер не вернул историю индексации за выбранный период.</div>
         )}
       </TabsContent>
     </Tabs>
   );
 }
 
-function IndexingPanel({ indexing }: { indexing: { daily_indexed: Array<{ date: string; count: number; added?: number; removed?: number }>; excluded_pages: Array<{ url: string; status: string; date?: string }>; excluded_count: number } }) {
-  const rows = (indexing.daily_indexed ?? []).map((r) => ({ label: r.date, count: r.count }));
+function IndexingPanel({ indexing }: { indexing: { daily_indexed: Array<{ date: string; count: number; added?: number; removed?: number }>; excluded_pages: Array<{ url: string; status: string; date?: string; last_access?: string; target_url?: string; http_status?: number }>; excluded_count: number } }) {
+  const rows = (indexing.daily_indexed ?? []).map((r) => ({
+    label: r.date,
+    count: Number(r.count ?? 0),
+    added: Number(r.added ?? 0),
+    removed: Number(r.removed ?? 0),
+  }));
   const first = rows[0]?.count ?? 0;
   const last = rows[rows.length - 1]?.count ?? 0;
   const delta = first ? Math.round(((last - first) / first) * 1000) / 10 : 0;
+  const addedTotal = rows.reduce((s, r) => s + r.added, 0);
+  const removedTotal = rows.reduce((s, r) => s + r.removed, 0);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -938,24 +945,49 @@ function IndexingPanel({ indexing }: { indexing: { daily_indexed: Array<{ date: 
         <div className="px-3 py-1.5 rounded-md border bg-card">
           Исключено страниц: <span className="font-semibold text-rose-500">{fmt(indexing.excluded_count ?? 0)}</span>
         </div>
+        <div className="px-3 py-1.5 rounded-md border bg-card">
+          Добавлено / удалено: <span className="font-semibold text-emerald-500">+{fmt(addedTotal)}</span>
+          <span className="mx-1 text-muted-foreground">/</span>
+          <span className="font-semibold text-rose-500">−{fmt(removedTotal)}</span>
+        </div>
       </div>
       {rows.length > 0 && (
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-              <defs>
-                <linearGradient id="idxGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#F97316" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#F97316" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-              <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: any) => [`${v} стр.`, 'В поиске']} />
-              <Area type="monotone" dataKey="count" name="Страниц в поиске" stroke="#F97316" strokeWidth={2} fill="url(#idxGrad)" />
-            </AreaChart>
-          </ResponsiveContainer>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                <defs>
+                  <linearGradient id="idxGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#F97316" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#F97316" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={formatDM} />
+                <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: any) => [`${v} стр.`, 'В поиске']} />
+                <Area type="monotone" dataKey="count" name="Страниц в поиске" stroke="#F97316" strokeWidth={2} fill="url(#idxGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={formatDM} />
+                <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: any, n: any) => [`${v} стр.`, n === 'added' ? 'Добавлено' : 'Удалено']} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="added" name="Добавлено" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="removed" name="Удалено" fill="#EF4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+      {rows.length === 0 && (
+        <div className="text-sm text-muted-foreground text-center py-6 border rounded-md bg-muted/20">
+          История страниц в поиске не пришла, но ниже могут быть примеры удалённых URL из событий Яндекс.Вебмастера.
         </div>
       )}
       {indexing.excluded_pages?.length > 0 && (
@@ -966,6 +998,7 @@ function IndexingPanel({ indexing }: { indexing: { daily_indexed: Array<{ date: 
                 <TableHead>URL</TableHead>
                 <TableHead className="w-[200px]">Причина исключения</TableHead>
                 <TableHead className="w-[120px]">Дата</TableHead>
+                <TableHead className="w-[120px]">HTTP</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -974,6 +1007,7 @@ function IndexingPanel({ indexing }: { indexing: { daily_indexed: Array<{ date: 
                   <TableCell className="font-mono text-xs break-all">{p.url}</TableCell>
                   <TableCell><Badge variant="outline" className="text-rose-500 border-rose-500/40">{p.status}</Badge></TableCell>
                   <TableCell className="text-xs text-muted-foreground">{p.date ?? '—'}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{p.http_status ?? '—'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
