@@ -314,8 +314,8 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
   const ORGANIC_FILTER = "ym:s:lastSignTrafficSource=='organic'";
   const [totals, sources, engines, pages] = await Promise.all([
     metrikaRequest(token, { ...base, metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds", filters: ORGANIC_FILTER }).catch((e) => ({ __error: e, totals: [] })),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<lastSignTrafficSource>", filters: ORGANIC_FILTER, limit: "20" }).catch((e) => ({ __error: e, data: [] })),
-    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:<searchEngine>", filters: ORGANIC_FILTER, limit: "20" }).catch((e) => ({ __error: e, data: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:lastSignTrafficSource", filters: ORGANIC_FILTER, limit: "20" }).catch((e) => ({ __error: e, data: [] })),
+    metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:searchEngineRoot", filters: ORGANIC_FILTER, limit: "20" }).catch((e) => ({ __error: e, data: [] })),
     metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:startURL", filters: ORGANIC_FILTER, limit: "25", sort: "-ym:s:visits" }).catch((e) => ({ __error: e, data: [] })),
   ]);
   const hardError = [totals, sources, engines, pages].find((x: any) => x?.__error?.status === 401 || x?.__error?.status === 403 || x?.__error?.status === 404)?.__error;
@@ -334,7 +334,7 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
       date2,
       group: "day",
       accuracy: "full",
-      filters: "ym:s:lastTrafficSource=='organic'",
+      filters: ORGANIC_FILTER,
     }).toString();
     console.log("Metrika bytime URL:", dailyUrl);
     const dr = await fetchWithTimeout(dailyUrl, { headers: { Authorization: `OAuth ${token}` } }, 6_000, "metrika_bytime_organic");
@@ -361,9 +361,11 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
   let regions: Array<{ name: string; visits: number; pct: number }> = [];
   if (opts.withChannels) {
     try {
+      // Without organic filter — show overall device/region distribution so the panel
+      // is informative even when current-period organic visits are 0.
       const [devRes, regRes] = await Promise.all([
-        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:deviceCategory", filters: ORGANIC_FILTER, limit: "10" }).catch(() => ({ data: [] })),
-        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:regionCity", filters: ORGANIC_FILTER, limit: "10", sort: "-ym:s:visits" }).catch(() => ({ data: [] })),
+        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:deviceCategory", limit: "10" }).catch(() => ({ data: [] })),
+        metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:regionCity", limit: "10", sort: "-ym:s:visits" }).catch(() => ({ data: [] })),
       ]);
       const devTotal = ((devRes as any).data ?? []).reduce((s: number, r: any) => s + (r.metrics?.[0] ?? 0), 0) || 1;
       devices = ((devRes as any).data ?? []).map((r: any) => ({

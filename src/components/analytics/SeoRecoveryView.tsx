@@ -816,7 +816,7 @@ function YandexChannelsChart({ metrika, yandex }: { metrika: any; yandex: any })
   const dailyPrev: any[] = Array.isArray(metrika?.daily_data_prev)
     ? metrika.daily_data_prev
     : (Array.isArray(metrika?.previous?.daily_data) ? metrika.previous.daily_data : []);
-  if (daily.length === 0) {
+  if (daily.length === 0 && dailyPrev.length === 0) {
     return <div className="text-sm text-muted-foreground text-center py-10">Нет данных по дням</div>;
   }
   const curSorted = [...daily].sort((a, b) => String(a.date).localeCompare(String(b.date)));
