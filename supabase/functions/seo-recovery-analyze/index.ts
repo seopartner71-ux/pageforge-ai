@@ -965,6 +965,11 @@ function compactForAI(result: any) {
     delta: result.yandex.delta,
     daily_data: take(result.yandex.current.daily_data, 30),
     daily_data_prev: take(result.yandex.previous.daily_data, 30),
+    indexing: result.yandex.indexing ? {
+      daily_indexed: take(result.yandex.indexing.daily_indexed, 30),
+      excluded_pages: take(result.yandex.indexing.excluded_pages, 10),
+      excluded_count: result.yandex.indexing.excluded_count,
+    } : undefined,
   };
   if (result.metrika) compact.metrika = {
     current: {
