@@ -65,9 +65,20 @@ export function SeoRecoveryView({ data }: Props) {
   const g = data.gsc;
   const y = data.yandex;
   const headline = ai.headline ?? {};
+  const aiUnavailable = !!ai?.unavailable;
 
   return (
     <div className="space-y-6">
+      {aiUnavailable && (
+        <Card className="p-4 border-amber-500/30 bg-amber-500/5">
+          <div className="text-sm font-medium text-amber-700 dark:text-amber-400">
+            AI-анализ временно недоступен, попробуйте запустить анализ ещё раз.
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Данные источников получены — графики и таблицы ниже доступны.
+          </div>
+        </Card>
+      )}
       {/* TOP: Score + Headline */}
       <Card className="p-6">
         <div className="flex items-center gap-6 flex-wrap">
@@ -211,7 +222,11 @@ export function SeoRecoveryView({ data }: Props) {
               <div className="text-sm mt-2 text-muted-foreground">{c.conclusion}</div>
             </Card>
           ))}
-          {(ai.root_cause_hypotheses ?? []).length === 0 && (ai.causes ?? []).length === 0 && <Card className="p-6 text-sm text-muted-foreground">Гипотезы не сформированы.</Card>}
+          {(ai.root_cause_hypotheses ?? []).length === 0 && (ai.causes ?? []).length === 0 && (
+            <Card className="p-6 text-sm text-muted-foreground">
+              {aiUnavailable ? "AI-анализ временно недоступен, попробуйте запустить анализ ещё раз." : "Гипотезы не сформированы."}
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="impact" className="mt-4 space-y-3">
