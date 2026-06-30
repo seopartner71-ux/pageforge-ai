@@ -322,16 +322,8 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
 
 // ============ Google Search Console (via connector gateway) ============
 // ============ Topvisor ============
-async function fetchTopvisor(apiKey: string, userId: string, projectId: string, date1: string, date2: string) {
-  const url = "https://api.topvisor.com/v2/json/get/positions_2/history";
-  const body = {
-    project_id: Number(projectId) || projectId,
-    date1,
-    date2,
-    show_headers: 1,
-    positions_fields: ["position"],
-  };
-  const r = await fetchWithTimeout(url, {
+async function tvRequest(apiKey: string, userId: string, path: string, body: any, timeoutMs = 12_000) {
+  const r = await fetchWithTimeout(`https://api.topvisor.com/v2/json/${path}`, {
     method: "POST",
     headers: {
       "User-Id": String(userId),
@@ -339,7 +331,7 @@ async function fetchTopvisor(apiKey: string, userId: string, projectId: string, 
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  }, 12_000, "topvisor");
+  }, timeoutMs, "topvisor");
   const j: any = await r.json().catch(() => ({}));
   if (!r.ok || j?.errors) {
     const err: any = new Error(`topvisor_${r.status}`);
@@ -347,6 +339,46 @@ async function fetchTopvisor(apiKey: string, userId: string, projectId: string, 
     err.payload = j;
     throw err;
   }
+  return j;
+}
+
+async function resolveRegionIndexes(apiKey: string, userId: string, projectId: string): Promise<string[]> {
+  const pid = Number(projectId) || projectId;
+  const j = await tvRequest(apiKey, userId, "get/projects_2/projects", {
+    show_searchers_and_regions: "1",
+    filters: [{ name: "id", operator: "EQUALS", values: [pid] }],
+  });
+  const projects: any[] = j?.result ?? j?.projects ?? [];
+  const project = projects.find((p) => String(p?.id) === String(pid)) ?? projects[0];
+  const sr: any[] = project?.searchers_and_regions ?? project?.searchers ?? [];
+  const indexes: string[] = [];
+  for (const s of sr) {
+    const regions: any[] = s?.regions ?? [];
+    for (const reg of regions) {
+      const idx = reg?.index ?? reg?.region_index ?? reg?.id;
+      if (idx != null) indexes.push(String(idx));
+    }
+  }
+  return indexes;
+}
+
+async function fetchTopvisor(apiKey: string, userId: string, projectId: string, date1: string, date2: string) {
+  const regionIndexes = await resolveRegionIndexes(apiKey, userId, projectId);
+  if (!regionIndexes.length) {
+    const err: any = new Error("topvisor_no_regions");
+    err.status = 400;
+    err.payload = { message: "No regions configured for project" };
+    throw err;
+  }
+  const body = {
+    project_id: Number(projectId) || projectId,
+    regions_indexes: regionIndexes,
+    date1,
+    date2,
+    show_headers: 1,
+    positions_fields: ["position"],
+  };
+  const j = await tvRequest(apiKey, userId, "get/positions_2/history", body);
 
   // Parse Topvisor response
   // headers.dates: ["2026-06-01", ...]
