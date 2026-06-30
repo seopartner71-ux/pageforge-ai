@@ -1203,6 +1203,46 @@ function fallbackAI(result: any, reason = "ai_unavailable") {
   };
 }
 
+function normalizeAI(ai: any, result: any, reason = "ai_incomplete") {
+  const fallback = fallbackAI(result, reason);
+  const out: any = ai && typeof ai === "object" && !Array.isArray(ai) ? { ...ai } : {};
+
+  if (typeof out.seo_score !== "number") out.seo_score = fallback.seo_score;
+  if (!out.score_reasoning) out.score_reasoning = fallback.score_reasoning;
+  if (!out.headline?.summary) out.headline = fallback.headline;
+  if (!out.diagnosis_pattern?.code) out.diagnosis_pattern = fallback.diagnosis_pattern;
+  if (!out.main_cause?.title || !Array.isArray(out.main_cause?.evidence) || out.main_cause.evidence.length === 0) {
+    out.main_cause = fallback.main_cause;
+  }
+
+  if (!Array.isArray(out.root_cause_hypotheses) || out.root_cause_hypotheses.length === 0) {
+    out.root_cause_hypotheses = fallback.root_cause_hypotheses;
+  }
+  if (!Array.isArray(out.causes) || out.causes.length === 0) {
+    out.causes = fallback.causes;
+  }
+  if (!out.impact_breakdown || !Array.isArray(out.impact_breakdown.top_loss_contributors)) {
+    out.impact_breakdown = fallback.impact_breakdown;
+  }
+  if (!Array.isArray(out.lost_pages) || out.lost_pages.length === 0) {
+    out.lost_pages = fallback.lost_pages;
+  }
+  if (!Array.isArray(out.lost_queries) || out.lost_queries.length === 0) {
+    out.lost_queries = fallback.lost_queries;
+  }
+  if (!Array.isArray(out.recommendations) || out.recommendations.length === 0) {
+    out.recommendations = fallback.recommendations;
+  }
+  if (!Array.isArray(out.next_steps) || out.next_steps.length === 0) {
+    out.next_steps = fallback.next_steps;
+  }
+  if (!Array.isArray(out.timeline_notes)) out.timeline_notes = [];
+  if (out.brand_analysis == null && fallback.brand_analysis) out.brand_analysis = fallback.brand_analysis;
+  out.autofilled = true;
+  out.autofill_reason = reason;
+  return out;
+}
+
 // ============ Friendly error formatter ============
 function friendlyError(source: "Метрика" | "Яндекс" | "GSC", err: any, ctx: { counter_id?: string; yandex_host?: string; gsc_site?: string }): { code: string; title: string; hint: string; raw?: string } {
   const status = err?.status;
