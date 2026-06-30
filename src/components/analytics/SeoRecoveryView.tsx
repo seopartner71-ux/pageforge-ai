@@ -816,12 +816,15 @@ function YandexPanel({ metrika, yandex }: { metrika: any; yandex: any }) {
   }
   const devices = metrika?.current?.devices ?? [];
   const regions = metrika?.current?.regions ?? [];
+  const indexing = yandex?.indexing;
+  const hasIndexing = !!indexing && ((indexing.daily_indexed?.length ?? 0) > 0 || (indexing.excluded_count ?? 0) > 0 || (indexing.excluded_pages?.length ?? 0) > 0);
   return (
     <Tabs defaultValue="channels">
       <TabsList>
         <TabsTrigger value="channels">Каналы</TabsTrigger>
         <TabsTrigger value="devices">Устройства</TabsTrigger>
         <TabsTrigger value="regions">Регионы</TabsTrigger>
+        <TabsTrigger value="indexing">Индексация</TabsTrigger>
       </TabsList>
       <TabsContent value="channels" className="mt-4">
         <YandexChannelsChart metrika={metrika} yandex={yandex} />
@@ -832,7 +835,73 @@ function YandexPanel({ metrika, yandex }: { metrika: any; yandex: any }) {
       <TabsContent value="regions" className="mt-4">
         <BreakdownBar rows={regions} color="#F97316" />
       </TabsContent>
+      <TabsContent value="indexing" className="mt-4">
+        {hasIndexing ? <IndexingPanel indexing={indexing} /> : (
+          <div className="text-sm text-muted-foreground text-center py-10">Нет данных по индексации от Яндекс.Вебмастера за выбранный период.</div>
+        )}
+      </TabsContent>
     </Tabs>
+  );
+}
+
+function IndexingPanel({ indexing }: { indexing: { daily_indexed: Array<{ date: string; count: number; added?: number; removed?: number }>; excluded_pages: Array<{ url: string; status: string; date?: string }>; excluded_count: number } }) {
+  const rows = (indexing.daily_indexed ?? []).map((r) => ({ label: r.date, count: r.count }));
+  const first = rows[0]?.count ?? 0;
+  const last = rows[rows.length - 1]?.count ?? 0;
+  const delta = first ? Math.round(((last - first) / first) * 1000) / 10 : 0;
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-4 text-sm">
+        <div className="px-3 py-1.5 rounded-md border bg-card">
+          Страниц в поиске: <span className="font-semibold text-foreground">{fmt(last)}</span>
+          {first ? <span className="ml-2 text-muted-foreground">({first} → {last}, <Delta value={delta} />)</span> : null}
+        </div>
+        <div className="px-3 py-1.5 rounded-md border bg-card">
+          Исключено страниц: <span className="font-semibold text-rose-500">{fmt(indexing.excluded_count ?? 0)}</span>
+        </div>
+      </div>
+      {rows.length > 0 && (
+        <div className="h-72 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+              <defs>
+                <linearGradient id="idxGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#F97316" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#F97316" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <RTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: any) => [`${v} стр.`, 'В поиске']} />
+              <Area type="monotone" dataKey="count" name="Страниц в поиске" stroke="#F97316" strokeWidth={2} fill="url(#idxGrad)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {indexing.excluded_pages?.length > 0 && (
+        <div className="rounded-md border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>URL</TableHead>
+                <TableHead className="w-[200px]">Причина исключения</TableHead>
+                <TableHead className="w-[120px]">Дата</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {indexing.excluded_pages.slice(0, 20).map((p, i) => (
+                <TableRow key={i}>
+                  <TableCell className="font-mono text-xs break-all">{p.url}</TableCell>
+                  <TableCell><Badge variant="outline" className="text-rose-500 border-rose-500/40">{p.status}</Badge></TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{p.date ?? '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   );
 }
 
