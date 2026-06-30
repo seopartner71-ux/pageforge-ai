@@ -139,7 +139,7 @@ function queryText(row: any): string {
   return String(row?.query_text ?? row?.query ?? row?.text ?? row?.keys?.[0] ?? row?.query_id ?? "");
 }
 
-async function fetchYandexWebmaster(token: string, hostId: string, date1: string, date2: string, prevDate1?: string, prevDate2?: string) {
+async function fetchYandexWebmaster(token: string, hostId: string, date1: string, date2: string, prevDate1?: string, prevDate2?: string, loadIndexing = true) {
   const userInfo = await yandexWebmasterRequest(token, "/user/");
   const userId = userInfo?.user_id;
   if (!userId) throw new Error("yandex_user_id_not_found");
@@ -355,7 +355,7 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
     }
     return out;
   }
-  const indexing = await fetchIndexing();
+  const indexing = loadIndexing ? await fetchIndexing() : undefined;
 
   return {
     clicks,
@@ -1436,7 +1436,7 @@ Deno.serve(async (req) => {
           }
           const [cur, prv] = await Promise.all([
             fetchYandexWebmaster(accessToken, yandex_host, date1, date2),
-            fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2),
+            fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2, undefined, undefined, false),
           ]);
           result.yandex = { current: cur, previous: prv, delta: {
             clicks: pct(cur.clicks, prv.clicks),
