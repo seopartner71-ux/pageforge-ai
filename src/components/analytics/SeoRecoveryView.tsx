@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend, ReferenceLine, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { Download } from 'lucide-react';
+import { exportSeoRecoveryDocx } from '@/lib/analytics/exportSeoRecoveryDocx';
+import { toast } from '@/hooks/use-toast';
 
 type Props = { data: any };
 
@@ -273,6 +276,22 @@ export function SeoRecoveryView({ data }: Props) {
 
       {/* AI Verdict — общий вывод */}
       <AiVerdictCard ai={ai} gsc={g} yandex={y} metrika={m} period={data.period} />
+
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          onClick={async () => {
+            try {
+              await exportSeoRecoveryDocx({ ...data, ai });
+            } catch (e: any) {
+              toast({ title: 'Не удалось сформировать отчёт', description: e?.message ?? String(e), variant: 'destructive' });
+            }
+          }}
+        >
+          <Download className="w-4 h-4" />
+          Скачать отчёт Word
+        </Button>
+      </div>
 
       <Tabs defaultValue="causes">
         <TabsList>
