@@ -292,7 +292,16 @@ export default function SeoForecastPage() {
             </Field>
 
             <div className="flex justify-end pt-2">
-              <Button disabled={!step1Valid} onClick={() => setStep(2)} className="gap-2">Далее <ChevronRight className="w-4 h-4" /></Button>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-block">
+                      <Button disabled={!step1Valid} onClick={() => setStep(2)} className="gap-2">Далее <ChevronRight className="w-4 h-4" /></Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!step1Valid && <TooltipContent side="top">Заполните все обязательные поля</TooltipContent>}
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </Card>
         )}
