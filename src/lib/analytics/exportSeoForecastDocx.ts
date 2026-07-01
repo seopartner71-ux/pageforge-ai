@@ -246,6 +246,8 @@ export async function exportSeoForecastDocx(
 
   // Forecast
   children.push(h1(`${sectionNum++}. Прогноз на ${project.horizon} мес. — сводные сценарии`));
+
+  // (extras rendered before forecast — insert above)
   children.push(p(`Прогноз рассчитан от базового уровня трафика (${forecast.baseTraffic.total} визитов/мес. — среднее за 2 последних периода). Дата среза: ${dateStr}. Учитывается статус сайта, набор работ и данные загруженных источников.`));
 
   children.push(h2('Консервативный сценарий'));
