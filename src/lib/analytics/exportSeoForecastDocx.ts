@@ -5,7 +5,14 @@ import {
 } from 'docx';
 import { saveAs } from 'file-saver';
 import type { ForecastProjectData, ForecastResult, ForecastScenario } from './forecastCalculator';
-import type { ParsedTraffic, ParsedSources, ParsedGsc, ParsedTopvisor } from './forecastParsers';
+import type { ParsedTraffic, ParsedSources, ParsedGsc, ParsedTopvisor, ParsedWebmasterQueries, ParsedGeneric } from './forecastParsers';
+
+export type ForecastExtra = {
+  typeLabel: string;
+  fileName?: string;
+  parsed: ParsedWebmasterQueries | ParsedGeneric | null;
+  kind: 'wm_queries' | 'generic';
+};
 
 const NAVY = '1F3864';
 const SLATE = '44546A';
@@ -142,6 +149,7 @@ export async function exportSeoForecastDocx(
     sources?: ParsedSources | null;
     gsc?: ParsedGsc | null;
     topvisor?: ParsedTopvisor | null;
+    extras?: ForecastExtra[];
   },
   forecast: ForecastResult,
 ) {
