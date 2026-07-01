@@ -163,7 +163,7 @@ const App = () => (
                   <Route path="/ads" element={<AdsOverviewPage />} />
                   <Route path="/ads/accounts" element={<AdsAccountsPage />} />
                   <Route path="/ads/*" element={<AdsPlaceholderPage />} />
-                  <Route path="/analytics" element={<AnalyticsPlaceholderPage />} />
+                  <Route path="/analytics" element={<Navigate to="/analytics/seo-forecast" replace />} />
                   <Route path="/analytics/niche/overview" element={<NicheOverviewPage />} />
                   <Route path="/analytics/niche/opportunities" element={<NicheOpportunitiesPage />} />
                   <Route path="/analytics/niche/free-topics" element={<FreeTopicsPage />} />

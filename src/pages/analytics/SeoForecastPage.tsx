@@ -460,6 +460,18 @@ export default function SeoForecastPage() {
             <ScenarioTable title="Базовый сценарий" color="bg-primary" forecast={forecast} sc={forecast.scenarios.base} engines={project.engines} />
             <ScenarioTable title="Оптимистичный сценарий" color="bg-green-600" forecast={forecast} sc={forecast.scenarios.optimistic} engines={project.engines} />
 
+            {forecast.insights.length > 0 && (
+              <Card className="p-5 space-y-2">
+                <div className="text-sm font-semibold">Ключевые инсайты и точки роста</div>
+                <ul className="text-sm text-foreground space-y-1.5 list-disc pl-5">
+                  {forecast.insights.map((t, i) => <li key={i}>{t}</li>)}
+                </ul>
+                <div className="text-xs text-muted-foreground pt-2 border-t border-border">
+                  {forecast.seasonalityNote} Прогноз использует S-кривую (медленный старт → ускорение → стабилизация) и лаги эффектов работ.
+                </div>
+              </Card>
+            )}
+
             <div className="flex justify-between pt-2">
               <Button variant="outline" onClick={() => setStep(2)} className="gap-2"><ChevronLeft className="w-4 h-4" /> Назад</Button>
               <Button onClick={download} disabled={exporting} className="gap-2">
