@@ -2,6 +2,13 @@ import * as XLSX from 'xlsx';
 
 export type ParsedTraffic = {
   rows: Array<{ period: string; yandex: number; google: number; bing: number; total: number }>;
+  daily: Array<{ date: string; yandex: number; google: number; bing: number; total: number }>;
+  baseYandex: number;
+  baseGoogle: number;
+  baseBing: number;
+  lastMonth: { period: string; yandex: number; google: number; bing: number; total: number } | null;
+  periodFrom: string | null;
+  periodTo: string | null;
   summary: string;
 };
 
@@ -20,6 +27,12 @@ export type ParsedGsc = {
   ctr: number;
   position: number;
   buckets: { top1: number; top2_3: number; top4_10: number; top11_50: number };
+  clicksBuckets: { pos1: number; pos2_3: number; pos4_10: number; pos11_50: number };
+  ctrPos1: number;
+  potentialClicksFromPos23: number;
+  additionalClicks: number;
+  monthlyClicks: number;
+  periodStr: string;
   summary: string;
 };
 
