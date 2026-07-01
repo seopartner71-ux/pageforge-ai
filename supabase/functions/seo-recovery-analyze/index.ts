@@ -1521,14 +1521,14 @@ Deno.serve(async (req) => {
           }
           const [cur, prv] = await Promise.all([
             fetchYandexWebmaster(accessToken, yandex_host, date1, date2),
-            fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2, undefined, undefined, false),
+            fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2, undefined, undefined, true),
           ]);
           result.yandex = { current: cur, previous: prv, delta: {
             clicks: pct(cur.clicks, prv.clicks),
             impressions: pct(cur.impressions, prv.impressions),
             ctr: pct(cur.ctr, prv.ctr),
             position: Math.round((cur.position - prv.position) * 10) / 10,
-          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data, indexing: cur.indexing };
+          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data, indexing: cur.indexing, indexing_prev: prv.indexing };
         } catch (e) { errors.push(friendlyError("Яндекс", e, { yandex_host })); }
       })());
     }
