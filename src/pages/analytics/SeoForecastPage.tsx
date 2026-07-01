@@ -9,17 +9,40 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { BarChart2, Upload, RotateCcw, Download, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { BarChart2, Upload, RotateCcw, Download, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Loader2, Plus, X } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import {
   parseMetrikaTraffic, parseMetrikaSources, parseGsc, parseTopvisor,
+  parseWebmasterQueries, parseGeneric,
   type ParsedTraffic, type ParsedSources, type ParsedGsc, type ParsedTopvisor,
+  type ParsedWebmasterQueries, type ParsedGeneric,
 } from '@/lib/analytics/forecastParsers';
 import { calculateForecast, type ForecastProjectData, type ForecastResult } from '@/lib/analytics/forecastCalculator';
 import { exportSeoForecastDocx } from '@/lib/analytics/exportSeoForecastDocx';
 
 type FileSlot = { status: 'idle' | 'ok' | 'error'; name?: string; error?: string };
+
+type ExtraFileType =
+  | 'wm_queries' | 'wm_indexing' | 'wm_links'
+  | 'direct_stats' | 'roistat' | 'other';
+
+const EXTRA_TYPE_LABELS: Record<ExtraFileType, string> = {
+  wm_queries: 'Яндекс.Вебмастер — поисковые запросы',
+  wm_indexing: 'Яндекс.Вебмастер — индексация',
+  wm_links: 'Яндекс.Вебмастер — внешние ссылки',
+  direct_stats: 'Яндекс.Директ — статистика',
+  roistat: 'Roistat — источники',
+  other: 'Другое (указать вручную)',
+};
+
+type ExtraRow = {
+  id: string;
+  type: ExtraFileType | '';
+  customName?: string;
+  slot: FileSlot;
+  parsed?: ParsedWebmasterQueries | ParsedGeneric | null;
+};
 
 const emptyProject: ForecastProjectData = {
   domain: '', clientName: '', topic: '', region: '',
