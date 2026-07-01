@@ -1451,7 +1451,24 @@ Deno.serve(async (req) => {
             fetchMetrika(accessToken, counter_id, date1, date2, { withChannels: true }),
             fetchMetrika(accessToken, counter_id, prev.date1, prev.date2),
           ]);
-          result.metrika = { current: cur, previous: prv, delta: {
+          // Per-search-engine delta (visits)
+          const prevByEngine = new Map<string, number>();
+          (prv.search_engines ?? []).forEach((r: any) => prevByEngine.set(String(r.name).toLowerCase(), Number(r.visits ?? 0)));
+          const search_engines_delta = (cur.search_engines ?? []).map((r: any) => {
+            const was = prevByEngine.get(String(r.name).toLowerCase()) ?? 0;
+            const now = Number(r.visits ?? 0);
+            const dPct = was ? Math.round(((now - was) / was) * 1000) / 10 : (now ? 100 : 0);
+            return { name: r.name, was, now, delta_abs: now - was, delta_pct: dPct, bounce_rate: r.bounce_rate, depth: r.depth };
+          });
+          // Include engines that existed before but disappeared now
+          const curNames = new Set((cur.search_engines ?? []).map((r: any) => String(r.name).toLowerCase()));
+          (prv.search_engines ?? []).forEach((r: any) => {
+            if (!curNames.has(String(r.name).toLowerCase()) && Number(r.visits ?? 0) > 0) {
+              search_engines_delta.push({ name: r.name, was: Number(r.visits ?? 0), now: 0, delta_abs: -Number(r.visits ?? 0), delta_pct: -100, bounce_rate: r.bounce_rate, depth: r.depth });
+            }
+          });
+          search_engines_delta.sort((a: any, b: any) => (b.was + b.now) - (a.was + a.now));
+          result.metrika = { current: cur, previous: prv, search_engines_delta, delta: {
             visits: pct(cur.visits, prv.visits),
             users: pct(cur.users, prv.users),
             organic_visits: pct(cur.organic_visits, prv.organic_visits),
