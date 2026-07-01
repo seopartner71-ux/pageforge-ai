@@ -891,6 +891,8 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик. Твоя задач
 4. Гипотеза считается валидной ТОЛЬКО если подтверждается минимум двумя независимыми метриками
 5. Если данных недостаточно — писать "Недостаточно данных. Требуется проверка: [что именно]"
 6. Probability гипотезы считать математически: если одна метрика подтверждает — 40%, две — 65%, три — 85%
+7. ЗАПРЕЩЕНО использовать в гипотезах и evidence метрики с delta = -100% или value = 0, если по другим источникам эта же метрика > 0 — это признак пустой выгрузки (не подключён источник), а не реальная просадка. Такие цифры игнорируются, а факт отсутствия данных фиксируется в data_completeness.
+8. Если подключён только 1 источник данных из 4 (GSC / Яндекс.Вебмастер / Метрика / Топвизор) — в headline.summary ПЕРВОЙ фразой обязательно предупредить: "Анализ ограничен: подключён только <источник>. Для полной диагностики подключите: <перечислить недостающие>". Дублировать это в data_completeness.warning.
 
 АЛГОРИТМ АНАЛИЗА:
 1. Определи паттерн по signals.pattern
@@ -902,37 +904,47 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик. Твоя задач
 7. Если в yandex.indexing присутствуют данные: рост excluded_count или падение последнего значения daily_indexed[].count относительно начала периода — это сильное доказательство ТЕХНИЧЕСКОЙ причины (deindexation), а не алгоритмического понижения. Такая гипотеза должна получить probability ≥ 75 и приоритет P1 с рекомендацией проверить robots/canonical/мета-noindex/server-status исключённых URL.
 8. Если присутствует metrika.search_engines_delta — ОБЯЗАТЕЛЬНО сравнить дельту по каждой поисковой системе (Яндекс, Google, Bing, Mail.ru, DuckDuckGo и т.д.). Если падение в одной ПС сильно больше, чем в другой (например, Яндекс −50%, Google −5%) — фиксируй это как гипотезу "проблема специфична для ПС X" с probability ≥ 75 и рекомендациями конкретно под эту ПС (для Яндекса — Вебмастер/фильтры/переоптимизация; для Google — Search Console/Core Update/технические сигналы). Если падение равномерное по всем ПС — это, наоборот, аргумент против "алгоритмической" гипотезы и повод искать техническую причину (индексация, доступность, редиректы, аналитика).
 
-ФОРМАТ ГИПОТЕЗ:
-Каждая гипотеза должна содержать:
-- Наблюдение: конкретные цифры
-- Математическое обоснование: почему именно эта причина
-- Как опровергнуть: что проверить чтобы исключить гипотезу
-- Как подтвердить: какие дополнительные данные нужны
+ФОРМАТ ГИПОТЕЗ (минимум 3, максимум 5, от сильной к слабой):
+Каждая гипотеза ОБЯЗАНА содержать:
+- hypothesis: конкретная формулировка ("Просадка Яндекса из-за деиндексации 47 URL", а не "проблема с индексацией")
+- probability: 0–100, рассчитан по правилу №6
+- evidence: массив из МИНИМУМ 2 объектов {source, metric, was, now, delta} — реальные цифры из данных
+- contradicts: 1 предложение, какие данные ПРОТИВОРЕЧАТ этой гипотезе (или "нет противоречий: <почему>")
+- verification_step: КОНКРЕТНЫЙ шаг (инструмент + путь + фильтр + что смотреть). Пример: "GSC → Pages → Indexing → фильтр 'Crawled - currently not indexed' → выгрузить список, проверить по 5 URL: canonical, robots.txt, meta robots, HTTP-статус"
 
-ФОРМАТ РЕКОМЕНДАЦИЙ:
-- Только действия которые напрямую вытекают из найденных проблем
-- Каждая рекомендация привязана к конкретному URL или запросу из данных
-- KPI: конкретная метрика + целевое значение + срок
-- ICE считать честно: если нет данных для оценки — ставить confidence=3
+ФОРМАТ РЕКОМЕНДАЦИЙ (P1/P2/P3, минимум 5 пунктов если данных достаточно):
+Каждый пункт ОБЯЗАН содержать:
+- title: конкретное действие ("Вернуть в индекс 12 страниц категорий /catalog/*"), НЕ общее ("Проверить индексацию")
+- target: конкретный URL или запрос ИЗ ДАННЫХ (lost_pages / lost_queries). Если рекомендация не привязана к URL/запросу — не включать её
+- why: 1 предложение с цифрой из evidence
+- action: пошаговая инструкция (2–4 шага) — инструмент → путь → фильтр → что делать. НЕ "проверить", а "открыть X → зайти в Y → отфильтровать по Z → выполнить W"
+- owner: "SEO" | "Dev" | "Content" | "PM"
+- deadline_days: число дней (P1: 1–3, P2: 7–14, P3: 30+)
+- kpi: { metric, target_delta ("+15%" или "≥50 переходов/нед"), measure_after_days }
+- ice: {impact 1–10, confidence 1–10, ease 1–10, score = I*C*E}. Если данных мало — confidence=3
 
 Не пиши воду. Только цифры и выводы из них.
 
 ОБЯЗАТЕЛЬНЫЕ РАЗДЕЛЫ В JSON:
+- data_completeness: объект { sources_connected: [], sources_missing: [], warning: "…" | null, limitations: [] }. warning заполняется если подключено < 2 источников.
+- executive_summary: { one_line, verdict_type ("алгоритм" | "техника" | "сезонность" | "контент" | "смешанное"), verdict_reasoning }
 - diagnosis_pattern: один из ключей паттерна выше + 1 предложение почему.
-- root_cause_hypotheses: 2–4 гипотезы (от сильной к слабой) с весом probability (0–100), evidence-цифры, как опровергнуть/подтвердить (verification_step).
+- root_cause_hypotheses: 3–5 гипотез по формату выше.
 - impact_breakdown: топ-5 страниц/запросов с долей в общей потере кликов (share_of_loss_pct).
-- recommendations: P1 (24–72ч), P2 (2 недели), P3 (стратегия). Для каждой — KPI восстановления (метрика + целевой дельта), оценка усилий (ICE: impact 1–10, confidence 1–10, ease 1–10, score=I*C*E).
+- recommendations: минимум 5 пунктов (если хватает данных): P1 (1–3 дня), P2 (7–14 дней), P3 (30+ дней) по формату выше.
 - next_steps: ручные проверки за пределами данных (server logs, GSC Coverage, шаблон, индексация, AI Overviews захват и т.д.).
 
 ФОРМАТ ВЫВОДА — СТРОГО валидный JSON без markdown:
 {
   "seo_score": 0-100,
   "score_reasoning": "1–2 предложения, почему именно столько. ПРАВИЛА расчёта (строго): если клики упали >20% в обеих системах (GSC и Яндекс/Метрика) — seo_score не выше 55. Если >20% только в одной системе — не выше 65. Если падение >35% хотя бы в одной — не выше 45. Стабильно (±5%) — 70–80. Рост >10% — 80+.",
+  "data_completeness": { "sources_connected": ["GSC"], "sources_missing": ["Яндекс.Вебмастер","Яндекс.Метрика","Топвизор"], "warning": "Анализ ограничен — подключите …", "limitations": ["Без Метрики нельзя оценить поведенческие","Без Топвизора нет позиций по регионам"] },
+  "executive_summary": { "one_line": "Что случилось, где, насколько серьёзно — одной фразой с цифрой", "verdict_type": "техника|алгоритм|сезонность|контент|смешанное", "verdict_reasoning": "1–2 предложения с цифрами почему именно этот вердикт" },
   "headline": {
     "direction": "up|down|stable",
     "main_metric": "organic_visits|clicks|impressions|position|ctr",
     "delta_pct": -100..100,
-    "summary": "ТОЛЬКО краткий тезис в одно предложение: что произошло. Без деталей, без причин, без рекомендаций."
+    "summary": "ТОЛЬКО краткий тезис в одно предложение: что произошло. Без деталей, без причин, без рекомендаций. Если подключён 1 источник — начни с предупреждения об ограниченности анализа."
   },
   "diagnosis_pattern": { "code": "visibility_loss|ctr_decay|impressions_drop_clicks_stable|position_up_clicks_down_anomaly|seasonality|mixed", "explanation": "..." },
   "main_cause": {
@@ -942,7 +954,7 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик. Твоя задач
     "conclusion": "Развёрнутый вывод в 3–4 предложения с цифрами и контекстом. НЕ ПОВТОРЯЙ дословно headline.summary — это должен быть другой текст, раскрывающий тезис глубже: причины, механика, последствия."
   },
   "root_cause_hypotheses": [
-    { "hypothesis": "...", "probability": 0-100, "evidence": [{ "source":"...","metric":"...","was":"...","now":"...","delta":"..." }], "verification_step": "Что конкретно проверить, чтобы подтвердить/опровергнуть" }
+    { "hypothesis": "...", "probability": 0-100, "evidence": [{ "source":"...","metric":"...","was":"...","now":"...","delta":"..." }], "contradicts": "...", "verification_step": "Инструмент → путь → фильтр → что смотреть" }
   ],
   "causes": [
     { "title": "...", "confidence": "high|medium|low", "evidence": [{ "source":"...","metric":"...","was":"...","now":"...","delta":"..." }], "conclusion": "..." }
@@ -960,9 +972,12 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик. Твоя задач
     {
       "priority": "p1|p2|p3",
       "title": "Конкретное действие, а не общая фраза",
-      "why": "Привязка к найденной причине + цифра",
-      "action": "Шаги выполнения, технически точно",
-      "kpi": { "metric": "clicks|impressions|position|ctr", "target_delta": "+15% за 2 недели" },
+      "target": "URL или запрос из данных",
+      "why": "Привязка к найденной причине + цифра из evidence",
+      "action": "Пошагово: инструмент → путь → фильтр → что делать. 2–4 шага.",
+      "owner": "SEO|Dev|Content|PM",
+      "deadline_days": 3,
+      "kpi": { "metric": "clicks|impressions|position|ctr|indexed_pages", "target_delta": "+15%", "measure_after_days": 14 },
       "ice": { "impact": 1-10, "confidence": 1-10, "ease": 1-10, "score": 0-1000 }
     }
   ],
@@ -1076,6 +1091,7 @@ function compactForAI(result: any) {
   const compact: any = {
     period: result.period,
     diagnostics: diag,
+    sources_used: result.sources_used,
   };
   if (result.gsc) compact.gsc = {
     current: { clicks: result.gsc.current.clicks, impressions: result.gsc.current.impressions, ctr: result.gsc.current.ctr, position: result.gsc.current.position },
@@ -1606,6 +1622,26 @@ Deno.serve(async (req) => {
 
     // Pre-computed diagnostics for AI grounding
     result.diagnostics = buildDiagnostics(result, gsc_site, errors);
+
+    // Sources used — for AI grounding and DOCX header
+    {
+      const connected: string[] = [];
+      const missing: string[] = [];
+      if (result.gsc) connected.push("Google Search Console" + (gsc_site ? ` (${gsc_site})` : ""));
+      else missing.push("Google Search Console");
+      if (result.yandex) connected.push("Яндекс.Вебмастер" + (yandex_host ? ` (${yandex_host})` : ""));
+      else missing.push("Яндекс.Вебмастер");
+      if (result.metrika) connected.push("Яндекс.Метрика" + (counter_id ? ` (ID ${counter_id})` : ""));
+      else missing.push("Яндекс.Метрика");
+      if (result.topvisor) connected.push("Топвизор" + (topvisor_project_id ? ` (проект ${topvisor_project_id})` : ""));
+      else missing.push("Топвизор");
+      result.sources_used = {
+        connected,
+        missing,
+        connected_count: connected.length,
+        warning: connected.length < 2 ? `Анализ ограничен: подключено ${connected.length} из 4 источников. Подключите: ${missing.join(", ")}.` : null,
+      };
+    }
 
     // AI
     const orKey = await getOpenRouterKey(sb);

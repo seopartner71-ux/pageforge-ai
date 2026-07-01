@@ -124,6 +124,36 @@ export async function exportSeoRecoveryDocx(data: any) {
   children.push(p(`Дата: ${today}`, { align: AlignmentType.CENTER, color: MUTED }));
   children.push(p(`SEO Score: ${score}/100`, { align: AlignmentType.CENTER, bold: true, size: 28, color: NAVY, after: 300 }));
 
+  // Sources used
+  const src = data?.sources_used;
+  if (src) {
+    children.push(h1('Источники данных использованные в анализе'));
+    const checkFor = (label: string, key: string) => {
+      const found = (src.connected ?? []).find((s: string) => s.toLowerCase().includes(key));
+      return found ? `✓ ${found}` : `✗ ${label} — не подключён`;
+    };
+    children.push(bullet(checkFor('Google Search Console', 'google')));
+    children.push(bullet(checkFor('Яндекс.Вебмастер', 'вебмастер')));
+    children.push(bullet(checkFor('Яндекс.Метрика', 'метрика')));
+    children.push(bullet(checkFor('Топвизор', 'топвизор')));
+    if (src.warning) {
+      children.push(p(src.warning, { bold: true, color: 'B45309' }));
+    }
+  }
+  const dc = ai?.data_completeness;
+  if (dc?.limitations && Array.isArray(dc.limitations) && dc.limitations.length) {
+    children.push(p('Ограничения анализа:', { bold: true }));
+    dc.limitations.forEach((l: string) => children.push(bullet(String(l))));
+  }
+
+  // Executive one-liner + verdict
+  if (ai?.executive_summary) {
+    children.push(h1('Что произошло'));
+    if (ai.executive_summary.one_line) children.push(p(String(ai.executive_summary.one_line), { bold: true }));
+    if (ai.executive_summary.verdict_type) children.push(p(`Тип причины: ${ai.executive_summary.verdict_type}`, { color: MUTED }));
+    if (ai.executive_summary.verdict_reasoning) children.push(p(String(ai.executive_summary.verdict_reasoning)));
+  }
+
   // 2. Executive summary
   children.push(h1('Исполнительное резюме'));
   if (ai.headline?.summary) children.push(p(String(ai.headline.summary)));
@@ -156,6 +186,7 @@ export async function exportSeoRecoveryDocx(data: any) {
         if (typeof e === 'string') children.push(bullet(e));
         else children.push(bullet(`${e.source ?? ''} · ${e.metric ?? ''}: ${e.was ?? '—'} → ${e.now ?? '—'} (${e.delta ?? '—'})`));
       });
+      if (h.contradicts) children.push(p(`Что опровергает: ${h.contradicts}`, { italics: true, color: MUTED }));
       if (h.verification_step) children.push(p(`Как проверить: ${h.verification_step}`, { italics: true, color: MUTED }));
     });
   }
@@ -189,11 +220,18 @@ export async function exportSeoRecoveryDocx(data: any) {
     recs.forEach((r: any) => {
       const prio = r.priority ? `[${r.priority}] ` : '';
       children.push(h3(`${prio}${r.title ?? 'Рекомендация'}`));
+      if (r.target) children.push(p(`Объект: ${r.target}`, { bold: true, color: MUTED }));
       if (r.why) children.push(p(`Почему: ${r.why}`, { bold: true }));
       if (r.action) children.push(p(String(r.action)));
+      const meta: string[] = [];
+      if (r.owner) meta.push(`Ответственный: ${r.owner}`);
+      if (r.deadline_days) meta.push(`Срок: ${r.deadline_days} дн.`);
+      if (meta.length) children.push(p(meta.join(' · '), { color: MUTED }));
       if (r.kpi?.metric || r.kpi?.target_delta) {
-        children.push(p(`KPI: ${r.kpi?.metric ?? ''} ${r.kpi?.target_delta ?? ''}`.trim(), { italics: true, color: MUTED }));
+        const after = r.kpi?.measure_after_days ? ` (замер через ${r.kpi.measure_after_days} дн.)` : '';
+        children.push(p(`KPI: ${r.kpi?.metric ?? ''} ${r.kpi?.target_delta ?? ''}${after}`.trim(), { italics: true, color: MUTED }));
       }
+      if (r.ice?.score) children.push(p(`ICE: I=${r.ice.impact} · C=${r.ice.confidence} · E=${r.ice.ease} → score ${r.ice.score}`, { color: MUTED }));
     });
   }
 
