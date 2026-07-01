@@ -666,8 +666,8 @@ async function gscQuery(siteUrl: string, body: any) {
 async function fetchGSC(siteUrl: string, date1: string, date2: string, prevDate1?: string, prevDate2?: string) {
   const [totals, pages, queries, daily, daily_prev] = await Promise.all([
     gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: [], rowLimit: 1, searchType: "web" }),
-    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["page"], rowLimit: 50, searchType: "web" }),
-    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["query"], rowLimit: 50, searchType: "web" }),
+    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["page"], rowLimit: 500, searchType: "web" }),
+    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["query"], rowLimit: 500, searchType: "web" }),
     gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["date"], rowLimit: 90, searchType: "web" }),
     prevDate1 && prevDate2
       ? gscQuery(siteUrl, { startDate: prevDate1, endDate: prevDate2, dimensions: ["date"], rowLimit: 90, searchType: "web" })
@@ -868,6 +868,26 @@ function buildDiagnostics(result: any, gscSite?: string, errors?: any[]) {
           : "mixed",
       },
     };
+    // Brand vs non-brand для Яндекса (используется как запасной вариант, если GSC не подключён)
+    const yBrand = detectBrand(gscSite || "");
+    const yTerms = brandTerms(yBrand);
+    if (yBrand && yTerms.length && hasPrev) {
+      const split = (rows: any[]) => (rows ?? []).reduce((acc: any, r: any) => {
+        const q = String(r.query || "").toLowerCase();
+        const isBrand = yTerms.some(t => q.includes(t));
+        acc[isBrand ? "brand" : "non_brand"].clicks += Number(r.clicks ?? 0);
+        acc[isBrand ? "brand" : "non_brand"].impressions += Number(r.impressions ?? 0);
+        return acc;
+      }, { brand: { clicks: 0, impressions: 0 }, non_brand: { clicks: 0, impressions: 0 } });
+      const sc = split(y.current.queries);
+      const sp = split(prevQueries);
+      d.yandex.brand_split = {
+        brand: { clicks_was: sp.brand.clicks, clicks_now: sc.brand.clicks, delta_pct: pct(sc.brand.clicks, sp.brand.clicks) },
+        non_brand: { clicks_was: sp.non_brand.clicks, clicks_now: sc.non_brand.clicks, delta_pct: pct(sc.non_brand.clicks, sp.non_brand.clicks) },
+        brand_term: yBrand,
+        brand_terms: yTerms,
+      };
+    }
   }
   if (m) {
     const pagesDiff = diffSeries(m.current.top_pages, m.previous.top_pages, "url", "visits");
@@ -1279,16 +1299,49 @@ function fallbackAI(result: any, reason = "ai_unavailable") {
     },
   ];
 
-  const brand = gscDiag.brand_split;
+  const brand = gscDiag.brand_split ?? yaDiag.brand_split;
+  const brandSource = gscDiag.brand_split ? "GSC" : (yaDiag.brand_split ? "Яндекс.Вебмастер" : null);
   const brandAnalysis = brand ? {
     brand_clicks_delta_pct: brand.brand?.delta_pct ?? 0,
     non_brand_clicks_delta_pct: brand.non_brand?.delta_pct ?? 0,
-    interpretation: `Бренд: ${fmt(brand.brand?.clicks_was)} → ${fmt(brand.brand?.clicks_now)} (${pctText(brand.brand?.delta_pct)}), небренд: ${fmt(brand.non_brand?.clicks_was)} → ${fmt(brand.non_brand?.clicks_now)} (${pctText(brand.non_brand?.delta_pct)}).`,
+    interpretation: `Источник: ${brandSource}. Бренд: ${fmt(brand.brand?.clicks_was)} → ${fmt(brand.brand?.clicks_now)} (${pctText(brand.brand?.delta_pct)}), небренд: ${fmt(brand.non_brand?.clicks_was)} → ${fmt(brand.non_brand?.clicks_now)} (${pctText(brand.non_brand?.delta_pct)}).`,
   } : null;
+
+  // Executive summary для fallback: собираем текст из цифр
+  const verdictType = hasIndexingRisk ? "техника"
+    : (result.metrika && num(result.metrika.delta?.organic_visits) < -20) ? "смешанное"
+    : (majorDrops >= 2 ? "алгоритм" : "смешанное");
+  const oneLine = direction === "down"
+    ? `Падение ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${fmt(primary.was)} → ${fmt(primary.now)} (${pctText(primary.delta)})${hasIndexingRisk ? ", есть признаки проблем с индексацией" : ""}.`
+    : direction === "up"
+      ? `Рост ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${fmt(primary.was)} → ${fmt(primary.now)} (${pctText(primary.delta)}).`
+      : `Существенных изменений не зафиксировано (${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${pctText(primary.delta)}).`;
+  const verdictReasoning = hasIndexingRisk
+    ? `Есть сигнал технической проблемы: excluded_count=${num(indexing?.excluded_count)}, изменение страниц в поиске ${pctText(indexedDelta)}.`
+    : majorDrops >= 2
+      ? `Падение >20% фиксируется одновременно в ${majorDrops} источниках — типичный признак алгоритмического/смешанного вердикта.`
+      : `Падение зафиксировано преимущественно в одном источнике — требуется ручная сверка.`;
+  const executiveSummary = {
+    one_line: oneLine,
+    verdict_type: verdictType,
+    verdict_reasoning: verdictReasoning,
+  };
 
   return {
     seo_score: score,
     score_reasoning: `Резервный расчёт без внешнего AI: ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${fmt(primary.was)} → ${fmt(primary.now)} (${pctText(primary.delta)}). Строгий лимит score применён по величине падения в подключённых источниках.`,
+    executive_summary: executiveSummary,
+    data_completeness: {
+      sources_connected: result.sources_used?.connected ?? [],
+      sources_missing: result.sources_used?.missing ?? [],
+      warning: result.sources_used?.warning ?? null,
+      limitations: [
+        !result.metrika ? "Без Метрики нельзя оценить поведенческие и разбивку по устройствам/регионам." : null,
+        !result.gsc ? "Без GSC нельзя оценить видимость и CTR в Google." : null,
+        !result.yandex ? "Без Яндекс.Вебмастера нет данных по индексации и запросам Яндекса." : null,
+        !result.topvisor ? "Без Топвизора нет позиций по регионам." : null,
+      ].filter(Boolean),
+    },
     headline: {
       direction,
       main_metric: primary.metric,
@@ -1521,14 +1574,14 @@ Deno.serve(async (req) => {
           }
           const [cur, prv] = await Promise.all([
             fetchYandexWebmaster(accessToken, yandex_host, date1, date2),
-            fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2, undefined, undefined, false),
+            fetchYandexWebmaster(accessToken, yandex_host, prev.date1, prev.date2, undefined, undefined, true),
           ]);
           result.yandex = { current: cur, previous: prv, delta: {
             clicks: pct(cur.clicks, prv.clicks),
             impressions: pct(cur.impressions, prv.impressions),
             ctr: pct(cur.ctr, prv.ctr),
             position: Math.round((cur.position - prv.position) * 10) / 10,
-          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data, indexing: cur.indexing };
+          }, daily_data: cur.daily_data, daily_data_prev: prv.daily_data, indexing: cur.indexing, indexing_prev: prv.indexing };
         } catch (e) { errors.push(friendlyError("Яндекс", e, { yandex_host })); }
       })());
     }
@@ -1560,11 +1613,13 @@ Deno.serve(async (req) => {
     // Topvisor (independent, runs alongside)
     if (topvisor_key && topvisor_project_id && topvisor_user_id) {
       try {
-        const cur = await fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, date1, date2);
-        let prv: any = null;
-        try {
-          prv = await fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, prev.date1, prev.date2);
-        } catch (_e) { /* предыдущий период необязателен */ }
+        const [curRes, prvRes] = await Promise.allSettled([
+          fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, date1, date2),
+          fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, prev.date1, prev.date2),
+        ]);
+        if (curRes.status !== "fulfilled") throw curRes.reason;
+        const cur = curRes.value;
+        const prv: any = prvRes.status === "fulfilled" ? prvRes.value : null;
 
         const curDist = cur.distribution;
         const prvDist = prv?.distribution ?? null;

@@ -175,6 +175,103 @@ export async function exportSeoRecoveryDocx(data: any) {
     if (ai.main_cause.conclusion) children.push(p(String(ai.main_cause.conclusion)));
   }
 
+  // 3b. Метрика: органика, поисковые системы, устройства, регионы
+  const m = data?.metrika;
+  if (m) {
+    children.push(h1('Яндекс.Метрика — органика'));
+    const cRow = m.current ?? {};
+    const pRow = m.previous ?? {};
+    const dRow = m.delta ?? {};
+    const mRows: string[][] = [
+      ['Органические визиты', fmt(pRow.organic_visits), fmt(cRow.organic_visits), pct(dRow.organic_visits)],
+      ['Органические пользователи', fmt(pRow.organic_users), fmt(cRow.organic_users), pct(dRow.organic_users)],
+      ['Отказы (%)', fmt(pRow.bounce_rate), fmt(cRow.bounce_rate), pct(dRow.bounce_rate)],
+      ['Глубина', fmt(pRow.page_depth), fmt(cRow.page_depth), pct(dRow.page_depth)],
+      ['Время на сайте, сек', fmt(pRow.avg_visit_duration), fmt(cRow.avg_visit_duration), pct(dRow.avg_visit_duration)],
+    ].filter(r => r[1] !== '—' || r[2] !== '—');
+    if (mRows.length) {
+      children.push(tableFrom(['Метрика', 'Было', 'Стало', 'Изменение'], mRows, [3200, 1800, 1800, 1560]));
+    }
+
+    // Поисковые системы
+    const ed = m.search_engines_delta ?? [];
+    if (Array.isArray(ed) && ed.length) {
+      children.push(h2('Разбивка по поисковым системам'));
+      children.push(tableFrom(
+        ['ПС', 'Визиты было', 'Визиты стало', 'Изменение %'],
+        ed.slice(0, 15).map((r: any) => [String(r.name ?? r.engine ?? '—'), fmt(r.was ?? r.visits_was), fmt(r.now ?? r.visits_now), pct(r.delta_pct ?? r.delta)]),
+        [2800, 1800, 1800, 1960],
+      ));
+    }
+
+    // Устройства
+    const dev = m.devices_delta ?? m.devices ?? [];
+    if (Array.isArray(dev) && dev.length) {
+      children.push(h2('Устройства'));
+      children.push(tableFrom(
+        ['Устройство', 'Было', 'Стало', 'Изменение %'],
+        dev.slice(0, 10).map((r: any) => [String(r.name ?? r.device ?? '—'), fmt(r.was ?? r.visits_was), fmt(r.now ?? r.visits_now), pct(r.delta_pct ?? r.delta)]),
+        [2800, 1800, 1800, 1960],
+      ));
+    }
+
+    // Регионы
+    const reg = m.regions_delta ?? m.regions ?? [];
+    if (Array.isArray(reg) && reg.length) {
+      children.push(h2('Регионы'));
+      children.push(tableFrom(
+        ['Регион', 'Было', 'Стало', 'Изменение %'],
+        reg.slice(0, 15).map((r: any) => [String(r.name ?? r.region ?? '—'), fmt(r.was ?? r.visits_was), fmt(r.now ?? r.visits_now), pct(r.delta_pct ?? r.delta)]),
+        [2800, 1800, 1800, 1960],
+      ));
+    }
+  }
+
+  // 3c. Brand vs non-brand
+  const ba = ai?.brand_analysis ?? data?.diagnostics?.gsc?.brand_split ?? data?.diagnostics?.yandex?.brand_split;
+  if (ba) {
+    children.push(h1('Бренд vs небренд'));
+    if (ba.interpretation) children.push(p(String(ba.interpretation)));
+    const brand = ba.brand ?? {};
+    const nonBrand = ba.non_brand ?? {};
+    children.push(tableFrom(
+      ['Тип', 'Клики было', 'Клики стало', 'Изменение %'],
+      [
+        ['Бренд', fmt(brand.clicks_was), fmt(brand.clicks_now), pct(brand.delta_pct ?? ba.brand_clicks_delta_pct)],
+        ['Небренд', fmt(nonBrand.clicks_was), fmt(nonBrand.clicks_now), pct(nonBrand.delta_pct ?? ba.non_brand_clicks_delta_pct)],
+      ],
+      [2000, 2200, 2200, 1960],
+    ));
+  }
+
+  // 3d. Топвизор — позиции
+  const tv = data?.topvisor;
+  if (tv) {
+    children.push(h1('Топвизор — позиции'));
+    const distCur = tv.current?.distribution ?? tv.distribution ?? {};
+    const distPrev = tv.previous?.distribution ?? {};
+    const distRows: string[][] = [];
+    for (const k of ['top1', 'top3', 'top10', 'top30', 'top50', 'top100']) {
+      const was = distPrev?.[k];
+      const now = distCur?.[k];
+      if (was == null && now == null) continue;
+      const d = (Number(was) > 0) ? ((Number(now) - Number(was)) / Number(was)) * 100 : null;
+      distRows.push([k.toUpperCase(), fmt(was), fmt(now), d == null ? '—' : pct(d)]);
+    }
+    if (distRows.length) {
+      children.push(tableFrom(['Диапазон', 'Было', 'Стало', 'Изменение %'], distRows, [2400, 2000, 2000, 1960]));
+    }
+    const lostPos = tv.lost_positions ?? tv.current?.lost_positions ?? [];
+    if (Array.isArray(lostPos) && lostPos.length) {
+      children.push(h2('Запросы с наибольшим падением позиций'));
+      children.push(tableFrom(
+        ['Запрос', 'Позиция было', 'Позиция стало', 'Изменение'],
+        lostPos.slice(0, 30).map((r: any) => [String(r.query ?? r.key ?? '—'), fmt(r.pos_was ?? r.was), fmt(r.pos_now ?? r.now), fmt(r.delta ?? r.delta_abs)]),
+        [3400, 1800, 1800, 1360],
+      ));
+    }
+  }
+
   // 4. Hypotheses
   const hyps = Array.isArray(ai.root_cause_hypotheses) ? ai.root_cause_hypotheses : [];
   if (hyps.length) {

@@ -474,7 +474,7 @@ export function SeoRecoveryView({ data }: Props) {
 
         <TabsContent value="raw" className="mt-4">
           <Card className="p-4">
-            <pre className="text-xs overflow-auto max-h-[500px]">{JSON.stringify({ metrika: m, gsc: g, diagnostics: data.diagnostics }, null, 2)}</pre>
+            <pre className="text-xs overflow-auto max-h-[500px]">{JSON.stringify({ metrika: m, gsc: g, yandex: data.yandex, topvisor: data.topvisor, ai: data.ai, diagnostics: data.diagnostics }, null, 2)}</pre>
           </Card>
         </TabsContent>
       </Tabs>
