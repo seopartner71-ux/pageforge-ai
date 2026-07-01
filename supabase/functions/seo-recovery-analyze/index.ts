@@ -1560,11 +1560,13 @@ Deno.serve(async (req) => {
     // Topvisor (independent, runs alongside)
     if (topvisor_key && topvisor_project_id && topvisor_user_id) {
       try {
-        const cur = await fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, date1, date2);
-        let prv: any = null;
-        try {
-          prv = await fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, prev.date1, prev.date2);
-        } catch (_e) { /* предыдущий период необязателен */ }
+        const [curRes, prvRes] = await Promise.allSettled([
+          fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, date1, date2),
+          fetchTopvisor(topvisor_key, topvisor_user_id, topvisor_project_id, prev.date1, prev.date2),
+        ]);
+        if (curRes.status !== "fulfilled") throw curRes.reason;
+        const cur = curRes.value;
+        const prv: any = prvRes.status === "fulfilled" ? prvRes.value : null;
 
         const curDist = cur.distribution;
         const prvDist = prv?.distribution ?? null;
