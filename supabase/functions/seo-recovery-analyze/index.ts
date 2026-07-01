@@ -372,11 +372,38 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
 async function fetchMetrika(token: string, counterId: string, date1: string, date2: string, opts: { withChannels?: boolean } = {}) {
   const base = { ids: counterId, date1, date2, accuracy: "full" };
   const ORGANIC_FILTER = "ym:s:lastSignTrafficSource=='organic'";
-  const [totals, sources, engines, pages] = await Promise.all([
+  const [totals, sources, engines, pages, searchEngines, searchPhrases, organicPages] = await Promise.all([
     metrikaRequest(token, { ...base, metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds", filters: ORGANIC_FILTER }).catch((e) => ({ __error: e, totals: [] })),
     metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:lastSignTrafficSource", filters: ORGANIC_FILTER, limit: "20" }).catch((e) => ({ __error: e, data: [] })),
     metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:searchEngineRoot", filters: ORGANIC_FILTER, limit: "20" }).catch((e) => ({ __error: e, data: [] })),
     metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:startURL", filters: ORGANIC_FILTER, limit: "25", sort: "-ym:s:visits" }).catch((e) => ({ __error: e, data: [] })),
+    // Search engines breakdown (organic only) — per ПС: visits, users, bounce, depth, duration
+    metrikaRequest(token, {
+      ...base,
+      metrics: "ym:s:visits,ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      dimensions: "ym:s:searchEngine",
+      filters: ORGANIC_FILTER,
+      limit: "20",
+      sort: "-ym:s:visits",
+    }).catch((e) => ({ __error: e, data: [] })),
+    // Top search phrases (organic)
+    metrikaRequest(token, {
+      ...base,
+      metrics: "ym:s:visits,ym:s:bounceRate",
+      dimensions: "ym:s:searchPhrase",
+      filters: ORGANIC_FILTER,
+      limit: "50",
+      sort: "-ym:s:visits",
+    }).catch((e) => ({ __error: e, data: [] })),
+    // Top organic landing pages
+    metrikaRequest(token, {
+      ...base,
+      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      dimensions: "ym:s:startURL",
+      filters: ORGANIC_FILTER,
+      limit: "30",
+      sort: "-ym:s:visits",
+    }).catch((e) => ({ __error: e, data: [] })),
   ]);
   const hardError = [totals, sources, engines, pages].find((x: any) => x?.__error?.status === 401 || x?.__error?.status === 403 || x?.__error?.status === 404)?.__error;
   if (hardError) throw hardError;
@@ -457,6 +484,26 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
     sources: ((sources as any).data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
     engines: ((engines as any).data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
     top_pages: ((pages as any).data ?? []).map((r: any) => ({ url: r.dimensions[0]?.name, visits: r.metrics[0] })),
+    search_engines: ((searchEngines as any).data ?? []).map((r: any) => ({
+      name: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
+      visits: Number(r.metrics?.[0] ?? 0),
+      users: Number(r.metrics?.[1] ?? 0),
+      bounce_rate: Math.round(Number(r.metrics?.[2] ?? 0) * 10) / 10,
+      depth: Math.round(Number(r.metrics?.[3] ?? 0) * 100) / 100,
+      duration: Math.round(Number(r.metrics?.[4] ?? 0)),
+    })),
+    search_phrases: ((searchPhrases as any).data ?? []).map((r: any) => ({
+      phrase: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
+      visits: Number(r.metrics?.[0] ?? 0),
+      bounce_rate: Math.round(Number(r.metrics?.[1] ?? 0) * 10) / 10,
+    })),
+    organic_pages: ((organicPages as any).data ?? []).map((r: any) => ({
+      url: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
+      visits: Number(r.metrics?.[0] ?? 0),
+      bounce_rate: Math.round(Number(r.metrics?.[1] ?? 0) * 10) / 10,
+      depth: Math.round(Number(r.metrics?.[2] ?? 0) * 100) / 100,
+      duration: Math.round(Number(r.metrics?.[3] ?? 0)),
+    })),
     daily_data,
     daily_channels,
     daily_combined: merged_daily,
@@ -853,6 +900,7 @@ const SYSTEM_PROMPT = `Ты — Senior SEO-аналитик. Твоя задач
 5. Сравни позиции — если позиции улучшились а клики упали — проблема в сниппете или SERP-фичах
 6. Brand vs non-brand — расхождение указывает на источник проблемы
 7. Если в yandex.indexing присутствуют данные: рост excluded_count или падение последнего значения daily_indexed[].count относительно начала периода — это сильное доказательство ТЕХНИЧЕСКОЙ причины (deindexation), а не алгоритмического понижения. Такая гипотеза должна получить probability ≥ 75 и приоритет P1 с рекомендацией проверить robots/canonical/мета-noindex/server-status исключённых URL.
+8. Если присутствует metrika.search_engines_delta — ОБЯЗАТЕЛЬНО сравнить дельту по каждой поисковой системе (Яндекс, Google, Bing, Mail.ru, DuckDuckGo и т.д.). Если падение в одной ПС сильно больше, чем в другой (например, Яндекс −50%, Google −5%) — фиксируй это как гипотезу "проблема специфична для ПС X" с probability ≥ 75 и рекомендациями конкретно под эту ПС (для Яндекса — Вебмастер/фильтры/переоптимизация; для Google — Search Console/Core Update/технические сигналы). Если падение равномерное по всем ПС — это, наоборот, аргумент против "алгоритмической" гипотезы и повод искать техническую причину (индексация, доступность, редиректы, аналитика).
 
 ФОРМАТ ГИПОТЕЗ:
 Каждая гипотеза должна содержать:
@@ -1059,9 +1107,13 @@ function compactForAI(result: any) {
       devices: take(result.metrika.current.devices, 10),
       regions: take(result.metrika.current.regions, 10),
       daily_combined: take(result.metrika.current.daily_combined, 30),
+      search_engines: take(result.metrika.current.search_engines, 10),
+      search_phrases: take(result.metrika.current.search_phrases, 20),
+      organic_pages: take(result.metrika.current.organic_pages, 15),
     },
     previous: { visits: result.metrika.previous.visits, users: result.metrika.previous.users, organic_visits: result.metrika.previous.organic_visits, pageviews: result.metrika.previous.pageviews, sources: result.metrika.previous.sources },
     delta: result.metrika.delta,
+    search_engines_delta: take(result.metrika.search_engines_delta, 10),
   };
   return compact;
 }
@@ -1404,7 +1456,24 @@ Deno.serve(async (req) => {
             fetchMetrika(accessToken, counter_id, date1, date2, { withChannels: true }),
             fetchMetrika(accessToken, counter_id, prev.date1, prev.date2),
           ]);
-          result.metrika = { current: cur, previous: prv, delta: {
+          // Per-search-engine delta (visits)
+          const prevByEngine = new Map<string, number>();
+          (prv.search_engines ?? []).forEach((r: any) => prevByEngine.set(String(r.name).toLowerCase(), Number(r.visits ?? 0)));
+          const search_engines_delta = (cur.search_engines ?? []).map((r: any) => {
+            const was = prevByEngine.get(String(r.name).toLowerCase()) ?? 0;
+            const now = Number(r.visits ?? 0);
+            const dPct = was ? Math.round(((now - was) / was) * 1000) / 10 : (now ? 100 : 0);
+            return { name: r.name, was, now, delta_abs: now - was, delta_pct: dPct, bounce_rate: r.bounce_rate, depth: r.depth };
+          });
+          // Include engines that existed before but disappeared now
+          const curNames = new Set((cur.search_engines ?? []).map((r: any) => String(r.name).toLowerCase()));
+          (prv.search_engines ?? []).forEach((r: any) => {
+            if (!curNames.has(String(r.name).toLowerCase()) && Number(r.visits ?? 0) > 0) {
+              search_engines_delta.push({ name: r.name, was: Number(r.visits ?? 0), now: 0, delta_abs: -Number(r.visits ?? 0), delta_pct: -100, bounce_rate: r.bounce_rate, depth: r.depth });
+            }
+          });
+          search_engines_delta.sort((a: any, b: any) => (b.was + b.now) - (a.was + a.now));
+          result.metrika = { current: cur, previous: prv, search_engines_delta, delta: {
             visits: pct(cur.visits, prv.visits),
             users: pct(cur.users, prv.users),
             organic_visits: pct(cur.organic_visits, prv.organic_visits),

@@ -916,16 +916,31 @@ function YandexPanel({ metrika, yandex }: { metrika: any; yandex: any }) {
   const regions = metrika?.current?.regions ?? [];
   const indexing = yandex?.indexing;
   const hasIndexing = !!indexing && ((indexing.daily_indexed?.length ?? 0) > 0 || (indexing.excluded_count ?? 0) > 0 || (indexing.excluded_pages?.length ?? 0) > 0);
+  const searchEngines: any[] = metrika?.search_engines_delta ?? metrika?.current?.search_engines ?? [];
+  const searchPhrases: any[] = metrika?.current?.search_phrases ?? [];
+  const organicPages: any[] = metrika?.current?.organic_pages ?? [];
   return (
     <Tabs defaultValue="channels">
       <TabsList>
         <TabsTrigger value="channels">Каналы</TabsTrigger>
+        <TabsTrigger value="engines">Поисковые системы</TabsTrigger>
+        <TabsTrigger value="phrases">Фразы</TabsTrigger>
+        <TabsTrigger value="landings">Страницы входа</TabsTrigger>
         <TabsTrigger value="devices">Устройства</TabsTrigger>
         <TabsTrigger value="regions">Регионы</TabsTrigger>
         <TabsTrigger value="indexing">Индексация</TabsTrigger>
       </TabsList>
       <TabsContent value="channels" className="mt-4">
         <YandexChannelsChart metrika={metrika} yandex={yandex} />
+      </TabsContent>
+      <TabsContent value="engines" className="mt-4">
+        <SearchEnginesTable rows={searchEngines} />
+      </TabsContent>
+      <TabsContent value="phrases" className="mt-4">
+        <SearchPhrasesTable rows={searchPhrases} />
+      </TabsContent>
+      <TabsContent value="landings" className="mt-4">
+        <OrganicPagesTable rows={organicPages} />
       </TabsContent>
       <TabsContent value="devices" className="mt-4">
         <BreakdownBar rows={devices} color="#F97316" />
@@ -939,6 +954,98 @@ function YandexPanel({ metrika, yandex }: { metrika: any; yandex: any }) {
         )}
       </TabsContent>
     </Tabs>
+  );
+}
+
+function SearchEnginesTable({ rows }: { rows: any[] }) {
+  if (!rows?.length) return <div className="text-sm text-muted-foreground text-center py-10">Нет данных по поисковым системам из Метрики за выбранный период.</div>;
+  return (
+    <div className="border rounded-md overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Поисковая система</TableHead>
+            <TableHead className="text-right">Визиты</TableHead>
+            <TableHead className="text-right">Было</TableHead>
+            <TableHead className="text-right">Дельта</TableHead>
+            <TableHead className="text-right">Отказы, %</TableHead>
+            <TableHead className="text-right">Глубина</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r, i) => (
+            <TableRow key={`${r.name}-${i}`}>
+              <TableCell className="font-medium">{r.name ?? '—'}</TableCell>
+              <TableCell className="text-right">{fmt(r.now ?? r.visits ?? 0)}</TableCell>
+              <TableCell className="text-right text-muted-foreground">{fmt(r.was ?? '—')}</TableCell>
+              <TableCell className="text-right">
+                {typeof r.delta_pct === 'number' ? <Delta value={r.delta_pct} /> : <span className="text-muted-foreground">—</span>}
+              </TableCell>
+              <TableCell className="text-right">{r.bounce_rate != null ? `${fmt(r.bounce_rate)}%` : '—'}</TableCell>
+              <TableCell className="text-right">{r.depth != null ? fmt(r.depth) : '—'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function SearchPhrasesTable({ rows }: { rows: any[] }) {
+  if (!rows?.length) return <div className="text-sm text-muted-foreground text-center py-10">Нет данных по поисковым фразам из Метрики за выбранный период.</div>;
+  return (
+    <div className="border rounded-md overflow-hidden max-h-[520px] overflow-y-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Поисковая фраза</TableHead>
+            <TableHead className="text-right">Визиты</TableHead>
+            <TableHead className="text-right">Отказы, %</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r, i) => (
+            <TableRow key={i}>
+              <TableCell className="max-w-[520px] truncate" title={r.phrase}>{r.phrase ?? '—'}</TableCell>
+              <TableCell className="text-right">{fmt(r.visits)}</TableCell>
+              <TableCell className="text-right">{r.bounce_rate != null ? `${fmt(r.bounce_rate)}%` : '—'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function OrganicPagesTable({ rows }: { rows: any[] }) {
+  if (!rows?.length) return <div className="text-sm text-muted-foreground text-center py-10">Нет данных по органическим страницам входа из Метрики за выбранный период.</div>;
+  return (
+    <div className="border rounded-md overflow-hidden max-h-[520px] overflow-y-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>URL</TableHead>
+            <TableHead className="text-right">Визиты</TableHead>
+            <TableHead className="text-right">Отказы, %</TableHead>
+            <TableHead className="text-right">Глубина</TableHead>
+            <TableHead className="text-right">Время, сек</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r, i) => (
+            <TableRow key={i}>
+              <TableCell className="max-w-[440px] truncate" title={r.url}>
+                <a href={r.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">{r.url}</a>
+              </TableCell>
+              <TableCell className="text-right">{fmt(r.visits)}</TableCell>
+              <TableCell className="text-right">{r.bounce_rate != null ? `${fmt(r.bounce_rate)}%` : '—'}</TableCell>
+              <TableCell className="text-right">{r.depth != null ? fmt(r.depth) : '—'}</TableCell>
+              <TableCell className="text-right">{r.duration != null ? fmt(r.duration) : '—'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
