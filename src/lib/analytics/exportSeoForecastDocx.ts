@@ -14,6 +14,16 @@ export type ForecastExtra = {
   kind: 'wm_queries' | 'generic';
 };
 
+export interface ForecastAiInsightsInput {
+  nicheAnalysis?: string;
+  startingPoint?: string;
+  growthPoints?: string[];
+  monthByMonth?: string[];
+  risks?: string[];
+  conditions?: string[];
+  summary?: string;
+}
+
 const NAVY = '1F3864';
 const SLATE = '44546A';
 const GREEN = '548235';
@@ -152,6 +162,7 @@ export async function exportSeoForecastDocx(
     extras?: ForecastExtra[];
   },
   forecast: ForecastResult,
+  ai?: ForecastAiInsightsInput | null,
 ) {
   const dateStr = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
   const enginesList = [
@@ -350,6 +361,39 @@ export async function exportSeoForecastDocx(
   const insights = forecast.insights.length ? forecast.insights : forecast.growthPoints;
   const finalInsights = insights.length ? insights : ['Данных для формулировки инсайтов недостаточно. Загрузите GSC и/или Topvisor для более точных выводов.'];
   finalInsights.forEach((pt) => children.push(bullet(pt)));
+
+  // AI-анализ (Claude) — если сгенерирован
+  if (ai) {
+    const paras = (txt: string) => txt.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean).forEach((s) => children.push(p(s)));
+    if (ai.nicheAnalysis) {
+      children.push(h1(`${sectionNum++}. AI-анализ ниши и конкурентной среды`));
+      paras(ai.nicheAnalysis);
+    }
+    if (ai.startingPoint) {
+      children.push(h1(`${sectionNum++}. AI-оценка стартовой точки`));
+      paras(ai.startingPoint);
+    }
+    if (ai.growthPoints?.length) {
+      children.push(h1(`${sectionNum++}. Точки роста (AI)`));
+      ai.growthPoints.forEach((pt, i) => children.push(bullet(`${i + 1}. ${pt}`)));
+    }
+    if (ai.monthByMonth?.length) {
+      children.push(h1(`${sectionNum++}. Что происходит по месяцам (AI)`));
+      ai.monthByMonth.forEach((m) => children.push(bullet(m)));
+    }
+    if (ai.risks?.length) {
+      children.push(h1(`${sectionNum++}. Риски (AI)`));
+      ai.risks.forEach((r) => children.push(bullet(`⚠ ${r}`)));
+    }
+    if (ai.conditions?.length) {
+      children.push(h1(`${sectionNum++}. Условия достижения прогноза (AI)`));
+      ai.conditions.forEach((c) => children.push(bullet(`✓ ${c}`)));
+    }
+    if (ai.summary) {
+      children.push(h1(`${sectionNum++}. AI-резюме`));
+      ai.summary.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean).forEach((s) => children.push(p(s, { bold: true })));
+    }
+  }
 
   // Limits
   children.push(h1(`${sectionNum++}. Ограничения прогноза`));

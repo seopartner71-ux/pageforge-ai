@@ -20,6 +20,7 @@ import {
 } from '@/lib/analytics/forecastParsers';
 import { calculateForecast, type ForecastProjectData, type ForecastResult } from '@/lib/analytics/forecastCalculator';
 import { exportSeoForecastDocx } from '@/lib/analytics/exportSeoForecastDocx';
+import { ForecastAiInsights, type AIForecastInsights, type ForecastProjectContext } from '@/components/analytics/ForecastAiInsights';
 
 type FileSlot = { status: 'idle' | 'ok' | 'error'; name?: string; error?: string };
 
@@ -203,6 +204,7 @@ export default function SeoForecastPage() {
   const [topvisor, setTopvisor] = useState<ParsedTopvisor | null>(null);
   const [extras, setExtras] = useState<ExtraRow[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [aiInsights, setAiInsights] = useState<AIForecastInsights | null>(null);
 
   const step1Valid = project.domain.trim() && project.clientName.trim() && project.topic.trim() && project.region.trim()
     && (project.engines.yandex || project.engines.google || project.engines.bing);
@@ -263,7 +265,7 @@ export default function SeoForecastPage() {
   const reset = () => {
     setStep(1); setProject(emptyProject);
     setSlots({ traffic: { status: 'idle' }, sources: { status: 'idle' }, gsc: { status: 'idle' }, topvisor: { status: 'idle' } });
-    setTraffic(null); setSources(null); setGsc(null); setTopvisor(null); setExtras([]);
+    setTraffic(null); setSources(null); setGsc(null); setTopvisor(null); setExtras([]); setAiInsights(null);
   };
 
   const download = async () => {
@@ -278,7 +280,7 @@ export default function SeoForecastPage() {
           parsed: r.parsed!,
           kind: (r.type === 'wm_queries' ? 'wm_queries' : 'generic') as 'wm_queries' | 'generic',
         }));
-      await exportSeoForecastDocx(project, { traffic, sources, gsc, topvisor, extras: extrasForReport }, forecast);
+      await exportSeoForecastDocx(project, { traffic, sources, gsc, topvisor, extras: extrasForReport }, forecast, aiInsights ?? undefined);
       toast.success('Отчёт готов ✓');
     } catch (e: any) {
       toast.error('Не удалось сгенерировать отчёт');
@@ -561,6 +563,45 @@ export default function SeoForecastPage() {
             <ScenarioTable title="Консервативный сценарий" color="bg-slate-500" forecast={forecast} sc={forecast.scenarios.conservative} engines={project.engines} />
             <ScenarioTable title="Базовый сценарий" color="bg-primary" forecast={forecast} sc={forecast.scenarios.base} engines={project.engines} />
             <ScenarioTable title="Оптимистичный сценарий" color="bg-green-600" forecast={forecast} sc={forecast.scenarios.optimistic} engines={project.engines} />
+
+            <ForecastAiInsights
+              context={{
+                domain: project.domain,
+                clientName: project.clientName,
+                niche: project.topic,
+                region: project.region,
+                siteStatus: project.siteStatus,
+                horizon: project.horizon,
+                plannedWorks: (Object.keys(project.works) as Array<keyof typeof project.works>)
+                  .filter((k) => project.works[k])
+                  .map((k) => ({
+                    blog: 'Блог/контент', cards: 'Карточки товаров', links: 'Закупка ссылок',
+                    crowd: 'Крауд-маркетинг', external: 'Внешние публикации', tech: 'Техническое SEO',
+                  }[k])),
+                articlesPerMonth: project.publishPace,
+                competition: project.noData?.competition,
+                currentTraffic: project.noData?.currentTraffic,
+                baseYandex: traffic ? forecast.baseTraffic.yandex : undefined,
+                baseGoogle: traffic ? forecast.baseTraffic.google : undefined,
+                gscImpressions: gsc?.impressions,
+                gscClicks: gsc?.clicks,
+                gscCtr: gsc?.ctr,
+                gscAvgPosition: gsc?.position,
+                gscImpressionsPos23: gsc?.buckets?.top2_3,
+                topvisorTotal: topvisor?.total,
+                topvisorTop10: topvisor?.top10,
+                topvisorMissing: topvisor?.outside,
+                allPositionsMissing: topvisor ? topvisor.total > 0 && topvisor.outside === topvisor.total : undefined,
+                forecastBaseYandexFinal: forecast.scenarios.base.months.at(-1)?.yandex,
+                forecastBaseGoogleFinal: forecast.scenarios.base.months.at(-1)?.google,
+                forecastBaseTotalFinal: forecast.scenarios.base.months.at(-1)?.total,
+                forecastGrowthMultiplier: forecast.baseTraffic.total
+                  ? Math.round((forecast.scenarios.base.months.at(-1)!.total / forecast.baseTraffic.total) * 10) / 10
+                  : undefined,
+              }}
+              value={aiInsights}
+              onChange={setAiInsights}
+            />
 
             {forecast.insights.length > 0 && (
               <Card className="p-5 space-y-2">
