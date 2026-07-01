@@ -10,6 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { BarChart2, Upload, RotateCcw, Download, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import {
   parseMetrikaTraffic, parseMetrikaSources, parseGsc, parseTopvisor,
@@ -161,6 +162,12 @@ export default function SeoForecastPage() {
     return calculateForecast(project, { traffic, sources, gsc, topvisor });
   }, [step, project, traffic, sources, gsc, topvisor]);
 
+  useEffect(() => {
+    if (!project.works.blog) {
+      setProject((p) => ({ ...p, publishPace: undefined }));
+    }
+  }, [project.works.blog]);
+
   const handleFile = useCallback(async (kind: keyof typeof slots, file: File) => {
     setSlots((s) => ({ ...s, [kind]: { status: 'idle', name: file.name } }));
     try {
@@ -275,8 +282,13 @@ export default function SeoForecastPage() {
               </Field>
             )}
 
-            <Field label="Дополнительный контекст" hint="особенности ниши, конкуренты, цели">
-              <Textarea rows={3} value={project.context} onChange={(e) => setProject((p) => ({ ...p, context: e.target.value }))} />
+            <Field label="Дополнительный контекст">
+              <Textarea
+                rows={4}
+                placeholder="Особенности ниши, основные конкуренты, цели клиента, любая информация которая поможет сделать отчёт точнее"
+                value={project.context}
+                onChange={(e) => setProject((p) => ({ ...p, context: e.target.value }))}
+              />
             </Field>
 
             <div className="flex justify-end pt-2">
