@@ -9,6 +9,8 @@ export type ParsedSources = {
   rows: Array<{ source: string; visits: number; users: number; bounce: number; depth: number; duration: number }>;
   totalVisits: number;
   yandexOrganic: number;
+  googleOrganic: number;
+  direct: number;
   summary: string;
 };
 
@@ -27,6 +29,21 @@ export type ParsedTopvisor = {
   top10: number;
   top100: number;
   outside: number;
+  summary: string;
+};
+
+export type ParsedWebmasterQueries = {
+  rows: Array<{ query: string; impressions: number; clicks: number; position: number | null }>;
+  total: number;
+  top10: number;
+  avgPosition: number;
+  summary: string;
+};
+
+export type ParsedGeneric = {
+  rows: any[][];
+  columns: string[];
+  rowCount: number;
   summary: string;
 };
 
