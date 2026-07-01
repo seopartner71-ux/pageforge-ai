@@ -6,6 +6,7 @@ import {
   Bot, Network, Layers, Award, AlertTriangle, FileType,
   Zap, Search, UserPlus, Brain, Lightbulb,
   Activity, LifeBuoy,
+  BarChart2,
 } from 'lucide-react';
 
 export type AnalyticsItem = { label: string; path: string; icon: any };
@@ -88,6 +89,12 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     items: [
       { label: 'SEO Recovery AI', path: '/analytics/recovery/main', icon: LifeBuoy },
       { label: 'SEO Мониторинг', path: '/analytics/recovery/monitoring', icon: Activity },
+    ],
+  },
+  {
+    label: 'SEO прогнозы',
+    items: [
+      { label: 'SEO-прогноз', path: '/analytics/seo-forecast', icon: BarChart2 },
     ],
   },
 ];
