@@ -5,7 +5,14 @@ import {
 } from 'docx';
 import { saveAs } from 'file-saver';
 import type { ForecastProjectData, ForecastResult, ForecastScenario } from './forecastCalculator';
-import type { ParsedTraffic, ParsedSources, ParsedGsc, ParsedTopvisor } from './forecastParsers';
+import type { ParsedTraffic, ParsedSources, ParsedGsc, ParsedTopvisor, ParsedWebmasterQueries, ParsedGeneric } from './forecastParsers';
+
+export type ForecastExtra = {
+  typeLabel: string;
+  fileName?: string;
+  parsed: ParsedWebmasterQueries | ParsedGeneric | null;
+  kind: 'wm_queries' | 'generic';
+};
 
 const NAVY = '1F3864';
 const SLATE = '44546A';
@@ -142,6 +149,7 @@ export async function exportSeoForecastDocx(
     sources?: ParsedSources | null;
     gsc?: ParsedGsc | null;
     topvisor?: ParsedTopvisor | null;
+    extras?: ForecastExtra[];
   },
   forecast: ForecastResult,
 ) {
@@ -234,6 +242,38 @@ export async function exportSeoForecastDocx(
       ['В топ-100', String(files.topvisor.top100)],
       ['Вне топ-100', String(files.topvisor.outside)],
     ], [5000, 4360]));
+  }
+
+  // Extras (Блок 4 — Дополнительные источники)
+  const extras = (files.extras ?? []).filter((e) => e.parsed);
+  if (extras.length) {
+    for (const ex of extras) {
+      children.push(h1(`${sectionNum++}. Дополнительные данные — ${ex.typeLabel}`));
+      if (ex.fileName) children.push(p(`Файл: ${ex.fileName}`, { italics: true, color: SLATE }));
+      if (ex.kind === 'wm_queries') {
+        const wm = ex.parsed as ParsedWebmasterQueries;
+        children.push(p(`Запросов: ${wm.total} | Топ-10: ${wm.top10} | Средняя позиция: ${wm.avgPosition.toFixed(1)}`));
+        const rows = wm.rows.slice(0, 10).map((r) => [
+          r.query,
+          String(r.impressions),
+          String(r.clicks),
+          r.position != null ? r.position.toFixed(1) : '—',
+        ]);
+        if (rows.length) {
+          children.push(tableWithHeader(['Запрос', 'Показы', 'Клики', 'Позиция'], rows, [4500, 1620, 1620, 1620]));
+        }
+      } else {
+        const g = ex.parsed as ParsedGeneric;
+        children.push(p(`Строк: ${g.rowCount}, колонок: ${g.columns.length}${g.columns.length ? ` (${g.columns.slice(0, 8).join(', ')}${g.columns.length > 8 ? '…' : ''})` : ''}.`));
+        const cols = g.columns.length ? g.columns.slice(0, 6) : Array.from({ length: Math.min(6, g.rows[0]?.length ?? 0) }, (_, i) => `Колонка ${i + 1}`);
+        const rows = g.rows.slice(0, 10).map((r) => cols.map((_, i) => String(r[i] ?? '')));
+        if (rows.length && cols.length) {
+          const cw = cols.map(() => Math.floor(9360 / cols.length));
+          children.push(tableWithHeader(cols, rows, cw));
+        }
+      }
+      children.push(p('Файл загружен, данные учтены при формировании прогноза.', { italics: true, color: SLATE }));
+    }
   }
 
   // Forecast

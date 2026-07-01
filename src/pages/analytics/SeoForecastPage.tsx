@@ -261,7 +261,15 @@ export default function SeoForecastPage() {
     if (!forecast) return;
     setExporting(true);
     try {
-      await exportSeoForecastDocx(project, { traffic, sources, gsc, topvisor }, forecast);
+      const extrasForReport = extras
+        .filter((r) => r.type && r.slot.status === 'ok' && r.parsed)
+        .map((r) => ({
+          typeLabel: r.type === 'other' ? (r.customName?.trim() || 'Другое') : EXTRA_TYPE_LABELS[r.type as ExtraFileType],
+          fileName: r.slot.name,
+          parsed: r.parsed!,
+          kind: (r.type === 'wm_queries' ? 'wm_queries' : 'generic') as 'wm_queries' | 'generic',
+        }));
+      await exportSeoForecastDocx(project, { traffic, sources, gsc, topvisor, extras: extrasForReport }, forecast);
       toast.success('Отчёт готов ✓');
     } catch (e: any) {
       toast.error('Не удалось сгенерировать отчёт');
