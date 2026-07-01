@@ -132,8 +132,12 @@ export async function parseMetrikaSources(file: File): Promise<ParsedSources> {
   const totalVisits = out.reduce((s, r) => s + r.visits, 0);
   const yaOrg = out.find((r) => /яндекс|yandex/i.test(r.source) && /орган|organic/i.test(r.source));
   const yandexOrganic = yaOrg?.visits ?? 0;
+  const ggOrg = out.find((r) => /google|гугл/i.test(r.source) && /орган|organic/i.test(r.source));
+  const googleOrganic = ggOrg?.visits ?? 0;
+  const dir = out.find((r) => /прям|direct|заход/i.test(r.source));
+  const direct = dir?.visits ?? 0;
   const summary = `Всего визитов: ${totalVisits}${yandexOrganic ? `, органика Яндекс: ${yandexOrganic} (${totalVisits ? Math.round((yandexOrganic / totalVisits) * 100) : 0}%)` : ''}.`;
-  return { rows: out, totalVisits, yandexOrganic, summary };
+  return { rows: out, totalVisits, yandexOrganic, googleOrganic, direct, summary };
 }
 
 export async function parseGsc(file: File): Promise<ParsedGsc> {
