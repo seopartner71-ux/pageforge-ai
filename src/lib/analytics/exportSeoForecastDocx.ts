@@ -278,7 +278,8 @@ export async function exportSeoForecastDocx(
 
   // Forecast
   children.push(h1(`${sectionNum++}. Прогноз на ${project.horizon} мес. — сводные сценарии`));
-  children.push(p(`Прогноз рассчитан от базового уровня трафика (${forecast.baseTraffic.total} визитов/мес. — среднее за 2 последних периода). Дата среза: ${dateStr}. Учитывается статус сайта, набор работ и данные загруженных источников.`));
+  children.push(p(`Прогноз рассчитан от базового уровня трафика (${forecast.baseTraffic.total} визитов/мес. — среднее за 2 последних периода). Дата среза: ${dateStr}. Учитывается статус сайта, набор работ, S-кривая роста и данные загруженных источников.`));
+  children.push(p(forecast.seasonalityNote + ` Пик спроса: ${forecast.peakMonths.join(', ')}.`, { italics: true, color: SLATE }));
 
   children.push(h2('Консервативный сценарий'));
   children.push(scenarioTable(forecast.scenarios.conservative, forecast.monthLabels, project.engines));
@@ -287,20 +288,30 @@ export async function exportSeoForecastDocx(
   children.push(h2('Оптимистичный сценарий'));
   children.push(scenarioTable(forecast.scenarios.optimistic, forecast.monthLabels, project.engines));
 
-  // Points
-  children.push(h1(`${sectionNum++}. Точки роста`));
-  const points = forecast.growthPoints.length ? forecast.growthPoints : ['Данных для формулировки точек роста недостаточно. Загрузите GSC и/или Topvisor для более точных выводов.'];
-  points.forEach((pt) => children.push(bullet(pt)));
+  // Insights
+  children.push(h1(`${sectionNum++}. Ключевые инсайты и точки роста`));
+  const insights = forecast.insights.length ? forecast.insights : forecast.growthPoints;
+  const finalInsights = insights.length ? insights : ['Данных для формулировки инсайтов недостаточно. Загрузите GSC и/или Topvisor для более точных выводов.'];
+  finalInsights.forEach((pt) => children.push(bullet(pt)));
 
   // Limits
   children.push(h1(`${sectionNum++}. Ограничения прогноза`));
-  [
-    'Прогноз статистический и опирается на среднеотраслевые темпы роста для указанного статуса сайта.',
-    'Не учитывает алгоритмические апдейты (Core Update, антиспам), санкции и деиндексацию.',
-    'Не учитывает сезонность ниши и всплески/спад спроса.',
-    'Точность выше, если загружены минимум 3 источника данных (Метрика, GSC, Topvisor).',
-    'Оптимистичный сценарий достижим только при полной реализации всех отмеченных работ в срок.',
-  ].forEach((t) => children.push(bullet(t)));
+  const missing: string[] = [];
+  if (!files.traffic) missing.push('Яндекс.Метрика (трафик)');
+  if (!files.sources) missing.push('Метрика (источники)');
+  if (!files.gsc) missing.push('Google Search Console');
+  if (!files.topvisor) missing.push('Topvisor');
+  const limits: string[] = [];
+  if (missing.length) limits.push(`Прогноз построен без данных: ${missing.join(', ')} — при их наличии точность выше.`);
+  limits.push('Высококонкурентные ВЧ-запросы не входят в прогноз на данном горизонте.');
+  limits.push(forecast.seasonSource === 'actual'
+    ? 'Сезонные коэффициенты рассчитаны из фактических данных Метрики.'
+    : 'Сезонные коэффициенты основаны на справочных данных по нише.');
+  limits.push('Google-прогноз наиболее неопределённый: алгоритм реагирует с лагом 2–4 месяца.');
+  limits.push('Не учитывает алгоритмические апдейты (Core Update, антиспам), санкции и деиндексацию.');
+  limits.push('Конверсия в заявки не рассчитана — для расчёта нужны данные по целям Метрики.');
+  limits.push('Оптимистичный сценарий достижим только при полной реализации всех отмеченных работ в срок.');
+  limits.forEach((t) => children.push(bullet(t)));
 
   // Summary
   children.push(h1(`${sectionNum++}. Резюме`));
@@ -308,9 +319,12 @@ export async function exportSeoForecastDocx(
   const lastCons = forecast.scenarios.conservative.months[forecast.scenarios.conservative.months.length - 1];
   const lastOpt = forecast.scenarios.optimistic.months[forecast.scenarios.optimistic.months.length - 1];
   const growthX = forecast.baseTraffic.total ? (last.total / forecast.baseTraffic.total).toFixed(1) : '—';
+  const driver = last.yandex > last.google ? 'Яндекс' : 'Google';
   children.push(p(
-    `К ${forecast.monthLabels[forecast.monthLabels.length - 1]} органический трафик по базовому сценарию составит ~${last.total} визитов/мес. `
-    + `(диапазон ${lastCons.total}–${lastOpt.total}) — рост в ${growthX} раза к текущему уровню (${forecast.baseTraffic.total} визитов/мес.).`,
+    `При базовом сценарии к ${forecast.monthLabels[forecast.monthLabels.length - 1]} суммарный органический трафик составит ${lastCons.total}–${lastOpt.total} визитов/мес. `
+    + `(базовое ожидание: ~${last.total}) — рост в ${growthX} раза к текущему уровню ${forecast.baseTraffic.total} визитов/мес. `
+    + `Основной драйвер роста: ${driver}. `
+    + (forecast.scenarios.base.months[0].gscClicks != null ? `Клики из Google по прогнозу выйдут на ~${last.gscClicks} к концу периода.` : ''),
   ));
 
   const doc = new Document({
