@@ -1131,8 +1131,8 @@ function IndexingPanel({ indexing }: { indexing: { daily_indexed: Array<{ date: 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>URL</TableHead>
-                <TableHead className="w-[200px]">Причина исключения</TableHead>
+                <TableHead>URL с событием удаления из поиска (REMOVED_FROM_SEARCH)</TableHead>
+                <TableHead className="w-[200px]">Тип события</TableHead>
                 <TableHead className="w-[120px]">Дата</TableHead>
                 <TableHead className="w-[120px]">HTTP</TableHead>
               </TableRow>
