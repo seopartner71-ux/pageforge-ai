@@ -148,6 +148,12 @@ export function calculateForecast(
       bBase = Math.round(nonZero.reduce((s, r) => s + r.bing, 0) / nonZero.length);
     }
   }
+  // Фолбэк: если Google-база = 0, берём monthlyClicks из GSC
+  if (gBase === 0 && files.gsc && files.gsc.monthlyClicks > 0) {
+    gBase = files.gsc.monthlyClicks;
+  }
+  // eslint-disable-next-line no-console
+  console.log('[Forecast] base:', { yBase, gBase, bBase, gscMonthlyClicks: files.gsc?.monthlyClicks ?? null });
   const totalBase = yBase + gBase + bBase;
 
   // Block E — сезонность: фактическая или из справочника
