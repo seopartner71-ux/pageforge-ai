@@ -372,11 +372,38 @@ async function fetchYandexWebmaster(token: string, hostId: string, date1: string
 async function fetchMetrika(token: string, counterId: string, date1: string, date2: string, opts: { withChannels?: boolean } = {}) {
   const base = { ids: counterId, date1, date2, accuracy: "full" };
   const ORGANIC_FILTER = "ym:s:lastSignTrafficSource=='organic'";
-  const [totals, sources, engines, pages] = await Promise.all([
+  const [totals, sources, engines, pages, searchEngines, searchPhrases, organicPages] = await Promise.all([
     metrikaRequest(token, { ...base, metrics: "ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds", filters: ORGANIC_FILTER }).catch((e) => ({ __error: e, totals: [] })),
     metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:lastSignTrafficSource", filters: ORGANIC_FILTER, limit: "20" }).catch((e) => ({ __error: e, data: [] })),
     metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:searchEngineRoot", filters: ORGANIC_FILTER, limit: "20" }).catch((e) => ({ __error: e, data: [] })),
     metrikaRequest(token, { ...base, metrics: "ym:s:visits", dimensions: "ym:s:startURL", filters: ORGANIC_FILTER, limit: "25", sort: "-ym:s:visits" }).catch((e) => ({ __error: e, data: [] })),
+    // Search engines breakdown (organic only) — per ПС: visits, users, bounce, depth, duration
+    metrikaRequest(token, {
+      ...base,
+      metrics: "ym:s:visits,ym:s:users,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      dimensions: "ym:s:searchEngine",
+      filters: ORGANIC_FILTER,
+      limit: "20",
+      sort: "-ym:s:visits",
+    }).catch((e) => ({ __error: e, data: [] })),
+    // Top search phrases (organic)
+    metrikaRequest(token, {
+      ...base,
+      metrics: "ym:s:visits,ym:s:bounceRate",
+      dimensions: "ym:s:searchPhrase",
+      filters: ORGANIC_FILTER,
+      limit: "50",
+      sort: "-ym:s:visits",
+    }).catch((e) => ({ __error: e, data: [] })),
+    // Top organic landing pages
+    metrikaRequest(token, {
+      ...base,
+      metrics: "ym:s:visits,ym:s:bounceRate,ym:s:pageDepth,ym:s:avgVisitDurationSeconds",
+      dimensions: "ym:s:startURL",
+      filters: ORGANIC_FILTER,
+      limit: "30",
+      sort: "-ym:s:visits",
+    }).catch((e) => ({ __error: e, data: [] })),
   ]);
   const hardError = [totals, sources, engines, pages].find((x: any) => x?.__error?.status === 401 || x?.__error?.status === 403 || x?.__error?.status === 404)?.__error;
   if (hardError) throw hardError;
@@ -457,6 +484,26 @@ async function fetchMetrika(token: string, counterId: string, date1: string, dat
     sources: ((sources as any).data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
     engines: ((engines as any).data ?? []).map((r: any) => ({ name: r.dimensions[0]?.name ?? r.dimensions[0]?.id, visits: r.metrics[0] })),
     top_pages: ((pages as any).data ?? []).map((r: any) => ({ url: r.dimensions[0]?.name, visits: r.metrics[0] })),
+    search_engines: ((searchEngines as any).data ?? []).map((r: any) => ({
+      name: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
+      visits: Number(r.metrics?.[0] ?? 0),
+      users: Number(r.metrics?.[1] ?? 0),
+      bounce_rate: Math.round(Number(r.metrics?.[2] ?? 0) * 10) / 10,
+      depth: Math.round(Number(r.metrics?.[3] ?? 0) * 100) / 100,
+      duration: Math.round(Number(r.metrics?.[4] ?? 0)),
+    })),
+    search_phrases: ((searchPhrases as any).data ?? []).map((r: any) => ({
+      phrase: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
+      visits: Number(r.metrics?.[0] ?? 0),
+      bounce_rate: Math.round(Number(r.metrics?.[1] ?? 0) * 10) / 10,
+    })),
+    organic_pages: ((organicPages as any).data ?? []).map((r: any) => ({
+      url: r.dimensions[0]?.name ?? r.dimensions[0]?.id ?? "—",
+      visits: Number(r.metrics?.[0] ?? 0),
+      bounce_rate: Math.round(Number(r.metrics?.[1] ?? 0) * 10) / 10,
+      depth: Math.round(Number(r.metrics?.[2] ?? 0) * 100) / 100,
+      duration: Math.round(Number(r.metrics?.[3] ?? 0)),
+    })),
     daily_data,
     daily_channels,
     daily_combined: merged_daily,
