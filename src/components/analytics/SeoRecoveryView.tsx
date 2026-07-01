@@ -34,6 +34,16 @@ function ruLabel(val: string): string {
     Metrika: 'Метрика',
     query: 'запрос',
     page: 'страница',
+    // Паттерны диагностики
+    visibility_loss: 'Потеря видимости',
+    ctr_decay: 'Падение CTR',
+    impressions_drop_clicks_stable: 'Показы упали, клики стабильны',
+    position_up_clicks_down_anomaly: 'Позиции растут, клики падают (аномалия)',
+    mixed: 'Смешанный паттерн',
+    // Уровни уверенности
+    high: 'высокая',
+    medium: 'средняя',
+    low: 'низкая',
   };
   return map[val] ?? val;
 }
@@ -44,11 +54,13 @@ function enrichSeoRecoveryAI(data: any) {
   const pct = (now: number, prev: number) => prev ? Math.round(((now - prev) / prev) * 1000) / 10 : (now ? 100 : 0);
   const ptxt = (v: any) => `${n(v) > 0 ? '+' : ''}${Math.round(n(v) * 10) / 10}%`;
   const ev = (source: string, metric: string, was: any, now: any, delta: any) => ({ source, metric, was: fmt(was), now: fmt(now), delta: ptxt(delta) });
+  // Валидная метрика для гипотез: previous > 0 и delta > -100 (защита от «мусорных» дельт с пустой выгрузкой предыдущего периода)
+  const isReal = (was: any, delta: any) => n(was) > 0 && n(delta) > -100;
   const metrics = [
     data?.gsc ? { source: 'GSC', metric: 'клики', rawMetric: 'clicks', was: data.gsc.previous?.clicks, now: data.gsc.current?.clicks, delta: data.gsc.delta?.clicks } : null,
     data?.yandex ? { source: 'Yandex', metric: 'клики', rawMetric: 'clicks', was: data.yandex.previous?.clicks, now: data.yandex.current?.clicks, delta: data.yandex.delta?.clicks } : null,
     data?.metrika ? { source: 'Metrika', metric: 'органические визиты', rawMetric: 'organic_visits', was: data.metrika.previous?.organic_visits, now: data.metrika.current?.organic_visits, delta: data.metrika.delta?.organic_visits } : null,
-  ].filter(Boolean) as any[];
+  ].filter((m): m is any => !!m && isReal(m.was, m.delta));
   const primary = [...metrics].sort((a, b) => Math.abs(n(b.delta)) - Math.abs(n(a.delta)))[0] ?? { source: 'GSC', metric: 'клики', rawMetric: 'clicks', was: 0, now: 0, delta: 0 };
   const direction = n(primary.delta) < -5 ? 'down' : n(primary.delta) > 5 ? 'up' : 'stable';
   const d = data?.diagnostics ?? {};
@@ -79,25 +91,22 @@ function enrichSeoRecoveryAI(data: any) {
     evidence: [...(indexedStart != null && indexedEnd != null ? [ev('Yandex', 'страниц в поиске', indexedStart, indexedEnd, indexedDelta)] : []), ev('Yandex', 'исключённые страницы', 0, indexing?.excluded_count ?? 0, indexing?.excluded_count ? 100 : 0)],
     verification_step: 'Проверить исключённые URL: robots.txt, canonical, meta noindex, HTTP-статус, sitemap и дату последнего изменения шаблона.',
   });
-  if (data?.gsc && n(data.gsc.delta?.clicks) < -5) {
+  if (data?.gsc && n(data.gsc.delta?.clicks) < -5 && isReal(data.gsc.previous?.clicks, data.gsc.delta?.clicks)) {
     const evidence = [ev('GSC', 'клики', data.gsc.previous?.clicks, data.gsc.current?.clicks, data.gsc.delta?.clicks)];
     if (n(data.gsc.delta?.impressions) < -5) evidence.push(ev('GSC', 'показы', data.gsc.previous?.impressions, data.gsc.current?.impressions, data.gsc.delta?.impressions));
     if (Math.abs(n(data.gsc.delta?.position)) > 0.3) evidence.push(ev('GSC', 'позиция', data.gsc.previous?.position, data.gsc.current?.position, data.gsc.delta?.position));
     hypotheses.push({ hypothesis: n(data.gsc.delta?.impressions) < -10 ? 'Падение видимости в Google: сайт стал реже показываться по части запросов' : 'Падение кликов в Google без сопоставимой потери показов указывает на CTR/сниппеты или SERP-факторы', probability: evidence.length >= 3 ? 85 : evidence.length === 2 ? 65 : 40, evidence, verification_step: 'Открыть топ запросов/страниц с потерей кликов, сравнить title/description, тип сниппета, SERP-фичи и изменения позиций по датам.' });
   }
-  if (data?.yandex && n(data.yandex.delta?.clicks) < -5) {
+  if (data?.yandex && n(data.yandex.delta?.clicks) < -5 && isReal(data.yandex.previous?.clicks, data.yandex.delta?.clicks)) {
     const evidence = [ev('Yandex', 'клики', data.yandex.previous?.clicks, data.yandex.current?.clicks, data.yandex.delta?.clicks)];
     if (n(data.yandex.delta?.impressions) < -5) evidence.push(ev('Yandex', 'показы', data.yandex.previous?.impressions, data.yandex.current?.impressions, data.yandex.delta?.impressions));
     hypotheses.push({ hypothesis: 'Падение поискового спроса или видимости в Яндексе по группе запросов', probability: evidence.length >= 2 ? 65 : 40, evidence, verification_step: 'Проверить запросы с максимальной потерей в Яндекс.Вебмастере и сопоставить их с изменениями индексации и позиций.' });
   }
-  if (data?.metrika && n(data.metrika.delta?.organic_visits) < -5) hypotheses.push({ hypothesis: 'Просадка подтверждается фактическими органическими визитами в Метрике', probability: data.gsc || data.yandex ? 65 : 40, evidence: [ev('Metrika', 'органические визиты', data.metrika.previous?.organic_visits, data.metrika.current?.organic_visits, data.metrika.delta?.organic_visits)], verification_step: 'Сверить дневной график Метрики с датой перелома в GSC/Яндекс.Вебмастере и проверить посадочные страницы с падением визитов.' });
+  if (data?.metrika && n(data.metrika.delta?.organic_visits) < -5 && isReal(data.metrika.previous?.organic_visits, data.metrika.delta?.organic_visits)) hypotheses.push({ hypothesis: 'Просадка подтверждается фактическими органическими визитами в Метрике', probability: data.gsc || data.yandex ? 65 : 40, evidence: [ev('Metrika', 'органические визиты', data.metrika.previous?.organic_visits, data.metrika.current?.organic_visits, data.metrika.delta?.organic_visits)], verification_step: 'Сверить дневной график Метрики с датой перелома в GSC/Яндекс.Вебмастере и проверить посадочные страницы с падением визитов.' });
   if (data?.topvisor?.delta && ['top3', 'top10', 'top30'].some((k) => n(data.topvisor.delta?.[k]) < 0)) hypotheses.push({ hypothesis: 'Позиционный фактор: часть запросов вышла из важных TOP-диапазонов', probability: 65, evidence: [ev('Топвизор', 'TOP-3', data.topvisor.previous?.top3, data.topvisor.current?.top3, data.topvisor.delta?.top3), ev('Топвизор', 'TOP-10', data.topvisor.previous?.top10, data.topvisor.current?.top10, data.topvisor.delta?.top10), ev('Топвизор', 'TOP-30', data.topvisor.previous?.top30, data.topvisor.current?.top30, data.topvisor.delta?.top30)], verification_step: 'Проверить потерянные позиции в Топвизоре: какие запросы вышли из TOP-3/TOP-10 и какие URL ранжируются сейчас.' });
   if (!hypotheses.length) hypotheses.push({ hypothesis: 'Единого подтверждённого драйвера по подключённым источникам не видно — требуется ручная проверка событий и качества данных', probability: 40, evidence: [ev(primary.source, primary.metric, primary.was, primary.now, primary.delta)], verification_step: 'Проверить корректность периодов, доступы к источникам, релизы сайта, robots.txt, sitemap и серверные логи за дату перелома.' });
 
-  if (typeof base.seo_score !== 'number') {
-    const drops = metrics.map((m) => n(m.delta));
-    base.seo_score = drops.some((x) => x <= -35) ? 45 : drops.filter((x) => x <= -20).length >= 2 ? 55 : direction === 'down' ? 65 : direction === 'up' ? 80 : 72;
-  }
+  // SEO Score: единый источник истины — сервер (normalizeAI/fallbackAI). На клиенте не переопределяем.
   if (!base.headline?.summary) base.headline = { direction, main_metric: primary.rawMetric, delta_pct: n(primary.delta), summary: direction === 'down' ? `Органический трафик снизился: ${primary.metric} ${ptxt(primary.delta)}` : direction === 'up' ? `Органический трафик вырос: ${primary.metric} ${ptxt(primary.delta)}` : 'Существенного изменения органического трафика не видно' };
   if (!base.score_reasoning) base.score_reasoning = `Автоматический расчёт по данным источников: ${primary.metric} ${fmt(primary.was)} → ${fmt(primary.now)} (${ptxt(primary.delta)}).`;
   if (!base.main_cause?.title) base.main_cause = { title: hypotheses[0].hypothesis, confidence: n(hypotheses[0].probability) >= 70 ? 'high' : n(hypotheses[0].probability) >= 50 ? 'medium' : 'low', evidence: hypotheses[0].evidence, conclusion: `${hypotheses[0].hypothesis}. Сначала подтвердите гипотезу через топ-потери страниц/запросов и индексацию, затем исправляйте URL с максимальным вкладом в падение.` };
@@ -263,7 +272,7 @@ export function SeoRecoveryView({ data }: Props) {
               Уверенность: {ai.main_cause.confidence === 'high' ? 'высокая' : ai.main_cause.confidence === 'medium' ? 'средняя' : 'низкая'}
             </Badge>
             {ai.diagnosis_pattern?.code && (
-              <Badge variant="outline" className="bg-background">Паттерн: {ai.diagnosis_pattern.code}</Badge>
+              <Badge variant="outline" className="bg-background">Паттерн: {ruLabel(ai.diagnosis_pattern.code)}</Badge>
             )}
           </div>
           {ai.diagnosis_pattern?.explanation && (
@@ -696,7 +705,7 @@ function pickDaily(src: any): Array<{ date: string; clicks?: number; impressions
 
 function pickDailyPrev(src: any): Array<{ date: string; clicks?: number; impressions?: number; position?: number }> {
   if (!src) return [];
-  const arr = src.previous_daily_data ?? src.previous_daily ?? src.previous?.daily_data ?? src.previous?.daily ?? src.by_date_previous ?? [];
+  const arr = src.daily_data_prev ?? src.previous_daily_data ?? src.previous_daily ?? src.previous?.daily_data ?? src.previous?.daily ?? src.by_date_previous ?? [];
   if (!Array.isArray(arr)) return [];
   return arr.map((r: any) => ({
     date: r.date ?? r.day ?? r.dt ?? r.d,
@@ -1069,7 +1078,8 @@ function IndexingPanel({ indexing }: { indexing: { daily_indexed: Array<{ date: 
           {first ? <span className="ml-2 text-muted-foreground">({first} → {last}, <Delta value={delta} />)</span> : null}
         </div>
         <div className="px-3 py-1.5 rounded-md border bg-card">
-          Исключено страниц: <span className="font-semibold text-rose-500">{fmt(indexing.excluded_count ?? 0)}</span>
+          Страниц с событием удаления из поиска: <span className="font-semibold text-rose-500">{fmt(indexing.excluded_count ?? 0)}</span>
+          <span className="ml-2 text-xs text-muted-foreground">(REMOVED_FROM_SEARCH)</span>
         </div>
         <div className="px-3 py-1.5 rounded-md border bg-card">
           Добавлено / удалено: <span className="font-semibold text-emerald-500">+{fmt(addedTotal)}</span>
@@ -1121,8 +1131,8 @@ function IndexingPanel({ indexing }: { indexing: { daily_indexed: Array<{ date: 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>URL</TableHead>
-                <TableHead className="w-[200px]">Причина исключения</TableHead>
+                <TableHead>URL с событием удаления из поиска (REMOVED_FROM_SEARCH)</TableHead>
+                <TableHead className="w-[200px]">Тип события</TableHead>
                 <TableHead className="w-[120px]">Дата</TableHead>
                 <TableHead className="w-[120px]">HTTP</TableHead>
               </TableRow>
