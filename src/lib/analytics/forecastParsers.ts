@@ -9,6 +9,8 @@ export type ParsedSources = {
   rows: Array<{ source: string; visits: number; users: number; bounce: number; depth: number; duration: number }>;
   totalVisits: number;
   yandexOrganic: number;
+  googleOrganic: number;
+  direct: number;
   summary: string;
 };
 
@@ -27,6 +29,21 @@ export type ParsedTopvisor = {
   top10: number;
   top100: number;
   outside: number;
+  summary: string;
+};
+
+export type ParsedWebmasterQueries = {
+  rows: Array<{ query: string; impressions: number; clicks: number; position: number | null }>;
+  total: number;
+  top10: number;
+  avgPosition: number;
+  summary: string;
+};
+
+export type ParsedGeneric = {
+  rows: any[][];
+  columns: string[];
+  rowCount: number;
   summary: string;
 };
 
@@ -115,8 +132,12 @@ export async function parseMetrikaSources(file: File): Promise<ParsedSources> {
   const totalVisits = out.reduce((s, r) => s + r.visits, 0);
   const yaOrg = out.find((r) => /яндекс|yandex/i.test(r.source) && /орган|organic/i.test(r.source));
   const yandexOrganic = yaOrg?.visits ?? 0;
+  const ggOrg = out.find((r) => /google|гугл/i.test(r.source) && /орган|organic/i.test(r.source));
+  const googleOrganic = ggOrg?.visits ?? 0;
+  const dir = out.find((r) => /прям|direct|заход/i.test(r.source));
+  const direct = dir?.visits ?? 0;
   const summary = `Всего визитов: ${totalVisits}${yandexOrganic ? `, органика Яндекс: ${yandexOrganic} (${totalVisits ? Math.round((yandexOrganic / totalVisits) * 100) : 0}%)` : ''}.`;
-  return { rows: out, totalVisits, yandexOrganic, summary };
+  return { rows: out, totalVisits, yandexOrganic, googleOrganic, direct, summary };
 }
 
 export async function parseGsc(file: File): Promise<ParsedGsc> {
@@ -188,4 +209,48 @@ export async function parseTopvisor(file: File): Promise<ParsedTopvisor> {
   const outside = out.filter((r) => r.position == null || (r.position ?? 0) > 100).length;
   const summary = `Запросов: ${total}, в топ-10: ${top10}, в топ-100: ${top100}, вне топ-100: ${outside}.`;
   return { rows: out, total, top10, top100, outside, summary };
+}
+
+export async function parseWebmasterQueries(file: File): Promise<ParsedWebmasterQueries> {
+  const buf = await file.arrayBuffer();
+  const rows = sheetToRows(buf);
+  const headerIdx = findHeaderRow(rows, ['запрос']) >= 0 ? findHeaderRow(rows, ['запрос']) : 0;
+  const header = rows[headerIdx].map((c) => String(c).toLowerCase());
+  const iQ = header.findIndex((c) => c.includes('запрос') || c.includes('ключ'));
+  const iImp = header.findIndex((c) => c.includes('показ') || c.includes('impress'));
+  const iCli = header.findIndex((c) => c.includes('клик') || c.includes('click'));
+  const iPos = header.findIndex((c) => c.includes('позиц') || c.includes('position'));
+  const out: ParsedWebmasterQueries['rows'] = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i]; if (!r) continue;
+    const q = String(r[iQ >= 0 ? iQ : 0] ?? '').trim();
+    if (!q) continue;
+    const pos = iPos >= 0 ? toNum(r[iPos]) : 0;
+    out.push({
+      query: q,
+      impressions: iImp >= 0 ? toNum(r[iImp]) : 0,
+      clicks: iCli >= 0 ? toNum(r[iCli]) : 0,
+      position: pos > 0 ? pos : null,
+    });
+  }
+  const total = out.length;
+  const top10 = out.filter((r) => r.position != null && r.position <= 10).length;
+  const posRows = out.filter((r) => r.position != null);
+  const avgPosition = posRows.length ? posRows.reduce((s, r) => s + (r.position || 0), 0) / posRows.length : 0;
+  const summary = `Запросов: ${total}, в топ-10: ${top10}, ср. позиция: ${avgPosition.toFixed(1)}.`;
+  return { rows: out, total, top10, avgPosition, summary };
+}
+
+export async function parseGeneric(file: File): Promise<ParsedGeneric> {
+  const buf = await file.arrayBuffer();
+  const rows = sheetToRows(buf);
+  const headerRow = rows[0] || [];
+  const columns = headerRow.map((c) => String(c)).filter(Boolean);
+  const dataRows = rows.slice(1).filter((r) => r && r.some((c) => c !== '' && c != null));
+  return {
+    rows: dataRows,
+    columns,
+    rowCount: dataRows.length,
+    summary: `Строк: ${dataRows.length}, колонок: ${columns.length}${columns.length ? ` (${columns.slice(0, 6).join(', ')}${columns.length > 6 ? '…' : ''})` : ''}.`,
+  };
 }
