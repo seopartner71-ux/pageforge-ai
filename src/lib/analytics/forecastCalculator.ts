@@ -111,7 +111,11 @@ export function calculateForecast(
   function build(name: ForecastScenario['name'], mult: number): ForecastScenario {
     const r = rate * mult;
     const months: ForecastScenario['months'] = [];
-    let y = yBase, g = gBase, b = bBase;
+    // If no factual base, seed a small starting value so growth compounds meaningfully.
+    const seed = totalBase === 0 ? 20 : 0;
+    let y = yBase + (project.engines.yandex ? seed : 0);
+    let g = gBase + (project.engines.google ? seed : 0);
+    let b = bBase + (project.engines.bing ? Math.round(seed / 4) : 0);
     const gscCurrentMonthClicks = hasGsc ? Math.round(files.gsc!.clicks / 12) : 0;
     const top10Now = hasTopvisor ? files.topvisor!.top10 : 0;
     for (let m = 1; m <= horizon; m++) {
