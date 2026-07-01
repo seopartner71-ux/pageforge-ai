@@ -244,10 +244,40 @@ export async function exportSeoForecastDocx(
     ], [5000, 4360]));
   }
 
+  // Extras (Блок 4 — Дополнительные источники)
+  const extras = (files.extras ?? []).filter((e) => e.parsed);
+  if (extras.length) {
+    for (const ex of extras) {
+      children.push(h1(`${sectionNum++}. Дополнительные данные — ${ex.typeLabel}`));
+      if (ex.fileName) children.push(p(`Файл: ${ex.fileName}`, { italics: true, color: SLATE }));
+      if (ex.kind === 'wm_queries') {
+        const wm = ex.parsed as ParsedWebmasterQueries;
+        children.push(p(`Запросов: ${wm.total} | Топ-10: ${wm.top10} | Средняя позиция: ${wm.avgPosition.toFixed(1)}`));
+        const rows = wm.rows.slice(0, 10).map((r) => [
+          r.query,
+          String(r.impressions),
+          String(r.clicks),
+          r.position != null ? r.position.toFixed(1) : '—',
+        ]);
+        if (rows.length) {
+          children.push(tableWithHeader(['Запрос', 'Показы', 'Клики', 'Позиция'], rows, [4500, 1620, 1620, 1620]));
+        }
+      } else {
+        const g = ex.parsed as ParsedGeneric;
+        children.push(p(`Строк: ${g.rowCount}, колонок: ${g.columns.length}${g.columns.length ? ` (${g.columns.slice(0, 8).join(', ')}${g.columns.length > 8 ? '…' : ''})` : ''}.`));
+        const cols = g.columns.length ? g.columns.slice(0, 6) : Array.from({ length: Math.min(6, g.rows[0]?.length ?? 0) }, (_, i) => `Колонка ${i + 1}`);
+        const rows = g.rows.slice(0, 10).map((r) => cols.map((_, i) => String(r[i] ?? '')));
+        if (rows.length && cols.length) {
+          const cw = cols.map(() => Math.floor(9360 / cols.length));
+          children.push(tableWithHeader(cols, rows, cw));
+        }
+      }
+      children.push(p('Файл загружен, данные учтены при формировании прогноза.', { italics: true, color: SLATE }));
+    }
+  }
+
   // Forecast
   children.push(h1(`${sectionNum++}. Прогноз на ${project.horizon} мес. — сводные сценарии`));
-
-  // (extras rendered before forecast — insert above)
   children.push(p(`Прогноз рассчитан от базового уровня трафика (${forecast.baseTraffic.total} визитов/мес. — среднее за 2 последних периода). Дата среза: ${dateStr}. Учитывается статус сайта, набор работ и данные загруженных источников.`));
 
   children.push(h2('Консервативный сценарий'));
