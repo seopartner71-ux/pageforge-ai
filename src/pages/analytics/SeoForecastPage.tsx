@@ -52,6 +52,15 @@ const emptyProject: ForecastProjectData = {
   works: { blog: false, cards: false, links: false, crowd: false, external: false, tech: false },
   publishPace: undefined,
   context: '',
+  noData: {
+    currentTraffic: 'none',
+    domainAge: 'new',
+    indexPages: 'unknown',
+    linkProfile: 'none',
+    competition: 'medium',
+    linkBudget: 'none',
+    contentBudget: 'none',
+  },
 };
 
 function Stepper({ step }: { step: number }) {
@@ -368,6 +377,99 @@ export default function SeoForecastPage() {
                 onChange={(e) => setProject((p) => ({ ...p, context: e.target.value }))}
               />
             </Field>
+
+            {project.topic.trim() && project.region.trim() && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-4">
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Уточните параметры — это заменит реальные данные</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">Чем точнее ответы, тем реалистичнее прогноз, если файлы Метрики/GSC/Topvisor не будут загружены</div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Field label="Текущий органический трафик" hint="визитов/мес.">
+                    <Select value={project.noData!.currentTraffic} onValueChange={(v: any) => setProject((p) => ({ ...p, noData: { ...p.noData!, currentTraffic: v } }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Нет</SelectItem>
+                        <SelectItem value="lt100">До 100</SelectItem>
+                        <SelectItem value="100-500">100–500</SelectItem>
+                        <SelectItem value="500-2000">500–2000</SelectItem>
+                        <SelectItem value="2000-5000">2000–5000</SelectItem>
+                        <SelectItem value="5000+">5000+</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Возраст домена">
+                    <Select value={project.noData!.domainAge} onValueChange={(v: any) => setProject((p) => ({ ...p, noData: { ...p.noData!, domainAge: v } }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">Новый (до 1 года)</SelectItem>
+                        <SelectItem value="1-3">1–3 года</SelectItem>
+                        <SelectItem value="3-7">3–7 лет</SelectItem>
+                        <SelectItem value="7+">7+ лет</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Страниц в индексе">
+                    <Select value={project.noData!.indexPages} onValueChange={(v: any) => setProject((p) => ({ ...p, noData: { ...p.noData!, indexPages: v } }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unknown">Нет данных</SelectItem>
+                        <SelectItem value="lt50">До 50</SelectItem>
+                        <SelectItem value="50-200">50–200</SelectItem>
+                        <SelectItem value="200-1000">200–1000</SelectItem>
+                        <SelectItem value="1000+">1000+</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Ссылочная масса">
+                    <Select value={project.noData!.linkProfile} onValueChange={(v: any) => setProject((p) => ({ ...p, noData: { ...p.noData!, linkProfile: v } }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Нет</SelectItem>
+                        <SelectItem value="weak">Слабая (до 20 доменов)</SelectItem>
+                        <SelectItem value="medium">Средняя (20–100)</SelectItem>
+                        <SelectItem value="strong">Сильная (100+)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Уровень конкуренции в нише">
+                    <Select value={project.noData!.competition} onValueChange={(v: any) => setProject((p) => ({ ...p, noData: { ...p.noData!, competition: v } }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Низкий</SelectItem>
+                        <SelectItem value="medium">Средний</SelectItem>
+                        <SelectItem value="high">Высокий</SelectItem>
+                        <SelectItem value="very_high">Очень высокий</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Бюджет на ссылки в месяц">
+                    <Select value={project.noData!.linkBudget} onValueChange={(v: any) => setProject((p) => ({ ...p, noData: { ...p.noData!, linkBudget: v } }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Нет</SelectItem>
+                        <SelectItem value="lt10k">До 10 000 ₽</SelectItem>
+                        <SelectItem value="10-30k">10–30 000 ₽</SelectItem>
+                        <SelectItem value="30-80k">30–80 000 ₽</SelectItem>
+                        <SelectItem value="80k+">80 000+ ₽</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Бюджет на контент в месяц">
+                    <Select value={project.noData!.contentBudget} onValueChange={(v: any) => setProject((p) => ({ ...p, noData: { ...p.noData!, contentBudget: v } }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Нет</SelectItem>
+                        <SelectItem value="lt10k">До 10 000 ₽</SelectItem>
+                        <SelectItem value="10-30k">10–30 000 ₽</SelectItem>
+                        <SelectItem value="30-80k">30–80 000 ₽</SelectItem>
+                        <SelectItem value="80k+">80 000+ ₽</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end pt-2">
               <TooltipProvider delayDuration={0}>

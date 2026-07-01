@@ -193,6 +193,41 @@ export async function exportSeoForecastDocx(
 
   let sectionNum = 2;
 
+  // ===== Режим «без данных»: разделы 2 (ниша), 3 (объём работ) =====
+  if (forecast.noDataMode) {
+    // 2. Анализ ниши и конкурентной среды
+    children.push(h1(`${sectionNum++}. Анализ ниши и конкурентной среды`));
+
+    children.push(h2('2.1. Сезонность ниши'));
+    children.push(p(`Ниже — сезонный профиль спроса для тематики «${project.topic}». Коэффициент показывает отклонение от среднегодового уровня: 1.00 — норма, >1.00 — рост спроса, <1.00 — спад. ${forecast.seasonalityNote}`));
+    children.push(tableWithHeader(
+      ['Месяц', 'Коэффициент спроса', 'Характеристика'],
+      forecast.seasonalityTable.map((r) => [r.month, r.coeff.toFixed(2), r.note]),
+      [3000, 2600, 3760],
+    ));
+
+    children.push(h2('2.2. Уровень конкуренции'));
+    children.push(p(forecast.competitionNote));
+    children.push(p('Уровень конкуренции напрямую влияет на реалистичный темп роста и горизонт достижения коммерческих результатов — учтён в расчёте всех трёх сценариев ниже.', { italics: true, color: SLATE }));
+
+    // 3. Рекомендуемый объём работ
+    children.push(h1(`${sectionNum++}. Рекомендуемый объём работ`));
+    children.push(p('Что нужно делать для достижения прогнозных показателей:', { bold: true }));
+    const wr = forecast.workRecommendations;
+    children.push(tableWithHeader(
+      ['Направление', 'Рекомендация', 'Обоснование'],
+      [
+        ['Контент (блог)', `${wr.content.articles} статей/мес.`, wr.content.description],
+        ['Закупка ссылок', `${wr.links.domains} доноров/мес.`, wr.links.text],
+        ['Крауд-маркетинг', '15–20 упоминаний/мес.', 'Формирование ссылочного фона и естественности профиля'],
+        ['Техническое SEO', wr.tech, '—'],
+        ['Внешние площадки', '2–4 публикации/мес.', 'VC.ru, Дзен, тематические СМИ'],
+      ],
+      [2400, 2600, 4360],
+    ));
+    children.push(p(wr.note, { italics: true, color: SLATE }));
+  }
+
   // Traffic
   if (files.traffic && files.traffic.rows.length) {
     children.push(h1(`${sectionNum++}. Динамика органического трафика (факт)`));
@@ -278,7 +313,11 @@ export async function exportSeoForecastDocx(
 
   // Forecast
   children.push(h1(`${sectionNum++}. Прогноз на ${project.horizon} мес. — сводные сценарии`));
-  children.push(p(`Прогноз рассчитан от базового уровня трафика (${forecast.baseTraffic.total} визитов/мес. — среднее за 2 последних периода). Дата среза: ${dateStr}. Учитывается статус сайта, набор работ, S-кривая роста и данные загруженных источников.`));
+  if (forecast.noDataMode) {
+    children.push(p(`Прогноз построен от параметров ниши (реальные данные Метрики / GSC / Topvisor не предоставлены). Базовый уровень принят как ${forecast.baseTraffic.total} визитов/мес. на основании указанного текущего трафика, возраста домена, ссылочной массы и уровня конкуренции.`));
+  } else {
+    children.push(p(`Прогноз рассчитан от базового уровня трафика (${forecast.baseTraffic.total} визитов/мес. — среднее за 2 последних периода). Дата среза: ${dateStr}. Учитывается статус сайта, набор работ, S-кривая роста и данные загруженных источников.`));
+  }
   children.push(p(forecast.seasonalityNote + ` Пик спроса: ${forecast.peakMonths.join(', ')}.`, { italics: true, color: SLATE }));
 
   children.push(h2('Консервативный сценарий'));
@@ -287,6 +326,24 @@ export async function exportSeoForecastDocx(
   children.push(scenarioTable(forecast.scenarios.base, forecast.monthLabels, project.engines));
   children.push(h2('Оптимистичный сценарий'));
   children.push(scenarioTable(forecast.scenarios.optimistic, forecast.monthLabels, project.engines));
+
+  if (forecast.noDataMode) {
+    children.push(p('⚠ Прогноз построен без реальных данных проекта. При загрузке данных Яндекс.Метрики, GSC и Topvisor точность прогноза существенно повысится.', { italics: true, color: SLATE }));
+
+    children.push(h1(`${sectionNum++}. Ожидаемые результаты по месяцам`));
+    children.push(p('Что именно происходит в каждом месяце при выполнении рекомендуемого объёма работ (базовый сценарий):'));
+    children.push(tableWithHeader(
+      ['Месяц', 'Трафик (база)', 'Что происходит'],
+      forecast.monthlyNarrative.map((r) => [r.month, String(r.traffic), r.note]),
+      [2000, 1800, 5560],
+    ));
+
+    children.push(h1(`${sectionNum++}. Ключевые риски`));
+    forecast.risks.forEach((r) => children.push(bullet(r)));
+
+    children.push(h1(`${sectionNum++}. Условия достижения прогноза`));
+    forecast.conditions.forEach((c) => children.push(bullet(`✓ ${c}`)));
+  }
 
   // Insights
   children.push(h1(`${sectionNum++}. Ключевые инсайты и точки роста`));

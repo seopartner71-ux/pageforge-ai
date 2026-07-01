@@ -1,5 +1,22 @@
 import type { ParsedTraffic, ParsedSources, ParsedGsc, ParsedTopvisor } from './forecastParsers';
 
+export type NoDataCurrentTraffic = 'none' | 'lt100' | '100-500' | '500-2000' | '2000-5000' | '5000+';
+export type NoDataDomainAge = 'new' | '1-3' | '3-7' | '7+';
+export type NoDataIndexPages = 'unknown' | 'lt50' | '50-200' | '200-1000' | '1000+';
+export type NoDataLinkProfile = 'none' | 'weak' | 'medium' | 'strong';
+export type NoDataCompetition = 'low' | 'medium' | 'high' | 'very_high';
+export type NoDataBudget = 'none' | 'lt10k' | '10-30k' | '30-80k' | '80k+';
+
+export type NoDataParams = {
+  currentTraffic: NoDataCurrentTraffic;
+  domainAge: NoDataDomainAge;
+  indexPages: NoDataIndexPages;
+  linkProfile: NoDataLinkProfile;
+  competition: NoDataCompetition;
+  linkBudget: NoDataBudget;
+  contentBudget: NoDataBudget;
+};
+
 export type ForecastProjectData = {
   domain: string;
   clientName: string;
@@ -18,6 +35,7 @@ export type ForecastProjectData = {
   };
   publishPace?: number;
   context?: string;
+  noData?: NoDataParams;
 };
 
 export type ForecastScenario = {
@@ -46,7 +64,70 @@ export type ForecastResult = {
   seasonalityNote: string;
   seasonSource: 'niche' | 'actual';
   peakMonths: string[];
+  // «Без данных» — блоки для отчёта
+  noDataMode: boolean;
+  seasonalityTable: Array<{ month: string; coeff: number; note: string }>;
+  competitionNote: string;
+  workRecommendations: {
+    content: { articles: string; description: string };
+    links: { domains: string; text: string };
+    crowd: string;
+    tech: string;
+    external: string;
+    note: string;
+  };
+  monthlyNarrative: Array<{ month: string; traffic: number; note: string }>;
+  risks: string[];
+  conditions: string[];
 };
+
+const NO_DATA_TRAFFIC: Record<NoDataCurrentTraffic, { yandex: number; google: number }> = {
+  none:         { yandex: 0,    google: 0 },
+  lt100:        { yandex: 70,   google: 15 },
+  '100-500':    { yandex: 300,  google: 50 },
+  '500-2000':   { yandex: 1000, google: 150 },
+  '2000-5000':  { yandex: 2800, google: 600 },
+  '5000+':      { yandex: 6000, google: 1500 },
+};
+const COMPETITION_MULT: Record<NoDataCompetition, number> = {
+  low: 1.4, medium: 1.0, high: 0.7, very_high: 0.45,
+};
+const DOMAIN_AGE_MULT: Record<NoDataDomainAge, number> = {
+  new: 0.6, '1-3': 0.85, '3-7': 1.1, '7+': 1.3,
+};
+const LINK_PROFILE_MULT: Record<NoDataLinkProfile, number> = {
+  none: 0.7, weak: 0.9, medium: 1.1, strong: 1.35,
+};
+const COMPETITION_LABEL: Record<NoDataCompetition, string> = {
+  low: 'низкой', medium: 'средней', high: 'высокой', very_high: 'очень высокой',
+};
+const COMPETITION_TEXT: Record<NoDataCompetition, string> = {
+  low: 'Ниша слабо конкурентна: топ-10 занят разнородными сайтами, есть свободные кластеры. Первые позиции по низкочастотным запросам достижимы за 1–2 месяца, по среднечастотным — за 3–5 месяцев.',
+  medium: 'Средний уровень конкуренции: топ-10 стабилен, но проницаем. Низкочастотные запросы выходят в топ за 1–3 месяца, среднечастотные — за 4–6, коммерческие ВЧ — за 6–9.',
+  high: 'Ниша характеризуется высокой конкуренцией. Топ-10 Яндекса по основным коммерческим запросам занят сайтами с историей 3+ лет и развитым ссылочным профилем. Выход в топ-10 по высокочастотным запросам реалистичен на горизонте 9–12 месяцев, по среднечастотным — 4–6 месяцев, по низкочастотному хвосту — 1–3 месяца.',
+  very_high: 'Ниша с очень высокой конкуренцией: топ-10 занят монополистами (маркетплейсы, агрегаторы, крупные бренды). Реалистичный горизонт выхода на коммерческие ВЧ — 12–18 месяцев; фокус на НЧ и СЧ хвост, локальные и информационные запросы.',
+};
+const BUDGET_LABEL: Record<NoDataBudget, string> = {
+  none: 'нет', lt10k: 'до 10 000 ₽', '10-30k': '10–30 000 ₽', '30-80k': '30–80 000 ₽', '80k+': '80 000+ ₽',
+};
+
+function contentRec(competition: NoDataCompetition) {
+  return ({
+    low:       { articles: '6–8',   description: 'Достаточно для роста в низкоконкурентной нише' },
+    medium:    { articles: '10–15', description: 'Стандартный темп для системного роста' },
+    high:      { articles: '15–20', description: 'Необходим высокий темп для конкуренции' },
+    very_high: { articles: '20–30', description: 'Контент-маркетинг как основной инструмент' },
+  } as const)[competition];
+}
+function linkRec(budget: NoDataBudget) {
+  return ({
+    none:    { domains: '0',    text: 'Без ссылок рост будет медленным, рекомендуем минимальный крауд' },
+    lt10k:   { domains: '3–5',  text: 'Крауд + 3–5 арендных ссылок/мес. на нишевых площадках' },
+    '10-30k':{ domains: '8–12', text: 'Миралинкс/GoGetLinks: 8–12 ссылок/мес., анкорный лист' },
+    '30-80k':{ domains: '15–25',text: 'Агрессивный рост ссылочного: 15–25 ссылок/мес. + крауд' },
+    '80k+':  { domains: '30+',  text: 'Полноценная ссылочная стратегия с фильтрацией доноров' },
+  } as const)[budget];
+}
 
 // Block B — базовые темпы по статусу сайта {conservative, base, optimistic}
 const STATUS_RATES: Record<ForecastProjectData['siteStatus'], { min: number; base: number; max: number }> = {
@@ -138,6 +219,9 @@ export function calculateForecast(
   const startMonth = new Date().getMonth();
   const nextMonth0 = (startMonth + 1) % 12;
 
+  const noFiles = !files.traffic && !files.sources && !files.gsc && !files.topvisor;
+  const noDataMode = noFiles && !!project.noData;
+
   // Block A — база трафика: среднее последних 2 ненулевых периодов
   let yBase = 0, gBase = 0, bBase = 0;
   if (files.traffic && files.traffic.rows.length) {
@@ -151,6 +235,13 @@ export function calculateForecast(
   // Фолбэк: если Google-база = 0, берём monthlyClicks из GSC
   if (gBase === 0 && files.gsc && files.gsc.monthlyClicks > 0) {
     gBase = files.gsc.monthlyClicks;
+  }
+  // Фолбэк «без данных»: база трафика из параметров ниши
+  if (yBase === 0 && gBase === 0 && bBase === 0 && project.noData) {
+    const t = NO_DATA_TRAFFIC[project.noData.currentTraffic];
+    yBase = project.engines.yandex ? t.yandex : 0;
+    gBase = project.engines.google ? t.google : 0;
+    bBase = 0;
   }
   // eslint-disable-next-line no-console
   console.log('[Forecast] base:', { yBase, gBase, bBase, gscMonthlyClicks: files.gsc?.monthlyClicks ?? null });
@@ -180,6 +271,14 @@ export function calculateForecast(
   const googleRatePower = (yBase > 0 && gBase < yBase * 0.05) ? 1.6 : 1.0;
 
   const rates = STATUS_RATES[project.siteStatus];
+  // Модификаторы «без данных»: конкуренция × возраст × ссылочная масса
+  let paramMult = 1;
+  if (project.noData) {
+    paramMult =
+      COMPETITION_MULT[project.noData.competition] *
+      DOMAIN_AGE_MULT[project.noData.domainAge] *
+      LINK_PROFILE_MULT[project.noData.linkProfile];
+  }
   const enabledWorks = (Object.keys(project.works) as Array<keyof ForecastProjectData['works']>).filter((k) => project.works[k]);
   const articlesPerMonth = project.works.blog ? (project.publishPace ?? 0) : 0;
 
@@ -212,8 +311,8 @@ export function calculateForecast(
         if (i >= w.lag) { yWorkBoost += w.yandex; gWorkBoost += w.google; }
       }
 
-      const yRate = (scenarioRate + yWorkBoost);
-      const gRate = (scenarioRate + gWorkBoost) * googleRatePower;
+      const yRate = (scenarioRate + yWorkBoost) * paramMult;
+      const gRate = (scenarioRate + gWorkBoost) * googleRatePower * paramMult;
 
       // Block I — нулевая точка Topvisor: первый месяц как раскачка
       const firstMonthLag = (i === 0 && allDashes) ? { y: 0.12, g: 0.08 } : { y: 1, g: 1 };
@@ -304,6 +403,71 @@ export function calculateForecast(
     ? 'Сезонные коэффициенты рассчитаны из фактических данных Метрики (≥10 месяцев истории).'
     : `Сезонные коэффициенты взяты из справочника по нише «${project.topic || 'Другое'}».`;
 
+  // Блоки для режима «без данных»
+  const seasonalityTable = seasonCoeff.map((v, i) => ({
+    month: MONTHS_RU[i][0].toUpperCase() + MONTHS_RU[i].slice(1),
+    coeff: Number(v.toFixed(2)),
+    note: v >= 1.2 ? 'Пик сезона' : v >= 1.05 ? 'Рост спроса' : v >= 0.95 ? 'Стабильный спрос' : v >= 0.8 ? 'Снижение' : 'Сезонный спад',
+  }));
+  const nd = project.noData;
+  const competitionNote = nd
+    ? COMPETITION_TEXT[nd.competition]
+    : 'Уровень конкуренции не задан. По умолчанию прогноз считается для средней конкурентной среды.';
+  const cRec = contentRec(nd?.competition ?? 'medium');
+  const lRec = linkRec(nd?.linkBudget ?? 'none');
+  const workRecommendations = {
+    content: cRec,
+    links: lRec,
+    crowd: '15–20 упоминаний/мес. на тематических площадках — формирование ссылочного фона и естественности профиля',
+    tech: (nd?.competition === 'high' || nd?.competition === 'very_high')
+      ? 'Технический аудит и устранение ошибок — обязательный первый этап'
+      : 'Базовая техническая оптимизация (скорость, метатеги, индексация)',
+    external: '2–4 публикации/мес. на внешних площадках (VC.ru, Дзен, тематические СМИ) — трафик, ссылочный сигнал, брендовый спрос',
+    note: 'Прогноз рассчитан при условии выполнения указанного объёма работ. Снижение темпа любого из направлений смещает результат в сторону консервативного сценария.',
+  };
+  const baseScenarioMonths = scenarios.base.months;
+  const monthlyNarrative = baseScenarioMonths.map((m, i) => {
+    let note = '';
+    if (i === 0) note = 'Индексация контента, настройка технической базы, первые позиции по низкочастотным запросам';
+    else if (i === 1) note = project.works.links
+      ? 'Первый ссылочный эффект, рост по среднечастотным запросам, устойчивый прирост по НЧ'
+      : 'Расширение семантики в индексе, рост по НЧ, первые позиции по СЧ';
+    else if (i === 2) note = 'Устойчивый рост, первые позиции в топ-10 по НЧ и части СЧ, накопительный эффект контента';
+    else if (i === 3) note = nd?.competition === 'very_high'
+      ? 'Закрепление на достигнутых позициях, точечный рост в топ-30 по коммерческим СЧ'
+      : 'Активный рост в топ-10 по СЧ, начало движения по коммерческим запросам';
+    else if (i === 4) note = 'Стабилизация: сезонный/накопительный эффект контента, рост доли брендовых запросов';
+    else note = 'Выход на планируемый уровень трафика по всем сегментам, готовность к масштабированию';
+    return { month: forecast_monthLabel(monthLabels[i]), traffic: m.total, note };
+  });
+  const risks: string[] = [];
+  if (nd?.competition === 'high' || nd?.competition === 'very_high') {
+    risks.push('Высокая конкурентность ниши: первые коммерческие результаты появятся не раньше месяца 4–6. Первые 3 месяца — инвестиция в фундамент, а не в быстрый трафик.');
+  }
+  if (nd?.domainAge === 'new') {
+    risks.push('Новый домен: повышенный риск попадания в песочницу Яндекса. Первые 2–3 месяца темп роста будет ниже расчётного.');
+  }
+  if (nd?.linkProfile === 'none') {
+    risks.push('Отсутствие ссылочного профиля: коммерческие запросы будут расти медленно. Рекомендуем начать крауд в первый же месяц.');
+  }
+  if (nd?.indexPages === 'lt50') {
+    risks.push('Малое количество страниц в индексе: узкая семантика ограничит потолок трафика — необходимо параллельное расширение структуры.');
+  }
+  risks.push('Алгоритмические обновления Яндекса и Google могут скорректировать динамику в любую сторону — как ускорить, так и замедлить рост.');
+
+  const contentArticles = cRec.articles;
+  const linkDomains = lRec.domains;
+  const conditions: string[] = [
+    `Публикация ${contentArticles} статей в месяц начиная с первого месяца`,
+    linkDomains === '0'
+      ? 'Минимальный крауд-маркетинг с первого месяца (при отсутствии бюджета на закупку ссылок)'
+      : `Закупка ${linkDomains} ссылок ежемесячно с соблюдением анкорного листа`,
+    'Крауд-маркетинг: 15–20 упоминаний/мес. на тематических площадках',
+    'Техническая оптимизация завершена до конца первого месяца',
+    'Отсутствие технических блокировок (robots.txt, noindex, дубли)',
+    'Стабильная работа сайта (uptime 99%+)',
+  ];
+
   return {
     baseTraffic: { yandex: yBase, google: gBase, bing: bBase, total: totalBase },
     scenarios,
@@ -316,5 +480,14 @@ export function calculateForecast(
     seasonalityNote,
     seasonSource,
     peakMonths: peakIdx,
+    noDataMode,
+    seasonalityTable,
+    competitionNote,
+    workRecommendations,
+    monthlyNarrative,
+    risks,
+    conditions,
   };
 }
+
+function forecast_monthLabel(label: string) { return label; }
