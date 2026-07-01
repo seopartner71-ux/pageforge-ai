@@ -1106,9 +1106,13 @@ function compactForAI(result: any) {
       devices: take(result.metrika.current.devices, 10),
       regions: take(result.metrika.current.regions, 10),
       daily_combined: take(result.metrika.current.daily_combined, 30),
+      search_engines: take(result.metrika.current.search_engines, 10),
+      search_phrases: take(result.metrika.current.search_phrases, 20),
+      organic_pages: take(result.metrika.current.organic_pages, 15),
     },
     previous: { visits: result.metrika.previous.visits, users: result.metrika.previous.users, organic_visits: result.metrika.previous.organic_visits, pageviews: result.metrika.previous.pageviews, sources: result.metrika.previous.sources },
     delta: result.metrika.delta,
+    search_engines_delta: take(result.metrika.search_engines_delta, 10),
   };
   return compact;
 }
