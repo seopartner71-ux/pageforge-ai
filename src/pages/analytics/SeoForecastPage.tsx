@@ -280,15 +280,6 @@ export default function SeoForecastPage() {
           parsed: r.parsed!,
           kind: (r.type === 'wm_queries' ? 'wm_queries' : 'generic') as 'wm_queries' | 'generic',
         }));
-      await exportSeoForecastDocx(project, { traffic, sources, gsc, topvisor, extras: extrasForReport }, forecast);
-      // передаётся через 4-й аргумент ниже
-    } catch (_) { /* handled below via re-throw */ }
-    try {
-      // no-op guard so linter accepts
-    } finally {
-      // noop
-    }
-    try {
       await exportSeoForecastDocx(project, { traffic, sources, gsc, topvisor, extras: extrasForReport }, forecast, aiInsights ?? undefined);
       toast.success('Отчёт готов ✓');
     } catch (e: any) {
