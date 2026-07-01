@@ -868,6 +868,26 @@ function buildDiagnostics(result: any, gscSite?: string, errors?: any[]) {
           : "mixed",
       },
     };
+    // Brand vs non-brand для Яндекса (используется как запасной вариант, если GSC не подключён)
+    const yBrand = detectBrand(gscSite || "");
+    const yTerms = brandTerms(yBrand);
+    if (yBrand && yTerms.length && hasPrev) {
+      const split = (rows: any[]) => (rows ?? []).reduce((acc: any, r: any) => {
+        const q = String(r.query || "").toLowerCase();
+        const isBrand = yTerms.some(t => q.includes(t));
+        acc[isBrand ? "brand" : "non_brand"].clicks += Number(r.clicks ?? 0);
+        acc[isBrand ? "brand" : "non_brand"].impressions += Number(r.impressions ?? 0);
+        return acc;
+      }, { brand: { clicks: 0, impressions: 0 }, non_brand: { clicks: 0, impressions: 0 } });
+      const sc = split(y.current.queries);
+      const sp = split(prevQueries);
+      d.yandex.brand_split = {
+        brand: { clicks_was: sp.brand.clicks, clicks_now: sc.brand.clicks, delta_pct: pct(sc.brand.clicks, sp.brand.clicks) },
+        non_brand: { clicks_was: sp.non_brand.clicks, clicks_now: sc.non_brand.clicks, delta_pct: pct(sc.non_brand.clicks, sp.non_brand.clicks) },
+        brand_term: yBrand,
+        brand_terms: yTerms,
+      };
+    }
   }
   if (m) {
     const pagesDiff = diffSeries(m.current.top_pages, m.previous.top_pages, "url", "visits");
