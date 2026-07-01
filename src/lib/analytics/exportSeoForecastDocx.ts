@@ -14,6 +14,16 @@ export type ForecastExtra = {
   kind: 'wm_queries' | 'generic';
 };
 
+export interface ForecastAiInsightsInput {
+  nicheAnalysis?: string;
+  startingPoint?: string;
+  growthPoints?: string[];
+  monthByMonth?: string[];
+  risks?: string[];
+  conditions?: string[];
+  summary?: string;
+}
+
 const NAVY = '1F3864';
 const SLATE = '44546A';
 const GREEN = '548235';
@@ -152,6 +162,7 @@ export async function exportSeoForecastDocx(
     extras?: ForecastExtra[];
   },
   forecast: ForecastResult,
+  ai?: ForecastAiInsightsInput | null,
 ) {
   const dateStr = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
   const enginesList = [
