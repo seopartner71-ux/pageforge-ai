@@ -76,13 +76,15 @@ function Stepper({ step }: { step: number }) {
 }
 
 function FileBlock<T>({
-  title, hint, slot, parsed, onFile,
+  title, hint, slot, parsed, onFile, onRemove, summaryNode,
 }: {
   title: string;
   hint: string;
   slot: FileSlot;
   parsed: T | null;
   onFile: (file: File) => void;
+  onRemove?: () => void;
+  summaryNode?: React.ReactNode;
 }) {
   const [drag, setDrag] = useState(false);
   return (
@@ -92,9 +94,24 @@ function FileBlock<T>({
           <div className="font-medium text-sm">{title}</div>
           <div className="text-xs text-muted-foreground mt-0.5">{hint}</div>
         </div>
-        <div className="text-xs">
-          {slot.status === 'ok' && <span className="text-green-600 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Загружен</span>}
-          {slot.status === 'error' && <span className="text-red-600 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> Ошибка</span>}
+        <div className="text-xs flex items-center gap-2">
+          {slot.status === 'ok' && (
+            <>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 border border-green-500/30 font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Загружен
+              </span>
+              {onRemove && (
+                <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 text-muted-foreground hover:text-red-600 transition">
+                  <X className="w-3.5 h-3.5" /> Удалить файл
+                </button>
+              )}
+            </>
+          )}
+          {slot.status === 'error' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/15 text-red-600 border border-red-500/30 font-medium">
+              <XCircle className="w-3.5 h-3.5" /> Ошибка
+            </span>
+          )}
           {slot.status === 'idle' && <span className="text-muted-foreground">Не загружен</span>}
         </div>
       </div>
@@ -114,11 +131,11 @@ function FileBlock<T>({
           onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }}
         />
       </label>
-      {parsed != null && slot.status === 'ok' && (
+      {slot.status === 'ok' && (summaryNode ?? (parsed != null && (
         <div className="text-xs text-foreground bg-muted/50 rounded p-2">
           {(parsed as any).summary ?? ''}
         </div>
-      )}
+      )))}
       {slot.status === 'error' && (
         <div className="text-xs text-red-600">{slot.error ?? 'Не удалось распознать структуру файла.'}</div>
       )}
