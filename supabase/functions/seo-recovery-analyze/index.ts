@@ -1623,6 +1623,26 @@ Deno.serve(async (req) => {
     // Pre-computed diagnostics for AI grounding
     result.diagnostics = buildDiagnostics(result, gsc_site, errors);
 
+    // Sources used — for AI grounding and DOCX header
+    {
+      const connected: string[] = [];
+      const missing: string[] = [];
+      if (result.gsc) connected.push("Google Search Console" + (gsc_site ? ` (${gsc_site})` : ""));
+      else missing.push("Google Search Console");
+      if (result.yandex) connected.push("Яндекс.Вебмастер" + (yandex_host ? ` (${yandex_host})` : ""));
+      else missing.push("Яндекс.Вебмастер");
+      if (result.metrika) connected.push("Яндекс.Метрика" + (counter_id ? ` (ID ${counter_id})` : ""));
+      else missing.push("Яндекс.Метрика");
+      if (result.topvisor) connected.push("Топвизор" + (topvisor_project_id ? ` (проект ${topvisor_project_id})` : ""));
+      else missing.push("Топвизор");
+      result.sources_used = {
+        connected,
+        missing,
+        connected_count: connected.length,
+        warning: connected.length < 2 ? `Анализ ограничен: подключено ${connected.length} из 4 источников. Подключите: ${missing.join(", ")}.` : null,
+      };
+    }
+
     // AI
     const orKey = await getOpenRouterKey(sb);
     let ai: any;
