@@ -298,6 +298,14 @@ export default function SeoRecoveryPage() {
       toast.error('В поле Project ID Топвизора нужен числовой ID проекта, а не название');
       return;
     }
+    if (!date1 || !date2 || new Date(date1) >= new Date(date2)) {
+      toast.error('Дата начала периода должна быть раньше даты окончания');
+      return;
+    }
+    if (comparison1 && comparison2 && new Date(comparison1) >= new Date(comparison2)) {
+      toast.error('Дата начала периода сравнения должна быть раньше даты окончания');
+      return;
+    }
     setLoading(true);
     setError(null);
     setData(null);
