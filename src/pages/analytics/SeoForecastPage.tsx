@@ -564,6 +564,45 @@ export default function SeoForecastPage() {
             <ScenarioTable title="Базовый сценарий" color="bg-primary" forecast={forecast} sc={forecast.scenarios.base} engines={project.engines} />
             <ScenarioTable title="Оптимистичный сценарий" color="bg-green-600" forecast={forecast} sc={forecast.scenarios.optimistic} engines={project.engines} />
 
+            <ForecastAiInsights
+              context={{
+                domain: project.domain,
+                clientName: project.clientName,
+                niche: project.topic,
+                region: project.region,
+                siteStatus: project.siteStatus,
+                horizon: project.horizon,
+                plannedWorks: (Object.keys(project.works) as Array<keyof typeof project.works>)
+                  .filter((k) => project.works[k])
+                  .map((k) => ({
+                    blog: 'Блог/контент', cards: 'Карточки товаров', links: 'Закупка ссылок',
+                    crowd: 'Крауд-маркетинг', external: 'Внешние публикации', tech: 'Техническое SEO',
+                  }[k])),
+                articlesPerMonth: project.publishPace,
+                competition: project.noData?.competition,
+                currentTraffic: project.noData?.currentTraffic,
+                baseYandex: traffic ? forecast.baseTraffic.yandex : undefined,
+                baseGoogle: traffic ? forecast.baseTraffic.google : undefined,
+                gscImpressions: gsc?.impressions,
+                gscClicks: gsc?.clicks,
+                gscCtr: gsc?.ctr,
+                gscAvgPosition: gsc?.position,
+                gscImpressionsPos23: gsc?.buckets?.top2_3,
+                topvisorTotal: topvisor?.total,
+                topvisorTop10: topvisor?.top10,
+                topvisorMissing: topvisor?.outside,
+                allPositionsMissing: topvisor ? topvisor.total > 0 && topvisor.outside === topvisor.total : undefined,
+                forecastBaseYandexFinal: forecast.scenarios.base.months.at(-1)?.yandex,
+                forecastBaseGoogleFinal: forecast.scenarios.base.months.at(-1)?.google,
+                forecastBaseTotalFinal: forecast.scenarios.base.months.at(-1)?.total,
+                forecastGrowthMultiplier: forecast.baseTraffic.total
+                  ? Math.round((forecast.scenarios.base.months.at(-1)!.total / forecast.baseTraffic.total) * 10) / 10
+                  : undefined,
+              }}
+              value={aiInsights}
+              onChange={setAiInsights}
+            />
+
             {forecast.insights.length > 0 && (
               <Card className="p-5 space-y-2">
                 <div className="text-sm font-semibold">Ключевые инсайты и точки роста</div>
