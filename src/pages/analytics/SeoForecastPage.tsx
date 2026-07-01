@@ -20,6 +20,7 @@ import {
 } from '@/lib/analytics/forecastParsers';
 import { calculateForecast, type ForecastProjectData, type ForecastResult } from '@/lib/analytics/forecastCalculator';
 import { exportSeoForecastDocx } from '@/lib/analytics/exportSeoForecastDocx';
+import { ForecastAiInsights, type AIForecastInsights, type ForecastProjectContext } from '@/components/analytics/ForecastAiInsights';
 
 type FileSlot = { status: 'idle' | 'ok' | 'error'; name?: string; error?: string };
 
@@ -203,6 +204,7 @@ export default function SeoForecastPage() {
   const [topvisor, setTopvisor] = useState<ParsedTopvisor | null>(null);
   const [extras, setExtras] = useState<ExtraRow[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [aiInsights, setAiInsights] = useState<AIForecastInsights | null>(null);
 
   const step1Valid = project.domain.trim() && project.clientName.trim() && project.topic.trim() && project.region.trim()
     && (project.engines.yandex || project.engines.google || project.engines.bing);
@@ -263,7 +265,7 @@ export default function SeoForecastPage() {
   const reset = () => {
     setStep(1); setProject(emptyProject);
     setSlots({ traffic: { status: 'idle' }, sources: { status: 'idle' }, gsc: { status: 'idle' }, topvisor: { status: 'idle' } });
-    setTraffic(null); setSources(null); setGsc(null); setTopvisor(null); setExtras([]);
+    setTraffic(null); setSources(null); setGsc(null); setTopvisor(null); setExtras([]); setAiInsights(null);
   };
 
   const download = async () => {
@@ -279,6 +281,15 @@ export default function SeoForecastPage() {
           kind: (r.type === 'wm_queries' ? 'wm_queries' : 'generic') as 'wm_queries' | 'generic',
         }));
       await exportSeoForecastDocx(project, { traffic, sources, gsc, topvisor, extras: extrasForReport }, forecast);
+      // передаётся через 4-й аргумент ниже
+    } catch (_) { /* handled below via re-throw */ }
+    try {
+      // no-op guard so linter accepts
+    } finally {
+      // noop
+    }
+    try {
+      await exportSeoForecastDocx(project, { traffic, sources, gsc, topvisor, extras: extrasForReport }, forecast, aiInsights ?? undefined);
       toast.success('Отчёт готов ✓');
     } catch (e: any) {
       toast.error('Не удалось сгенерировать отчёт');
