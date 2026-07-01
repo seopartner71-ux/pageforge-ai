@@ -790,7 +790,7 @@ export default function SeoRecoveryPage() {
           </Card>
         )}
 
-        {data && <SeoRecoveryView data={data} />}
+        {data && <SeoRecoveryView data={{ ...data, gsc_site: gscSite || (data as any).gsc_site, yandex_host: yandexHost || (data as any).yandex_host }} />}
       </main>
       <Dialog open={hostPickerOpen} onOpenChange={setHostPickerOpen}>
         <DialogContent className="max-w-lg">
