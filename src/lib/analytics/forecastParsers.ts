@@ -276,35 +276,60 @@ export async function parseGsc(file: File): Promise<ParsedGsc> {
 export async function parseTopvisor(file: File): Promise<ParsedTopvisor> {
   const buf = await file.arrayBuffer();
   const rows = sheetToRows(buf);
-  const headerIdx = findHeaderRow(rows, ['запрос']) >= 0 ? findHeaderRow(rows, ['запрос']) : 0;
-  const header = rows[headerIdx].map((c) => String(c).toLowerCase());
-  const idx = {
-    query: header.findIndex((c) => c.includes('запрос') || c.includes('ключ')),
-    position: header.findIndex((c) => c.includes('позиц') || c.includes('position')),
-    region: header.findIndex((c) => c.includes('регион') || c.includes('город')),
-    engine: header.findIndex((c) => c.includes('поиск') || c.includes('engine') || c.includes('система')),
-  };
+  const empty: ParsedTopvisor = { rows: [], total: 0, top10: 0, top100: 0, outside: 0, summary: 'Пустой файл.' };
+  if (rows.length < 2) return empty;
+
   const out: ParsedTopvisor['rows'] = [];
-  for (let i = headerIdx + 1; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r) continue;
-    const q = String(r[idx.query >= 0 ? idx.query : 0] ?? '').trim();
-    if (!q) continue;
-    const raw = r[idx.position];
-    const posStr = String(raw ?? '').trim();
-    const position = posStr === '--' || posStr === '-' || posStr === '' ? null : toNum(raw);
-    out.push({
-      query: q,
-      position,
-      region: idx.region >= 0 ? String(r[idx.region] ?? '') : undefined,
-      engine: idx.engine >= 0 ? String(r[idx.engine] ?? '') : undefined,
-    });
+  const first = rows[0] ?? [];
+  const dateRe = /^(\d{4}-\d{2}-\d{2}|\d{2}\.\d{2}\.\d{4})$/;
+
+  // Формат матрицы: строка 0 — даты снятия в колонках 1+
+  let matrixDateColIdx = -1;
+  for (let i = 1; i < first.length; i++) {
+    if (dateRe.test(String(first[i] ?? '').trim())) matrixDateColIdx = i;
   }
+
+  if (matrixDateColIdx > 0) {
+    // Берём последнюю дату (снимок)
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i]; if (!r) continue;
+      const q = String(r[0] ?? '').trim();
+      if (!q) continue;
+      const raw = String(r[matrixDateColIdx] ?? '').trim();
+      const position = raw === '--' || raw === '-' || raw === '' ? null : toNum(raw);
+      out.push({ query: q, position });
+    }
+  } else {
+    // Плоский формат: [запрос, позиция, регион?, ПС?]
+    const headerLike = String(first[0] ?? '').toLowerCase();
+    const startRow = headerLike.includes('запрос') || headerLike.includes('query') || headerLike.includes('ключ') ? 1 : 0;
+    for (let i = startRow; i < rows.length; i++) {
+      const r = rows[i]; if (!r) continue;
+      const q = String(r[0] ?? '').trim();
+      if (!q) continue;
+      const raw = String(r[1] ?? '').trim();
+      const position = raw === '--' || raw === '-' || raw === '' ? null : toNum(raw);
+      out.push({
+        query: q, position,
+        region: r[2] != null ? String(r[2]) : undefined,
+        engine: r[3] != null ? String(r[3]) : undefined,
+      });
+    }
+  }
+
   const total = out.length;
+  if (!total) return empty;
   const top10 = out.filter((r) => r.position != null && r.position > 0 && r.position <= 10).length;
+  const top3 = out.filter((r) => r.position != null && r.position > 0 && r.position <= 3).length;
   const top100 = out.filter((r) => r.position != null && r.position > 0 && r.position <= 100).length;
   const outside = out.filter((r) => r.position == null || (r.position ?? 0) > 100).length;
-  const summary = `Запросов: ${total}, в топ-10: ${top10}, в топ-100: ${top100}, вне топ-100: ${outside}.`;
+  const posWithValue = out.filter((r) => r.position != null).map((r) => r.position!);
+  const avg = posWithValue.length ? Math.round((posWithValue.reduce((s, p) => s + p, 0) / posWithValue.length) * 10) / 10 : null;
+  const summary =
+    `🔑 Запросов всего: ${total}\n` +
+    `✅ Топ-3: ${top3} | Топ-10: ${top10} | Топ-100: ${top100} | Вне топ-100: ${outside}\n` +
+    `📍 Средняя позиция (попавших): ${avg ?? 'нет данных'}` +
+    (outside === total ? `\n⚠️ Нулевая точка — сайт вне топ-100 по всем запросам` : '');
   return { rows: out, total, top10, top100, outside, summary };
 }
 
