@@ -85,38 +85,30 @@ function findHeaderRow(rows: any[][], keywords: string[]): number {
 export async function parseMetrikaTraffic(file: File): Promise<ParsedTraffic> {
   const buf = await file.arrayBuffer();
   const rows = sheetToRows(buf);
-  // 1. Найти строку, где первая ячейка = «Период»
-  let headerIdx = -1;
-  for (let i = 0; i < Math.min(rows.length, 30); i++) {
-    const first = String(rows[i]?.[0] ?? '').trim().toLowerCase();
-    if (first === 'период' || first === 'date' || first === 'дата') {
-      headerIdx = i;
-      break;
-    }
-  }
-  if (headerIdx < 0) {
-    return { rows: [], summary: 'Не найдена строка заголовков «Период».' };
-  }
+  const emptyResult = (msg: string): ParsedTraffic => ({
+    rows: [], daily: [], baseYandex: 0, baseGoogle: 0, baseBing: 0,
+    lastMonth: null, periodFrom: null, periodTo: null, summary: msg,
+  });
+  // Строгий поиск: первая ячейка строки строго равна «Период»
+  const headerIdx = rows.findIndex((r) => String(r?.[0] ?? '').trim() === 'Период');
+  if (headerIdx < 0) return emptyResult('Не найдена строка заголовков «Период».');
 
   const dateRe = /^\d{4}-\d{2}-\d{2}$/;
-  const isDate = (v: any) => {
-    const s = String(v ?? '').trim();
-    return dateRe.test(s) || /^\d{4}-\d{2}$/.test(s);
-  };
 
-  // 2-3. Читать строки после заголовка, пока [0] похоже на дату
   type Daily = { date: string; yandex: number; google: number; bing: number; total: number };
   const daily: Daily[] = [];
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i];
-    if (!r || !isDate(r[0])) break;
-    const date = String(r[0]).trim();
+    if (!r) continue;
+    const dateStr = String(r[0] ?? '').trim();
+    if (!dateRe.test(dateStr)) continue; // пропускаем итоговые строки без даты
     const yandex = toNum(r[1]);
     const google = toNum(r[2]);
     const bing = toNum(r[3]);
     const total = r[4] != null && r[4] !== '' ? toNum(r[4]) : yandex + google + bing;
-    daily.push({ date, yandex, google, bing, total });
+    daily.push({ date: dateStr, yandex, google, bing, total });
   }
+  if (!daily.length) return emptyResult('Не найдены дневные строки (формат YYYY-MM-DD).');
 
   // 4. Агрегировать по месяцам
   const byMonth = new Map<string, { yandex: number; google: number; bing: number; total: number }>();
@@ -134,26 +126,35 @@ export async function parseMetrikaTraffic(file: File): Promise<ParsedTraffic> {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([period, v]) => ({ period, ...v }));
 
-  const last = parsed[parsed.length - 1];
-  const summary = last
-    ? `Данные за ${parsed[0].period} — ${last.period} (${daily.length} дней, ${parsed.length} мес.). Последний месяц: ${last.yandex} визитов Яндекс, ${last.google} Google.`
-    : 'Данные по дням не распознаны.';
-  return { rows: parsed, summary };
+  // База прогноза: среднее последних 2 ненулевых месяцев
+  const nonZero = parsed.filter((m) => m.total > 0);
+  const lastTwo = nonZero.slice(-2);
+  const avg = (k: 'yandex' | 'google' | 'bing') =>
+    lastTwo.length ? Math.round(lastTwo.reduce((s, m) => s + m[k], 0) / lastTwo.length) : 0;
+  const baseYandex = avg('yandex');
+  const baseGoogle = avg('google');
+  const baseBing = avg('bing');
+  const last = parsed[parsed.length - 1] ?? null;
+  const periodFrom = daily[0].date;
+  const periodTo = daily[daily.length - 1].date;
+
+  const summary =
+    `📅 Период: ${periodFrom} — ${periodTo}\n` +
+    `📊 Последний месяц: Яндекс ${last?.yandex ?? 0}, Google ${last?.google ?? 0}, итого ${last?.total ?? 0}\n` +
+    `📈 База прогноза: Яндекс ~${baseYandex}/мес., Google ~${baseGoogle}/мес.\n` +
+    `🗓 Данных: ${daily.length} дней / ${parsed.length} мес.`;
+
+  return { rows: parsed, daily, baseYandex, baseGoogle, baseBing, lastMonth: last, periodFrom, periodTo, summary };
 }
 
 export async function parseMetrikaSources(file: File): Promise<ParsedSources> {
   const buf = await file.arrayBuffer();
   const rows = sheetToRows(buf);
-  // 1. Найти строку, где первая ячейка = «Источник трафика»
-  let headerIdx = -1;
-  for (let i = 0; i < Math.min(rows.length, 30); i++) {
-    const first = String(rows[i]?.[0] ?? '').trim().toLowerCase();
-    if (first.includes('источник трафика') || first === 'источник') {
-      headerIdx = i;
-      break;
-    }
+  // Строгий поиск заголовка
+  const headerIdx = rows.findIndex((r) => String(r?.[0] ?? '').trim() === 'Источник трафика');
+  if (headerIdx < 0) {
+    return { rows: [], totalVisits: 0, yandexOrganic: 0, googleOrganic: 0, direct: 0, summary: 'Не найдена строка «Источник трафика».' };
   }
-  if (headerIdx < 0) headerIdx = 0;
 
   // Метрика может выдавать иерархию в 2 колонках: [0]=тип источника, [1]=подсточник
   // Метрики обычно: Визиты, Посетители, Отказы, Глубина, Время
@@ -165,10 +166,11 @@ export async function parseMetrikaSources(file: File): Promise<ParsedSources> {
   const iDuration = header.findIndex((c) => c.includes('время'));
 
   const out: ParsedSources['rows'] = [];
+  let totalVisits = 0;
   let yandexOrganic = 0;
   let googleOrganic = 0;
   let direct = 0;
-  let totalVisits = 0;
+  let referral = 0;
 
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i];
@@ -176,8 +178,14 @@ export async function parseMetrikaSources(file: File): Promise<ParsedSources> {
     const c0 = String(r[0] ?? '').trim();
     const c1 = String(r[1] ?? '').trim();
     if (!c0 && !c1) continue;
-
     const visits = toNum(r[iVisits]);
+    // Строка «Итого и средние» — берём как total и не добавляем в rows
+    if (c0 === 'Итого и средние' || c0.toLowerCase().startsWith('итого')) {
+      totalVisits = visits;
+      continue;
+    }
+    if (!visits) continue;
+
     const source = c1 ? `${c0} / ${c1}` : c0;
     out.push({
       source,
@@ -188,80 +196,81 @@ export async function parseMetrikaSources(file: File): Promise<ParsedSources> {
       duration: iDuration >= 0 ? toNum(r[iDuration]) : 0,
     });
 
-    const c0Low = c0.toLowerCase();
-    const c1Low = c1.toLowerCase();
-
-    // 2-3. Органика: [0] содержит «поисковых систем», [1] = Яндекс/Google
-    if (c0Low.includes('поисковых систем') || c0Low.includes('поисковые системы')) {
-      if (c1Low === 'яндекс' || c1Low === 'yandex') yandexOrganic += visits;
-      else if (c1Low === 'google' || c1Low === 'гугл') googleOrganic += visits;
+    if (c0.includes('поисковых систем')) {
+      if (c1 === 'Яндекс') yandexOrganic += visits;
+      else if (c1 === 'Google') googleOrganic += visits;
     }
-    if (c0Low.includes('прям') || c0Low.includes('direct')) {
-      if (!c1) direct += visits;
-    }
+    if (c0.includes('Прямые')) direct += visits;
+    if (c0.includes('ссылкам на сайтах')) referral += visits;
   }
 
-  // Итого визитов: берём только строки верхнего уровня (без подсточника), чтобы не дублировать
-  totalVisits = out
-    .filter((r) => !r.source.includes(' / '))
-    .reduce((s, r) => s + r.visits, 0);
-  if (!totalVisits) totalVisits = out.reduce((s, r) => s + r.visits, 0);
-
-  const summary = `Всего визитов: ${totalVisits}. Органика Яндекс: ${yandexOrganic}, Google: ${googleOrganic}, прямые: ${direct}.`;
+  if (!totalVisits) {
+    // fallback: сумма верхнеуровневых строк (без подсточника)
+    totalVisits = out.filter((r) => !r.source.includes(' / ')).reduce((s, r) => s + r.visits, 0);
+  }
+  const pct = (n: number) => (totalVisits > 0 ? Math.round((n / totalVisits) * 100) : 0);
+  const summary =
+    `🌐 Всего визитов: ${totalVisits}\n` +
+    `🔍 Органика Яндекс: ${yandexOrganic} (${pct(yandexOrganic)}%)\n` +
+    `🔍 Органика Google: ${googleOrganic} (${pct(googleOrganic)}%)\n` +
+    `📎 Прямые заходы: ${direct} (${pct(direct)}%)\n` +
+    `🔗 Реферальные: ${referral} (${pct(referral)}%)`;
   return { rows: out, totalVisits, yandexOrganic, googleOrganic, direct, summary };
 }
 
 export async function parseGsc(file: File): Promise<ParsedGsc> {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array' });
-  // Формат Topvisor: строка 0 — заголовки, строка 1 (ALL_QUERIES) — сводные данные
+  // Формат Topvisor GSC: фиксированные колонки
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' }) as any[][];
-  if (!rows.length) {
-    return { impressions: 0, clicks: 0, ctr: 0, position: 0, buckets: { top1: 0, top2_3: 0, top4_10: 0, top11_50: 0 }, summary: 'Пустой файл.' };
-  }
-  const header = rows[0].map((c) => String(c).toLowerCase());
-
-  const findCol = (needles: string[]) =>
-    header.findIndex((c) => needles.every((n) => c.includes(n)));
-
-  const iImp = findCol(['impressions']);
-  const iCli = findCol(['clicks']);
-  const iCtr = findCol(['ctr']);
-  const iPos = header.findIndex((c) => c.includes('avg') && c.includes('position'));
-
-  const iTop1 = header.findIndex((c) => c.includes('impressions') && (c.includes('1st') || c.includes('pos. 1') || c.includes('position 1')));
-  const iTop23 = header.findIndex((c) => c.includes('impressions') && (c.includes('2-3') || c.includes('2 - 3')));
-  const iTop410 = header.findIndex((c) => c.includes('impressions') && (c.includes('4-10') || c.includes('4 - 10')));
-  const iTop1150 = header.findIndex((c) => c.includes('impressions') && (c.includes('11-50') || c.includes('11 - 50')));
-
-  // Ищем строку ALL_QUERIES (обычно строка 1)
-  let dataRow: any[] | undefined;
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r) continue;
-    const marker = String(r[2] ?? r[1] ?? r[0] ?? '').toUpperCase();
-    if (marker.includes('ALL_QUERIES') || marker.includes('ALL QUERIES')) {
-      dataRow = r;
-      break;
-    }
-  }
-  if (!dataRow) dataRow = rows[1];
-
-  const impressions = iImp >= 0 ? toNum(dataRow[iImp]) : 0;
-  const clicks = iCli >= 0 ? toNum(dataRow[iCli]) : 0;
-  const ctrRaw = iCtr >= 0 ? toNum(dataRow[iCtr]) : 0;
-  const ctr = ctrRaw > 1 ? ctrRaw : ctrRaw * 100; // проценты
-  const position = iPos >= 0 ? toNum(dataRow[iPos]) : 0;
-
-  const buckets = {
-    top1: iTop1 >= 0 ? toNum(dataRow[iTop1]) : 0,
-    top2_3: iTop23 >= 0 ? toNum(dataRow[iTop23]) : 0,
-    top4_10: iTop410 >= 0 ? toNum(dataRow[iTop410]) : 0,
-    top11_50: iTop1150 >= 0 ? toNum(dataRow[iTop1150]) : 0,
+  const empty: ParsedGsc = {
+    impressions: 0, clicks: 0, ctr: 0, position: 0,
+    buckets: { top1: 0, top2_3: 0, top4_10: 0, top11_50: 0 },
+    clicksBuckets: { pos1: 0, pos2_3: 0, pos4_10: 0, pos11_50: 0 },
+    ctrPos1: 0, potentialClicksFromPos23: 0, additionalClicks: 0,
+    monthlyClicks: 0, periodStr: '', summary: 'Пустой или нераспознанный файл GSC.',
   };
+  if (rows.length < 2) return empty;
 
-  const summary = `Показов: ${impressions}, кликов: ${clicks}, CTR: ${ctr.toFixed(2)}%, ср. позиция: ${position.toFixed(1)}. Top-1: ${buckets.top1}, 2-3: ${buckets.top2_3}, 4-10: ${buckets.top4_10}, 11-50: ${buckets.top11_50}.`;
-  return { impressions, clicks, ctr, position, buckets, summary };
+  const h = (rows[0] ?? []).map((c) => String(c));
+  const isTopvisorGsc = h[3]?.includes('Impressions') && h[4]?.includes('Clicks') && h[2]?.includes('Special group');
+  if (!isTopvisorGsc) return empty;
+
+  const dataRow = rows.find((r) => String(r?.[2] ?? '').trim() === 'ALL_QUERIES');
+  if (!dataRow) return empty;
+
+  const impressions = toNum(dataRow[3]);
+  const clicks = toNum(dataRow[4]);
+  const ctr = Math.round(toNum(dataRow[5]) * 100) / 100;
+  const position = Math.round(toNum(dataRow[6]) * 100) / 100;
+  const impressionsPos1 = toNum(dataRow[8]);
+  const clicksPos1 = toNum(dataRow[9]);
+  const ctrPos1 = toNum(dataRow[10]);
+  const impressionsPos23 = toNum(dataRow[11]);
+  const clicksPos23 = toNum(dataRow[12]);
+  const impressionsPos410 = toNum(dataRow[16]);
+  const clicksPos410 = toNum(dataRow[17]);
+  const impressionsPos1150 = toNum(dataRow[21]);
+  const clicksPos1150 = toNum(dataRow[22]);
+
+  const potentialClicksFromPos23 = Math.round(impressionsPos23 * (ctrPos1 / 100));
+  const additionalClicks = Math.max(0, potentialClicksFromPos23 - clicksPos23);
+  const monthlyClicks = Math.round(clicks / 12);
+  const periodStr = String(dataRow[1] ?? '').trim();
+
+  const summary =
+    `👁 Показов: ${impressions} | Кликов: ${clicks} | CTR: ${ctr}%\n` +
+    `📍 Средняя позиция: ${position}\n` +
+    `⚡ Потенциал (поз. 2–3): ${impressionsPos23} показов → +${additionalClicks} доп. кликов/мес. при выходе в топ-1\n` +
+    `📊 Топ-1: ${impressionsPos1} | Поз. 2–3: ${impressionsPos23} | Поз. 4–10: ${impressionsPos410} | Поз. 11–50: ${impressionsPos1150}`;
+
+  return {
+    impressions, clicks, ctr, position,
+    buckets: { top1: impressionsPos1, top2_3: impressionsPos23, top4_10: impressionsPos410, top11_50: impressionsPos1150 },
+    clicksBuckets: { pos1: clicksPos1, pos2_3: clicksPos23, pos4_10: clicksPos410, pos11_50: clicksPos1150 },
+    ctrPos1, potentialClicksFromPos23, additionalClicks, monthlyClicks, periodStr,
+    summary,
+  };
 }
 
 export async function parseTopvisor(file: File): Promise<ParsedTopvisor> {
