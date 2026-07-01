@@ -210,3 +210,47 @@ export async function parseTopvisor(file: File): Promise<ParsedTopvisor> {
   const summary = `Запросов: ${total}, в топ-10: ${top10}, в топ-100: ${top100}, вне топ-100: ${outside}.`;
   return { rows: out, total, top10, top100, outside, summary };
 }
+
+export async function parseWebmasterQueries(file: File): Promise<ParsedWebmasterQueries> {
+  const buf = await file.arrayBuffer();
+  const rows = sheetToRows(buf);
+  const headerIdx = findHeaderRow(rows, ['запрос']) >= 0 ? findHeaderRow(rows, ['запрос']) : 0;
+  const header = rows[headerIdx].map((c) => String(c).toLowerCase());
+  const iQ = header.findIndex((c) => c.includes('запрос') || c.includes('ключ'));
+  const iImp = header.findIndex((c) => c.includes('показ') || c.includes('impress'));
+  const iCli = header.findIndex((c) => c.includes('клик') || c.includes('click'));
+  const iPos = header.findIndex((c) => c.includes('позиц') || c.includes('position'));
+  const out: ParsedWebmasterQueries['rows'] = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i]; if (!r) continue;
+    const q = String(r[iQ >= 0 ? iQ : 0] ?? '').trim();
+    if (!q) continue;
+    const pos = iPos >= 0 ? toNum(r[iPos]) : 0;
+    out.push({
+      query: q,
+      impressions: iImp >= 0 ? toNum(r[iImp]) : 0,
+      clicks: iCli >= 0 ? toNum(r[iCli]) : 0,
+      position: pos > 0 ? pos : null,
+    });
+  }
+  const total = out.length;
+  const top10 = out.filter((r) => r.position != null && r.position <= 10).length;
+  const posRows = out.filter((r) => r.position != null);
+  const avgPosition = posRows.length ? posRows.reduce((s, r) => s + (r.position || 0), 0) / posRows.length : 0;
+  const summary = `Запросов: ${total}, в топ-10: ${top10}, ср. позиция: ${avgPosition.toFixed(1)}.`;
+  return { rows: out, total, top10, avgPosition, summary };
+}
+
+export async function parseGeneric(file: File): Promise<ParsedGeneric> {
+  const buf = await file.arrayBuffer();
+  const rows = sheetToRows(buf);
+  const headerRow = rows[0] || [];
+  const columns = headerRow.map((c) => String(c)).filter(Boolean);
+  const dataRows = rows.slice(1).filter((r) => r && r.some((c) => c !== '' && c != null));
+  return {
+    rows: dataRows,
+    columns,
+    rowCount: dataRows.length,
+    summary: `Строк: ${dataRows.length}, колонок: ${columns.length}${columns.length ? ` (${columns.slice(0, 6).join(', ')}${columns.length > 6 ? '…' : ''})` : ''}.`,
+  };
+}
