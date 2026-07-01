@@ -192,6 +192,7 @@ export default function SeoForecastPage() {
   const [sources, setSources] = useState<ParsedSources | null>(null);
   const [gsc, setGsc] = useState<ParsedGsc | null>(null);
   const [topvisor, setTopvisor] = useState<ParsedTopvisor | null>(null);
+  const [extras, setExtras] = useState<ExtraRow[]>([]);
   const [exporting, setExporting] = useState(false);
 
   const step1Valid = project.domain.trim() && project.clientName.trim() && project.topic.trim() && project.region.trim()
@@ -221,10 +222,39 @@ export default function SeoForecastPage() {
     }
   }, []);
 
+  const removeMain = useCallback((kind: keyof typeof slots) => {
+    setSlots((s) => ({ ...s, [kind]: { status: 'idle' } }));
+    if (kind === 'traffic') setTraffic(null);
+    else if (kind === 'sources') setSources(null);
+    else if (kind === 'gsc') setGsc(null);
+    else if (kind === 'topvisor') setTopvisor(null);
+  }, []);
+
+  const addExtra = () => {
+    if (extras.length >= 5) { toast.error('Максимум 5 дополнительных файлов'); return; }
+    setExtras((e) => [...e, { id: crypto.randomUUID(), type: '', slot: { status: 'idle' }, parsed: null }]);
+  };
+  const removeExtra = (id: string) => setExtras((e) => e.filter((r) => r.id !== id));
+  const updateExtra = (id: string, patch: Partial<ExtraRow>) =>
+    setExtras((e) => e.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+
+  const handleExtraFile = async (row: ExtraRow, file: File) => {
+    if (!row.type) { toast.error('Сначала выберите тип файла'); return; }
+    updateExtra(row.id, { slot: { status: 'idle', name: file.name }, parsed: null });
+    try {
+      const parsed = row.type === 'wm_queries'
+        ? await parseWebmasterQueries(file)
+        : await parseGeneric(file);
+      updateExtra(row.id, { slot: { status: 'ok', name: file.name }, parsed });
+    } catch {
+      updateExtra(row.id, { slot: { status: 'error', name: file.name, error: 'Не удалось распознать файл.' } });
+    }
+  };
+
   const reset = () => {
     setStep(1); setProject(emptyProject);
     setSlots({ traffic: { status: 'idle' }, sources: { status: 'idle' }, gsc: { status: 'idle' }, topvisor: { status: 'idle' } });
-    setTraffic(null); setSources(null); setGsc(null); setTopvisor(null);
+    setTraffic(null); setSources(null); setGsc(null); setTopvisor(null); setExtras([]);
   };
 
   const download = async () => {
