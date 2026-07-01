@@ -381,19 +381,51 @@ export default function SeoForecastPage() {
             <section className="space-y-3">
               <div className="text-sm font-semibold text-foreground">Блок 1 — Яндекс.Метрика</div>
               <FileBlock title="Трафик по поисковым системам" hint="xlsx: дата, Яндекс, Google, Bing, итого"
-                slot={slots.traffic} parsed={traffic} onFile={(f) => handleFile('traffic', f)} />
+                slot={slots.traffic} parsed={traffic}
+                onFile={(f) => handleFile('traffic', f)}
+                onRemove={() => removeMain('traffic')}
+                summaryNode={traffic ? <TrafficSummary data={traffic} /> : null} />
               <FileBlock title="Источники трафика, сводка" hint="xlsx: источник, визиты, посетители, отказы, глубина, время"
-                slot={slots.sources} parsed={sources} onFile={(f) => handleFile('sources', f)} />
+                slot={slots.sources} parsed={sources}
+                onFile={(f) => handleFile('sources', f)}
+                onRemove={() => removeMain('sources')}
+                summaryNode={sources ? <SourcesSummary data={sources} /> : null} />
             </section>
             <section className="space-y-3">
               <div className="text-sm font-semibold text-foreground">Блок 2 — Google Search Console</div>
               <FileBlock title="Выгрузка GSC" hint="xlsx: показы, клики, CTR, позиция"
-                slot={slots.gsc} parsed={gsc} onFile={(f) => handleFile('gsc', f)} />
+                slot={slots.gsc} parsed={gsc}
+                onFile={(f) => handleFile('gsc', f)}
+                onRemove={() => removeMain('gsc')}
+                summaryNode={gsc ? <GscSummary data={gsc} /> : null} />
             </section>
             <section className="space-y-3">
               <div className="text-sm font-semibold text-foreground">Блок 3 — Topvisor / позиции</div>
               <FileBlock title="Выгрузка позиций" hint="xlsx: запрос, позиция (или «--»), регион, поисковая система"
-                slot={slots.topvisor} parsed={topvisor} onFile={(f) => handleFile('topvisor', f)} />
+                slot={slots.topvisor} parsed={topvisor}
+                onFile={(f) => handleFile('topvisor', f)}
+                onRemove={() => removeMain('topvisor')}
+                summaryNode={topvisor ? <TopvisorSummary data={topvisor} /> : null} />
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <div className="text-sm font-semibold text-foreground">Блок 4 — Дополнительные источники данных</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Яндекс.Вебмастер, Яндекс.Директ, Roistat, любые другие выгрузки</div>
+              </div>
+              {extras.map((row) => (
+                <ExtraFileRow key={row.id}
+                  row={row}
+                  onTypeChange={(t) => updateExtra(row.id, { type: t, customName: t === 'other' ? row.customName ?? '' : undefined })}
+                  onCustomNameChange={(n) => updateExtra(row.id, { customName: n })}
+                  onFile={(f) => handleExtraFile(row, f)}
+                  onRemove={() => removeExtra(row.id)}
+                  onClearFile={() => updateExtra(row.id, { slot: { status: 'idle' }, parsed: null })}
+                />
+              ))}
+              <Button type="button" variant="outline" size="sm" onClick={addExtra} disabled={extras.length >= 5} className="gap-2">
+                <Plus className="w-4 h-4" /> Добавить файл {extras.length > 0 && <span className="text-muted-foreground">({extras.length}/5)</span>}
+              </Button>
             </section>
 
             <div className="flex justify-between pt-2">
