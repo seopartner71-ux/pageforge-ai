@@ -666,8 +666,8 @@ async function gscQuery(siteUrl: string, body: any) {
 async function fetchGSC(siteUrl: string, date1: string, date2: string, prevDate1?: string, prevDate2?: string) {
   const [totals, pages, queries, daily, daily_prev] = await Promise.all([
     gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: [], rowLimit: 1, searchType: "web" }),
-    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["page"], rowLimit: 50, searchType: "web" }),
-    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["query"], rowLimit: 50, searchType: "web" }),
+    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["page"], rowLimit: 500, searchType: "web" }),
+    gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["query"], rowLimit: 500, searchType: "web" }),
     gscQuery(siteUrl, { startDate: date1, endDate: date2, dimensions: ["date"], rowLimit: 90, searchType: "web" }),
     prevDate1 && prevDate2
       ? gscQuery(siteUrl, { startDate: prevDate1, endDate: prevDate2, dimensions: ["date"], rowLimit: 90, searchType: "web" })
