@@ -1091,6 +1091,7 @@ function compactForAI(result: any) {
   const compact: any = {
     period: result.period,
     diagnostics: diag,
+    sources_used: result.sources_used,
   };
   if (result.gsc) compact.gsc = {
     current: { clicks: result.gsc.current.clicks, impressions: result.gsc.current.impressions, ctr: result.gsc.current.ctr, position: result.gsc.current.position },
