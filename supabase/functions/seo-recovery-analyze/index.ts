@@ -1299,16 +1299,49 @@ function fallbackAI(result: any, reason = "ai_unavailable") {
     },
   ];
 
-  const brand = gscDiag.brand_split;
+  const brand = gscDiag.brand_split ?? yaDiag.brand_split;
+  const brandSource = gscDiag.brand_split ? "GSC" : (yaDiag.brand_split ? "Яндекс.Вебмастер" : null);
   const brandAnalysis = brand ? {
     brand_clicks_delta_pct: brand.brand?.delta_pct ?? 0,
     non_brand_clicks_delta_pct: brand.non_brand?.delta_pct ?? 0,
-    interpretation: `Бренд: ${fmt(brand.brand?.clicks_was)} → ${fmt(brand.brand?.clicks_now)} (${pctText(brand.brand?.delta_pct)}), небренд: ${fmt(brand.non_brand?.clicks_was)} → ${fmt(brand.non_brand?.clicks_now)} (${pctText(brand.non_brand?.delta_pct)}).`,
+    interpretation: `Источник: ${brandSource}. Бренд: ${fmt(brand.brand?.clicks_was)} → ${fmt(brand.brand?.clicks_now)} (${pctText(brand.brand?.delta_pct)}), небренд: ${fmt(brand.non_brand?.clicks_was)} → ${fmt(brand.non_brand?.clicks_now)} (${pctText(brand.non_brand?.delta_pct)}).`,
   } : null;
+
+  // Executive summary для fallback: собираем текст из цифр
+  const verdictType = hasIndexingRisk ? "техника"
+    : (result.metrika && num(result.metrika.delta?.organic_visits) < -20) ? "смешанное"
+    : (majorDrops >= 2 ? "алгоритм" : "смешанное");
+  const oneLine = direction === "down"
+    ? `Падение ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${fmt(primary.was)} → ${fmt(primary.now)} (${pctText(primary.delta)})${hasIndexingRisk ? ", есть признаки проблем с индексацией" : ""}.`
+    : direction === "up"
+      ? `Рост ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${fmt(primary.was)} → ${fmt(primary.now)} (${pctText(primary.delta)}).`
+      : `Существенных изменений не зафиксировано (${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${pctText(primary.delta)}).`;
+  const verdictReasoning = hasIndexingRisk
+    ? `Есть сигнал технической проблемы: excluded_count=${num(indexing?.excluded_count)}, изменение страниц в поиске ${pctText(indexedDelta)}.`
+    : majorDrops >= 2
+      ? `Падение >20% фиксируется одновременно в ${majorDrops} источниках — типичный признак алгоритмического/смешанного вердикта.`
+      : `Падение зафиксировано преимущественно в одном источнике — требуется ручная сверка.`;
+  const executiveSummary = {
+    one_line: oneLine,
+    verdict_type: verdictType,
+    verdict_reasoning: verdictReasoning,
+  };
 
   return {
     seo_score: score,
     score_reasoning: `Резервный расчёт без внешнего AI: ${sourceRu(primary.source)} ${metricRu[primary.metric] ?? primary.metric}: ${fmt(primary.was)} → ${fmt(primary.now)} (${pctText(primary.delta)}). Строгий лимит score применён по величине падения в подключённых источниках.`,
+    executive_summary: executiveSummary,
+    data_completeness: {
+      sources_connected: result.sources_used?.connected ?? [],
+      sources_missing: result.sources_used?.missing ?? [],
+      warning: result.sources_used?.warning ?? null,
+      limitations: [
+        !result.metrika ? "Без Метрики нельзя оценить поведенческие и разбивку по устройствам/регионам." : null,
+        !result.gsc ? "Без GSC нельзя оценить видимость и CTR в Google." : null,
+        !result.yandex ? "Без Яндекс.Вебмастера нет данных по индексации и запросам Яндекса." : null,
+        !result.topvisor ? "Без Топвизора нет позиций по регионам." : null,
+      ].filter(Boolean),
+    },
     headline: {
       direction,
       main_metric: primary.metric,
