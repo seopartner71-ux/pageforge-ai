@@ -56,6 +56,7 @@ const NicheMonetizationPage = lazy(() => import('./pages/analytics/NicheMonetiza
 const DemandMapPage = lazy(() => import('./pages/analytics/DemandMapPage.tsx'));
 const TrendsPage = lazy(() => import('./pages/analytics/TrendsPage.tsx'));
 const DemandSeasonalityPage = lazy(() => import('./pages/analytics/DemandSeasonalityPage.tsx'));
+const DemandGeoLocalPage = lazy(() => import('./pages/analytics/DemandGeoLocalPage.tsx'));
 const AudiencePainsPage = lazy(() => import('./pages/analytics/AudiencePainsPage.tsx'));
 const AudienceSegmentsPage = lazy(() => import('./pages/analytics/AudienceSegmentsPage.tsx'));
 const AudienceJtbdPage = lazy(() => import('./pages/analytics/AudienceJtbdPage.tsx'));
@@ -175,6 +176,7 @@ const App = () => (
                   <Route path="/analytics/demand/map" element={<DemandMapPage />} />
                   <Route path="/analytics/demand/trends" element={<TrendsPage />} />
                   <Route path="/analytics/demand/seasonality" element={<DemandSeasonalityPage />} />
+                  <Route path="/analytics/demand/geo" element={<DemandGeoLocalPage />} />
                   <Route path="/analytics/audience/pains" element={<AudiencePainsPage />} />
                   <Route path="/analytics/audience/segments" element={<AudienceSegmentsPage />} />
                   <Route path="/analytics/audience/jtbd" element={<AudienceJtbdPage />} />
