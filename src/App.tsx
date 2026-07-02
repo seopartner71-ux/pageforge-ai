@@ -52,6 +52,7 @@ const AnalyticsPlaceholderPage = lazy(() => import('./pages/AnalyticsPlaceholder
 const NicheOverviewPage = lazy(() => import('./pages/analytics/NicheOverviewPage.tsx'));
 const NicheOpportunitiesPage = lazy(() => import('./pages/analytics/NicheOpportunitiesPage.tsx'));
 const NicheEntryBarrierPage = lazy(() => import('./pages/analytics/NicheEntryBarrierPage.tsx'));
+const NicheMonetizationPage = lazy(() => import('./pages/analytics/NicheMonetizationPage.tsx'));
 const DemandMapPage = lazy(() => import('./pages/analytics/DemandMapPage.tsx'));
 const TrendsPage = lazy(() => import('./pages/analytics/TrendsPage.tsx'));
 const AudiencePainsPage = lazy(() => import('./pages/analytics/AudiencePainsPage.tsx'));
@@ -168,6 +169,7 @@ const App = () => (
                   <Route path="/analytics/niche/overview" element={<NicheOverviewPage />} />
                   <Route path="/analytics/niche/opportunities" element={<NicheOpportunitiesPage />} />
                   <Route path="/analytics/niche/entry-barrier" element={<NicheEntryBarrierPage />} />
+                  <Route path="/analytics/niche/monetization" element={<NicheMonetizationPage />} />
                   <Route path="/analytics/niche/free-topics" element={<FreeTopicsPage />} />
                   <Route path="/analytics/demand/map" element={<DemandMapPage />} />
                   <Route path="/analytics/demand/trends" element={<TrendsPage />} />
