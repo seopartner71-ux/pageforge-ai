@@ -658,7 +658,7 @@ async function runJob(jobId: string) {
         keyword_difficulty: kd,
         blog_score: score,
         traffic_potential: traffic,
-        data_source: dfsConfigured() ? "dataforseo" : "ai",
+        data_source: volumesAvailable ? "dataforseo" : "ai",
         serp_checked: !!serpComp || kd != null,
       };
     });
