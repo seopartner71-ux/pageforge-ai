@@ -581,9 +581,12 @@ async function runJob(jobId: string) {
     // фильтр >= MIN_FREQUENCY
     type Cand = { keyword: string; freq: number; wordCount: number; isInfo: boolean };
     const candidates: Cand[] = [];
+    // Если DataForSEO недоступен (volumes пустой) — берём AI-кандидатов без
+    // фильтра по частоте, чтобы пользователь всё равно получил темы.
+    const volumesAvailable = volumes.size > 0;
     for (const kw of infoOnly) {
       const freq = volumes.get(kw) || 0;
-      if (freq < MIN_FREQUENCY) continue;
+      if (volumesAvailable && freq < MIN_FREQUENCY) continue;
       candidates.push({
         keyword: kw,
         freq,
