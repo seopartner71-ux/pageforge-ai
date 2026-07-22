@@ -36,6 +36,7 @@ export interface AnalysisFormData {
   projectId?: string;
   region: string;
   batchMode?: boolean;
+  userQueries?: string[];
 }
 
 interface AnalysisFormProps {
@@ -55,6 +56,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   const [pageType, setPageType] = useState('');
   const [competitors, setCompetitors] = useState(['']);
   const [aiContext, setAiContext] = useState('');
+  const [userQueries, setUserQueries] = useState('');
   const [clusterMode, setClusterMode] = useState(false);
   const [speedEnabled, setSpeedEnabled] = useState(true);
   const [semanticsEnabled, setSemanticsEnabled] = useState(true);
@@ -149,6 +151,11 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   };
 
   const handleSubmit = () => {
+    const parsedQueries = userQueries
+      .split(/\r?\n|;|,/)
+      .map(q => q.trim())
+      .filter(Boolean)
+      .slice(0, 30);
     if (batchMode) {
       if (validBatchUrls.length < 2) {
         toast({ title: isRu ? 'Введите минимум 2 URL' : 'Enter at least 2 URLs', variant: 'destructive' });
@@ -168,6 +175,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
         projectId: projects[selectedProjectIdx]?.id,
         region: region.trim(),
         batchMode: true,
+        userQueries: parsedQueries,
       });
     } else {
       if (!url.trim()) return;
@@ -179,6 +187,7 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
         clusterMode,
         projectId: projects[selectedProjectIdx]?.id,
         region: region.trim(),
+        userQueries: parsedQueries,
       });
     }
   };
@@ -369,6 +378,28 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
           placeholder={tr.aiContext.placeholder}
           rows={4}
           className="w-full rounded-lg bg-secondary border border-border/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary outline-none resize-none"
+        />
+      </div>
+
+      {/* Свои запросы */}
+      <div className="glass-card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs tracking-widest text-muted-foreground font-semibold">🎯 {isRu ? 'СВОИ ЗАПРОСЫ' : 'YOUR QUERIES'}</span>
+          <span className="text-xs text-muted-foreground">{isRu ? 'необязательно, до 30' : 'optional, up to 30'}</span>
+        </div>
+        <label className="text-sm text-muted-foreground block">
+          {isRu
+            ? 'Ключевые запросы, под которые продвигается страница. По одному в строке (или через запятую). Анализ учтёт их при оценке соответствия, TF-IDF и рекомендациях.'
+            : 'Keywords the page targets. One per line (or comma-separated). Used in relevance scoring, TF-IDF and recommendations.'}
+        </label>
+        <textarea
+          value={userQueries}
+          onChange={(e) => setUserQueries(e.target.value)}
+          placeholder={isRu
+            ? 'купить диван москва\nдиван угловой недорого\nдоставка мебели по москве'
+            : 'buy sofa nyc\ncorner sofa cheap\nfurniture delivery nyc'}
+          rows={5}
+          className="w-full rounded-lg bg-secondary border border-border/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary outline-none resize-none font-mono"
         />
       </div>
 
