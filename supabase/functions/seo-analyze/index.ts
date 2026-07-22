@@ -962,7 +962,13 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Insufficient credits" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode, region } = await req.json();
+    const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode, region, userQueries } = await req.json();
+    const userQueriesArr: string[] = Array.isArray(userQueries)
+      ? userQueries.map((q: any) => String(q || '').trim()).filter(Boolean).slice(0, 30)
+      : [];
+    const userQueriesBlock = userQueriesArr.length
+      ? `\n─── Пользовательские запросы (ОБЯЗАТЕЛЬНО учитывать при оценке релевантности, подборе Missing Entities, Blueprint и implementationPlan) ───\n${userQueriesArr.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n`
+      : '';
     if (!url || !analysisId) {
       clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "url and analysisId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1386,7 +1392,7 @@ P1 = Критично (техошибки, NavBoost нарушения, Content 
 ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) - ЗАПРЕЩЁН. Все рекомендации - только на кириллице.
 Будь конкретен. Пиши на русском.`;
 
-      userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
+      userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}${userQueriesBlock}
 ─── Контент (15k) ───\n${targetContent.slice(0, 15000)}
 ─── Семантический кластер (${clusterData.semanticCluster.length} фраз) ───\n${clusterData.semanticCluster.join("\n")}
 ─── People Also Ask ───\n${clusterData.peopleAlsoAsk.join("\n") || "нет"}
@@ -1476,7 +1482,7 @@ P1 = Критично (техошибки, пустые Alt, Missing Entities, N
 ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) - ЗАПРЕЩЁН. Все рекомендации - только на кириллице.
 Будь конкретен. Пиши на русском.`;
 
-      userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
+      userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}${userQueriesBlock}
 ─── Контент (15k) ───\n${targetContent.slice(0, 15000)}
 ─── Missing Entities ───\n${missingTerms || "нет"}
 ─── Spam Terms ───\n${spamTerms || "нет"}
