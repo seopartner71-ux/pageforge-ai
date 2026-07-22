@@ -962,7 +962,13 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Insufficient credits" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode, region } = await req.json();
+    const { url, pageType, competitors: manualComp, aiContext, analysisId, clusterMode, region, userQueries } = await req.json();
+    const userQueriesArr: string[] = Array.isArray(userQueries)
+      ? userQueries.map((q: any) => String(q || '').trim()).filter(Boolean).slice(0, 30)
+      : [];
+    const userQueriesBlock = userQueriesArr.length
+      ? `\n─── Пользовательские запросы (ОБЯЗАТЕЛЬНО учитывать при оценке релевантности, подборе Missing Entities, Blueprint и implementationPlan) ───\n${userQueriesArr.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n`
+      : '';
     if (!url || !analysisId) {
       clearTimeout(globalTimer);
       return new Response(JSON.stringify({ error: "url and analysisId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
