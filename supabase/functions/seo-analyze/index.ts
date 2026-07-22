@@ -1392,7 +1392,7 @@ P1 = Критично (техошибки, NavBoost нарушения, Content 
 ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) - ЗАПРЕЩЁН. Все рекомендации - только на кириллице.
 Будь конкретен. Пиши на русском.`;
 
-      userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
+      userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}${userQueriesBlock}
 ─── Контент (15k) ───\n${targetContent.slice(0, 15000)}
 ─── Семантический кластер (${clusterData.semanticCluster.length} фраз) ───\n${clusterData.semanticCluster.join("\n")}
 ─── People Also Ask ───\n${clusterData.peopleAlsoAsk.join("\n") || "нет"}
@@ -1482,7 +1482,7 @@ P1 = Критично (техошибки, пустые Alt, Missing Entities, N
 ФИЛЬТР ЛАТИНИЦЫ: Если контент на русском языке, ЗАПРЕЩЕНО рекомендовать слова на латинице в missingEntities, quickWins, recommendations, informationGain. Исключения: официальные бренды (Apple, Bosch), стандарты (ISO, DIN, ГОСТ), аббревиатуры (SEO, API). Транслит (vybora, novosti, tovar) - ЗАПРЕЩЁН. Все рекомендации - только на кириллице.
 Будь конкретен. Пиши на русском.`;
 
-      userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}
+      userPrompt = `URL: ${url}\nТип: ${pageType || "не указан"}\n${aiContext ? `Контекст: ${aiContext}\n` : ""}${userQueriesBlock}
 ─── Контент (15k) ───\n${targetContent.slice(0, 15000)}
 ─── Missing Entities ───\n${missingTerms || "нет"}
 ─── Spam Terms ───\n${spamTerms || "нет"}
