@@ -95,6 +95,7 @@ export default function DashboardPage() {
           clusterMode: data.clusterMode,
           analysisId,
           region: data.region,
+          userQueries: data.userQueries,
         }),
       }
     );
