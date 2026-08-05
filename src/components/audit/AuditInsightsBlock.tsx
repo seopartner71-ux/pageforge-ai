@@ -50,8 +50,20 @@ export function AuditInsightsBlock({ jobId }: { jobId: string }) {
       const { data, error } = await supabase.functions.invoke('audit-insights', {
         body: { job_id: jobId },
       });
-      if (error) throw error;
+      if (error) {
+        // Достаём настоящий текст ошибки из тела ответа функции
+        let detail = error.message ?? '';
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json();
+            detail = body?.error || body?.detail || detail;
+          }
+        } catch { /* ignore */ }
+        throw new Error(detail);
+      }
       if (data?.error) throw new Error(data.error);
+      if (!data?.insights) throw new Error('Пустой ответ AI');
       setInsights(data.insights);
       setGeneratedAt(data.generated_at);
       try {

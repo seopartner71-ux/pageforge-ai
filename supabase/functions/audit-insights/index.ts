@@ -95,25 +95,47 @@ ${summary.top_issues || "Проблем не обнаружено"}
 }
 Дай 4-6 рекомендаций, сначала критичные. Без обёрток \`\`\`json.`;
 
-    const aiResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://seo-modul.pro",
-        "X-Title": "SEO-Audit Insights",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: "Ты эксперт по техническому SEO. Отвечай только валидным JSON." },
-          { role: "user", content: prompt },
-        ],
-      }),
-    });
+    const callAI = async (model: string) => {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 45000);
+      try {
+        return await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          signal: ctrl.signal,
+          headers: {
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://seo-modul.pro",
+            "X-Title": "SEO-Audit Insights",
+          },
+          body: JSON.stringify({
+            model,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: "Ты эксперт по техническому SEO. Отвечай только валидным JSON." },
+              { role: "user", content: prompt },
+            ],
+          }),
+        });
+      } finally {
+        clearTimeout(t);
+      }
+    };
+
+    let aiResp: Response;
+    try {
+      aiResp = await callAI("google/gemini-2.5-flash");
+      if (!aiResp.ok && aiResp.status !== 402 && aiResp.status !== 429) {
+        aiResp = await callAI("google/gemini-2.0-flash-001");
+      }
+    } catch (e) {
+      return json({ error: "AI не ответил (таймаут). Попробуйте ещё раз." }, 504);
+    }
     if (aiResp.status === 402) return json({ error: "AI credits exhausted" }, 402);
     if (aiResp.status === 429) return json({ error: "Rate limited" }, 429);
-    if (!aiResp.ok) return json({ error: "AI failed", detail: await aiResp.text() }, 500);
+    if (!aiResp.ok) {
+      return json({ error: `AI ошибка ${aiResp.status}: ${(await aiResp.text()).slice(0, 300)}` }, 500);
+    }
 
     const aiJson = await aiResp.json();
     let content = aiJson?.choices?.[0]?.message?.content ?? "";
@@ -124,7 +146,7 @@ ${summary.top_issues || "Проблем не обнаружено"}
       const m = content.match(/\{[\s\S]*\}/);
       if (m) { try { parsed = JSON.parse(m[0]); } catch { /* ignore */ } }
     }
-    if (!parsed) return json({ error: "AI returned non-JSON", raw: content }, 500);
+    if (!parsed) return json({ error: "AI вернул некорректный JSON. Попробуйте ещё раз." }, 500);
 
     return json({ insights: parsed, generated_at: new Date().toISOString() }, 200);
   } catch (e) {
