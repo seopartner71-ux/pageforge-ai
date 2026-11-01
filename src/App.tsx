@@ -64,6 +64,7 @@ const AudienceJtbdPage = lazy(() => import('./pages/analytics/AudienceJtbdPage.t
 const FreeTopicsPage = lazy(() => import('./pages/analytics/FreeTopicsPage.tsx'));
 const SeoRecoveryPage = lazy(() => import('./pages/analytics/SeoRecoveryPage.tsx'));
 const SeoMonitoringPage = lazy(() => import('./pages/analytics/SeoMonitoringPage.tsx'));
+const ModuleAnalysisPage = lazy(() => import('./pages/analytics/ModuleAnalysisPage.tsx'));
 const SeoForecastPage = lazy(() => import('./pages/analytics/SeoForecastPage.tsx'));
 const SeoPlaceholderPage = lazy(() => import('./pages/SeoPlaceholderPage.tsx'));
 const AppLayout = lazy(() => import('./components/AppLayout.tsx'));
@@ -185,6 +186,19 @@ const App = () => (
                   <Route path="/analytics/recovery/monitoring" element={<SeoMonitoringPage />} />
                   <Route path="/analytics/seo-forecast" element={<SeoForecastPage />} />
                   <Route path="/analytics/ln/overview" element={<NicheOverviewPage />} />
+                  <Route path="/analytics/demand/commercial" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/audience/journey" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/audience/journey-v2" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/audience/language" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/audience/community" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/ai/formats" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/competition/serp-reality" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/ai/ecosystem" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/competition/linkability" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/ai/eeat" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/ai/entities" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/ai/risks" element={<ModuleAnalysisPage />} />
+                  <Route path="/analytics/ai/search" element={<ModuleAnalysisPage />} />
                   <Route path="/analytics/*" element={<AnalyticsPlaceholderPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/history" element={<HistoryPage />} />
