@@ -375,7 +375,10 @@ async function buildEvidence(mod: Mod, niche: string, product: string, geo: stri
       if (serp.length) {
         sources.push(`dataforseo-serp:${serp.length}`);
         notes.push(`Выдача получена из DataForSEO, потому что ${why}.`);
-      } else notes.push(`Выдачу получить не удалось (${why}; DataForSEO тоже не ответил) — вывод только на экспертной оценке.`);
+      } else {
+        const bad = fb.find((r) => r.status !== 200);
+        notes.push(`Выдачу получить не удалось (${why}; DataForSEO${bad ? `: код ${bad.status}${bad.msg ? " " + bad.msg.slice(0, 140) : ""}` : " не ответить"}) — вывод только на экспертной оценке.`);
+      }
     } else if (!serp.length) {
       notes.push(`Выдачу получить не удалось (${why}) — вывод только на экспертной оценке.`);
     }
