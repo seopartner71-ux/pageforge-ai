@@ -38,7 +38,9 @@ function fakeSb() {
       q.single = () => { q._one = true; return q; };
       q.maybeSingle = () => { q._one = true; return q; };
       q.then = (resolve: any) => { run().then(resolve); };
+      return q;
       async function run() {
+
         const match = (r: any) => q._where.every(([k, v]: [string, any]) => r[k] === v);
         if (q._ins) {
           if (table === 'internal_link_audits') {
