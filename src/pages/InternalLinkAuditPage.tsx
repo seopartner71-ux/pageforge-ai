@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, FileSpreadsheet, X, Play, Trash2, Network } from 'lucide-react';
+import { Upload, FileSpreadsheet, X, Play, Trash2, Network, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { TypeRulesTab, type RuleRow } from '@/components/internalLinks/TypeRulesTab';
 import { AuditResultView } from '@/components/internalLinks/AuditResultView';
@@ -143,6 +143,35 @@ export default function InternalLinkAuditPage() {
   const project = projects.find((p) => p.id === projectId);
   const hasCore = rules.some((r) => ['Статья', 'Услуга', 'Консультация'].includes(r.name.trim()));
 
+  const [gscLoading, setGscLoading] = useState(false);
+  const [gscChoices, setGscChoices] = useState<string[] | null>(null);
+  const [gscInfo, setGscInfo] = useState<string | null>(null);
+  useEffect(() => { setGscChoices(null); setGscInfo(null); setFiles((p) => ({ ...p, gscPages: null, gscQp: null })); }, [projectId]);
+
+  const loadGsc = async (siteUrl?: string) => {
+    if (!project?.domain) { toast.error('У проекта не указан домен'); return; }
+    setGscLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('gsc-page-data', { body: { domain: project.domain, siteUrl } });
+      if (error) {
+        let msg = error.message;
+        try { const b = await (error as any).context?.json(); msg = b?.error || msg; } catch { /* ignore */ }
+        throw new Error(msg);
+      }
+      if (data?.status === 'selection_required') { setGscChoices(data.candidates); return; }
+      setGscChoices(null);
+      const csv = (rows: Record<string, unknown>[], cols: string[]) =>
+        [cols.join(','), ...rows.map((r) => cols.map((c) => { const v = String(r[c] ?? ''); return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }).join(','))].join('\n');
+      const pf = new File([csv(data.pages, ['page', 'clicks', 'impressions', 'position'])], 'gsc_pages.csv', { type: 'text/csv' });
+      const qf = new File([csv(data.queryPages, ['query', 'page', 'clicks', 'impressions', 'position'])], 'gsc_query_page.csv', { type: 'text/csv' });
+      setFiles((p) => ({ ...p, gscPages: pf, gscQp: qf }));
+      setGscInfo(`Search Console (${data.siteUrl}), ${data.startDate} — ${data.endDate}: страниц ${data.pages.length}, пар запрос+страница ${data.queryPages.length}`);
+      toast.success('Данные Search Console загружены');
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally { setGscLoading(false); }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
@@ -218,6 +247,20 @@ export default function InternalLinkAuditPage() {
               <div className="grid md:grid-cols-2 gap-3">
                 {SLOTS.map((s) => <DropSlot key={s.key} title={s.title} hint={s.hint} required={s.required} file={files[s.key]} onFile={(f) => setFile(s.key, f)} />)}
               </div>
+              <Card className="p-3 flex items-center gap-3 flex-wrap">
+                <Button variant="outline" size="sm" onClick={() => loadGsc()} disabled={gscLoading}>
+                  <Download className="h-4 w-4 mr-1" />{gscLoading ? 'Загружаю…' : 'Загрузить из Search Console'}
+                </Button>
+                {gscChoices && (
+                  <div className="w-72">
+                    <Select onValueChange={(v) => loadGsc(v)}>
+                      <SelectTrigger><SelectValue placeholder="Выберите ресурс Search Console" /></SelectTrigger>
+                      <SelectContent>{gscChoices.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <span className="text-xs text-muted-foreground">{gscInfo ?? 'Данные за последние 90 дней по домену проекта — вместо ручной выгрузки.'}</span>
+              </Card>
               <Card className="p-4">
                 <div className="text-sm font-medium mb-3">Пороги шаблонных ссылок и кандидатов</div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
