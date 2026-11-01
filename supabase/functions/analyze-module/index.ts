@@ -262,7 +262,64 @@ async function dfsKeywords(seed: string): Promise<DfsResult> {
     return { rows, status: r.status, msg };
   } catch (e) {
     return { rows: [], status: -1, msg: e instanceof Error ? e.message : String(e) };
+}
+
+/* ---------------- Real data: DataForSEO SERP (fallback when Serper is out of credits) ---------------- */
+
+const DFS_LOCATION: Record<string, number> = { ru: 2257, kz: 2398, by: 2231, ua: 2804, us: 2840, de: 2276, tr: 2792 };
+
+async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
+  if (!DFS_LOGIN || !DFS_PASSWORD) return { ev: null, status: 0, msg: "доступа нет" };
+  const call = async (withLoc: boolean) => {
+    const task: Record<string, unknown> = { keyword: query, language_code: "ru", depth: 10, priority: 10 };
+    if (withLoc) task.location_code = DFS_LOCATION[gl] ?? 2257;
+    return fetch("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", {
+      method: "POST",
+      headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
+      body: JSON.stringify([task]),
+      signal: AbortSignal.timeout(25_000),
+    });
+  };
+  try {
+    let r = await call(true);
+    let text = await r.text();
+    if (!r.ok) { r = await call(false); text = await r.text(); }
+    let d: any = {}; try { d = JSON.parse(text); } catch { /* не JSON */ }
+    const msg = String(d?.tasks?.[0]?.status_message ?? text.slice(0, 160));
+    if (!r.ok) return { ev: null, status: r.status, msg };
+    const items = d?.tasks?.[0]?.result?.[0]?.items;
+    if (!Array.isArray(items)) return { ev: null, status: r.status, msg };
+    const rows: SerpRow[] = items
+      .filter((it: any) => it?.type === "organic" && it?.domain)
+      .slice(0, 10)
+      .map((it: any, i: number) => {
+        const host = String(it.domain).replace(/^www\./, "").toLowerCase();
+        return { domain: host, kind: classify(host), position: Number(it.position ?? i + 1) };
+      });
+    const types: string[] = Array.from(new Set(items.map((it: any) => String(it?.type || "")).filter(Boolean)));
+    const paa: string[] = [];
+    for (const it of items) {
+      if (String(it?.type || "").includes("people_also_ask")) {
+        if (it?.title) paa.push(String(it.title));
+        for (const sub of Array.isArray(it?.items) ? it.items : []) if (sub?.title) paa.push(String(sub.title));
+      }
+    }
+    const related = items
+      .filter((it: any) => String(it?.type || "").includes("related_searches"))
+      .flatMap((it: any) => (Array.isArray(it?.items) ? it.items : []).map((s: any) => String(s?.title || "")).filter(Boolean))
+      .slice(0, 8);
+    const ev: SerpEvidence = {
+      query, rows, paa: paa.slice(0, 6), related,
+      features: types.filter((t) => t !== "organic"),
+      ai_overview: types.some((t) => t.includes("ai_") || t.includes("generative")),
+      competitors: rows.filter((x) => x.kind === "сайт-конкурент").length,
+      aggregators: rows.filter((x) => x.kind !== "сайт-конкурент").length,
+    };
+    return { ev, status: 200, msg: "" };
+  } catch (e) {
+    return { ev: null, status: -1, msg: e instanceof Error ? e.message : String(e) };
   }
+}
 }
 
 /* ---------------- Evidence assembly ---------------- */
@@ -299,18 +356,28 @@ async function buildEvidence(mod: Mod, niche: string, product: string, geo: stri
   let keywords: KwRow[] = [];
 
   if (mod.serp) {
-    if (!SERPER_KEY) {
-      notes.push("Ключ Serper не настроен — реальных данных по выдаче нет.");
-    } else {
-      const { gl, hl, location } = geoParts(geo);
-      const queries = seedQueries(niche, product, ownQueries);
+    const { gl, hl, location } = geoParts(geo);
+    const queries = seedQueries(niche, product, ownQueries);
+    let why = "";
+    if (SERPER_KEY) {
       const res = await Promise.all(queries.map((q) => serpOne(q, gl, hl, location)));
       for (const r of res) if (r.ev && r.ev.rows.length) serp.push(r.ev);
       if (serp.length) sources.push(`serper:${serp.length}`);
       else {
         const bad = res.find((r) => r.status !== 200);
-        notes.push(`Выдачу получить не удалось${bad ? ` (Serper, код ${bad.status}${bad.msg ? ": " + bad.msg.slice(0, 120) : ""})` : ""} — вывод только на экспертной оценке.`);
+        why = bad ? `Serper, код ${bad.status}${bad.msg ? ": " + bad.msg.slice(0, 120) : ""}` : "Serper не ответил";
       }
+    } else why = "ключ Serper не настроен";
+
+    if (!serp.length && DFS_LOGIN && DFS_PASSWORD) {
+      const fb = await Promise.all(queries.map((q) => dfsSerpOne(q, gl)));
+      for (const r of fb) if (r.ev && r.ev.rows.length) serp.push(r.ev);
+      if (serp.length) {
+        sources.push(`dataforseo-serp:${serp.length}`);
+        notes.push(`Выдача получена из DataForSEO, потому что ${why}.`);
+      } else notes.push(`Выдачу получить не удалось (${why}; DataForSEO тоже не ответил) — вывод только на экспертной оценке.`);
+    } else if (!serp.length) {
+      notes.push(`Выдачу получить не удалось (${why}) — вывод только на экспертной оценке.`);
     }
   }
 
