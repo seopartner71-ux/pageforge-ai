@@ -37,7 +37,24 @@ Deno.serve(async (req) => {
     }
     if (!KEY) return json({ error: "Ключ OpenRouter не настроен" }, 500);
 
-    const r = (audit as any).results ?? {};
+    // Большие списки лежат отдельными строками в internal_link_audit_parts — склеиваем обратно.
+    const ARR = ["pages", "plan", "candidates", "cannibal", "orphans", "noText", "redirects", "broken", "conflicts"];
+    let r: any = (audit as any).results ?? {};
+    if (!Array.isArray(r.pages)) {
+      const parts: any[] = [];
+      for (let from = 0; ; from += 50) {
+        const { data: rows, error: pe } = await supabase
+          .from("internal_link_audit_parts").select("idx, payload").eq("audit_id", auditId)
+          .range(from, from + 49).order("idx");
+        if (pe) return json({ error: `Не удалось прочитать части отчёта: ${pe.message}` }, 500);
+        for (const row of rows ?? []) parts.push(row.payload);
+        if (!rows || rows.length < 50) break;
+      }
+      r = { ...r };
+      for (const k of ARR) r[k] = [];
+      for (const p of parts) for (const k of Object.keys(p)) if (ARR.includes(k)) r[k].push(...(p[k] ?? []));
+    }
+
     const s = r.summary ?? {};
     const lines = (arr: any[] | undefined, n: number, f: (x: any) => string) => (arr ?? []).slice(0, n).map(f).join("\n") || "—";
 
