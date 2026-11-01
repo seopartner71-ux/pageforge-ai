@@ -1167,6 +1167,88 @@ export type Database = {
           },
         ]
       }
+      internal_link_audits: {
+        Row: {
+          ai_report: Json | null
+          created_at: string
+          created_by: string
+          id: string
+          project_id: string
+          results: Json
+          settings: Json
+          source_note: string | null
+          status: string
+          summary: Json
+        }
+        Insert: {
+          ai_report?: Json | null
+          created_at?: string
+          created_by: string
+          id?: string
+          project_id: string
+          results?: Json
+          settings?: Json
+          source_note?: string | null
+          status?: string
+          summary?: Json
+        }
+        Update: {
+          ai_report?: Json | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          project_id?: string
+          results?: Json
+          settings?: Json
+          source_note?: string | null
+          status?: string
+          summary?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_link_audits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_link_rules: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position: number
+          project_id: string
+          regex: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          project_id: string
+          regex: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          project_id?: string
+          regex?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_link_rules_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kb_chunks: {
         Row: {
           chunk_index: number
