@@ -8,6 +8,8 @@ export const ARR_KEYS = ['pages', 'plan', 'candidates', 'cannibal', 'orphans', '
 
 const PART_LIMIT = 700_000;
 const MAX_PARTS = 300;
+const enc = new TextEncoder(); // сервер считает байты, а кириллица в JSON — 2 байта на символ
+
 
 export type Part = Record<string, unknown[]>;
 
