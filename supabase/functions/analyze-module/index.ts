@@ -320,7 +320,6 @@ async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
     return { ev: null, status: -1, msg: e instanceof Error ? e.message : String(e) };
   }
 }
-}
 
 /* ---------------- Evidence assembly ---------------- */
 
