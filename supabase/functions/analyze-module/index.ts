@@ -305,9 +305,12 @@ async function buildEvidence(mod: Mod, niche: string, product: string, geo: stri
       const { gl, hl, location } = geoParts(geo);
       const queries = seedQueries(niche, product, ownQueries);
       const res = await Promise.all(queries.map((q) => serpOne(q, gl, hl, location)));
-      for (const r of res) if (r && r.rows.length) serp.push(r);
+      for (const r of res) if (r.ev && r.ev.rows.length) serp.push(r.ev);
       if (serp.length) sources.push(`serper:${serp.length}`);
-      else notes.push("Выдачу получить не удалось (Serper не ответил) — вывод только на экспертной оценке.");
+      else {
+        const bad = res.find((r) => r.status !== 200);
+        notes.push(`Выдачу получить не удалось${bad ? ` (Serper, код ${bad.status}${bad.msg ? ": " + bad.msg.slice(0, 120) : ""})` : ""} — вывод только на экспертной оценке.`);
+      }
     }
   }
 
@@ -315,9 +318,15 @@ async function buildEvidence(mod: Mod, niche: string, product: string, geo: stri
     if (!DFS_LOGIN || !DFS_PASSWORD) {
       notes.push("Доступа к DataForSEO нет — реальных частот запросов нет.");
     } else {
-      keywords = await dfsKeywords((product.trim().length > 2 ? product : niche).trim());
+      let d = await dfsKeywords(niche.trim());
+      if (!d.rows.length && product.trim().length > 2) {
+        const d2 = await dfsKeywords(product.trim());
+        if (d2.rows.length) d = d2;
+        else if (d2.status) d = { rows: [], status: d2.status, msg: d2.msg || d.msg };
+      }
+      keywords = d.rows;
       if (keywords.length) sources.push(`dataforseo:${keywords.length}`);
-      else notes.push("DataForSEO не вернул частот по этой нише — цифры частот не использовать.");
+      else notes.push(`DataForSEO не вернул частот${d.status ? ` (код ${d.status}${d.msg ? ": " + d.msg.slice(0, 120) : ""})` : ""} — цифры частот не использовать.`);
     }
   }
 
