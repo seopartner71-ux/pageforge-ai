@@ -105,7 +105,8 @@ export default function InternalLinkAuditPage() {
         const col = keys.find((c) => ['address', 'адрес'].includes(c.toLowerCase().trim()));
         const tcol = keys.find((c) => /^(title 1|title|h1-1)$/i.test(c.trim()));
         const ccol = keys.find((c) => /^(status code|код ответа)$/i.test(c.trim()));
-        const ok = col ? rows.filter((r) => !ccol || Number(r[ccol]) === 200) : [];
+        const ctcol = keys.find((c) => /^(content type|тип содержимого)$/i.test(c.trim()));
+        const ok = col ? rows.filter((r) => (!ccol || Number(r[ccol]) === 200) && (!ctcol || String(r[ctcol] ?? '').toLowerCase().includes('html'))) : [];
         setSampleUrls(col ? rows.map((r) => norm(r[col])).filter(Boolean) : null);
         setSamplePages(col ? ok.map((r) => ({ url: norm(r[col]), title: tcol ? String(r[tcol] ?? '') : '' })).filter((p) => p.url) : null);
       } catch { setSampleUrls(null); setSamplePages(null); }
