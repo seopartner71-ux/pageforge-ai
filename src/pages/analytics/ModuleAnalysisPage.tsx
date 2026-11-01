@@ -6,18 +6,35 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, FileDown } from 'lucide-react';
+import { Loader2, Sparkles, FileDown, Trash2, History, Database, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { MODULE_BY_PATH, normalizeReport, type ModuleReport } from '@/lib/analytics/moduleConfig';
+import { MODULE_BY_PATH, normalizeReport, type ModuleReport, type ModuleEvidence } from '@/lib/analytics/moduleConfig';
 import { exportModuleDocx } from '@/lib/analytics/exportModuleDocx';
 import NotFound from '@/pages/NotFound';
 
-const EMPTY = { niche: '', site: '', geo: 'Россия', product: '', audience: '', businessType: '', extra: '' };
+const EMPTY = { niche: '', site: '', geo: 'Россия', product: '', audience: '', businessType: '', extra: '', queries: '' };
+
+type SavedRow = {
+  id: string;
+  title: string;
+  niche: string;
+  geo: string;
+  site: string;
+  created_at: string;
+  form: Record<string, string>;
+  report: unknown;
+  evidence: ModuleEvidence;
+};
 
 async function readError(e: any): Promise<string> {
   try { const j = await e?.context?.json?.(); if (j?.error) return j.error; } catch { /* ignore */ }
   return e?.message || 'Ошибка запроса';
+}
+
+function fmtDate(iso: string): string {
+  try { return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+  catch { return iso; }
 }
 
 export default function ModuleAnalysisPage() {
@@ -27,8 +44,27 @@ export default function ModuleAnalysisPage() {
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
   const [data, setData] = useState<ModuleReport | null>(null);
+  const [evidence, setEvidence] = useState<ModuleEvidence | null>(null);
+  const [saved, setSaved] = useState<SavedRow[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
 
-  useEffect(() => { setData(null); }, [pathname]);
+  useEffect(() => { setData(null); setEvidence(null); setOpenId(null); }, [pathname]);
+
+  useEffect(() => {
+    if (!cfg) return;
+    let alive = true;
+    (async () => {
+      const { data: rows } = await supabase
+        .from('module_analyses')
+        .select('id,title,niche,geo,site,created_at,form,report,evidence')
+        .eq('module_id', cfg.id)
+        .order('created_at', { ascending: false })
+        .limit(12);
+      if (alive && Array.isArray(rows)) setSaved(rows as SavedRow[]);
+    })();
+    return () => { alive = false; };
+  }, [cfg?.id]);
+
   useEffect(() => {
     if (!loading) return;
     setTick(0);
@@ -40,16 +76,61 @@ export default function ModuleAnalysisPage() {
   const set = (k: keyof typeof EMPTY, v: string) => setForm((s) => ({ ...s, [k]: v }));
 
   async function run() {
-    setLoading(true); setData(null);
+    setLoading(true); setData(null); setEvidence(null); setOpenId(null);
     try {
-      const { data: resp, error } = await supabase.functions.invoke('analyze-module', { body: { module: cfg.id, ...form } });
+      const queries = form.queries.split(/[,\n;]+/).map((s) => s.trim()).filter(Boolean).slice(0, 6);
+      const { data: resp, error } = await supabase.functions.invoke('analyze-module', { body: { module: cfg.id, ...form, queries } });
       if (error) throw new Error(await readError(error));
       const r = normalizeReport((resp as any)?.report);
       if (!r) throw new Error('ИИ вернул пустой отчёт, попробуйте ещё раз');
-      setData(r);
+      const ev = ((resp as any)?.evidence ?? null) as ModuleEvidence | null;
+      setData(r); setEvidence(ev);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        const { error: insErr } = await supabase.from('module_analyses').insert({
+          user_id: user.id,
+          module_id: cfg.id,
+          title: form.niche.trim(),
+          niche: form.niche.trim(),
+          geo: form.geo.trim(),
+          site: form.site.trim(),
+          form,
+          report: r,
+          evidence: ev ?? {},
+        });
+        if (insErr) toast({ title: 'Отчёт не сохранён в историю', description: insErr.message, variant: 'destructive' });
+        else {
+          setOpenId(null);
+          const { data: rows } = await supabase
+            .from('module_analyses')
+            .select('id,title,niche,geo,site,created_at,form,report,evidence')
+            .eq('module_id', cfg.id)
+            .order('created_at', { ascending: false })
+            .limit(12);
+          if (Array.isArray(rows)) setSaved(rows as SavedRow[]);
+        }
+      }
     } catch (e: any) {
       toast({ title: 'Не удалось построить отчёт', description: e?.message, variant: 'destructive' });
     } finally { setLoading(false); }
+  }
+
+  function openSaved(row: SavedRow) {
+    const r = normalizeReport(row.report);
+    if (!r) { toast({ title: 'Сохранённый отчёт повреждён', variant: 'destructive' }); return; }
+    setData(r);
+    setEvidence(row.evidence ?? null);
+    setForm({ ...EMPTY, ...(row.form || {}) });
+    setOpenId(row.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function removeSaved(id: string) {
+    const { error } = await supabase.from('module_analyses').delete().eq('id', id);
+    if (error) { toast({ title: 'Не удалось удалить', description: error.message, variant: 'destructive' }); return; }
+    setSaved((s) => s.filter((x) => x.id !== id));
+    if (openId === id) { setData(null); setEvidence(null); setOpenId(null); }
   }
 
   const field = (k: keyof typeof EMPTY, label: string, ph: string, wide = false) => (
@@ -78,7 +159,11 @@ export default function ModuleAnalysisPage() {
               {field('audience', 'Аудитория', 'Кто ваши клиенты')}
               {field('businessType', 'Тип бизнеса', 'B2B, B2C, локальный, интернет-магазин')}
               {field('extra', 'Дополнительно', 'Особенности, ограничения, конкуренты', true)}
+              {field('queries', 'Свои запросы для проверки выдачи', 'Через запятую: купить рукава рцд, рукава цена…', true)}
             </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              По этим запросам сервис реально посмотрит ТОП-10 Google и соберёт частоты запросов — вывод ИИ будет опираться на них, а не только на догадки.
+            </p>
             <div className="mt-6 flex justify-end">
               <Button size="lg" onClick={run} disabled={form.niche.trim().length < 2}>
                 <Sparkles className="w-4 h-4 mr-2" />{cfg.cta}
@@ -90,7 +175,9 @@ export default function ModuleAnalysisPage() {
         {loading && (
           <Card className="p-12 flex flex-col items-center gap-5 text-center">
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
-            <p className="text-sm text-muted-foreground">Senior-аналитик разбирает «{form.niche}»… обычно до 1–2 минут</p>
+            <p className="text-sm text-muted-foreground">
+              Сначала смотрим реальную выдачу и частоты по «{form.niche}», потом Senior-аналитик разбирает данные… до 2 минут
+            </p>
             <Progress value={tick} className="max-w-md" />
           </Card>
         )}
@@ -101,9 +188,54 @@ export default function ModuleAnalysisPage() {
               <h2 className="text-lg font-semibold text-foreground">«{form.niche}»</h2>
               <div className="flex gap-2">
                 <Button onClick={() => exportModuleDocx(cfg.title, form.niche, data)}><FileDown className="w-4 h-4 mr-2" />Скачать Word</Button>
-                <Button variant="outline" onClick={() => setData(null)}>Новый анализ</Button>
+                <Button variant="outline" onClick={() => { setData(null); setEvidence(null); setOpenId(null); }}>Новый анализ</Button>
               </div>
             </div>
+
+            <Card className="p-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Database className="w-4 h-4 text-primary" />
+                Откуда данные в этом отчёте
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                {evidence?.serp_queries ? (
+                  <span className="px-2 py-1 rounded border border-border text-muted-foreground">
+                    реальная выдача Google: {evidence.serp_queries} {evidence.serp_queries === 1 ? 'запрос' : 'запросов'}
+                  </span>
+                ) : null}
+                {evidence?.keywords ? (
+                  <span className="px-2 py-1 rounded border border-border text-muted-foreground">
+                    реальные частоты: {evidence.keywords} {evidence.keywords === 1 ? 'фраза' : 'фраз'}
+                  </span>
+                ) : null}
+                {!evidence?.serp_queries && !evidence?.keywords ? (
+                  <span className="px-2 py-1 rounded border border-border text-muted-foreground">
+                    реальных данных нет — только экспертная оценка ИИ
+                  </span>
+                ) : null}
+              </div>
+              {evidence?.serp_top?.length ? (
+                <div className="grid md:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  {evidence.serp_top.map((s, i) => (
+                    <div key={i} className="flex justify-between gap-2 border-b border-border pb-1">
+                      <span className="truncate">{s.query}</span>
+                      <span className="shrink-0">
+                        конкурентов {s.competitors} · агрегаторов {s.aggregators}{s.ai_overview ? ' · ИИ-ответ' : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {evidence?.notes?.length ? (
+                <div className="space-y-1">
+                  {evidence.notes.map((n, i) => (
+                    <p key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                      <ShieldAlert className="w-3.5 h-3.5 mt-0.5 shrink-0" />{n}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+            </Card>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {data.scores.map((s) => (
@@ -158,6 +290,31 @@ export default function ModuleAnalysisPage() {
               </div>
             )}
           </div>
+        )}
+
+        {saved.length > 0 && (
+          <Card className="p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-primary" />
+              <h3 className="font-semibold text-foreground">Мои отчёты</h3>
+              <span className="text-xs text-muted-foreground">сохраняются автоматически</span>
+            </div>
+            <div className="divide-y divide-border">
+              {saved.map((row) => (
+                <div key={row.id} className="flex items-center justify-between gap-3 py-2">
+                  <button className="text-left min-w-0 flex-1" onClick={() => openSaved(row)}>
+                    <div className="text-sm text-foreground truncate">{row.title || 'Без названия'}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {fmtDate(row.created_at)}{row.geo ? ` · ${row.geo}` : ''}{row.site ? ` · ${row.site}` : ''}
+                    </div>
+                  </button>
+                  <Button variant="ghost" size="icon" onClick={() => removeSaved(row.id)} aria-label="Удалить отчёт">
+                    <Trash2 className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Card>
         )}
       </main>
     </div>
