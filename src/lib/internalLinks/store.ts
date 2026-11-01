@@ -74,22 +74,27 @@ export async function saveAudit(
   return ins.data as { id: string; created_at: string };
 }
 
+export interface LoadedAudit { results: AuditResult | null; ai: unknown; date: string; error: string | null }
+
 /** Читает аудит целиком: старые строки с results сразу, новые — склейкой частей. */
-export async function loadAudit(sb: Sb, id: string): Promise<{ results: AuditResult | null; error: string | null }> {
+export async function loadAudit(sb: Sb, id: string): Promise<LoadedAudit> {
   const { data, error } = await sb.from('internal_link_audits').select('id, created_at, results, ai_report').eq('id', id).maybeSingle();
-  if (error || !data) return { results: null, error: error?.message ?? 'аудит не найден' };
+  if (error || !data) return { results: null, ai: null, date: '', error: error?.message ?? 'аудит не найден' };
   const meta = (data.results ?? {}) as Record<string, unknown>;
-  if (Array.isArray(meta.pages)) return { results: data.results as AuditResult, error: null };
+  const ai = data.ai_report ?? null;
+  const date = String(data.created_at ?? '');
+  if (Array.isArray(meta.pages)) return { results: data.results as AuditResult, ai, date, error: null };
 
   const parts: Part[] = [];
   let from = 0;
   for (;;) {
     const { data: rows, error: pe } = await sb.from('internal_link_audit_parts')
       .select('idx, payload').eq('audit_id', id).range(from, from + 49).order('idx');
-    if (pe) return { results: null, error: pe.message };
+    if (pe) return { results: null, ai, date, error: pe.message };
     for (const r of rows ?? []) parts.push(r.payload as Part);
     if (!rows || rows.length < 50) break;
     from += 50;
   }
-  return { results: mergeParts(meta, parts), error: null };
+  return { results: mergeParts(meta, parts), ai, date, error: null };
 }
+

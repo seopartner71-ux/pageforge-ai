@@ -17,6 +17,8 @@ import { DEFAULT_SETTINGS, norm, type AuditResult, type AuditSettings } from '@/
 import type { AiReport } from '@/lib/internalLinks/exportXlsx';
 import { readTable } from '@/lib/internalLinks/readFile';
 import { autoDetectTypes, type SamplePage } from '@/lib/internalLinks/autoTypes';
+import { loadAudit, saveAudit } from '@/lib/internalLinks/store';
+
 
 interface Project { id: string; name: string; domain: string | null }
 interface AuditRow { id: string; created_at: string; status: string; summary: any; source_note: string | null; created_by: string }
@@ -114,9 +116,10 @@ export default function InternalLinkAuditPage() {
   };
 
   const openAudit = async (id: string) => {
-    const { data, error } = await supabase.from('internal_link_audits').select('id, created_at, results, ai_report').eq('id', id).maybeSingle();
-    if (error || !data) { toast.error('Не удалось открыть аудит'); return; }
-    setOpen({ id: data.id, result: data.results as unknown as AuditResult, ai: (data.ai_report as AiReport) ?? null, date: data.created_at });
+    const { results, ai, date, error } = await loadAudit(supabase, id);
+    if (error || !results) { toast.error(`Не удалось открыть аудит: ${error ?? 'нет данных'}`); return; }
+    setOpen({ id, result: results, ai: (ai as AiReport) ?? null, date });
+
     setTab('audits');
   };
 
@@ -139,38 +142,22 @@ export default function InternalLinkAuditPage() {
       if (m.kind === 'error') { setRunning(null); toast.error(m.message); return; }
       const result = m.result as AuditResult;
       setRunning({ stage: 'Сохранение', pct: 100 });
-      // Большие сайты + GSC дают многомегабайтный JSON — режем списки, при ошибке пробуем ещё компактнее.
-      const trim = (n: number): AuditResult => ({
-        ...result,
-        pages: result.pages.slice(0, n), plan: result.plan.slice(0, n),
-        candidates: result.candidates.slice(0, n / 2), cannibal: result.cannibal.slice(0, n / 2),
-        orphans: result.orphans.slice(0, n), noText: result.noText.slice(0, n),
-        redirects: result.redirects.slice(0, n / 5), broken: result.broken.slice(0, n / 5),
-        conflicts: result.conflicts.slice(0, n / 5),
-      });
-      // Прокси на хостинге отклоняет запросы больше ~1 МБ (413) — подбираем объём под лимит.
-      const LIMIT = 800_000;
-      const sizes = [5000, 3000, 2000, 1200, 800, 500, 300, 150, 60];
-      const fit = sizes.filter((n) => new Blob([JSON.stringify(trim(n))]).size <= LIMIT);
-      const tries = (fit.length ? fit : [60]).slice(0, 3);
-      let saved = trim(tries[0]);
+      // Списки режутся на части по ~700 КБ и сохраняются отдельными строками:
+      // прокси на хостинге отклоняет запросы больше ~1 МБ (413). Ничего не выбрасывается.
       let data: { id: string; created_at: string } | null = null;
       let error: { message: string } | null = null;
-      for (const n of tries) {
-        saved = trim(n);
-        const r = await supabase.from('internal_link_audits').insert({
+      try {
+        data = await saveAudit(supabase, {
           project_id: projectId, created_by: userId, status: 'done', settings: settings as any,
-          summary: result.summary as any, results: saved as any,
+          summary: result.summary as any,
           source_note: [files.internal?.name, files.inlinks?.name, gp?.name, gq?.name].filter(Boolean).join(', '),
-        }).select('id, created_at').single();
-        data = r.data; error = r.error;
-        if (!error && data) break;
-        console.error('internal_link_audits insert failed', n, error);
-      }
+        }, result);
+      } catch (e) { error = { message: (e as Error).message }; }
       setRunning(null);
       if (error || !data) { toast.error(`Расчёт готов, но не сохранился: ${error?.message}`); return; }
       toast.success('Аудит готов');
-      setOpen({ id: data.id, result: saved, ai: null, date: data.created_at });
+      setOpen({ id: data.id, result, ai: null, date: data.created_at });
+
       setTab('audits');
       loadProject(projectId);
     };
