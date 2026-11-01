@@ -148,10 +148,15 @@ export default function InternalLinkAuditPage() {
         redirects: result.redirects.slice(0, n / 5), broken: result.broken.slice(0, n / 5),
         conflicts: result.conflicts.slice(0, n / 5),
       });
-      let saved = trim(5000);
+      // Прокси на хостинге отклоняет запросы больше ~1 МБ (413) — подбираем объём под лимит.
+      const LIMIT = 800_000;
+      const sizes = [5000, 3000, 2000, 1200, 800, 500, 300, 150, 60];
+      const fit = sizes.filter((n) => new Blob([JSON.stringify(trim(n))]).size <= LIMIT);
+      const tries = (fit.length ? fit : [60]).slice(0, 3);
+      let saved = trim(tries[0]);
       let data: { id: string; created_at: string } | null = null;
       let error: { message: string } | null = null;
-      for (const n of [5000, 1500, 400]) {
+      for (const n of tries) {
         saved = trim(n);
         const r = await supabase.from('internal_link_audits').insert({
           project_id: projectId, created_by: userId, status: 'done', settings: settings as any,
