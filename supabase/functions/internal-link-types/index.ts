@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     const groups = new Map<string, { path: string; title?: string }[]>();
     for (const p of pages) {
       const seg = p.path.split("/").filter(Boolean)[0] ?? "";
-      const k = seg.includes(".") || p.path.split("/").filter(Boolean).length < 2 && false ? "(файлы в корне)" : `/${seg}/`;
+      const k = seg.includes(".") ? "(файлы в корне)" : `/${seg}/`;
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k)!.push(p);
     }
