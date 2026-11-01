@@ -171,18 +171,27 @@ type SerpEvidence = {
   aggregators: number;
 };
 
-async function serpOne(query: string, gl: string, hl: string, location: string): Promise<SerpEvidence | null> {
-  if (!SERPER_KEY) return null;
-  const body: Record<string, unknown> = { q: query, gl, hl, num: 10 };
-  if (location) body.location = location;
-  try {
-    const r = await fetch("https://google.serper.dev/search", {
+type SerpResult = { ev: SerpEvidence | null; status: number; msg: string };
+
+async function serpOne(query: string, gl: string, hl: string, location: string): Promise<SerpResult> {
+  if (!SERPER_KEY) return { ev: null, status: 0, msg: "ключ не настроен" };
+  const attempt = async (withLoc: boolean) => {
+    const body: Record<string, unknown> = { q: query, gl, hl, num: 10 };
+    if (withLoc && location) body.location = location;
+    return fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": SERPER_KEY, "Content-Type": "application/json" },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15_000),
     });
-    if (!r.ok) return null;
+  };
+  try {
+    let r = await attempt(true);
+    if (!r.ok && location) r = await attempt(false); // неверное название города — пробуем без него
+    if (!r.ok) {
+      const t = await r.text().catch(() => "");
+      return { ev: null, status: r.status, msg: t.slice(0, 160) };
+    }
     const d: any = await r.json();
     const organic = Array.isArray(d?.organic) ? d.organic.slice(0, 10) : [];
     const rows: SerpRow[] = organic
@@ -202,13 +211,16 @@ async function serpOne(query: string, gl: string, hl: string, location: string):
     if (Array.isArray(d?.places) && d.places.length) features.push("localPack");
     if (Array.isArray(d?.relatedSearches) && d.relatedSearches.length) features.push("relatedSearches");
     const aiOverview = !!(d?.aiOverview || d?.ai_overview || d?.generativeAi);
-    return {
+    const ev: SerpEvidence = {
       query, rows, paa, related, features,
       ai_overview: aiOverview,
       competitors: rows.filter((x) => x.kind === "сайт-конкурент").length,
       aggregators: rows.filter((x) => x.kind !== "сайт-конкурент").length,
     };
-  } catch { return null; }
+    return { ev, status: 200, msg: "" };
+  } catch (e) {
+    return { ev: null, status: -1, msg: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /* ---------------- Real data: DataForSEO volumes ---------------- */
@@ -217,8 +229,10 @@ type KwRow = { keyword: string; volume: number; competition: number | null; cpc:
 
 function dfsAuth(): string { return "Basic " + btoa(`${DFS_LOGIN}:${DFS_PASSWORD}`); }
 
-async function dfsKeywords(seed: string): Promise<KwRow[]> {
-  if (!DFS_LOGIN || !DFS_PASSWORD) return [];
+type DfsResult = { rows: KwRow[]; status: number; msg: string };
+
+async function dfsKeywords(seed: string): Promise<DfsResult> {
+  if (!DFS_LOGIN || !DFS_PASSWORD) return { rows: [], status: 0, msg: "доступа нет" };
   try {
     const r = await fetch("https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_suggestions/live", {
       method: "POST",
@@ -232,18 +246,23 @@ async function dfsKeywords(seed: string): Promise<KwRow[]> {
       }]),
       signal: AbortSignal.timeout(25_000),
     });
-    if (!r.ok) return [];
-    const d: any = await r.json();
+    const text = await r.text();
+    let d: any = {}; try { d = JSON.parse(text); } catch { /* не JSON */ }
+    const msg = String(d?.tasks?.[0]?.status_message ?? text.slice(0, 160));
+    if (!r.ok) return { rows: [], status: r.status, msg };
     const items = d?.tasks?.[0]?.result?.[0]?.items;
-    if (!Array.isArray(items)) return [];
-    return items.slice(0, 30).map((it: any) => ({
+    if (!Array.isArray(items)) return { rows: [], status: r.status, msg };
+    const rows = items.slice(0, 30).map((it: any) => ({
       keyword: String(it?.keyword || "").trim(),
       volume: Number(it?.keyword_info?.search_volume ?? it?.keyword_info?.monthly_searches?.[0]?.search_volume ?? 0),
       competition: it?.keyword_info?.competition == null ? null : Number(it.keyword_info.competition),
       cpc: it?.keyword_info?.cpc == null ? null : Number(it.keyword_info.cpc),
       difficulty: it?.keyword_difficulty == null ? null : Number(it.keyword_difficulty),
     })).filter((x: KwRow) => !!x.keyword);
-  } catch { return []; }
+    return { rows, status: r.status, msg };
+  } catch (e) {
+    return { rows: [], status: -1, msg: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /* ---------------- Evidence assembly ---------------- */
