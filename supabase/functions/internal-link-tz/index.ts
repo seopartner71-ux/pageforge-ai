@@ -124,6 +124,44 @@ ${lines(r.candidates, 60, (c) => `${c.src} | ${c.srcH1} | ${c.dst} | ${c.dstH1} 
     } catch {
       return json({ error: "ИИ вернул неразборчивый ответ, попробуйте ещё раз" }, 502);
     }
+    // Сверка: каждый URL в ТЗ должен существовать в данных аудита, выдуманные задачи вырезаем.
+    const norm = (u: any) => {
+      let x = String(u ?? "").trim().toLowerCase();
+      if (!x) return "";
+      x = x.replace(/^https?:\/\/(www\.)?[^/]+/, "").split("#")[0];
+      if (!x.startsWith("/")) x = "/" + x;
+      return x.length > 1 ? x.replace(/\/+$/, "") : x;
+    };
+    const known = new Set<string>();
+    const collect = (v: any, depth = 0) => {
+      if (depth > 3 || v == null) return;
+      if (typeof v === "string") { if (/^(https?:\/\/|\/)/i.test(v)) known.add(norm(v)); return; }
+      if (Array.isArray(v)) { for (const x of v) collect(x, depth + 1); return; }
+      if (typeof v === "object") for (const x of Object.values(v)) collect(x, depth + 1);
+    };
+    for (const k of ARR) collect(r[k]);
+    const ok = (u: any) => !String(u ?? "").trim() || known.has(norm(u));
+    let dropped = 0, cleaned = 0;
+    const content0 = Array.isArray(report.content) ? report.content : [];
+    report.content = content0.filter((t: any) => {
+      const good = String(t?.page ?? "").trim() && ok(t.page) && ok(t.target);
+      if (!good) dropped++;
+      return good;
+    });
+    const tech0 = Array.isArray(report.tech) ? report.tech : [];
+    report.tech = tech0.filter((t: any) => {
+      const urls = Array.isArray(t?.urls) ? t.urls : [];
+      const kept = urls.filter((u: any) => ok(u));
+      cleaned += urls.length - kept.length;
+      t.urls = kept;
+      if (urls.length && !kept.length) { dropped++; return false; }
+      return true;
+    });
+    report.validation = { checked_urls: known.size, dropped_tasks: dropped, removed_urls: cleaned };
+    if (dropped || cleaned) {
+      report.notes = [...(Array.isArray(report.notes) ? report.notes : []),
+        `Автопроверка: удалено задач с адресами, которых нет в аудите — ${dropped}; убрано лишних адресов из тех. задач — ${cleaned}.`];
+    }
     report.model = data?.model ?? null;
     report.generated_at = new Date().toISOString();
 
