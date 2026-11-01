@@ -15,6 +15,13 @@
       "when": 1793552037127,
       "tag": "0001_internal_link_audit_parts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793565806415,
+      "tag": "0002_create_module_analyses",
+      "breakpoints": true
     }
   ]
 }

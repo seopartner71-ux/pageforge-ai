@@ -1450,6 +1450,48 @@ export type Database = {
         }
         Relationships: []
       }
+      module_analyses: {
+        Row: {
+          created_at: string
+          evidence: Json
+          form: Json
+          geo: string | null
+          id: string
+          module_id: string
+          niche: string
+          report: Json
+          site: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          evidence?: Json
+          form?: Json
+          geo?: string | null
+          id?: string
+          module_id: string
+          niche?: string
+          report?: Json
+          site?: string | null
+          title?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json
+          form?: Json
+          geo?: string | null
+          id?: string
+          module_id?: string
+          niche?: string
+          report?: Json
+          site?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
