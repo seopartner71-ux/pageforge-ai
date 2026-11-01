@@ -335,42 +335,6 @@ async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
   }
 }
 
-/* Labs: кто реально в ТОП по запросу (тот же продукт DataForSEO, что и частоты) */
-async function dfsRankedSerp(query: string): Promise<SerpResult> {
-  if (!DFS_LOGIN || !DFS_PASSWORD) return { ev: null, status: 0, msg: "доступа нет" };
-  try {
-    const r = await fetch("https://api.dataforseo.com/v3/dataforseo_labs/google/competitive_domain_info/live", {
-      method: "POST",
-      headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
-      body: JSON.stringify([{ target: query, language_code: "ru", limit: 10 }]),
-      signal: AbortSignal.timeout(25_000),
-    });
-    const text = await r.text();
-    let d: any = {}; try { d = JSON.parse(text); } catch { /* не JSON */ }
-    const code = Number(d?.tasks?.[0]?.status_code ?? 0);
-    const msg = String(d?.tasks?.[0]?.status_message ?? text.slice(0, 140));
-    const items = d?.tasks?.[0]?.result?.[0]?.items;
-    if (!Array.isArray(items)) return { ev: null, status: code || r.status, msg };
-    const rows: SerpRow[] = items
-      .map((it: any, i: number) => {
-        const host = String(it?.domain || "").replace(/^www\./, "").toLowerCase();
-        const pos = Number(it?.positions?.[0]?.position ?? it?.position ?? i + 1);
-        return { domain: host, kind: classify(host), position: pos };
-      })
-      .filter((x: SerpRow) => !!x.domain)
-      .slice(0, 10);
-    if (!rows.length) return { ev: null, status: code || r.status, msg: msg || "нет доменов в ТОП" };
-    const ev: SerpEvidence = {
-      query, rows, paa: [], related: [], features: [],
-      ai_overview: false,
-      competitors: rows.filter((x) => x.kind === "сайт-конкурент").length,
-      aggregators: rows.filter((x) => x.kind !== "сайт-конкурент").length,
-    };
-    return { ev, status: 200, msg: "" };
-  } catch (e) {
-    return { ev: null, status: -1, msg: e instanceof Error ? e.message : String(e) };
-  }
-}
 
 /* ---------------- Evidence assembly ---------------- */
 
@@ -420,18 +384,13 @@ async function buildEvidence(mod: Mod, niche: string, product: string, geo: stri
     } else why = "ключ Serper не настроен";
 
     if (!serp.length && DFS_LOGIN && DFS_PASSWORD) {
-      const fb = await Promise.all(queries.map((q) => dfsRankedSerp(q)));
+      const fb = await Promise.all(queries.map((q) => dfsSerpOne(q, gl)));
       for (const r of fb) if (r.ev && r.ev.rows.length) serp.push(r.ev);
-      let fb2: SerpResult[] = [];
-      if (!serp.length) {
-        fb2 = await Promise.all(queries.map((q) => dfsSerpOne(q, gl)));
-        for (const r of fb2) if (r.ev && r.ev.rows.length) serp.push(r.ev);
-      }
       if (serp.length) {
         sources.push(`dataforseo-serp:${serp.length}`);
         notes.push(`Выдача получена из DataForSEO, потому что ${why}.`);
       } else {
-        const bad = fb.find((r) => r.status !== 200) ?? fb2.find((r) => r.status !== 200);
+        const bad = fb.find((r) => r.status !== 200);
         notes.push(`Выдачу получить не удалось (${why}; DataForSEO${bad ? `: код ${bad.status}${bad.msg ? " " + bad.msg.slice(0, 140) : ""}` : " не ответить"}) — вывод только на экспертной оценке.`);
       }
     } else if (!serp.length) {
