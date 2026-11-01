@@ -54,8 +54,10 @@ export async function saveAudit(
   sb: Sb,
   base: { project_id: string; created_by: string; status: string; settings: unknown; summary: unknown; source_note: string },
   result: AuditResult,
+  limit = PART_LIMIT,
 ): Promise<{ id: string; created_at: string }> {
-  const { meta, parts } = splitResult(result);
+  const { meta, parts } = splitResult(result, limit);
+
   const ins = await sb.from('internal_link_audits').insert({
     ...base, results: meta as any,
   }).select('id, created_at').single();
