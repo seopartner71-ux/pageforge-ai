@@ -26,6 +26,8 @@ const GROUPS: Group[] = [
       { label: 'Микроразметка', path: '/schema-audit', icon: Code2, desc: 'Schema.org, OpenGraph, валидация JSON-LD' },
       { label: 'Ссылочный аудит', path: '/link-audit', icon: Link2, desc: 'Внутренние и внешние ссылки, анкоры' },
      { label: 'Ссылочный профиль', path: '/link-profile', icon: Link2, desc: 'Учёт размещённых ссылок: статус, бюджет, потери' },
+      { label: 'Аудит перелинковки', path: '/internal-link-audit', icon: Network, desc: 'Сироты, вес страниц, анкоры, ТЗ на правки' },
+
     ],
   },
   {
