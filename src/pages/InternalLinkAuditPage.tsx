@@ -150,7 +150,11 @@ export default function InternalLinkAuditPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2"><Network className="h-6 w-6 text-primary" />Аудит перелинковки</h1>
-            <PageDescription text="Анализ внутренних ссылок по выгрузкам Screaming Frog: сироты, PageRank, ссылки из текста, битые и редиректы, кандидаты «статья → услуга», каннибализация. Файлы обрабатываются в браузере и не загружаются на сервер." />
+            <PageDescription items={[
+              { label: 'Что делает', text: 'Анализирует внутренние ссылки по выгрузкам Screaming Frog: сироты, PageRank, ссылки из текста, битые и редиректы, кандидаты «статья → услуга», каннибализация.' },
+              { label: 'Данные', text: 'Файлы обрабатываются в браузере и не загружаются на сервер. Сохраняются только итоги аудита.' },
+              { label: 'Результат', text: 'План действий с приоритетами, выводы и рекомендации ИИ, выгрузка в Excel.' },
+            ]} />
           </div>
           <div className="w-64">
             <Select value={projectId} onValueChange={setProjectId}>

@@ -51,6 +51,7 @@ const PREFETCH: Record<string, () => Promise<unknown>> = {
   '/schema-audit': () => import('@/pages/SchemaAuditPage'),
   '/link-audit': () => import('@/pages/LinkAuditPage'),
   '/link-profile': () => import('@/pages/LinkProfilePage'),
+  '/internal-link-audit': () => import('@/pages/InternalLinkAuditPage'),
   '/pagespeed': () => import('@/pages/PageSpeedPage'),
   '/responsive': () => import('@/pages/ResponsivePage'),
   '/technical-audit': () => import('@/pages/TechnicalAuditPage'),
