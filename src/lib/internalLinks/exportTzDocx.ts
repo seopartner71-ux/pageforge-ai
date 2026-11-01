@@ -65,7 +65,7 @@ export async function exportLinkTzDocx(tz: LinkTz, host: string, fileBase: strin
   if (tech.length) {
     children.push(table(['№', 'Приоритет', 'Область', 'Задача', 'Затронутые URL', 'Как сделать', 'Приёмка'],
       [4, 8, 10, 18, 22, 22, 14],
-      tech.map((t, i) => [String(i + 1), t.priority, t.area, t.task, (t.urls ?? []).join('\n'), t.how ?? '', t.check ?? ''])));
+      tech.map((t, i) => [String(i + 1), t.priority, t.area, t.task, (t.urls ?? []).join(', '), t.how ?? '', t.check ?? ''])));
   } else children.push(para('Технических правок не требуется.'));
 
   if (tz.acceptance?.length) { children.push(h('3. Критерии приёмки', 1)); tz.acceptance.forEach((a) => children.push(bullet(a))); }
