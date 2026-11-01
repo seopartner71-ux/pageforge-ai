@@ -17,6 +17,14 @@ export const MODULE_BY_PATH: Record<string, ModuleConfig> = {
   '/analytics/ai/search': { id: 'ai-search', title: 'Возможности в ИИ-поиске', desc: 'Где стать цитируемым источником в Нейро, AI Overviews и ChatGPT, и где защищать клики.', cta: 'Найти возможности' },
 };
 
+export type ModuleEvidence = {
+  sources: string[];
+  notes: string[];
+  serp_queries: number;
+  serp_top: { query: string; competitors: number; aggregators: number; ai_overview: boolean }[];
+  keywords: number;
+};
+
 export type ModuleReport = {
   scores: { label: string; value: number; comment?: string }[];
   verdict: { overview?: string; main_opportunity?: string; main_risk?: string; strategy?: string };
