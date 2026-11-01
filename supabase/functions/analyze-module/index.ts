@@ -267,13 +267,13 @@ async function dfsKeywords(seed: string): Promise<DfsResult> {
 
 /* ---------------- Real data: DataForSEO SERP (fallback when Serper is out of credits) ---------------- */
 
-const DFS_LOCATION: Record<string, number> = { ru: 2257, kz: 2398, by: 2231, ua: 2804, us: 2840, de: 2276, tr: 2792 };
+const DFS_LOCATION_NAME: Record<string, string> = { ru: "Russia", kz: "Kazakhstan", by: "Belarus", ua: "Ukraine", us: "United States", de: "Germany", tr: "Turkey" };
 
 async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
   if (!DFS_LOGIN || !DFS_PASSWORD) return { ev: null, status: 0, msg: "доступа нет" };
   const call = async (withLoc: boolean) => {
     const task: Record<string, unknown> = { keyword: query, language_code: "ru", depth: 10, priority: 10 };
-    if (withLoc) task.location_code = DFS_LOCATION[gl] ?? 2257;
+    if (withLoc) task.location_name = DFS_LOCATION_NAME[gl] ?? "Russia";
     return fetch("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", {
       method: "POST",
       headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
@@ -284,9 +284,15 @@ async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
   try {
     let r = await call(true);
     let text = await r.text();
-    if (!r.ok) { r = await call(false); text = await r.text(); }
     let d: any = {}; try { d = JSON.parse(text); } catch { /* не JSON */ }
-    const tcode = Number(d?.tasks?.[0]?.status_code ?? 0);
+    let tcode = Number(d?.tasks?.[0]?.status_code ?? 0);
+    // план может не принимать гео-параметр — повторяем запрос без него
+    if (!r.ok || (tcode !== 0 && tcode !== 20000)) {
+      r = await call(false);
+      text = await r.text();
+      d = {}; try { d = JSON.parse(text); } catch { /* не JSON */ }
+      tcode = Number(d?.tasks?.[0]?.status_code ?? 0);
+    }
     const msg = String(d?.tasks?.[0]?.status_message ?? text.slice(0, 160));
     if (!r.ok) return { ev: null, status: r.status, msg };
     const items = d?.tasks?.[0]?.result?.[0]?.items;
