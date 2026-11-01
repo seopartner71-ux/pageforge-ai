@@ -286,10 +286,11 @@ async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
     let text = await r.text();
     if (!r.ok) { r = await call(false); text = await r.text(); }
     let d: any = {}; try { d = JSON.parse(text); } catch { /* не JSON */ }
+    const tcode = Number(d?.tasks?.[0]?.status_code ?? 0);
     const msg = String(d?.tasks?.[0]?.status_message ?? text.slice(0, 160));
     if (!r.ok) return { ev: null, status: r.status, msg };
     const items = d?.tasks?.[0]?.result?.[0]?.items;
-    if (!Array.isArray(items)) return { ev: null, status: r.status, msg };
+    if (!Array.isArray(items)) return { ev: null, status: tcode || r.status, msg };
     const rows: SerpRow[] = items
       .filter((it: any) => it?.type === "organic" && it?.domain)
       .slice(0, 10)
@@ -297,6 +298,7 @@ async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
         const host = String(it.domain).replace(/^www\./, "").toLowerCase();
         return { domain: host, kind: classify(host), position: Number(it.position ?? i + 1) };
       });
+    if (!rows.length) return { ev: null, status: tcode || r.status, msg: msg || "нет органических результатов" };
     const types: string[] = Array.from(new Set(items.map((it: any) => String(it?.type || "")).filter(Boolean)));
     const paa: string[] = [];
     for (const it of items) {
