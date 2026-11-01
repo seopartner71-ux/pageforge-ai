@@ -16,6 +16,7 @@ import { AuditResultView } from '@/components/internalLinks/AuditResultView';
 import { DEFAULT_SETTINGS, norm, type AuditResult, type AuditSettings } from '@/lib/internalLinks/engine';
 import type { AiReport } from '@/lib/internalLinks/exportXlsx';
 import { readTable } from '@/lib/internalLinks/readFile';
+import { autoDetectTypes, type SamplePage } from '@/lib/internalLinks/autoTypes';
 
 interface Project { id: string; name: string; domain: string | null }
 interface AuditRow { id: string; created_at: string; status: string; summary: any; source_note: string | null; created_by: string }
@@ -58,6 +59,17 @@ export default function InternalLinkAuditPage() {
   const [tab, setTab] = useState('audits');
   const [files, setFiles] = useState<Record<Slot, File | null>>({ internal: null, inlinks: null, gscPages: null, gscQp: null });
   const [sampleUrls, setSampleUrls] = useState<string[] | null>(null);
+  const [samplePages, setSamplePages] = useState<SamplePage[] | null>(null);
+  const [autoing, setAutoing] = useState(false);
+  const runAuto = async () => {
+    if (!samplePages?.length) { toast.error('Сначала загрузите internal_all — по нему ИИ определит типы страниц'); return; }
+    setAutoing(true);
+    try {
+      const r = await autoDetectTypes(projectId, samplePages);
+      setRules(r);
+      toast.success(`Типы настроены автоматически: ${r.map((x) => x.name).join(', ')}. Проверьте их во вкладке «Типы страниц».`);
+    } catch (e) { toast.error((e as Error).message); } finally { setAutoing(false); }
+  };
   const [settings, setSettings] = useState<AuditSettings>(DEFAULT_SETTINGS);
   const [running, setRunning] = useState<{ stage: string; pct: number } | null>(null);
   const [open, setOpen] = useState<{ id: string; result: AuditResult; ai: AiReport | null; date: string } | null>(null);
@@ -86,12 +98,17 @@ export default function InternalLinkAuditPage() {
   const setFile = async (k: Slot, f: File | null) => {
     setFiles((p) => ({ ...p, [k]: f }));
     if (k === 'internal') {
-      if (!f) { setSampleUrls(null); return; }
+      if (!f) { setSampleUrls(null); setSamplePages(null); return; }
       try {
         const rows = readTable(f.name, await f.arrayBuffer());
-        const col = Object.keys(rows[0] ?? {}).find((c) => ['address', 'адрес'].includes(c.toLowerCase().trim()));
+        const keys = Object.keys(rows[0] ?? {});
+        const col = keys.find((c) => ['address', 'адрес'].includes(c.toLowerCase().trim()));
+        const tcol = keys.find((c) => /^(title 1|title|h1-1)$/i.test(c.trim()));
+        const ccol = keys.find((c) => /^(status code|код ответа)$/i.test(c.trim()));
+        const ok = col ? rows.filter((r) => !ccol || Number(r[ccol]) === 200) : [];
         setSampleUrls(col ? rows.map((r) => norm(r[col])).filter(Boolean) : null);
-      } catch { setSampleUrls(null); }
+        setSamplePages(col ? ok.map((r) => ({ url: norm(r[col]), title: tcol ? String(r[tcol] ?? '') : '' })).filter((p) => p.url) : null);
+      } catch { setSampleUrls(null); setSamplePages(null); }
     }
   };
 
