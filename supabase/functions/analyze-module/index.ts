@@ -271,32 +271,28 @@ const DFS_LOCATION_NAME: Record<string, string> = { ru: "Russia", kz: "Kazakhsta
 
 async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
   if (!DFS_LOGIN || !DFS_PASSWORD) return { ev: null, status: 0, msg: "доступа нет" };
+
   const call = async (withLoc: boolean) => {
     const task: Record<string, unknown> = { keyword: query, language_code: "ru", depth: 10, priority: 10 };
     if (withLoc) task.location_name = DFS_LOCATION_NAME[gl] ?? "Russia";
-    return fetch("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", {
+    const r = await fetch("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", {
       method: "POST",
       headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
       body: JSON.stringify([task]),
       signal: AbortSignal.timeout(25_000),
     });
-  };
-  try {
-    let r = await call(true);
-    let text = await r.text();
+    const text = await r.text();
     let d: any = {}; try { d = JSON.parse(text); } catch { /* не JSON */ }
-    let tcode = Number(d?.tasks?.[0]?.status_code ?? 0);
-    // план может не принимать гео-параметр — повторяем запрос без него
-    if (!r.ok || (tcode !== 0 && tcode !== 20000)) {
-      r = await call(false);
-      text = await r.text();
-      d = {}; try { d = JSON.parse(text); } catch { /* не JSON */ }
-      tcode = Number(d?.tasks?.[0]?.status_code ?? 0);
-    }
-    const msg = String(d?.tasks?.[0]?.status_message ?? text.slice(0, 160));
-    if (!r.ok) return { ev: null, status: r.status, msg };
-    const items = d?.tasks?.[0]?.result?.[0]?.items;
-    if (!Array.isArray(items)) return { ev: null, status: tcode || r.status, msg };
+    return {
+      http: r.status,
+      code: Number(d?.tasks?.[0]?.status_code ?? 0),
+      msg: String(d?.tasks?.[0]?.status_message ?? text.slice(0, 120)),
+      items: d?.tasks?.[0]?.result?.[0]?.items,
+    };
+  };
+
+  const pick = (items: unknown): SerpEvidence | null => {
+    if (!Array.isArray(items)) return null;
     const rows: SerpRow[] = items
       .filter((it: any) => it?.type === "organic" && it?.domain)
       .slice(0, 10)
@@ -304,7 +300,7 @@ async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
         const host = String(it.domain).replace(/^www\./, "").toLowerCase();
         return { domain: host, kind: classify(host), position: Number(it.position ?? i + 1) };
       });
-    if (!rows.length) return { ev: null, status: tcode || r.status, msg: msg || "нет органических результатов" };
+    if (!rows.length) return null;
     const types: string[] = Array.from(new Set(items.map((it: any) => String(it?.type || "")).filter(Boolean)));
     const paa: string[] = [];
     for (const it of items) {
@@ -317,14 +313,23 @@ async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
       .filter((it: any) => String(it?.type || "").includes("related_searches"))
       .flatMap((it: any) => (Array.isArray(it?.items) ? it.items : []).map((s: any) => String(s?.title || "")).filter(Boolean))
       .slice(0, 8);
-    const ev: SerpEvidence = {
+    return {
       query, rows, paa: paa.slice(0, 6), related,
       features: types.filter((t) => t !== "organic"),
       ai_overview: types.some((t) => t.includes("ai_") || t.includes("generative")),
       competitors: rows.filter((x) => x.kind === "сайт-конкурент").length,
       aggregators: rows.filter((x) => x.kind !== "сайт-конкурент").length,
     };
-    return { ev, status: 200, msg: "" };
+  };
+
+  try {
+    const a = await call(true);
+    const evA = pick(a.items);
+    if (evA) return { ev: evA, status: 200, msg: "" };
+    const b = await call(false);
+    const evB = pick(b.items);
+    if (evB) return { ev: evB, status: 200, msg: "" };
+    return { ev: null, status: b.code || b.http || a.code || a.http, msg: `с гео: ${a.code} ${a.msg}; без гео: ${b.code} ${b.msg}` };
   } catch (e) {
     return { ev: null, status: -1, msg: e instanceof Error ? e.message : String(e) };
   }
