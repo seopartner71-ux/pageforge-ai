@@ -43,6 +43,7 @@ export const SEO_SECTIONS: SeoSection[] = [
     label: 'Ссылки',
     items: [
       { label: 'Ссылочный аудит', path: '/link-audit', icon: Link2 },
+      { label: 'Аудит перелинковки', path: '/internal-link-audit', icon: Network },
       { label: 'Ссылочный профиль', path: '/link-profile', icon: Link2 },
     ],
   },
