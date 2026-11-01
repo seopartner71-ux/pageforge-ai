@@ -262,6 +262,7 @@ async function dfsKeywords(seed: string): Promise<DfsResult> {
     return { rows, status: r.status, msg };
   } catch (e) {
     return { rows: [], status: -1, msg: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /* ---------------- Real data: DataForSEO SERP (fallback when Serper is out of credits) ---------------- */
