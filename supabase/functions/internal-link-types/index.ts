@@ -50,11 +50,11 @@ Deno.serve(async (req) => {
 - «Статья» — блог, статьи, новости, полезное, советы, информационные материалы;
 - «Услуга» — коммерческие страницы услуг/товаров/направлений, то, что продаёт;
 - «Консультация» — запись, консультация, контакты/заявка, если есть отдельный раздел.
-Другие типы (Категория, Товар, Контакты, О компании, Специалисты, Отзывы, Теги, Служебные и т.п.) называй коротко по-русски. Более узкие правила ставь выше общих. Если сайт с плоскими адресами (страницы прямо в корне), перечисли нужные адреса через | в одном правиле, ориентируясь на title. Не добавляй правило-«ловушку» вроде .* — всё неподошедшее само станет «Прочее». 3–12 правил. Не придумывай разделы, которых нет в данных.
+Другие типы (Категория, Товар, Контакты, О компании, Специалисты, Отзывы, Теги, Служебные и т.п.) называй коротко по-русски. Более узкие правила ставь выше общих. Правила (regex) пиши только для разделов-папок. Каждую страницу из группы «(файлы в корне)» отнеси к типу в поле "root" по её title — правила для них построятся автоматически. Не добавляй правило-«ловушку» вроде .* — всё неподошедшее само станет «Прочее». 3–12 правил. Не придумывай разделы, которых нет в данных.
 
 ${sample}
 
-Верни JSON: {"rules":[{"name":"Статья","regex":"^/blog/","reason":"почему"}]}`;
+Верни JSON: {"rules":[{"name":"Статья","regex":"^/blog/","reason":"почему"}],"root":{"/kak-vybrat-logopeda/":"Статья","/logoped/":"Услуга"}}`;
 
     const callAI = (model: string) =>
       fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -79,7 +79,21 @@ ${sample}
       .map((r: any) => ({ name: r.name.trim().slice(0, 60), regex: r.regex.trim(), reason: String(r.reason ?? "").slice(0, 200) }))
       .filter((r: any) => r.regex.length <= 4000 && !/^\^?\.\*\$?$/.test(r.regex) && r.name !== "Прочее" && r.name !== "Главная")
       .filter((r: any) => { try { new RegExp(r.regex); return true; } catch { return false; } })
-      .slice(0, 15);
+      .slice(0, 20);
+    // Страницы в корне → точные правила по типам (ставим выше правил разделов)
+    const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rootMap: Record<string, string> = parsed?.root && typeof parsed.root === "object" ? parsed.root : {};
+    const known = new Set(single.map((p) => p.path));
+    const byType = new Map<string, string[]>();
+    for (const [path, type] of Object.entries(rootMap)) {
+      if (!known.has(path) || typeof type !== "string" || !type.trim() || type === "Прочее" || type === "Главная") continue;
+      const slug = path.replace(/^\/+|\/+$/g, "");
+      if (!slug) continue;
+      if (!byType.has(type.trim())) byType.set(type.trim(), []);
+      byType.get(type.trim())!.push(esc(slug));
+    }
+    const rootRules = [...byType.entries()].map(([name, slugs]) => ({ name: name.slice(0, 60), regex: `^/(${slugs.join("|")})/?$`, reason: "страницы в корне сайта, тип определён по заголовку" }));
+    rules.unshift(...rootRules);
     if (!rules.length) return json({ error: "ИИ не предложил правил, попробуйте ещё раз" }, 502);
     return json({ rules });
   } catch (e) {
