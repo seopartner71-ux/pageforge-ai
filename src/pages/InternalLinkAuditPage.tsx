@@ -259,7 +259,11 @@ export default function InternalLinkAuditPage() {
 
             <TabsContent value="new" className="space-y-4">
               {!hasCore && (
-                <Card className="p-3 text-sm border-primary/40">Типы «Статья», «Услуга», «Консультация» не настроены — кандидаты на ссылки и проверка услуг будут пустыми. <Button variant="link" className="p-0 h-auto" onClick={() => setTab('types')}>Настроить типы</Button></Card>
+                <Card className="p-3 text-sm border-primary/40 flex items-center gap-3 flex-wrap">
+                  <span className="flex-1 min-w-[260px]">Типы «Статья», «Услуга», «Консультация» не настроены — кандидаты на ссылки и проверка услуг будут пустыми.{!samplePages && ' Загрузите internal_all, чтобы настроить их автоматически.'}</span>
+                  <Button size="sm" onClick={runAuto} disabled={autoing || !samplePages}><Sparkles className="h-4 w-4 mr-1" />{autoing ? 'ИИ определяет типы…' : 'Настроить автоматически'}</Button>
+                  <Button variant="link" className="p-0 h-auto" onClick={() => setTab('types')}>Вручную</Button>
+                </Card>
               )}
               <div className="grid md:grid-cols-2 gap-3">
                 {SLOTS.map((s) => <DropSlot key={s.key} title={s.title} hint={s.hint} required={s.required} file={files[s.key]} onFile={(f) => setFile(s.key, f)} />)}
@@ -306,6 +310,10 @@ export default function InternalLinkAuditPage() {
             </TabsContent>
 
             <TabsContent value="types">
+              <Card className="p-3 mb-3 flex items-center gap-3 flex-wrap text-sm">
+                <Button size="sm" variant="outline" onClick={runAuto} disabled={autoing || !samplePages}><Sparkles className="h-4 w-4 mr-1" />{autoing ? 'ИИ определяет типы…' : 'Настроить автоматически (ИИ)'}</Button>
+                <span className="text-xs text-muted-foreground">ИИ изучит адреса и заголовки страниц из internal_all и заменит текущие правила.</span>
+              </Card>
               <TypeRulesTab projectId={projectId} rules={rules} onSaved={setRules} sampleUrls={sampleUrls} />
             </TabsContent>
           </Tabs>
