@@ -9,13 +9,14 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, FileSpreadsheet, X, Play, Trash2, Network, Download } from 'lucide-react';
+import { Upload, FileSpreadsheet, X, Play, Trash2, Network, Download, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { TypeRulesTab, type RuleRow } from '@/components/internalLinks/TypeRulesTab';
 import { AuditResultView } from '@/components/internalLinks/AuditResultView';
 import { DEFAULT_SETTINGS, norm, type AuditResult, type AuditSettings } from '@/lib/internalLinks/engine';
 import type { AiReport } from '@/lib/internalLinks/exportXlsx';
 import { readTable } from '@/lib/internalLinks/readFile';
+import { autoDetectTypes, type SamplePage } from '@/lib/internalLinks/autoTypes';
 
 interface Project { id: string; name: string; domain: string | null }
 interface AuditRow { id: string; created_at: string; status: string; summary: any; source_note: string | null; created_by: string }
@@ -58,6 +59,17 @@ export default function InternalLinkAuditPage() {
   const [tab, setTab] = useState('audits');
   const [files, setFiles] = useState<Record<Slot, File | null>>({ internal: null, inlinks: null, gscPages: null, gscQp: null });
   const [sampleUrls, setSampleUrls] = useState<string[] | null>(null);
+  const [samplePages, setSamplePages] = useState<SamplePage[] | null>(null);
+  const [autoing, setAutoing] = useState(false);
+  const runAuto = async () => {
+    if (!samplePages?.length) { toast.error('Сначала загрузите internal_all — по нему ИИ определит типы страниц'); return; }
+    setAutoing(true);
+    try {
+      const r = await autoDetectTypes(projectId, samplePages);
+      setRules(r);
+      toast.success(`Типы настроены автоматически: ${r.map((x) => x.name).join(', ')}. Проверьте их во вкладке «Типы страниц».`);
+    } catch (e) { toast.error((e as Error).message); } finally { setAutoing(false); }
+  };
   const [settings, setSettings] = useState<AuditSettings>(DEFAULT_SETTINGS);
   const [running, setRunning] = useState<{ stage: string; pct: number } | null>(null);
   const [open, setOpen] = useState<{ id: string; result: AuditResult; ai: AiReport | null; date: string } | null>(null);
@@ -86,12 +98,18 @@ export default function InternalLinkAuditPage() {
   const setFile = async (k: Slot, f: File | null) => {
     setFiles((p) => ({ ...p, [k]: f }));
     if (k === 'internal') {
-      if (!f) { setSampleUrls(null); return; }
+      if (!f) { setSampleUrls(null); setSamplePages(null); return; }
       try {
         const rows = readTable(f.name, await f.arrayBuffer());
-        const col = Object.keys(rows[0] ?? {}).find((c) => ['address', 'адрес'].includes(c.toLowerCase().trim()));
+        const keys = Object.keys(rows[0] ?? {});
+        const col = keys.find((c) => ['address', 'адрес'].includes(c.toLowerCase().trim()));
+        const tcol = keys.find((c) => /^(title 1|title|h1-1)$/i.test(c.trim()));
+        const ccol = keys.find((c) => /^(status code|код ответа)$/i.test(c.trim()));
+        const ctcol = keys.find((c) => /^(content type|тип содержимого)$/i.test(c.trim()));
+        const ok = col ? rows.filter((r) => (!ccol || Number(r[ccol]) === 200) && (!ctcol || String(r[ctcol] ?? '').toLowerCase().includes('html'))) : [];
         setSampleUrls(col ? rows.map((r) => norm(r[col])).filter(Boolean) : null);
-      } catch { setSampleUrls(null); }
+        setSamplePages(col ? ok.map((r) => ({ url: norm(r[col]), title: tcol ? String(r[tcol] ?? '') : '' })).filter((p) => p.url) : null);
+      } catch { setSampleUrls(null); setSamplePages(null); }
     }
   };
 
@@ -242,7 +260,11 @@ export default function InternalLinkAuditPage() {
 
             <TabsContent value="new" className="space-y-4">
               {!hasCore && (
-                <Card className="p-3 text-sm border-primary/40">Типы «Статья», «Услуга», «Консультация» не настроены — кандидаты на ссылки и проверка услуг будут пустыми. <Button variant="link" className="p-0 h-auto" onClick={() => setTab('types')}>Настроить типы</Button></Card>
+                <Card className="p-3 text-sm border-primary/40 flex items-center gap-3 flex-wrap">
+                  <span className="flex-1 min-w-[260px]">Типы «Статья», «Услуга», «Консультация» не настроены — кандидаты на ссылки и проверка услуг будут пустыми.{!samplePages && ' Загрузите internal_all, чтобы настроить их автоматически.'}</span>
+                  <Button size="sm" onClick={runAuto} disabled={autoing || !samplePages}><Sparkles className="h-4 w-4 mr-1" />{autoing ? 'ИИ определяет типы…' : 'Настроить автоматически'}</Button>
+                  <Button variant="link" className="p-0 h-auto" onClick={() => setTab('types')}>Вручную</Button>
+                </Card>
               )}
               <div className="grid md:grid-cols-2 gap-3">
                 {SLOTS.map((s) => <DropSlot key={s.key} title={s.title} hint={s.hint} required={s.required} file={files[s.key]} onFile={(f) => setFile(s.key, f)} />)}
@@ -289,6 +311,10 @@ export default function InternalLinkAuditPage() {
             </TabsContent>
 
             <TabsContent value="types">
+              <Card className="p-3 mb-3 flex items-center gap-3 flex-wrap text-sm">
+                <Button size="sm" variant="outline" onClick={runAuto} disabled={autoing || !samplePages}><Sparkles className="h-4 w-4 mr-1" />{autoing ? 'ИИ определяет типы…' : 'Настроить автоматически (ИИ)'}</Button>
+                <span className="text-xs text-muted-foreground">ИИ изучит адреса и заголовки страниц из internal_all и заменит текущие правила.</span>
+              </Card>
               <TypeRulesTab projectId={projectId} rules={rules} onSaved={setRules} sampleUrls={sampleUrls} />
             </TabsContent>
           </Tabs>
