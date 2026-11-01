@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
     // RLS: прочитает только аудит своего проекта (или админ)
     const { data: audit, error } = await supabase
-      .from("internal_link_audits").select("id, results, summary").eq("id", auditId).maybeSingle();
+      .from("internal_link_audits").select("id, results, summary, ai_report").eq("id", auditId).maybeSingle();
     if (error || !audit) return json({ error: "Аудит не найден или нет доступа" }, 404);
 
     let KEY = Deno.env.get("OPENROUTER_API_KEY") ?? "";
@@ -129,7 +129,7 @@ ${lines(r.plan, 25, (p) => `[${p.priority}] ${p.action} — ${p.page} (${p.reaso
     report.model = data?.model ?? null;
     report.generated_at = new Date().toISOString();
 
-    await supabase.from("internal_link_audits").update({ ai_report: report }).eq("id", auditId);
+    await supabase.from("internal_link_audits").update({ ai_report: { ...report, tz: (audit as any).ai_report?.tz ?? undefined } }).eq("id", auditId);
     return json({ report });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);

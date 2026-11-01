@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Sparkles, Loader2 } from 'lucide-react';
+import { Download, Sparkles, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AuditResult } from '@/lib/internalLinks/engine';
 import type { AiReport } from '@/lib/internalLinks/exportXlsx';
@@ -35,6 +35,28 @@ export function AuditResultView({ auditId, result, ai, onAi, fileBase }: {
   auditId: string; result: AuditResult; ai: AiReport | null; onAi: (r: AiReport) => void; fileBase: string;
 }) {
   const [loading, setLoading] = useState(false);
+  const [tzLoading, setTzLoading] = useState(false);
+  const tz = ai?.tz;
+
+  const genTz = async () => {
+    setTzLoading(true);
+    const { data, error } = await supabase.functions.invoke('internal-link-tz', { body: { audit_id: auditId } });
+    setTzLoading(false);
+    if (error) {
+      let msg = error.message;
+      try { const b = await (error as any).context?.json(); msg = b?.error || msg; } catch { /* */ }
+      toast.error(msg); return;
+    }
+    if (data?.error) { toast.error(data.error); return; }
+    onAi({ ...(ai ?? {}), tz: data.tz });
+    toast.success('ТЗ готово');
+  };
+
+  const exportTz = async () => {
+    if (!tz) return;
+    const m = await import('@/lib/internalLinks/exportTzDocx');
+    await m.exportLinkTzDocx(tz, result.host ?? fileBase, fileBase);
+  };
   const s = result.summary;
 
   const genAi = async () => {
@@ -47,7 +69,7 @@ export function AuditResultView({ auditId, result, ai, onAi, fileBase }: {
       toast.error(msg); return;
     }
     if (data?.error) { toast.error(data.error); return; }
-    onAi(data.report);
+    onAi({ ...data.report, tz: ai?.tz });
   };
 
   const exportX = async () => {
@@ -113,6 +135,43 @@ export function AuditResultView({ auditId, result, ai, onAi, fileBase }: {
               <div><div className="font-medium mb-1">Быстрые победы</div><ul className="list-disc pl-5 text-muted-foreground">{ai.quick_wins.map((q, i) => <li key={i}>{q}</li>)}</ul></div>
             )}
           </div>
+        )}
+      </Card>
+
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h3 className="font-semibold flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />ТЗ на правки (Senior SEO)</h3>
+          <div className="flex gap-2">
+            <Button size="sm" variant={tz ? 'outline' : 'default'} onClick={genTz} disabled={tzLoading}>
+              {tzLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}{tz ? 'Пересоставить' : 'Составить ТЗ'}
+            </Button>
+            {tz && <Button size="sm" variant="outline" onClick={exportTz}><Download className="h-4 w-4 mr-1" />Word</Button>}
+          </div>
+        </div>
+        {tzLoading && <p className="text-sm text-muted-foreground">ИИ составляет ТЗ для контент-менеджера и программиста, это займёт 1–2 минуты…</p>}
+        {!tz && !tzLoading && <p className="text-sm text-muted-foreground">ИИ составит задание на правки: куда вставить ссылки и с какими анкорами, что исправить в шаблонах, редиректах и битых ссылках.</p>}
+        {tz && (
+          <Tabs defaultValue="content">
+            {tz.goal && <p className="text-sm mb-2"><span className="font-medium">Цель: </span>{tz.goal}</p>}
+            <TabsList>
+              <TabsTrigger value="content">Контент-менеджеру ({tz.content?.length ?? 0})</TabsTrigger>
+              <TabsTrigger value="tech">Программисту ({tz.tech?.length ?? 0})</TabsTrigger>
+              <TabsTrigger value="acc">Приёмка</TabsTrigger>
+            </TabsList>
+            <TabsContent value="content">
+              <T head={['№', 'Приоритет', 'Страница', 'Действие', 'Анкор', 'Цель', 'Где разместить', 'Проверка']}
+                rows={(tz.content ?? []).map((c, i) => [i + 1, c.priority, c.page, c.action, c.anchor, c.target, c.placement, c.check])} />
+            </TabsContent>
+            <TabsContent value="tech">
+              <T head={['№', 'Приоритет', 'Область', 'Задача', 'URL', 'Как сделать', 'Приёмка']}
+                rows={(tz.tech ?? []).map((t, i) => [i + 1, t.priority, t.area, t.task, (t.urls ?? []).join(', '), t.how, t.check])} />
+            </TabsContent>
+            <TabsContent value="acc" className="text-sm space-y-3">
+              {tz.scope && <p><span className="font-medium">Состав работ: </span>{tz.scope}</p>}
+              {!!tz.acceptance?.length && <div><div className="font-medium mb-1">Критерии приёмки</div><ul className="list-disc pl-5 text-muted-foreground">{tz.acceptance.map((a, i) => <li key={i}>{a}</li>)}</ul></div>}
+              {!!tz.notes?.length && <div><div className="font-medium mb-1">Замечания</div><ul className="list-disc pl-5 text-muted-foreground">{tz.notes.map((a, i) => <li key={i}>{a}</li>)}</ul></div>}
+            </TabsContent>
+          </Tabs>
         )}
       </Card>
 

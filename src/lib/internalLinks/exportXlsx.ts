@@ -6,6 +6,14 @@ export interface AiReport {
   findings?: { title: string; details: string; severity?: string }[];
   recommendations?: { priority: string; title: string; details: string; effect?: string }[];
   quick_wins?: string[];
+  tz?: LinkTz;
+}
+
+export interface LinkTz {
+  goal?: string; scope?: string;
+  content?: { priority: string; page: string; action: string; anchor?: string; target?: string; placement?: string; check?: string }[];
+  tech?: { priority: string; area: string; task: string; urls?: string[]; how?: string; check?: string }[];
+  acceptance?: string[]; notes?: string[]; generated_at?: string;
 }
 
 export function exportInternalLinksXlsx(r: AuditResult, ai: AiReport | null, fileBase: string) {
