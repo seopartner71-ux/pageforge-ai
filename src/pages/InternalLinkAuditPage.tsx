@@ -122,9 +122,15 @@ export default function InternalLinkAuditPage() {
 
   const run = async () => {
     if (!files.internal || !files.inlinks || !userId || !projectId) return;
-    setRunning({ stage: 'Подготовка', pct: 1 });
+    let gp = files.gscPages, gq = files.gscQp;
+    if (!gp && !gq && project?.domain) {
+      setRunning({ stage: 'Загрузка данных Search Console', pct: 1 });
+      const g = await loadGsc(undefined, true);
+      if (g) { gp = g.pf; gq = g.qf; }
+    }
+    setRunning({ stage: 'Подготовка', pct: 2 });
     const toWf = async (f: File | null) => (f ? { name: f.name, buf: await f.arrayBuffer() } : null);
-    const payload = { internal: await toWf(files.internal), inlinks: await toWf(files.inlinks), gscPages: await toWf(files.gscPages), gscQp: await toWf(files.gscQp), rules, settings };
+    const payload = { internal: await toWf(files.internal), inlinks: await toWf(files.inlinks), gscPages: await toWf(gp), gscQp: await toWf(gq), rules, settings };
     const worker = new Worker(new URL('../workers/internalLinks.worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = async (e) => {
       const m = e.data;
@@ -137,7 +143,7 @@ export default function InternalLinkAuditPage() {
       const { data, error } = await supabase.from('internal_link_audits').insert({
         project_id: projectId, created_by: userId, status: 'done', settings: settings as any,
         summary: result.summary as any, results: saved as any,
-        source_note: [files.internal?.name, files.inlinks?.name, files.gscPages?.name, files.gscQp?.name].filter(Boolean).join(', '),
+        source_note: [files.internal?.name, files.inlinks?.name, gp?.name, gq?.name].filter(Boolean).join(', '),
       }).select('id, created_at').single();
       setRunning(null);
       if (error || !data) { toast.error(`Расчёт готов, но не сохранился: ${error?.message}`); return; }
@@ -166,8 +172,8 @@ export default function InternalLinkAuditPage() {
   const [gscInfo, setGscInfo] = useState<string | null>(null);
   useEffect(() => { setGscChoices(null); setGscInfo(null); setFiles((p) => ({ ...p, gscPages: null, gscQp: null })); }, [projectId]);
 
-  const loadGsc = async (siteUrl?: string) => {
-    if (!project?.domain) { toast.error('У проекта не указан домен'); return; }
+  const loadGsc = async (siteUrl?: string, silent = false): Promise<{ pf: File; qf: File } | null> => {
+    if (!project?.domain) { if (!silent) toast.error('У проекта не указан домен'); return null; }
     setGscLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('gsc-page-data', { body: { domain: project.domain, siteUrl } });
@@ -176,7 +182,7 @@ export default function InternalLinkAuditPage() {
         try { const b = await (error as any).context?.json(); msg = b?.error || msg; } catch { /* ignore */ }
         throw new Error(msg);
       }
-      if (data?.status === 'selection_required') { setGscChoices(data.candidates); return; }
+      if (data?.status === 'selection_required') { setGscChoices(data.candidates); if (silent) toast.info('Сайт заведён в Search Console несколькими ресурсами — выберите нужный рядом с кнопкой «Загрузить из Search Console»'); return null; }
       setGscChoices(null);
       const csv = (rows: Record<string, unknown>[], cols: string[]) =>
         [cols.join(','), ...rows.map((r) => cols.map((c) => { const v = String(r[c] ?? ''); return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }).join(','))].join('\n');
@@ -185,8 +191,12 @@ export default function InternalLinkAuditPage() {
       setFiles((p) => ({ ...p, gscPages: pf, gscQp: qf }));
       setGscInfo(`Search Console (${data.siteUrl}), ${data.startDate} — ${data.endDate}: страниц ${data.pages.length}, пар запрос+страница ${data.queryPages.length}`);
       toast.success('Данные Search Console загружены');
+      return { pf, qf };
     } catch (e) {
-      toast.error((e as Error).message);
+      const msg = (e as Error).message;
+      setGscInfo(`Search Console: ${msg}`);
+      if (silent) toast.warning(`Аудит без данных Search Console: ${msg}`); else toast.error(msg);
+      return null;
     } finally { setGscLoading(false); }
   };
 
@@ -281,7 +291,7 @@ export default function InternalLinkAuditPage() {
                     </Select>
                   </div>
                 )}
-                <span className="text-xs text-muted-foreground">{gscInfo ?? 'Данные за последние 90 дней по домену проекта — вместо ручной выгрузки.'}</span>
+                <span className="text-xs text-muted-foreground">{gscInfo ?? 'Данные за 90 дней подтянутся автоматически при запуске аудита.'}</span>
               </Card>
               <Card className="p-4">
                 <div className="text-sm font-medium mb-3">Пороги шаблонных ссылок и кандидатов</div>
