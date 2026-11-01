@@ -54,6 +54,8 @@ export default function ModuleAnalysisPage() {
     if (!cfg) return;
     let alive = true;
     (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
       const { data: rows } = await supabase
         .from('module_analyses')
         .select('id,title,niche,geo,site,created_at,form,report,evidence')
