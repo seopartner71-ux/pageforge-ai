@@ -339,10 +339,10 @@ async function dfsSerpOne(query: string, gl: string): Promise<SerpResult> {
 async function dfsRankedSerp(query: string): Promise<SerpResult> {
   if (!DFS_LOGIN || !DFS_PASSWORD) return { ev: null, status: 0, msg: "доступа нет" };
   try {
-    const r = await fetch("https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live", {
+    const r = await fetch("https://api.dataforseo.com/v3/dataforseo_labs/google/competitive_domain_info/live", {
       method: "POST",
       headers: { Authorization: dfsAuth(), "Content-Type": "application/json" },
-      body: JSON.stringify([{ keyword: query, language_code: "ru", limit: 10 }]),
+      body: JSON.stringify([{ target: query, language_code: "ru", limit: 10 }]),
       signal: AbortSignal.timeout(25_000),
     });
     const text = await r.text();
