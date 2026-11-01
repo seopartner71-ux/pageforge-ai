@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { runAudit, pagerank, norm } from './engine';
 
 const page = (path: string, code = 200) => ({ Address: `https://Site.ru${path}`, 'Content Type': 'text/html', 'Status Code': code, 'Title 1': path, 'H1-1': path });
-const link = (s: string, d: string, extra: Record<string, unknown> = {}) => ({ Type: 'Hyperlink', Source: `https://site.ru${s}`, Destination: `https://site.ru${d}`, Anchor: 'текст', 'Link Position': 'Content', 'Status Code': 200, Follow: true, ...extra });
+const link = (s: string, d: string, extra: Record<string, unknown> = {}) => ({ Type: 'Hyperlink', Source: `https://site.ru${s}`, Destination: `https://site.ru${d}`, Anchor: 'текст', 'Alt Text': null, 'Link Position': 'Content', 'Status Code': 200, Follow: true, ...extra });
 
 describe('аудит перелинковки', () => {
   it('нормализует URL: хост в нижнем регистре, без якоря', () => {
