@@ -139,12 +139,29 @@ export default function InternalLinkAuditPage() {
       if (m.kind === 'error') { setRunning(null); toast.error(m.message); return; }
       const result = m.result as AuditResult;
       setRunning({ stage: 'Сохранение', pct: 100 });
-      const saved = { ...result, pages: result.pages.slice(0, 5000) };
-      const { data, error } = await supabase.from('internal_link_audits').insert({
-        project_id: projectId, created_by: userId, status: 'done', settings: settings as any,
-        summary: result.summary as any, results: saved as any,
-        source_note: [files.internal?.name, files.inlinks?.name, gp?.name, gq?.name].filter(Boolean).join(', '),
-      }).select('id, created_at').single();
+      // Большие сайты + GSC дают многомегабайтный JSON — режем списки, при ошибке пробуем ещё компактнее.
+      const trim = (n: number): AuditResult => ({
+        ...result,
+        pages: result.pages.slice(0, n), plan: result.plan.slice(0, n),
+        candidates: result.candidates.slice(0, n / 2), cannibal: result.cannibal.slice(0, n / 2),
+        orphans: result.orphans.slice(0, n), noText: result.noText.slice(0, n),
+        redirects: result.redirects.slice(0, n / 5), broken: result.broken.slice(0, n / 5),
+        conflicts: result.conflicts.slice(0, n / 5),
+      });
+      let saved = trim(5000);
+      let data: { id: string; created_at: string } | null = null;
+      let error: { message: string } | null = null;
+      for (const n of [5000, 1500, 400]) {
+        saved = trim(n);
+        const r = await supabase.from('internal_link_audits').insert({
+          project_id: projectId, created_by: userId, status: 'done', settings: settings as any,
+          summary: result.summary as any, results: saved as any,
+          source_note: [files.internal?.name, files.inlinks?.name, gp?.name, gq?.name].filter(Boolean).join(', '),
+        }).select('id, created_at').single();
+        data = r.data; error = r.error;
+        if (!error && data) break;
+        console.error('internal_link_audits insert failed', n, error);
+      }
       setRunning(null);
       if (error || !data) { toast.error(`Расчёт готов, но не сохранился: ${error?.message}`); return; }
       toast.success('Аудит готов');
