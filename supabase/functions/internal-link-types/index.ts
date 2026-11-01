@@ -34,10 +34,13 @@ Deno.serve(async (req) => {
     const groups = new Map<string, { path: string; title?: string }[]>();
     for (const p of pages) {
       const seg = p.path.split("/").filter(Boolean)[0] ?? "";
-      const k = seg.includes(".") ? "(файлы в корне)" : `/${seg}/`;
+      const k = seg.includes(".") || p.path.split("/").filter(Boolean).length < 2 && false ? "(файлы в корне)" : `/${seg}/`;
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k)!.push(p);
     }
+    const single: { path: string; title?: string }[] = [];
+    for (const [k, arr] of [...groups.entries()]) if (arr.length === 1 && k !== "(файлы в корне)") { single.push(arr[0]); groups.delete(k); }
+    if (single.length) groups.set("(файлы в корне)", [...(groups.get("(файлы в корне)") ?? []), ...single]);
     const sample = [...groups.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 60)
       .map(([k, arr]) => `${k} — ${arr.length} стр.\n` + arr.slice(0, k === "(файлы в корне)" || groups.size < 6 ? 400 : 8).map((p) => `  ${p.path}${p.title ? ` | ${p.title}` : ""}`).join("\n")).join("\n");
 
