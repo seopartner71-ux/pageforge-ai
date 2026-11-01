@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, FileSpreadsheet, X, Play, Trash2, Network, Download } from 'lucide-react';
+import { Upload, FileSpreadsheet, X, Play, Trash2, Network, Download, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { TypeRulesTab, type RuleRow } from '@/components/internalLinks/TypeRulesTab';
 import { AuditResultView } from '@/components/internalLinks/AuditResultView';
