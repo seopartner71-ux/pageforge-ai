@@ -1167,6 +1167,38 @@ export type Database = {
           },
         ]
       }
+      internal_link_audit_parts: {
+        Row: {
+          audit_id: string
+          created_at: string
+          id: string
+          idx: number
+          payload: Json
+        }
+        Insert: {
+          audit_id: string
+          created_at?: string
+          id?: string
+          idx: number
+          payload: Json
+        }
+        Update: {
+          audit_id?: string
+          created_at?: string
+          id?: string
+          idx?: number
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_link_audit_parts_audit_id_fkey"
+            columns: ["audit_id"]
+            isOneToOne: false
+            referencedRelation: "internal_link_audits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       internal_link_audits: {
         Row: {
           ai_report: Json | null
