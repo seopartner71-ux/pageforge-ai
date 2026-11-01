@@ -27,7 +27,7 @@ export function splitResult(result: AuditResult, limit = PART_LIMIT): { meta: Re
   let size = 2;
   const flush = () => { if (Object.keys(cur).length) { parts.push(cur); cur = {}; size = 2; } };
   for (const [k, it] of pairs) {
-    const s = JSON.stringify(it).length + k.length + 5;
+    const s = enc.encode(JSON.stringify(it)).length + k.length + 5;
     if (size + s > limit && Object.keys(cur).length && parts.length < MAX_PARTS - 1) flush();
     (cur[k] ||= []).push(it);
     size += s;
