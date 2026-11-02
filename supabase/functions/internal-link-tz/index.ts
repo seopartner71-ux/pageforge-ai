@@ -7,8 +7,7 @@ const corsHeaders = {
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+async function handle(req: Request): Promise<Response> {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
@@ -165,10 +164,50 @@ ${lines(r.candidates, 60, (c) => `${c.src} | ${c.srcH1} | ${c.dst} | ${c.dstH1} 
     report.model = data?.model ?? null;
     report.generated_at = new Date().toISOString();
 
-    const next = { ...(ai ?? {}), tz: report };
+    const next: any = { ...(ai ?? {}), tz: report };
+    delete next.tz_pending; delete next.tz_error;
     await supabase.from("internal_link_audits").update({ ai_report: next }).eq("id", auditId);
     return json({ tz: report });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
+}
+
+// ТЗ генерируется 1–2 минуты, а прокси хостинга рвёт запросы ~60 с.
+// Поэтому запускаем в фоне и сразу отвечаем; клиент опрашивает ai_report.
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+  const body = await req.clone().json().catch(() => ({}));
+  const auditId = typeof body?.audit_id === "string" ? body.audit_id : "";
+  if (!/^[0-9a-f-]{36}$/i.test(auditId)) return json({ error: "audit_id обязателен" }, 400);
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return json({ error: "Unauthorized" }, 401);
+  const { data: audit } = await supabase.from("internal_link_audits").select("ai_report").eq("id", auditId).maybeSingle();
+  if (!audit) return json({ error: "Аудит не найден или нет доступа" }, 404);
+  const started = new Date().toISOString();
+  const base: any = { ...((audit as any).ai_report ?? {}), tz_pending: started };
+  delete base.tz_error;
+  await supabase.from("internal_link_audits").update({ ai_report: base }).eq("id", auditId);
+
+  const job = (async () => {
+    let err = "";
+    try {
+      const res = await handle(req);
+      if (!res.ok) err = (await res.json().catch(() => ({})))?.error || `Ошибка ${res.status}`;
+    } catch (e) { err = (e as Error).message; }
+    if (err) {
+      const { data: cur } = await supabase.from("internal_link_audits").select("ai_report").eq("id", auditId).maybeSingle();
+      const next: any = { ...((cur as any)?.ai_report ?? {}), tz_error: err };
+      delete next.tz_pending;
+      await supabase.from("internal_link_audits").update({ ai_report: next }).eq("id", auditId);
+    }
+  })();
+  // @ts-ignore EdgeRuntime доступен в рантайме
+  if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(job); else await job;
+  return json({ started });
 });
