@@ -1,2 +1,1 @@
-
-- Internal link audit (/internal-link-audit): all calculation runs client-side in a Web Worker (src/lib/internalLinks/engine.ts, a 1:1 port of audit_links.py); only the summary and results JSON are stored in internal_link_audits, so heavy crawl data never loads the database.
+- Internal link audit (/internal-link-audit): all calculation runs client-side in a Web Worker (src/lib/internalLinks/engine.ts, a 1:1 port of audit_links.py); only the summary and results header are stored in internal_link_audits, and large result lists are split into ~700 KB parts in internal_link_audit_parts (src/lib/internalLinks/store.ts), so heavy crawl data never loads the database.
