@@ -40,16 +40,31 @@ export function AuditResultView({ auditId, result, ai, onAi, fileBase }: {
 
   const genTz = async () => {
     setTzLoading(true);
-    const { data, error } = await supabase.functions.invoke('internal-link-tz', { body: { audit_id: auditId } });
-    setTzLoading(false);
-    if (error) {
-      let msg = error.message;
-      try { const b = await (error as any).context?.json(); msg = b?.error || msg; } catch { /* */ }
-      toast.error(msg); return;
+    try {
+      const { data, error } = await supabase.functions.invoke('internal-link-tz', { body: { audit_id: auditId } });
+      if (error) {
+        let msg = error.message;
+        try { const b = await (error as any).context?.json(); msg = b?.error || msg; } catch { /* */ }
+        toast.error(msg); return;
+      }
+      if (data?.error) { toast.error(data.error); return; }
+      if (data?.tz) { onAi({ ...(ai ?? {}), tz: data.tz }); toast.success('ТЗ готово'); return; }
+      const started = String(data?.started ?? '');
+      toast.info('Составляю ТЗ — обычно 1–2 минуты');
+      const deadline = Date.now() + 5 * 60_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const { data: row } = await supabase.from('internal_link_audits').select('ai_report').eq('id', auditId).maybeSingle();
+        const rep = (row?.ai_report ?? null) as any;
+        if (rep?.tz_error) { toast.error(rep.tz_error); return; }
+        if (rep?.tz?.generated_at && rep.tz.generated_at >= started) {
+          onAi(rep as AiReport); toast.success('ТЗ готово'); return;
+        }
+      }
+      toast.error('ТЗ составляется дольше обычного — обновите страницу через пару минут');
+    } finally {
+      setTzLoading(false);
     }
-    if (data?.error) { toast.error(data.error); return; }
-    onAi({ ...(ai ?? {}), tz: data.tz });
-    toast.success('ТЗ готово');
   };
 
   const exportTz = async () => {
