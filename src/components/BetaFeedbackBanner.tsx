@@ -1,3 +1,4 @@
+import { useLang } from '@/contexts/LangContext';
 import { useState } from 'react';
 import { Sparkles, MessageSquare, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,8 @@ import { toast } from 'sonner';
 type Kind = 'bug' | 'idea' | 'other';
 
 export function BetaFeedbackBanner() {
+  const { lang } = useLang();
+  const isRu = lang === 'ru';
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<Kind>('bug');
   const [message, setMessage] = useState('');
@@ -21,13 +24,13 @@ export function BetaFeedbackBanner() {
   const submit = async () => {
     const text = message.trim();
     if (!text) {
-      toast.error('Опишите проблему или идею');
+      toast.error(isRu ? 'Опишите проблему или идею' : 'Describe your problem or idea');
       return;
     }
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      toast.error('Войдите в систему');
+      toast.error(isRu ? 'Войдите в систему' : 'Please sign in');
       setSubmitting(false);
       return;
     }
@@ -40,10 +43,10 @@ export function BetaFeedbackBanner() {
     });
     setSubmitting(false);
     if (error) {
-      toast.error('Не удалось отправить: ' + error.message);
+      toast.error((isRu ? 'Не удалось отправить: ' : 'Could not send: ') + error.message);
       return;
     }
-    toast.success('Спасибо! Сообщение отправлено администратору');
+    toast.success(isRu ? 'Спасибо! Сообщение отправлено администратору' : 'Thank you! Your message was sent to the administrator');
     setMessage('');
     setKind('bug');
     setOpen(false);
@@ -59,10 +62,10 @@ export function BetaFeedbackBanner() {
           </span>
           <MessageSquare className="w-4 h-4 text-muted-foreground shrink-0" />
           <p className="flex-1 min-w-0 truncate text-foreground/85">
-            Идёт бета-тестирование. Нашли баг, ошибку или есть идея? Сообщите админу одной кнопкой.
+            {isRu ? 'Идёт бета-тестирование. Нашли баг, ошибку или есть идея? Сообщите админу одной кнопкой.' : 'Beta testing is in progress. Found a bug or have an idea? Send feedback to the administrator.'}
           </p>
           <Button size="sm" onClick={() => setOpen(true)} className="shrink-0">
-            Сообщить
+            {isRu ? 'Сообщить' : 'Send feedback'}
           </Button>
         </div>
       </div>
@@ -70,33 +73,33 @@ export function BetaFeedbackBanner() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Обратная связь</DialogTitle>
+            <DialogTitle>{isRu ? 'Обратная связь' : 'Feedback'}</DialogTitle>
             <DialogDescription>
-              Опишите проблему или предложение - сообщение придёт администратору.
+              {isRu ? 'Опишите проблему или предложение - сообщение придёт администратору.' : 'Describe your problem or suggestion. Your message will be sent to the administrator.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Тип</Label>
+              <Label>{isRu ? 'Тип' : 'Type'}</Label>
               <RadioGroup value={kind} onValueChange={(v) => setKind(v as Kind)} className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer text-sm">
-                  <RadioGroupItem value="bug" /> Баг
+                  <RadioGroupItem value="bug" /> {isRu ? 'Баг' : 'Bug'}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer text-sm">
-                  <RadioGroupItem value="idea" /> Идея
+                  <RadioGroupItem value="idea" /> {isRu ? 'Идея' : 'Idea'}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer text-sm">
-                  <RadioGroupItem value="other" /> Другое
+                  <RadioGroupItem value="other" /> {isRu ? 'Другое' : 'Other'}
                 </label>
               </RadioGroup>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bf-msg">Сообщение</Label>
+              <Label htmlFor="bf-msg">{isRu ? 'Сообщение' : 'Message'}</Label>
               <Textarea
                 id="bf-msg"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Что случилось или что предлагаете?"
+                placeholder={isRu ? 'Что случилось или что предлагаете?' : 'What happened or what would you suggest?'}
                 rows={5}
                 maxLength={2000}
               />
@@ -107,11 +110,11 @@ export function BetaFeedbackBanner() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)} disabled={submitting}>
-              Отмена
+              {isRu ? 'Отмена' : 'Cancel'}
             </Button>
             <Button onClick={submit} disabled={submitting || !message.trim()} className="gap-2">
               <Send className="w-4 h-4" />
-              {submitting ? 'Отправка...' : 'Отправить'}
+              {submitting ? (isRu ? 'Отправка...' : 'Sending...') : (isRu ? 'Отправить' : 'Send')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,3 +1,4 @@
+import { useLang } from '@/contexts/LangContext';
 import { useState, type ReactNode } from 'react';
 import {
   Info, CheckSquare, Target, FileBarChart, LucideIcon,
@@ -28,6 +29,7 @@ interface PageDescriptionProps {
  * с иконкой и подписью.
  */
 export function PageDescription({ items, help, className = '' }: PageDescriptionProps) {
+  const { lang } = useLang();
   const [open, setOpen] = useState(false);
   const paragraphs = Array.isArray(help?.content) ? help?.content : null;
 
@@ -71,7 +73,7 @@ export function PageDescription({ items, help, className = '' }: PageDescription
             aria-expanded={open}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>{help.title ?? 'Подробнее о проверке'}</span>
+            <span>{help.title ?? (lang === 'ru' ? 'Подробнее о проверке' : 'About this audit')}</span>
             <ChevronDown
               className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
             />
@@ -94,7 +96,7 @@ export function PageDescription({ items, help, className = '' }: PageDescription
               {help.sources && help.sources.length > 0 && (
                 <div className="pt-2">
                   <div className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-2">
-                    Источники
+                    {lang === 'ru' ? 'Источники' : 'Sources'}
                   </div>
                   <ul className="space-y-1.5">
                     {help.sources.map((s, i) => (

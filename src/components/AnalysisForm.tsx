@@ -108,11 +108,11 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
   const handleAutoFind = async () => {
     const targetUrl = batchMode ? validBatchUrls[0] : url.trim();
     if (!targetUrl) {
-      toast({ title: 'Сначала введите URL страницы', variant: 'destructive' });
+      toast({ title: isRu ? 'Сначала введите URL страницы' : 'Enter the page URL first', variant: 'destructive' });
       return;
     }
     if (!region.trim()) {
-      toast({ title: 'Выберите регион для точного анализа', variant: 'destructive' });
+      toast({ title: isRu ? 'Выберите регион для точного анализа' : 'Select a region for accurate analysis', variant: 'destructive' });
       return;
     }
     setFindingCompetitors(true);
@@ -136,15 +136,15 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
       const data = await res.json();
       const found: string[] = (data.competitors || []).map((c: any) => c.url).slice(0, 10);
       if (found.length === 0) {
-        toast({ title: 'Конкуренты не найдены', variant: 'destructive' });
+        toast({ title: isRu ? 'Конкуренты не найдены' : 'No competitors found', variant: 'destructive' });
       } else {
         setCompetitors(found);
         setFindSuccess(true);
         setTimeout(() => setFindSuccess(false), 2000);
-        toast({ title: `Найдено ${found.length} конкурентов` });
+        toast({ title: isRu ? `Найдено ${found.length} конкурентов` : `Found ${found.length} competitors` });
       }
     } catch (err: any) {
-      toast({ title: err.message || 'Ошибка поиска конкурентов', variant: 'destructive' });
+      toast({ title: err.message || (isRu ? 'Ошибка поиска конкурентов' : 'Competitor search failed'), variant: 'destructive' });
     } finally {
       setFindingCompetitors(false);
     }
@@ -270,14 +270,14 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
         {/* Region selector */}
         <div className="relative">
           <label className="text-sm text-muted-foreground mb-2 block flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5" /> Регион поиска
+            <MapPin className="w-3.5 h-3.5" /> {isRu ? 'Регион поиска' : 'Search region'}
           </label>
           <Input
             value={region}
             onChange={(e) => { setRegion(e.target.value); setRegionSearch(e.target.value); setRegionOpen(true); }}
             onFocus={() => setRegionOpen(true)}
             onBlur={() => setTimeout(() => setRegionOpen(false), 150)}
-            placeholder="Выберите город или введите вручную"
+            placeholder={isRu ? 'Выберите город или введите вручную' : 'Select a city or enter a location'}
             className="h-11 bg-secondary border-border/50 focus:border-primary"
           />
           {regionOpen && filteredRegions.length > 0 && (
@@ -356,9 +356,9 @@ export function AnalysisForm({ onStartAnalysis, loading, projects = [], onNewPro
           className="w-full h-12 rounded-lg border border-border/50 bg-secondary/50 text-sm font-medium text-foreground hover:bg-secondary transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {findingCompetitors ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Ищем конкурентов…</>
+            <><Loader2 className="w-4 h-4 animate-spin" /> {isRu ? 'Ищем конкурентов…' : 'Finding competitors…'}</>
           ) : findSuccess ? (
-            <><Check className="w-4 h-4 text-green-500" /> Найдено!</>
+            <><Check className="w-4 h-4 text-green-500" /> {isRu ? 'Найдено!' : 'Found!'}</>
           ) : (
             <><Search className="w-4 h-4" /> {tr.competitors.autoFind}</>
           )}

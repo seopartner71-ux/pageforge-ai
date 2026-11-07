@@ -37,6 +37,7 @@ import { useAdminRole } from '@/hooks/useAdminRole';
 import { useStaffRole } from '@/hooks/useStaffRole';
 import { ANALYTICS_SECTIONS } from '@/lib/analyticsNav';
 import { SEO_SECTIONS } from '@/lib/seoNav';
+import { useLang } from '@/contexts/LangContext';
 
 type Item = { label: string; path: string; icon: any };
 type Group = { label: string; items: Item[] };
@@ -99,7 +100,80 @@ const ADS_ITEMS: Item[] = [
   { label: 'Аудит кабинета (AI)', path: '/ads/audit', icon: ShieldCheck },
 ];
 
+const EN_LABELS: Record<string, string> = {
+  "Все инструменты": "All tools",
+  "Проекты": "Projects",
+  "История": "History",
+  "Админ-панель": "Admin panel",
+  "Аудит сайта": "Site audit",
+  "On-page страницы": "On-page analysis",
+  "Технический аудит": "Technical audit",
+  "Коммерческие факторы": "Commercial factors",
+  "Микроразметка": "Structured data",
+  "Адаптивность": "Responsive design",
+  "Яндекс Вебмастер": "Yandex Webmaster",
+  "Контент": "Content",
+  "Семантическое ядро": "Keyword research",
+  "Темы для блога": "Blog topics",
+  "Интент запросов": "Search intent",
+  "Видимость в ИИ-ответах": "AI search visibility",
+  "Видимость в ответах Алисы": "Alice search visibility",
+  "Ссылки": "Links",
+  "Ссылочный аудит": "Backlink audit",
+  "Аудит перелинковки": "Internal link audit",
+  "Ссылочный профиль": "Backlink profile",
+  "Конкуренты": "Competitors",
+  "Анализ конкурентов": "Competitor analysis",
+  "Анализ ТОП выдачи": "Top SERP analysis",
+  "История SERP": "SERP history",
+  "Обзор": "Overview",
+  "Кабинеты": "Accounts",
+  "Кампании": "Campaigns",
+  "Поисковые запросы": "Search queries",
+  "Объявления": "Ads",
+  "AI-рекомендации": "AI recommendations",
+  "Отчёты": "Reports",
+  "Автоматизация": "Automation",
+  "Аудит кабинета (AI)": "Account audit (AI)",
+  "Анализ ниши": "Niche analysis",
+  "Картина ниши, структуры и точек роста": "Niche structure and growth opportunities",
+  "Поиск перспективных рыночных возможностей": "Market opportunities",
+  "Оценка сложности входа в нишу": "Niche entry difficulty",
+  "Соответствие ниши модели монетизации": "Monetization fit",
+  "Анализ спроса": "Demand analysis",
+  "Карта реального и ценного поискового спроса": "Search demand map",
+  "Поиск трендов, сигналов и будущих сдвигов": "Trends and emerging signals",
+  "Анализ сезонности, циклов и всплесков спроса": "Seasonality and demand cycles",
+  "Географические и локальные возможности": "Geographic and local opportunities",
+  "Спрос с высокой коммерческой ценностью": "High-value commercial demand",
+  "Анализ аудитории": "Audience analysis",
+  "Реальные проблемы и боли аудитории": "Audience problems and pain points",
+  "Сегментация аудитории по ценности и поведению": "Audience segments",
+  "Карта задач, стоящих за поиском (JTBD)": "Search jobs to be done (JTBD)",
+  "Запросы по этапам пути покупателя": "Buyer journey queries",
+  "Карта пути покупателя (базовая v2.1)": "Buyer journey map (basic v2.1)",
+  "Карта языка, терминов и формулировок ниши": "Niche language and terminology",
+  "Живой язык и сигналы сообщества": "Community language and signals",
+  "Контент и темы": "Content and topics",
+  "Поиск свободных и недозакрытых тем": "Untapped topics",
+  "Подбор форматов под спрос и интенты": "Content formats for demand and intent",
+  "Анализ конкуренции": "Competition analysis",
+  "Проверка реальной конкурентности SERP": "SERP competition",
+  "Анализ платформ, площадок и внешней среды": "Platforms and ecosystem",
+  "Потенциал получения естественных ссылок": "Natural link potential",
+  "Доверие, сущности и риски": "Trust, entities and risks",
+  "Требования к доверию и экспертности (E-E-A-T)": "Trust and expertise (E-E-A-T)",
+  "Карта сущностей и смысловых связей ниши": "Entities and semantic relationships",
+  "Регуляторные, репутационные и контентные риски": "Regulatory, reputation and content risks",
+  "Возможности в ИИ-поиске": "AI search opportunities",
+  "SEO Мониторинг": "SEO monitoring",
+  "SEO прогнозы": "SEO forecasts",
+  "SEO-прогноз": "SEO forecast"
+};
+
 export function AppSidebar() {
+  const { lang, tr } = useLang();
+  const label = (value: string) => lang === 'en' ? EN_LABELS[value] ?? value : value;
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { pathname } = useLocation();
@@ -174,7 +248,7 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col leading-tight">
-              <span className="font-semibold text-sm text-foreground">SEO-Аудит</span>
+              <span className="font-semibold text-sm text-foreground">{tr.appName}</span>
               <span className="text-[10px] text-muted-foreground">Workbench</span>
             </div>
           )}
@@ -189,7 +263,7 @@ export function AppSidebar() {
                 const Icon = item.icon;
                 return (
                   <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={item.label}>
+                    <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={label(item.label)}>
                       <NavLink
                         to={item.path}
                         className="flex items-center gap-2"
@@ -198,7 +272,7 @@ export function AppSidebar() {
                         onTouchStart={() => prefetch(item.path)}
                       >
                         <Icon className="h-4 w-4 shrink-0" />
-                        <span>{item.label}</span>
+                        <span>{label(item.label)}</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -233,7 +307,7 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                     {!collapsed && (
                       <CollapsibleTrigger
-                        aria-label="Развернуть SEO"
+                        aria-label={lang === 'ru' ? 'Развернуть SEO' : 'Expand SEO'}
                         className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                       >
                         <ChevronDown
@@ -250,7 +324,7 @@ export function AppSidebar() {
                       const open = seoSubOpen[section.label] ?? false;
                       return (
                         <Collapsible
-                          key={section.label}
+                          key={label(section.label)}
                           open={collapsed ? true : open}
                           onOpenChange={(v) =>
                             setSeoSubOpen((s) => ({ ...s, [section.label]: v }))
@@ -258,7 +332,7 @@ export function AppSidebar() {
                         >
                           {!collapsed && (
                             <CollapsibleTrigger className="w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors">
-                              <span>{section.label}</span>
+                              <span>{label(section.label)}</span>
                               <ChevronDown
                                 className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
                               />
@@ -272,7 +346,7 @@ export function AppSidebar() {
                                   <SidebarMenuButton
                                     asChild
                                     isActive={isActive(item.path)}
-                                    tooltip={item.label}
+                                    tooltip={label(item.label)}
                                   >
                                     <NavLink
                                       to={item.path}
@@ -282,7 +356,7 @@ export function AppSidebar() {
                                       onTouchStart={() => prefetch(item.path)}
                                     >
                                       <Icon className="h-4 w-4 shrink-0" />
-                                      <span>{item.label}</span>
+                                      <span>{label(item.label)}</span>
                                     </NavLink>
                                   </SidebarMenuButton>
                                 </SidebarMenuItem>
@@ -302,9 +376,9 @@ export function AppSidebar() {
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="flex items-center gap-2">
-              <span>РЕКЛАМА</span>
+              <span>{lang === 'ru' ? 'РЕКЛАМА' : 'ADVERTISING'}</span>
               <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/30 tracking-wide">
-                Новое
+                {lang === 'ru' ? 'Новое' : 'New'}
               </span>
             </SidebarGroupLabel>
           )}
@@ -316,7 +390,7 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive('/ads')}
-                      tooltip="Реклама — Обзор"
+                      tooltip={lang === 'ru' ? 'Реклама — Обзор' : 'Advertising — Overview'}
                       className="flex-1"
                     >
                       <NavLink
@@ -326,12 +400,12 @@ export function AppSidebar() {
                         onFocus={() => prefetch('/ads')}
                       >
                         <Megaphone className="h-4 w-4 shrink-0" />
-                        <span>Реклама</span>
+                        <span>{lang === 'ru' ? 'Реклама' : 'Advertising'}</span>
                       </NavLink>
                     </SidebarMenuButton>
                     {!collapsed && (
                       <CollapsibleTrigger
-                        aria-label="Развернуть Реклама"
+                        aria-label={lang === 'ru' ? 'Развернуть Реклама' : 'Expand advertising'}
                         className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                       >
                         <ChevronDown
@@ -348,7 +422,7 @@ export function AppSidebar() {
                       const Icon = item.icon;
                       return (
                         <SidebarMenuItem key={item.path}>
-                          <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={item.label}>
+                          <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={label(item.label)}>
                             <NavLink
                               to={item.path}
                               className="flex items-center gap-2"
@@ -357,7 +431,7 @@ export function AppSidebar() {
                               onTouchStart={() => prefetch(item.path)}
                             >
                               <Icon className="h-4 w-4 shrink-0" />
-                              <span>{item.label}</span>
+                              <span>{label(item.label)}</span>
                             </NavLink>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -373,9 +447,9 @@ export function AppSidebar() {
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="flex items-center gap-2">
-              <span>АНАЛИТИКА</span>
+              <span>{lang === 'ru' ? 'АНАЛИТИКА' : 'ANALYTICS'}</span>
               <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/30 tracking-wide">
-                Новое
+                {lang === 'ru' ? 'Новое' : 'New'}
               </span>
             </SidebarGroupLabel>
           )}
@@ -390,17 +464,17 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive('/analytics')}
-                      tooltip="Аналитика"
+                      tooltip={lang === 'ru' ? 'Аналитика' : 'Analytics'}
                       className="flex-1"
                     >
                       <NavLink to="/analytics" className="flex items-center gap-2">
                         <PieChart className="h-4 w-4 shrink-0" />
-                        <span>Аналитика</span>
+                        <span>{lang === 'ru' ? 'Аналитика' : 'Analytics'}</span>
                       </NavLink>
                     </SidebarMenuButton>
                     {!collapsed && (
                       <CollapsibleTrigger
-                        aria-label="Развернуть Аналитика"
+                        aria-label={lang === 'ru' ? 'Развернуть Аналитика' : 'Expand analytics'}
                         className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                       >
                         <ChevronDown
@@ -417,7 +491,7 @@ export function AppSidebar() {
                       const open = analyticsSubOpen[section.label] ?? false;
                       return (
                         <Collapsible
-                          key={section.label}
+                          key={label(section.label)}
                           open={collapsed ? true : open}
                           onOpenChange={(v) =>
                             setAnalyticsSubOpen((s) => ({ ...s, [section.label]: v }))
@@ -425,7 +499,7 @@ export function AppSidebar() {
                         >
                           {!collapsed && (
                             <CollapsibleTrigger className="w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors">
-                              <span>{section.label}</span>
+                              <span>{label(section.label)}</span>
                               <ChevronDown
                                 className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
                               />
@@ -439,11 +513,11 @@ export function AppSidebar() {
                                   <SidebarMenuButton
                                     asChild
                                     isActive={isActive(item.path)}
-                                    tooltip={item.label}
+                                    tooltip={label(item.label)}
                                   >
                                     <NavLink to={item.path} className="flex items-center gap-2">
                                       <Icon className="h-4 w-4 shrink-0" />
-                                      <span>{item.label}</span>
+                                      <span>{label(item.label)}</span>
                                     </NavLink>
                                   </SidebarMenuButton>
                                 </SidebarMenuItem>
@@ -467,7 +541,7 @@ export function AppSidebar() {
             const Icon = item.icon;
             return (
               <SidebarMenuItem key={item.path}>
-                <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={item.label}>
+                <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={label(item.label)}>
                   <NavLink
                     to={item.path}
                     className="flex items-center gap-2"
@@ -476,7 +550,7 @@ export function AppSidebar() {
                     onTouchStart={() => prefetch(item.path)}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
-                    <span>{item.label}</span>
+                    <span>{label(item.label)}</span>
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -488,7 +562,7 @@ export function AppSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  tooltip={user?.name ?? 'Аккаунт'}
+                  tooltip={user?.name ?? tr.nav.account}
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-7 w-7 rounded-md">
@@ -499,7 +573,7 @@ export function AppSidebar() {
                   {!collapsed && (
                     <>
                       <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                        <span className="truncate font-medium">{user?.name ?? 'Аккаунт'}</span>
+                        <span className="truncate font-medium">{user?.name ?? tr.nav.account}</span>
                         <span className="truncate text-[11px] text-muted-foreground">
                           {user?.email ?? ''}
                         </span>
@@ -517,22 +591,22 @@ export function AppSidebar() {
               >
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium truncate">{user?.name ?? 'Аккаунт'}</span>
+                    <span className="text-sm font-medium truncate">{user?.name ?? tr.nav.account}</span>
                     <span className="text-[11px] text-muted-foreground truncate">{user?.email}</span>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate('/account')}>
                   <UserCircle2 className="w-4 h-4 mr-2" />
-                  Профиль
+                  {lang === 'ru' ? 'Профиль' : 'Profile'}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/account')}>
                   <UsersRound className="w-4 h-4 mr-2" />
-                  Команда
+                  {lang === 'ru' ? 'Команда' : 'Team'}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/account')}>
                   <CreditCard className="w-4 h-4 mr-2" />
-                  Биллинг / Подписка
+                  {lang === 'ru' ? 'Биллинг / Подписка' : 'Billing / Subscription'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -540,7 +614,7 @@ export function AppSidebar() {
                   className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
                 >
                   <LogOut className="w-4 h-4 mr-2" />
-                  Выйти
+                  {lang === 'ru' ? 'Выйти' : 'Sign out'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
