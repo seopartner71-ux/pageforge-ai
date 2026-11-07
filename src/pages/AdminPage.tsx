@@ -1,3 +1,4 @@
+import { useLang } from '@/contexts/LangContext';
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdminRole } from '@/hooks/useAdminRole';
@@ -44,15 +45,11 @@ interface UserProfile {
 }
 
 type AppRole = 'user' | 'intern' | 'employee' | 'admin';
-const ROLE_LABELS: Record<AppRole, string> = {
-  user: 'Пользователь',
-  intern: 'Стажёр',
-  employee: 'Сотрудник',
-  admin: 'Админ',
-};
 const ROLE_ORDER: AppRole[] = ['user', 'intern', 'employee', 'admin'];
 
 export default function AdminPage() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const { isAdmin, loading: roleLoading } = useAdminRole();
   const navigate = useNavigate();
 
@@ -69,22 +66,22 @@ export default function AdminPage() {
       <main className="container py-8">
         <div className="flex items-baseline justify-between mb-6 flex-wrap gap-2">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Админ-панель</h1>
-            <p className="text-sm text-muted-foreground mt-1">Управление платформой, пользователями и мониторинг системы</p>
+            <h1 className="text-2xl font-semibold text-foreground">{tx("Админ-панель", "Admin panel")}</h1>
+            <p className="text-sm text-muted-foreground mt-1">{tx("Управление платформой, пользователями и мониторинг системы", "Platform management, users and system monitoring")}</p>
           </div>
         </div>
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="mb-6 flex-wrap">
-            <TabsTrigger value="overview" className="gap-1.5"><LayoutDashboard className="w-4 h-4" /> Обзор</TabsTrigger>
-            <TabsTrigger value="users" className="gap-1.5"><Users className="w-4 h-4" /> Пользователи</TabsTrigger>
-            <TabsTrigger value="stats" className="gap-1.5"><BarChart3 className="w-4 h-4" /> Статистика</TabsTrigger>
-            <TabsTrigger value="logs" className="gap-1.5"><ScrollText className="w-4 h-4" /> Логи анализов</TabsTrigger>
-            <TabsTrigger value="copilot" className="gap-1.5"><MessageSquare className="w-4 h-4" /> Диалоги Copilot</TabsTrigger>
-            <TabsTrigger value="kb" className="gap-1.5"><BookOpen className="w-4 h-4" /> База знаний</TabsTrigger>
-            <TabsTrigger value="system" className="gap-1.5"><ShieldCheck className="w-4 h-4" /> Системная проверка</TabsTrigger>
-            <TabsTrigger value="api" className="gap-1.5"><Settings className="w-4 h-4" /> API ключи</TabsTrigger>
-            <TabsTrigger value="footer" className="gap-1.5"><Link2 className="w-4 h-4" /> Футер</TabsTrigger>
-            <TabsTrigger value="account" className="gap-1.5"><UserCircle className="w-4 h-4" /> Личный кабинет</TabsTrigger>
+            <TabsTrigger value="overview" className="gap-1.5"><LayoutDashboard className="w-4 h-4" /> {tx("Обзор", "Overview")}</TabsTrigger>
+            <TabsTrigger value="users" className="gap-1.5"><Users className="w-4 h-4" /> {tx("Пользователи", "Users")}</TabsTrigger>
+            <TabsTrigger value="stats" className="gap-1.5"><BarChart3 className="w-4 h-4" /> {tx("Статистика", "Statistics")}</TabsTrigger>
+            <TabsTrigger value="logs" className="gap-1.5"><ScrollText className="w-4 h-4" /> {tx("Логи анализов", "Analysis logs")}</TabsTrigger>
+            <TabsTrigger value="copilot" className="gap-1.5"><MessageSquare className="w-4 h-4" /> {tx("Диалоги Copilot", "Copilot chats")}</TabsTrigger>
+            <TabsTrigger value="kb" className="gap-1.5"><BookOpen className="w-4 h-4" /> {tx("База знаний", "Knowledge base")}</TabsTrigger>
+            <TabsTrigger value="system" className="gap-1.5"><ShieldCheck className="w-4 h-4" /> {tx("Системная проверка", "System check")}</TabsTrigger>
+            <TabsTrigger value="api" className="gap-1.5"><Settings className="w-4 h-4" /> {tx("API ключи", "API keys")}</TabsTrigger>
+            <TabsTrigger value="footer" className="gap-1.5"><Link2 className="w-4 h-4" /> {tx("Футер", "Footer")}</TabsTrigger>
+            <TabsTrigger value="account" className="gap-1.5"><UserCircle className="w-4 h-4" /> {tx("Личный кабинет", "My account")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview"><AdminOverviewTab /></TabsContent>
@@ -105,6 +102,8 @@ export default function AdminPage() {
 
 /* ─── DataForSEO Status Card ─── */
 function DataForSeoCard() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [state, setState] = useState<{
@@ -129,14 +128,14 @@ function DataForSeoCard() {
         error: d?.error,
       });
       if (d?.ok) {
-        toast({ title: 'DataForSEO подключён ✓', description: `Баланс: $${(d.balance ?? 0).toFixed(2)}` });
+        toast({ title: tx("DataForSEO подключён ✓", "DataForSEO connected ✓"), description: `${tx("Баланс:", "Balance:")} $${(d.balance ?? 0).toFixed(2)}` });
       } else if (!d?.configured) {
-        toast({ title: 'DataForSEO не настроен', description: 'Добавьте секреты DATAFORSEO_LOGIN и DATAFORSEO_PASSWORD', variant: 'destructive' });
+        toast({ title: tx("DataForSEO не настроен", "DataForSEO not configured"), description: tx("Добавьте секреты DATAFORSEO_LOGIN и DATAFORSEO_PASSWORD", "Add DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD secrets"), variant: 'destructive' });
       } else {
-        toast({ title: 'Ошибка подключения DataForSEO', description: d?.error || 'неизвестная ошибка', variant: 'destructive' });
+        toast({ title: tx("Ошибка подключения DataForSEO", "DataForSEO connection error"), description: d?.error || tx("неизвестная ошибка", "Unknown error"), variant: 'destructive' });
       }
     } catch (e: any) {
-      toast({ title: 'Не удалось проверить', description: e?.message || String(e), variant: 'destructive' });
+      toast({ title: tx("Не удалось проверить", "Could not verify"), description: e?.message || String(e), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -146,7 +145,7 @@ function DataForSeoCard() {
   useEffect(() => { runTest(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const statusColor = state.ok ? 'bg-green-500' : state.configured ? 'bg-red-500' : 'bg-muted-foreground/50';
-  const statusText = state.ok ? 'Подключен' : state.configured ? 'Ошибка' : 'Не настроен';
+  const statusText = state.ok ? tx("Подключен", "Connected") : state.configured ? tx("Ошибка", "Error") : tx("Не настроен", "Not configured");
 
   return (
     <div className="glass-card p-4 space-y-3">
@@ -161,18 +160,18 @@ function DataForSeoCard() {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Реальные частоты и тысячи запросов для модуля «Семантическое ядро».
-        Регистрация на <a className="text-primary hover:underline inline-flex items-center gap-0.5" href="https://dataforseo.com" target="_blank" rel="noreferrer">dataforseo.com <ExternalLink className="w-3 h-3" /></a>.
-        Login и Password - это API credentials (не от сайта). Хранятся в Supabase Secrets.
+        {tx("Реальные частоты и тысячи запросов для модуля «Семантическое ядро».", "Real search volumes and thousands of queries for the Semantic Core module.")}
+        {tx("Регистрация на", "Register at")} <a className="text-primary hover:underline inline-flex items-center gap-0.5" href="https://dataforseo.com" target="_blank" rel="noreferrer">dataforseo.com <ExternalLink className="w-3 h-3" /></a>.
+        {tx("Login и Password — учётные данные API (не от сайта). Хранятся в секретах Lovable Cloud.", "Login and Password are API credentials (not website credentials), stored in Lovable Cloud secrets.")}
       </p>
       <div className="flex items-center gap-3 flex-wrap">
         <Button onClick={runTest} disabled={loading} variant="outline" size="sm" className="gap-1.5">
           {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-          Проверить подключение
+          {tx("Проверить подключение", "Test connection")}
         </Button>
         {state.ok && typeof state.balance === 'number' && (
           <span className="text-xs">
-            Баланс: <strong className="text-emerald-400">${state.balance.toFixed(2)}</strong>
+            {tx("Баланс:", "Balance:")} <strong className="text-emerald-400">${state.balance.toFixed(2)}</strong>
             {state.login && <span className="text-muted-foreground"> · {state.login}</span>}
           </span>
         )}
@@ -186,6 +185,8 @@ function DataForSeoCard() {
 
 /* ─── API Settings Tab ─── */
 function ApiSettingsTab() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const { toast } = useToast();
   const [settings, setSettings] = useState<ApiSetting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -240,7 +241,7 @@ function ApiSettingsTab() {
       )
     );
     setSaving(false);
-    toast({ title: 'Настройки API успешно обновлены ✓' });
+    toast({ title: tx("Настройки API успешно обновлены ✓", "API settings updated \u2713") });
   };
 
   const keyLabels: Record<string, string> = {
@@ -263,7 +264,7 @@ function ApiSettingsTab() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <p className="text-sm text-muted-foreground">Управление ключами API. Изменения применяются мгновенно для всех Edge Functions.</p>
+      <p className="text-sm text-muted-foreground">{tx("Управление ключами API. Изменения применяются мгновенно для всех Edge Functions.", "Manage API keys. Changes apply immediately to all functions.")}</p>
       <DataForSeoCard />
       <ProxySettingsCard />
       {displaySettings.map(s => {
@@ -279,16 +280,16 @@ function ApiSettingsTab() {
                 {status === 'checking' && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                 {status === 'unknown' && <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50" />}
                 <span className="text-[10px] text-muted-foreground">
-                  {status === 'ok' ? 'Подключен'
-                    : status === 'error' ? 'Не настроен'
-                    : status === 'no_credits' ? 'Нет кредитов'
-                    : 'Проверка...'}
+                  {status === 'ok' ? tx("Подключен", "Connected")
+                    : status === 'error' ? tx("Не настроен", "Not configured")
+                    : status === 'no_credits' ? tx("Нет кредитов", "No credits")
+                    : tx("Проверка...", "Checking...")}
                 </span>
               </div>
             </div>
             {status === 'no_credits' && s.key_name === 'serper_api_key' && (
               <div className="text-[11px] p-2 rounded-md bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400">
-                ⚠️ Закончились кредиты Serper.dev. Пополните на{' '}
+                {tx("⚠️ Закончились кредиты Serper.dev. Пополните на", "⚠️ Serper.dev credits have run out. Top up at")}{' '}
                 <a href="https://serper.dev/billing" target="_blank" rel="noopener noreferrer" className="underline font-medium">
                   serper.dev/billing
                 </a>
@@ -299,7 +300,7 @@ function ApiSettingsTab() {
                 type={showKeys[s.key_name] ? 'text' : 'password'}
                 value={s.key_value}
                 onChange={e => updateSetting(s.key_name, e.target.value)}
-                placeholder="Введите ключ..."
+                placeholder={tx("Введите ключ...", "Enter key...")}
                 className="font-mono text-sm"
               />
               <Button
@@ -318,7 +319,7 @@ function ApiSettingsTab() {
       })}
       <Button onClick={handleSave} disabled={saving} className="btn-gradient border-0 gap-2">
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-        Сохранить настройки
+        {tx("Сохранить настройки", "Save settings")}
       </Button>
     </div>
   );
@@ -326,6 +327,14 @@ function ApiSettingsTab() {
 
 /* ─── Users Tab ─── */
 function UsersTab() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
+const ROLE_LABELS: Record<AppRole, string> = {
+  user: tx("Пользователь", "User"),
+  intern: tx("Стажёр", "Intern"),
+  employee: tx("Сотрудник", "Employee"),
+  admin: tx("Админ", "Admin"),
+};
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [analyses, setAnalyses] = useState<any[]>([]);
@@ -373,7 +382,7 @@ function UsersTab() {
       .in('role', ['admin', 'employee', 'intern', 'user']);
     if (delErr) {
       setRolesMap(m => ({ ...m, [userId]: prev }));
-      toast({ title: 'Не удалось изменить роль', description: delErr.message, variant: 'destructive' });
+      toast({ title: tx("Не удалось изменить роль", "Could not change role"), description: delErr.message, variant: 'destructive' });
       return;
     }
     if (newRole !== 'user') {
@@ -382,11 +391,11 @@ function UsersTab() {
         .insert({ user_id: userId, role: newRole });
       if (insErr) {
         setRolesMap(m => ({ ...m, [userId]: prev }));
-        toast({ title: 'Не удалось назначить роль', description: insErr.message, variant: 'destructive' });
+        toast({ title: tx("Не удалось назначить роль", "Could not assign role"), description: insErr.message, variant: 'destructive' });
         return;
       }
     }
-    toast({ title: `Роль обновлена: ${ROLE_LABELS[newRole]}` });
+    toast({ title: `${tx("Роль обновлена:", "Role updated:")} ${ROLE_LABELS[newRole]}` });
   };
 
   // Pre-compute analysis stats per user to avoid O(N*M) filtering on every render
@@ -424,13 +433,13 @@ function UsersTab() {
     await supabase.from('profiles').update({ credits: newCredits }).eq('user_id', userId);
     setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, credits: newCredits } : u));
     setEditingCredits(prev => { const n = { ...prev }; delete n[userId]; return n; });
-    toast({ title: `Кредиты обновлены: ${newCredits}` });
+    toast({ title: `${tx("Кредиты обновлены:", "Credits updated:")} ${newCredits}` });
   };
 
   const handleApprove = async (userId: string, email: string | null) => {
     await supabase.from('profiles').update({ is_approved: true, credits: 1 }).eq('user_id', userId);
     setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, is_approved: true, credits: 1 } : u));
-    toast({ title: `Пользователь ${email || userId} одобрен ✓` });
+    toast({ title: tx(`Пользователь ${email || userId} одобрен ✓`, `User ${email || userId} approved ✓`) });
   };
 
   const openEmailDialog = (to: string) => {
@@ -438,7 +447,7 @@ function UsersTab() {
   };
 
   const openEmailAll = () => {
-    const allEmails = activeUsers.filter(u => u.email).map(u => u.email!).join(', ');
+    const allEmails = activeUsers.filter(u => u.email).map(u => u.email).join(', ');
     setEmailDialog({ open: true, to: allEmails, subject: '', body: '' });
   };
 
@@ -471,7 +480,7 @@ function UsersTab() {
             onClick={() => setUserTab('pending')}
             className={userTab === 'pending' ? 'btn-gradient border-0' : ''}
           >
-            Ожидают ({pendingUsers.length})
+            {tx("Ожидают", "Pending")} ({pendingUsers.length})
           </Button>
           <Button
             variant={userTab === 'active' ? 'default' : 'outline'}
@@ -479,7 +488,7 @@ function UsersTab() {
             onClick={() => setUserTab('active')}
             className={userTab === 'active' ? 'btn-gradient border-0' : ''}
           >
-            Активные ({activeUsers.length})
+            {tx("Активные", "Active")} ({activeUsers.length})
           </Button>
         </div>
         {userTab === 'active' && (
@@ -487,10 +496,10 @@ function UsersTab() {
             <Select value={filterPlan} onValueChange={setFilterPlan}>
               <SelectTrigger className="w-[130px] h-8 text-xs">
                 <Filter className="w-3 h-3 mr-1" />
-                <SelectValue placeholder="Тариф" />
+                <SelectValue placeholder={tx("Тариф", "Plan")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все тарифы</SelectItem>
+                <SelectItem value="all">{tx("Все тарифы", "All plans")}</SelectItem>
                 <SelectItem value="FREE">FREE</SelectItem>
                 <SelectItem value="STARTER">STARTER</SelectItem>
                 <SelectItem value="PRO">PRO</SelectItem>
@@ -500,16 +509,16 @@ function UsersTab() {
             <Select value={filterActivity} onValueChange={setFilterActivity}>
               <SelectTrigger className="w-[140px] h-8 text-xs">
                 <Activity className="w-3 h-3 mr-1" />
-                <SelectValue placeholder="Активность" />
+                <SelectValue placeholder={tx("Активность", "Activity")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Вся активность</SelectItem>
-                <SelectItem value="active">Активные (30д)</SelectItem>
-                <SelectItem value="inactive">Неактивные</SelectItem>
+                <SelectItem value="all">{tx("Вся активность", "All activity")}</SelectItem>
+                <SelectItem value="active">{tx("Активные (30д)", "Active (30 days)")}</SelectItem>
+                <SelectItem value="inactive">{tx("Неактивные", "Inactive")}</SelectItem>
               </SelectContent>
             </Select>
             <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={openEmailAll}>
-              <Send className="w-3 h-3" /> Написать всем
+              <Send className="w-3 h-3" /> {tx("Написать всем", "Email everyone")}
             </Button>
           </div>
         )}
@@ -519,16 +528,16 @@ function UsersTab() {
         /* Pending users - card view */
         <div className="space-y-2">
           {pendingUsers.length === 0 && (
-            <div className="glass-card p-8 text-center text-muted-foreground">Нет пользователей, ожидающих активации.</div>
+            <div className="glass-card p-8 text-center text-muted-foreground">{tx("Нет пользователей, ожидающих активации.", "No users awaiting activation.")}</div>
           )}
           {pendingUsers.map(u => (
             <div key={u.id} className="glass-card p-4 flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{u.email || 'Нет email'}</p>
-                <p className="text-xs text-muted-foreground">Регистрация: {new Date(u.created_at).toLocaleDateString('ru')}</p>
+                <p className="text-sm font-medium text-foreground truncate">{u.email || tx("Нет email", "No email")}</p>
+                <p className="text-xs text-muted-foreground">{tx("Регистрация:", "Registered:")} {new Date(u.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU')}</p>
               </div>
               <Button size="sm" className="btn-gradient border-0 gap-1.5" onClick={() => handleApprove(u.user_id, u.email)}>
-                <CheckCircle2 className="w-3.5 h-3.5" /> Одобрить
+                <CheckCircle2 className="w-3.5 h-3.5" /> {tx("Одобрить", "Approve")}
               </Button>
             </div>
           ))}
@@ -541,20 +550,20 @@ function UsersTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Email</TableHead>
-                  <TableHead>Имя</TableHead>
-                  <TableHead>Регистрация</TableHead>
-                  <TableHead>Активность</TableHead>
-                  <TableHead>Тариф</TableHead>
-                  <TableHead className="text-center">Анализов</TableHead>
-                  <TableHead className="text-center">Кредиты</TableHead>
-                  <TableHead className="text-center">Роль</TableHead>
-                  <TableHead className="text-center">Статус</TableHead>
+                  <TableHead>{tx("Имя", "Name")}</TableHead>
+                  <TableHead>{tx("Регистрация", "Registration")}</TableHead>
+                  <TableHead>{tx("Активность", "Activity")}</TableHead>
+                  <TableHead>{tx("Тариф", "Plan")}</TableHead>
+                  <TableHead className="text-center">{tx("Анализов", "Analyses")}</TableHead>
+                  <TableHead className="text-center">{tx("Кредиты", "Credits")}</TableHead>
+                  <TableHead className="text-center">{tx("Роль", "Role")}</TableHead>
+                  <TableHead className="text-center">{tx("Статус", "Status")}</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {displayUsers.length === 0 && (
-                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Нет пользователей</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">{tx("Нет пользователей", "No users")}</TableCell></TableRow>
                 )}
                 {displayUsers.map(u => {
                   const plan = getPlan(u.credits);
@@ -567,9 +576,9 @@ function UsersTab() {
                     <TableRow key={u.id}>
                       <TableCell className="text-sm font-medium truncate max-w-[200px]">{u.email || '-'}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{u.display_name || '-'}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{new Date(u.created_at).toLocaleDateString('ru')}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{new Date(u.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU')}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {lastAct ? lastAct.toLocaleDateString('ru') : 'Нет'}
+                        {lastAct ? lastAct.toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU') : tx("Нет", "None")}
                       </TableCell>
                       <TableCell>
                         <Badge variant={plan === 'AGENCY' ? 'default' : plan === 'PRO' ? 'secondary' : 'outline'} className="text-[10px]">
@@ -613,13 +622,13 @@ function UsersTab() {
                       </TableCell>
                       <TableCell className="text-center">
                         {isActive
-                          ? <span className="inline-flex items-center gap-1 text-[10px] text-green-500"><span className="w-1.5 h-1.5 rounded-full bg-green-500" />Активен</span>
-                          : <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />Неактивен</span>
+                          ? <span className="inline-flex items-center gap-1 text-[10px] text-green-500"><span className="w-1.5 h-1.5 rounded-full bg-green-500" />{tx("Активен", "Active")}</span>
+                          : <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />{tx("Неактивен", "Inactive")}</span>
                         }
                       </TableCell>
                       <TableCell>
                         {u.email && (
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEmailDialog(u.email!)}>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => u.email && openEmailDialog(u.email)}>
                             <Mail className="w-3.5 h-3.5" />
                           </Button>
                         )}
@@ -637,33 +646,33 @@ function UsersTab() {
       <Dialog open={emailDialog.open} onOpenChange={(open) => !open && setEmailDialog(prev => ({ ...prev, open: false }))}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Mail className="w-4 h-4" /> Написать письмо</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><Mail className="w-4 h-4" /> {tx("Написать письмо", "Compose email")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-muted-foreground">Кому</label>
+              <label className="text-xs text-muted-foreground">{tx("Кому", "To")}</label>
               <Input value={emailDialog.to} readOnly className="text-sm mt-1" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Тема</label>
+              <label className="text-xs text-muted-foreground">{tx("Тема", "Subject")}</label>
               <Input
                 value={emailDialog.subject}
                 onChange={e => setEmailDialog(prev => ({ ...prev, subject: e.target.value }))}
-                placeholder="Тема письма..."
+                placeholder={tx("Тема письма...", "Email subject...")}
                 className="text-sm mt-1"
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Сообщение</label>
+              <label className="text-xs text-muted-foreground">{tx("Сообщение", "Message")}</label>
               <textarea
                 value={emailDialog.body}
                 onChange={e => setEmailDialog(prev => ({ ...prev, body: e.target.value }))}
-                placeholder="Текст сообщения..."
+                placeholder={tx("Текст сообщения...", "Message text...")}
                 className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[120px] resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
             <Button onClick={sendEmail} className="btn-gradient border-0 gap-2 w-full">
-              <Send className="w-4 h-4" /> Отправить
+              <Send className="w-4 h-4" /> {tx("Отправить", "Send")}
             </Button>
           </div>
         </DialogContent>
@@ -674,6 +683,8 @@ function UsersTab() {
 
 /* ─── Stats Tab ─── */
 function StatsTab() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const [stats, setStats] = useState({ totalUsers: 0, totalAnalyses: 0, completedAnalyses: 0, todayAnalyses: 0, weekAnalyses: 0, monthAnalyses: 0 });
   const [topUrls, setTopUrls] = useState<{ url: string; count: number }[]>([]);
   const [topModules, setTopModules] = useState<{ module: string; count: number }[]>([]);
@@ -765,15 +776,15 @@ function StatsTab() {
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
 
   const statCards: { label: string; value: number; icon: typeof Users; accent: 'blue' | 'green' | 'teal' | 'violet' | 'amber' | 'pink' }[] = [
-    { label: 'Всего пользователей', value: stats.totalUsers, icon: Users, accent: 'blue' },
-    { label: 'Анализов за день', value: stats.todayAnalyses, icon: Calendar, accent: 'green' },
-    { label: 'Анализов за неделю', value: stats.weekAnalyses, icon: TrendingUp, accent: 'teal' },
-    { label: 'Анализов за месяц', value: stats.monthAnalyses, icon: BarChart3, accent: 'violet' },
-    { label: 'Всего анализов', value: stats.totalAnalyses, icon: Layers, accent: 'amber' },
-    { label: 'Завершённых', value: stats.completedAnalyses, icon: CheckCircle2, accent: 'pink' },
+    { label: tx("Всего пользователей", "Total users"), value: stats.totalUsers, icon: Users, accent: 'blue' },
+    { label: tx("Анализов за день", "Analyses today"), value: stats.todayAnalyses, icon: Calendar, accent: 'green' },
+    { label: tx("Анализов за неделю", "Analyses this week"), value: stats.weekAnalyses, icon: TrendingUp, accent: 'teal' },
+    { label: tx("Анализов за месяц", "Analyses this month"), value: stats.monthAnalyses, icon: BarChart3, accent: 'violet' },
+    { label: tx("Всего анализов", "Total analyses"), value: stats.totalAnalyses, icon: Layers, accent: 'amber' },
+    { label: tx("Завершённых", "Completed"), value: stats.completedAnalyses, icon: CheckCircle2, accent: 'pink' },
   ];
 
-  const chartConfig = { count: { label: 'Регистрации', color: 'hsl(var(--primary))' } };
+  const chartConfig = { count: { label: tx("Регистрации", "Registrations"), color: 'hsl(var(--primary))' } };
 
   return (
     <div className="space-y-6">
@@ -788,7 +799,7 @@ function StatsTab() {
         {/* Registration chart */}
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-primary" /> Регистрации за 14 дней
+            <TrendingUp className="w-4 h-4 text-primary" /> {tx("Регистрации за 14 дней", "Registrations over 14 days")}
           </h3>
           <ChartContainer config={chartConfig} className="h-[200px]">
             <BarChart data={regChart}>
@@ -804,10 +815,10 @@ function StatsTab() {
         {/* Top URLs */}
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Globe className="w-4 h-4 text-accent" /> Топ анализируемых доменов
+            <Globe className="w-4 h-4 text-accent" /> {tx("Топ анализируемых доменов", "Most analysed domains")}
           </h3>
           {topUrls.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Нет данных</p>
+            <p className="text-sm text-muted-foreground">{tx("Нет данных", "No data")}</p>
           ) : (
             <div className="space-y-2">
               {topUrls.map((item, i) => (
@@ -827,10 +838,10 @@ function StatsTab() {
       {/* Top modules */}
       <div className="glass-card p-5">
         <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Layers className="w-4 h-4 text-primary" /> Топ используемых модулей
+          <Layers className="w-4 h-4 text-primary" /> {tx("Топ используемых модулей", "Most used modules")}
         </h3>
         {topModules.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Нет данных</p>
+          <p className="text-sm text-muted-foreground">{tx("Нет данных", "No data")}</p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {topModules.map(item => (
@@ -848,6 +859,8 @@ function StatsTab() {
 
 /* ─── Analysis Logs Tab ─── */
 function AnalysisLogsTab() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const [logs, setLogs] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -909,12 +922,12 @@ function AnalysisLogsTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Последние 100 анализов с деталями модулей и времени выполнения.</p>
+      <p className="text-sm text-muted-foreground">{tx("Последние 100 анализов с деталями модулей и времени выполнения.", "Latest 100 analyses with module and execution time details.")}</p>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end">
         <div>
-          <label className="text-[10px] text-muted-foreground uppercase">Пользователь</label>
+          <label className="text-[10px] text-muted-foreground uppercase">{tx("Пользователь", "User")}</label>
           <Input
             value={filterUser}
             onChange={e => setFilterUser(e.target.value)}
@@ -923,7 +936,7 @@ function AnalysisLogsTab() {
           />
         </div>
         <div>
-          <label className="text-[10px] text-muted-foreground uppercase">Дата от</label>
+          <label className="text-[10px] text-muted-foreground uppercase">{tx("Дата от", "Date from")}</label>
           <Input
             type="date"
             value={filterDateFrom}
@@ -932,7 +945,7 @@ function AnalysisLogsTab() {
           />
         </div>
         <div>
-          <label className="text-[10px] text-muted-foreground uppercase">Дата до</label>
+          <label className="text-[10px] text-muted-foreground uppercase">{tx("Дата до", "Date to")}</label>
           <Input
             type="date"
             value={filterDateTo}
@@ -942,7 +955,7 @@ function AnalysisLogsTab() {
         </div>
         {(filterUser || filterDateFrom || filterDateTo) && (
           <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterUser(''); setFilterDateFrom(''); setFilterDateTo(''); }}>
-            Сбросить
+            {tx("Сбросить", "Reset")}
           </Button>
         )}
       </div>
@@ -953,18 +966,18 @@ function AnalysisLogsTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Пользователь</TableHead>
+                <TableHead>{tx("Пользователь", "User")}</TableHead>
                 <TableHead>URL</TableHead>
-                <TableHead>Дата</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Модули</TableHead>
-                <TableHead className="text-right">Время</TableHead>
+                <TableHead>{tx("Дата", "Date")}</TableHead>
+                <TableHead>{tx("Статус", "Status")}</TableHead>
+                <TableHead>{tx("Модули", "Modules")}</TableHead>
+                <TableHead className="text-right">{tx("Время", "Time")}</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredLogs.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Нет записей</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">{tx("Нет записей", "No records")}</TableCell></TableRow>
               )}
               {filteredLogs.map(log => {
                 const timingMs = getTimingMs(log);
@@ -979,7 +992,7 @@ function AnalysisLogsTab() {
                     </TableCell>
                     <TableCell className="text-sm font-medium truncate max-w-[250px]">{log.url}</TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(log.created_at).toLocaleString(lang === 'en' ? 'en-GB' : 'ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </TableCell>
                     <TableCell>
                       <span className={`text-xs ${log.status === 'completed' || log.status === 'done' ? 'text-green-500' : log.status === 'failed' ? 'text-red-500' : 'text-muted-foreground'}`}>
@@ -1025,7 +1038,7 @@ function AnalysisLogsTab() {
       <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-sm truncate">Лог: {selectedLog?.url}</DialogTitle>
+            <DialogTitle className="text-sm truncate">{tx("Лог:", "Log:")} {selectedLog?.url}</DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="scores" className="flex-1 overflow-hidden flex flex-col">
             <TabsList className="mb-2">
@@ -1058,6 +1071,8 @@ function AnalysisLogsTab() {
 
 /* ─── System Check Tab ─── */
 function SystemCheckTab() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<any>(null);
 
@@ -1085,8 +1100,8 @@ function SystemCheckTab() {
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Стресс-тест системы</h2>
-          <p className="text-sm text-muted-foreground">Проверка соединений с API и базой данных</p>
+          <h2 className="text-lg font-semibold text-foreground">{tx("Стресс-тест системы", "System stress test")}</h2>
+          <p className="text-sm text-muted-foreground">{tx("Проверка соединений с API и базой данных", "Test API and database connections")}</p>
         </div>
         <Button onClick={runCheck} disabled={checking} className="btn-gradient border-0 gap-2">
           {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
@@ -1100,12 +1115,12 @@ function SystemCheckTab() {
             {result.overall === 'ok' ? (
               <div className="flex items-center justify-center gap-3">
                 <CheckCircle2 className="w-8 h-8 text-green-500" />
-                <span className="text-xl font-bold text-green-500">Все системы OK</span>
+                <span className="text-xl font-bold text-green-500">{tx("Все системы OK", "All systems OK")}</span>
               </div>
             ) : (
               <div className="flex items-center justify-center gap-3">
                 <XCircle className="w-8 h-8 text-red-500" />
-                <span className="text-xl font-bold text-red-500">Обнаружены ошибки</span>
+                <span className="text-xl font-bold text-red-500">{tx("Обнаружены ошибки", "Errors detected")}</span>
               </div>
             )}
           </div>
@@ -1133,12 +1148,12 @@ function SystemCheckTab() {
             <div className="glass-card p-5 space-y-3">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-primary" />
-                Производительность (последние 20 анализов)
+                {tx("Производительность (последние 20 анализов)", "Performance (last 20 analyses)")}
               </h3>
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-foreground">{result.performance.avgAnalysisTime}</div>
-                  <div className="text-xs text-muted-foreground">Среднее время</div>
+                  <div className="text-xs text-muted-foreground">{tx("Среднее время", "Average time")}</div>
                 </div>
                 <div className="text-center">
                   <div className={`text-2xl font-bold ${result.performance.slowAnalyses > 0 ? 'text-red-500' : 'text-green-500'}`}>
@@ -1148,7 +1163,7 @@ function SystemCheckTab() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-foreground">{result.performance.totalRecent}</div>
-                  <div className="text-xs text-muted-foreground">Всего проверено</div>
+                  <div className="text-xs text-muted-foreground">{tx("Всего проверено", "Total checked")}</div>
                 </div>
               </div>
             </div>
@@ -1161,6 +1176,8 @@ function SystemCheckTab() {
 
 /* ─── Proxy Settings Card ─── */
 function ProxySettingsCard() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const { toast } = useToast();
   const [proxyUrl, setProxyUrl] = useState('');
   const [proxyToken, setProxyToken] = useState('');
@@ -1207,7 +1224,7 @@ function ProxySettingsCard() {
       upsertSetting('proxy_token', proxyToken.trim()),
     ]);
     setSaving(false);
-    toast({ title: 'Настройки прокси сохранены ✓' });
+    toast({ title: tx("Настройки прокси сохранены ✓", "Proxy settings saved \u2713") });
   };
 
   const handleTest = async () => {
@@ -1242,10 +1259,10 @@ function ProxySettingsCard() {
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Network className="w-4 h-4 text-primary" />
-          Прокси для внешних API
+          {tx("Прокси для внешних API", "Proxy for external APIs")}
         </h3>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-muted-foreground">{proxyEnabled ? 'Включён' : 'Выключен'}</span>
+          <span className="text-[11px] text-muted-foreground">{proxyEnabled ? tx("Включён", "Enabled") : tx("Выключен", "Disabled")}</span>
           <button
             type="button"
             onClick={() => setProxyEnabled(v => !v)}
@@ -1257,9 +1274,9 @@ function ProxySettingsCard() {
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground">
-        Все запросы к DataForSEO и Serper будут идти через ваш relay-эндпоинт (на Beget/VPS).
-        Relay должен принимать <code className="px-1 py-0.5 rounded bg-muted">POST</code> с JSON
-        <code className="px-1 py-0.5 rounded bg-muted">{'{ url, method, headers, body }'}</code> и возвращать
+        {tx("Все запросы к DataForSEO и Serper будут идти через ваш relay-эндпоинт (на Beget/VPS).", "All DataForSEO and Serper requests will go through your relay endpoint (Beget/VPS).")}
+        {tx("Relay должен принимать", "The relay must accept")} <code className="px-1 py-0.5 rounded bg-muted">POST</code> {tx("с JSON", "with JSON")}
+        <code className="px-1 py-0.5 rounded bg-muted">{'{ url, method, headers, body }'}</code> {tx("и возвращать", "and return")}
         <code className="px-1 py-0.5 rounded bg-muted">{'{ status, headers, body }'}</code>.
       </p>
 
@@ -1280,13 +1297,13 @@ function ProxySettingsCard() {
       </div>
 
       <div className="space-y-1">
-        <label className="text-xs font-medium text-foreground">PROXY_TOKEN <span className="text-muted-foreground font-normal">(опционально, передаётся в заголовке x-proxy-token)</span></label>
+        <label className="text-xs font-medium text-foreground">PROXY_TOKEN <span className="text-muted-foreground font-normal">{tx("(опционально, передаётся в заголовке x-proxy-token)", "(optional, sent in the x-proxy-token header)")}</span></label>
         <div className="flex gap-2">
           <Input
             type={showToken ? 'text' : 'password'}
             value={proxyToken}
             onChange={(e) => setProxyToken(e.target.value)}
-            placeholder="секретный токен авторизации relay"
+            placeholder={tx("секретный токен авторизации relay", "Secret relay authentication token")}
             className="font-mono text-sm"
           />
           <Button variant="outline" size="icon" onClick={() => setShowToken(v => !v)}>
@@ -1298,11 +1315,11 @@ function ProxySettingsCard() {
       <div className="flex gap-2 pt-1">
         <Button onClick={handleSave} disabled={saving} className="btn-gradient border-0 gap-2">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Сохранить
+          {tx("Сохранить", "Save")}
         </Button>
         <Button onClick={handleTest} disabled={testing || !proxyUrl.trim()} variant="outline" className="gap-2">
           {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-          Проверить прокси
+          {tx("Проверить прокси", "Test proxy")}
         </Button>
       </div>
 
@@ -1310,16 +1327,16 @@ function ProxySettingsCard() {
         <div className={`text-[12px] p-3 rounded-md border ${testResult.ok ? 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'}`}>
           {testResult.ok ? (
             <div className="space-y-0.5">
-              <div>✅ Прокси работает{testResult.ip ? `, IP: ${testResult.ip}` : ''}{testResult.country ? ` (${testResult.country})` : ''}</div>
+              <div>{tx("✅ Прокси работает", "✅ Proxy is working")}{testResult.ip ? `, IP: ${testResult.ip}` : ''}{testResult.country ? ` (${testResult.country})` : ''}</div>
               {!!testResult.dfsStatus && (
-                <div className="text-muted-foreground">DataForSEO ответил: HTTP {testResult.dfsStatus}</div>
+                <div className="text-muted-foreground">{tx("DataForSEO ответил: HTTP", "DataForSEO response: HTTP")} {testResult.dfsStatus}</div>
               )}
             </div>
           ) : (
             <div className="space-y-0.5">
-              <div>❌ Прокси не работает</div>
+              <div>{tx("❌ Прокси не работает", "\u274c Proxy is not working")}</div>
               {testResult.error && <div>{testResult.error}</div>}
-              {testResult.ipError && <div>IP-эхо: {testResult.ipError}</div>}
+              {testResult.ipError && <div>{tx("IP-эхо:", "IP echo:")} {testResult.ipError}</div>}
               {testResult.dfsError && <div>DataForSEO: {testResult.dfsError}</div>}
             </div>
           )}
