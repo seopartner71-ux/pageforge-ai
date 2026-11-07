@@ -80,7 +80,7 @@ export function AdminOverviewTab() {
         const k = a.created_at.slice(0, 10);
         if (k in analysesDays) analysesDays[k]++;
       });
-      const fmt = (k: string) => new Date(k).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU', { day: '2-digit', month: 'short' });
+      const fmt = (k: string) => new Date(k).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
       const chartUsers = Object.entries(usersDays).map(([date, count]) => ({ date: fmt(date), count }));
       const chartAnalyses = Object.entries(analysesDays).map(([date, count]) => ({ date: fmt(date), count }));
 
@@ -137,8 +137,8 @@ export function AdminOverviewTab() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         <StatCard label={tx("Всего пользователей", "Total users")} value={data.totalUsers} icon={Users} accent="blue" />
         <StatCard label={tx("Новых за 7д", "New in 7 days")} value={data.newUsers7d} delta={{ value: userDelta }} icon={TrendingUp} accent="green" />
-        <StatCard label={tx("Активных (30д)", "Active (30 days)")} value={data.activeUsers30d} icon={UserCheck} accent="teal" hint={`${data.totalUsers > 0 ? Math.round(data.activeUsers30d / data.totalUsers * 100) : 0}% базы`} />
-        <StatCard label={tx("Ожидают одобрения", "Pending approval")} value={data.pendingUsers} icon={AlertCircle} accent="amber" hint={`${approvalRate}% одобрено`} />
+        <StatCard label={tx("Активных (30д)", "Active (30 days)")} value={data.activeUsers30d} icon={UserCheck} accent="teal" hint={`${data.totalUsers > 0 ? Math.round(data.activeUsers30d / data.totalUsers * 100) : 0}% ${tx("базы", "of users")}`} />
+        <StatCard label={tx("Ожидают одобрения", "Pending approval")} value={data.pendingUsers} icon={AlertCircle} accent="amber" hint={`${approvalRate}% ${tx("одобрено", "approved")}`} />
         <StatCard label={tx("Анализов всего", "Total analyses")} value={data.totalAnalyses} icon={FileBarChart2} accent="violet" />
         <StatCard label={tx("За 7 дней", "Over 7 days")} value={data.analyses7d} delta={{ value: analysisDelta }} icon={Zap} accent="pink" />
       </div>

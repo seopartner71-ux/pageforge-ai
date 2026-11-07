@@ -107,9 +107,9 @@ export function KnowledgeBaseTab() {
       else if (ext === 'txt' || ext === 'md') { text = await parseTxt(file); sourceType = 'txt'; }
       else throw new Error(tx("Поддерживаются только PDF, DOCX, TXT, MD", "Only PDF, DOCX, TXT and MD are supported"));
 
-      if (text.length < 100) throw new Error(`Извлечено слишком мало текста (${text.length} символов)`);
+      if (text.length < 100) throw new Error(tx(`Извлечено слишком мало текста (${text.length} символов)`, `Too little text extracted (${text.length} characters)`));
 
-      setProgress(`Извлечено ${text.length.toLocaleString()} символов. Отправляю в базу…`);
+      setProgress(tx(`Извлечено ${text.length.toLocaleString()} символов. Отправляю в базу…`, `Extracted ${text.length.toLocaleString()} characters. Uploading…`));
 
       const { data, error } = await supabase.functions.invoke('kb-ingest', {
         body: { title: title.trim(), author: author.trim(), source_type: sourceType, text },
@@ -117,7 +117,7 @@ export function KnowledgeBaseTab() {
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
 
-      toast.success(`Добавлено ${(data as any).total_chunks} чанков`);
+      toast.success(tx(`Добавлено ${(data as any).total_chunks} чанков`, `Added ${(data as any).total_chunks} chunks`));
       setFile(null);
       setTitle('');
       setAuthor('');
@@ -133,7 +133,7 @@ export function KnowledgeBaseTab() {
   };
 
   const remove = async (id: string, title: string) => {
-    if (!confirm(`Удалить «${title}» и все её чанки?`)) return;
+    if (!confirm(tx(`Удалить «${title}» и все её чанки?`, `Delete “${title}” and all its chunks?`))) return;
     const { error } = await supabase.from('kb_documents').delete().eq('id', id);
     if (error) { toast.error(error.message); return; }
     toast.success(tx("Удалено", "Deleted"));
@@ -206,7 +206,7 @@ export function KnowledgeBaseTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <BookOpen className="w-4 h-4" />
-            Документы в базе ({docs.length})
+            {tx("Документы в базе", "Stored documents")} ({docs.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -225,7 +225,7 @@ export function KnowledgeBaseTab() {
                       <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                         {d.author && <span>{d.author}</span>}
                         <Badge variant="outline" className="text-[10px] py-0 h-4 uppercase">{d.source_type}</Badge>
-                        <span className="font-mono">{d.total_chunks} чанков</span>
+                        <span className="font-mono">{d.total_chunks} {tx("чанков", "chunks")}</span>
                         <span>{new Date(d.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU')}</span>
                       </div>
                     </div>

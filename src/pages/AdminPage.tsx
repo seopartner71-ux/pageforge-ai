@@ -128,14 +128,14 @@ function DataForSeoCard() {
         error: d?.error,
       });
       if (d?.ok) {
-        toast({ title: 'DataForSEO подключён ✓', description: `Баланс: $${(d.balance ?? 0).toFixed(2)}` });
+        toast({ title: tx("DataForSEO подключён ✓", "DataForSEO connected ✓"), description: `${tx("Баланс:", "Balance:")} $${(d.balance ?? 0).toFixed(2)}` });
       } else if (!d?.configured) {
-        toast({ title: 'DataForSEO не настроен', description: 'Добавьте секреты DATAFORSEO_LOGIN и DATAFORSEO_PASSWORD', variant: 'destructive' });
+        toast({ title: tx("DataForSEO не настроен", "DataForSEO not configured"), description: tx("Добавьте секреты DATAFORSEO_LOGIN и DATAFORSEO_PASSWORD", "Add DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD secrets"), variant: 'destructive' });
       } else {
-        toast({ title: 'Ошибка подключения DataForSEO', description: d?.error || 'неизвестная ошибка', variant: 'destructive' });
+        toast({ title: tx("Ошибка подключения DataForSEO", "DataForSEO connection error"), description: d?.error || tx("неизвестная ошибка", "Unknown error"), variant: 'destructive' });
       }
     } catch (e: any) {
-      toast({ title: 'Не удалось проверить', description: e?.message || String(e), variant: 'destructive' });
+      toast({ title: tx("Не удалось проверить", "Could not verify"), description: e?.message || String(e), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -160,9 +160,9 @@ function DataForSeoCard() {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Реальные частоты и тысячи запросов для модуля «Семантическое ядро».
-        Регистрация на <a className="text-primary hover:underline inline-flex items-center gap-0.5" href="https://dataforseo.com" target="_blank" rel="noreferrer">dataforseo.com <ExternalLink className="w-3 h-3" /></a>.
-        Login и Password - это API credentials (не от сайта). Хранятся в Supabase Secrets.
+        {tx("Реальные частоты и тысячи запросов для модуля «Семантическое ядро».", "Real search volumes and thousands of queries for the Semantic Core module.")}
+        {tx("Регистрация на", "Register at")} <a className="text-primary hover:underline inline-flex items-center gap-0.5" href="https://dataforseo.com" target="_blank" rel="noreferrer">dataforseo.com <ExternalLink className="w-3 h-3" /></a>.
+        {tx("Login и Password — учётные данные API (не от сайта). Хранятся в секретах Lovable Cloud.", "Login and Password are API credentials (not website credentials), stored in Lovable Cloud secrets.")}
       </p>
       <div className="flex items-center gap-3 flex-wrap">
         <Button onClick={runTest} disabled={loading} variant="outline" size="sm" className="gap-1.5">
@@ -171,7 +171,7 @@ function DataForSeoCard() {
         </Button>
         {state.ok && typeof state.balance === 'number' && (
           <span className="text-xs">
-            Баланс: <strong className="text-emerald-400">${state.balance.toFixed(2)}</strong>
+            {tx("Баланс:", "Balance:")} <strong className="text-emerald-400">${state.balance.toFixed(2)}</strong>
             {state.login && <span className="text-muted-foreground"> · {state.login}</span>}
           </span>
         )}
@@ -289,7 +289,7 @@ function ApiSettingsTab() {
             </div>
             {status === 'no_credits' && s.key_name === 'serper_api_key' && (
               <div className="text-[11px] p-2 rounded-md bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400">
-                ⚠️ Закончились кредиты Serper.dev. Пополните на{' '}
+                {tx("⚠️ Закончились кредиты Serper.dev. Пополните на", "⚠️ Serper.dev credits have run out. Top up at")}{' '}
                 <a href="https://serper.dev/billing" target="_blank" rel="noopener noreferrer" className="underline font-medium">
                   serper.dev/billing
                 </a>
@@ -395,7 +395,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
         return;
       }
     }
-    toast({ title: `Роль обновлена: ${ROLE_LABELS[newRole]}` });
+    toast({ title: `${tx("Роль обновлена:", "Role updated:")} ${ROLE_LABELS[newRole]}` });
   };
 
   // Pre-compute analysis stats per user to avoid O(N*M) filtering on every render
@@ -433,13 +433,13 @@ const ROLE_LABELS: Record<AppRole, string> = {
     await supabase.from('profiles').update({ credits: newCredits }).eq('user_id', userId);
     setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, credits: newCredits } : u));
     setEditingCredits(prev => { const n = { ...prev }; delete n[userId]; return n; });
-    toast({ title: `Кредиты обновлены: ${newCredits}` });
+    toast({ title: `${tx("Кредиты обновлены:", "Credits updated:")} ${newCredits}` });
   };
 
   const handleApprove = async (userId: string, email: string | null) => {
     await supabase.from('profiles').update({ is_approved: true, credits: 1 }).eq('user_id', userId);
     setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, is_approved: true, credits: 1 } : u));
-    toast({ title: `Пользователь ${email || userId} одобрен ✓` });
+    toast({ title: tx(`Пользователь ${email || userId} одобрен ✓`, `User ${email || userId} approved ✓`) });
   };
 
   const openEmailDialog = (to: string) => {
@@ -447,7 +447,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
   };
 
   const openEmailAll = () => {
-    const allEmails = activeUsers.filter(u => u.email).map(u => u.email!).join(', ');
+    const allEmails = activeUsers.filter(u => u.email).map(u => u.email).join(', ');
     setEmailDialog({ open: true, to: allEmails, subject: '', body: '' });
   };
 
@@ -480,7 +480,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
             onClick={() => setUserTab('pending')}
             className={userTab === 'pending' ? 'btn-gradient border-0' : ''}
           >
-            Ожидают ({pendingUsers.length})
+            {tx("Ожидают", "Pending")} ({pendingUsers.length})
           </Button>
           <Button
             variant={userTab === 'active' ? 'default' : 'outline'}
@@ -488,7 +488,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
             onClick={() => setUserTab('active')}
             className={userTab === 'active' ? 'btn-gradient border-0' : ''}
           >
-            Активные ({activeUsers.length})
+            {tx("Активные", "Active")} ({activeUsers.length})
           </Button>
         </div>
         {userTab === 'active' && (
@@ -534,7 +534,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
             <div key={u.id} className="glass-card p-4 flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{u.email || tx("Нет email", "No email")}</p>
-                <p className="text-xs text-muted-foreground">Регистрация: {new Date(u.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU')}</p>
+                <p className="text-xs text-muted-foreground">{tx("Регистрация:", "Registered:")} {new Date(u.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU')}</p>
               </div>
               <Button size="sm" className="btn-gradient border-0 gap-1.5" onClick={() => handleApprove(u.user_id, u.email)}>
                 <CheckCircle2 className="w-3.5 h-3.5" /> {tx("Одобрить", "Approve")}
@@ -628,7 +628,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
                       </TableCell>
                       <TableCell>
                         {u.email && (
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEmailDialog(u.email!)}>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => u.email && openEmailDialog(u.email)}>
                             <Mail className="w-3.5 h-3.5" />
                           </Button>
                         )}
@@ -1038,7 +1038,7 @@ function AnalysisLogsTab() {
       <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-sm truncate">Лог: {selectedLog?.url}</DialogTitle>
+            <DialogTitle className="text-sm truncate">{tx("Лог:", "Log:")} {selectedLog?.url}</DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="scores" className="flex-1 overflow-hidden flex flex-col">
             <TabsList className="mb-2">
@@ -1274,9 +1274,9 @@ function ProxySettingsCard() {
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground">
-        Все запросы к DataForSEO и Serper будут идти через ваш relay-эндпоинт (на Beget/VPS).
-        Relay должен принимать <code className="px-1 py-0.5 rounded bg-muted">POST</code> с JSON
-        <code className="px-1 py-0.5 rounded bg-muted">{'{ url, method, headers, body }'}</code> и возвращать
+        {tx("Все запросы к DataForSEO и Serper будут идти через ваш relay-эндпоинт (на Beget/VPS).", "All DataForSEO and Serper requests will go through your relay endpoint (Beget/VPS).")}
+        {tx("Relay должен принимать", "The relay must accept")} <code className="px-1 py-0.5 rounded bg-muted">POST</code> {tx("с JSON", "with JSON")}
+        <code className="px-1 py-0.5 rounded bg-muted">{'{ url, method, headers, body }'}</code> {tx("и возвращать", "and return")}
         <code className="px-1 py-0.5 rounded bg-muted">{'{ status, headers, body }'}</code>.
       </p>
 
@@ -1327,16 +1327,16 @@ function ProxySettingsCard() {
         <div className={`text-[12px] p-3 rounded-md border ${testResult.ok ? 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'}`}>
           {testResult.ok ? (
             <div className="space-y-0.5">
-              <div>✅ Прокси работает{testResult.ip ? `, IP: ${testResult.ip}` : ''}{testResult.country ? ` (${testResult.country})` : ''}</div>
+              <div>{tx("✅ Прокси работает", "✅ Proxy is working")}{testResult.ip ? `, IP: ${testResult.ip}` : ''}{testResult.country ? ` (${testResult.country})` : ''}</div>
               {!!testResult.dfsStatus && (
-                <div className="text-muted-foreground">DataForSEO ответил: HTTP {testResult.dfsStatus}</div>
+                <div className="text-muted-foreground">{tx("DataForSEO ответил: HTTP", "DataForSEO response: HTTP")} {testResult.dfsStatus}</div>
               )}
             </div>
           ) : (
             <div className="space-y-0.5">
               <div>{tx("❌ Прокси не работает", "\u274c Proxy is not working")}</div>
               {testResult.error && <div>{testResult.error}</div>}
-              {testResult.ipError && <div>IP-эхо: {testResult.ipError}</div>}
+              {testResult.ipError && <div>{tx("IP-эхо:", "IP echo:")} {testResult.ipError}</div>}
               {testResult.dfsError && <div>DataForSEO: {testResult.dfsError}</div>}
             </div>
           )}

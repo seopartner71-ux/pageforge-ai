@@ -165,7 +165,7 @@ export function CopilotChatsTab() {
                   </div>
                   <div className="flex items-center gap-1.5 mt-1">
                     <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 h-4">
-                      {s.count} сообщ.
+                      {s.count} {tx("сообщ.", "msgs")}
                     </Badge>
                     {lastIntent && (
                       <Badge className={`text-[10px] font-mono px-1.5 py-0 h-4 border ${intentColor[lastIntent] ?? 'bg-muted'}`}>

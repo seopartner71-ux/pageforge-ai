@@ -96,6 +96,7 @@ const PROGRESS_STEPS = [
 export default function GeoAuditPage() {
   const { lang } = useLang();
   const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
+  const progressSteps = lang === 'en' ? ['Loading page...', 'Checking robots.txt and sitemap...', 'Analysing HTML structure...', 'Checking Schema.org markup...', 'Analysing content and E-E-A-T...', 'Preparing recommendations...'] : PROGRESS_STEPS;
   const [url, setUrl] = useState('');
   const [running, setRunning] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
@@ -111,7 +112,7 @@ export default function GeoAuditPage() {
     setProgressStep(0);
 
     const interval = setInterval(() => {
-      setProgressStep(prev => (prev < PROGRESS_STEPS.length - 1 ? prev + 1 : prev));
+      setProgressStep(prev => (prev < progressSteps.length - 1 ? prev + 1 : prev));
     }, 3000);
 
     try {
@@ -166,9 +167,9 @@ export default function GeoAuditPage() {
           ]}
           help={{
             content: [
-              'GEO (Generative Engine Optimization) - оптимизация под генеративные поисковые системы: Google AI Overviews / AI Mode, ChatGPT Search, Perplexity, Microsoft Copilot, Яндекс Нейро. Термин введён в академической работе «GEO: Generative Engine Optimization» (Princeton, Georgia Tech, IIT Delhi, 2023, arXiv:2311.09735).',
-              'Ключевое отличие от классического SEO: AI-поисковики извлекают и цитируют фрагменты страниц, а не показывают список ссылок. Факторы цитирования: чёткая структура (H1–H3, списки, таблицы), наличие прямых ответов в первых абзацах, цитируемые данные и цифры, Schema.org разметка (Article, FAQ, HowTo), сигналы E-E-A-T автора и сайта.',
-              'llms.txt - предложенный стандарт (llmstxt.org, сентябрь 2024) для предоставления LLM-моделям структурированного описания сайта. AI-боты также используют robots.txt с директивами для GPTBot, Google-Extended, PerplexityBot, ClaudeBot - блокировка/разрешение их доступа напрямую влияет на цитируемость.',
+              tx("GEO (Generative Engine Optimization) - оптимизация под генеративные поисковые системы: Google AI Overviews / AI Mode, ChatGPT Search, Perplexity, Microsoft Copilot, Яндекс Нейро. Термин введён в академической работе «GEO: Generative Engine Optimization» (Princeton, Georgia Tech, IIT Delhi, 2023, arXiv:2311.09735).", "GEO (Generative Engine Optimization) optimises for generative search: Google AI Overviews / AI Mode, ChatGPT Search, Perplexity, Microsoft Copilot and Yandex Neuro. The term was introduced in the paper \u201cGEO: Generative Engine Optimization\u201d (Princeton, Georgia Tech, IIT Delhi, 2023, arXiv:2311.09735)."),
+              tx("Ключевое отличие от классического SEO: AI-поисковики извлекают и цитируют фрагменты страниц, а не показывают список ссылок. Факторы цитирования: чёткая структура (H1–H3, списки, таблицы), наличие прямых ответов в первых абзацах, цитируемые данные и цифры, Schema.org разметка (Article, FAQ, HowTo), сигналы E-E-A-T автора и сайта.", "Unlike traditional SEO, AI search engines extract and cite page passages rather than show a list of links. Citation factors include clear structure (H1\u2013H3, lists, tables), direct answers in opening paragraphs, citable data and figures, Schema.org markup (Article, FAQ, HowTo), and author and site E-E-A-T signals."),
+              tx("llms.txt - предложенный стандарт (llmstxt.org, сентябрь 2024) для предоставления LLM-моделям структурированного описания сайта. AI-боты также используют robots.txt с директивами для GPTBot, Google-Extended, PerplexityBot, ClaudeBot - блокировка/разрешение их доступа напрямую влияет на цитируемость.", "llms.txt is a proposed standard (llmstxt.org, September 2024) for giving LLMs a structured site description. AI bots also use robots.txt directives for GPTBot, Google-Extended, PerplexityBot and ClaudeBot; allowing or blocking access affects citation availability."),
             ],
             sources: [
               { label: 'Google - AI Overviews and AI Mode', url: 'https://blog.google/products/search/ai-mode-general-availability/' },
@@ -206,10 +207,10 @@ export default function GeoAuditPage() {
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
             <div className="text-center space-y-2">
               <p className="text-sm font-medium text-foreground">{tx("Выполняется GEO Audit", "Running GEO Audit")}</p>
-              <p className="text-xs text-muted-foreground">{PROGRESS_STEPS[progressStep]}</p>
+              <p className="text-xs text-muted-foreground">{progressSteps[progressStep]}</p>
             </div>
             <div className="w-64 space-y-2">
-              {PROGRESS_STEPS.map((step, i) => (
+              {progressSteps.map((step, i) => (
                 <div key={i} className={`flex items-center gap-2 text-xs transition-opacity duration-300 ${i <= progressStep ? 'opacity-100' : 'opacity-30'}`}>
                   {i < progressStep ? (
                     <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
@@ -261,11 +262,11 @@ export default function GeoAuditPage() {
                   </Button>
                 </div>
                 <div className="flex items-center gap-4 mt-4 justify-center md:justify-start text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" />{passCount} пройдено</span>
-                  <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-yellow-500" />{warnCount} внимание</span>
-                  <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-500" />{failCount} ошибок</span>
+                  <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" />{passCount} {tx("пройдено", "passed")}</span>
+                  <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-yellow-500" />{warnCount} {tx("внимание", "warnings")}</span>
+                  <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-500" />{failCount} {tx("ошибок", "errors")}</span>
                   <span>•</span>
-                  <span>{totalChecks} проверок</span>
+                  <span>{totalChecks} {tx("проверок", "checks")}</span>
                 </div>
                 {/* Stage scores */}
                 <div className="flex items-center gap-4 mt-3 justify-center md:justify-start flex-wrap">
