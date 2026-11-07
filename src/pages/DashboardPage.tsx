@@ -27,7 +27,7 @@ interface BatchItem {
 }
 
 export default function DashboardPage() {
-  const { tr } = useLang();
+  const { tr, lang } = useLang();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [analyzedUrl, setAnalyzedUrl] = useState<string | null>(null);
@@ -312,14 +312,23 @@ export default function DashboardPage() {
             </div>
             <PageDescription
               className="mb-6"
-              items={[
+              items={lang === 'en' ? [
+                { label: 'What it is', text: 'Comprehensive page SEO audit using the 2026 methodology: HTML parsing, comparison with the top 10 search results, and evaluation of content, structure, technical factors and E-E-A-T signals.' },
+                { label: 'What we check', text: 'Title, Description, H1–H6 headings, content structure, keywords and LSI, competitor TF-IDF, internal links, Schema.org, loading speed, mobile responsiveness, images and indexing.' },
+                { label: 'Why', text: 'Identify what your page needs to compete in the top results: topics covered by competitors, missing entities and keywords, and technical issues that affect ranking.' },
+                { label: 'Result', text: 'Detailed module scores, top 10 competitor analysis, P1/P2/P3 tasks, an implementation plan and export to Excel, PDF or Google Docs.' },
+              ] : [
                 { label: 'Что это', text: 'Комплексный SEO-аудит страницы по методологии 2026: программный разбор HTML, сравнение с ТОП-10 выдачи, оценка контента, структуры, технических факторов и сигналов E-E-A-T.' },
                 { label: 'Что проверяем', text: 'Title, Description, заголовки H1–H6, структура контента, ключевые слова и LSI, TF-IDF против конкурентов, перелинковка, Schema.org, скорость загрузки, мобильная адаптация, изображения, индексация.' },
                 { label: 'Зачем', text: 'Чтобы увидеть, чего не хватает вашей странице для выхода в ТОП: какие темы раскрывают конкуренты, какие сущности и ключи упускаете, какие технические ошибки мешают ранжированию.' },
                 { label: 'Результат', text: 'Подробный отчёт с оценкой по модулям, конкурентный анализ ТОП-10, список задач P1/P2/P3, готовый план внедрения и выгрузка в Excel, PDF или Google Docs.' },
               ]}
               help={{
-                content: [
+                content: lang === 'en' ? [
+                  'On-page SEO optimizes the page elements search engines use to understand content quality and relevance: descriptive titles and meta descriptions, clear heading structure, image alt attributes and readable URLs.',
+                  'The audit compares content length, headings and thematic n-grams with the top 10 results. TF-IDF identifies meaningful terms present on competitor pages but missing from yours.',
+                  'Google does not prescribe an optimal content length or keyword density. This audit compares your page with actual competitors, rather than treating arbitrary targets as ranking requirements.',
+                ] : [
                   'On-page SEO - оптимизация элементов самой страницы, которые поисковые системы используют для понимания темы и качества контента. Базовые рекомендации зафиксированы в Google SEO Starter Guide: уникальный точный title (50–60 символов), описательный meta description (≤ 160 символов), один H1, логичная структура H2–H6, alt-атрибуты у изображений, читаемые URL.',
                   'Сравнение с ТОП-10 - стандартная методология конкурентного контент-анализа: вычисление средней длины текста, количества заголовков, плотности тематических n-грамм. Используется TF-IDF (Term Frequency - Inverse Document Frequency, классический алгоритм информационного поиска, Spärck Jones, 1972) для выявления значимых терминов, которые есть у конкурентов и отсутствуют у вас.',
                   'Google неоднократно подтверждал (John Mueller, Search Central Office Hours, 2021–2024): нет фиксированной "оптимальной" длины контента или плотности ключей. Алгоритм оценивает полноту раскрытия темы (topical authority), наличие сущностей (entities из Knowledge Graph) и качество подачи. Поэтому проверка сравнивает страницу с реальным ТОПом, а не с абстрактными нормативами.',
@@ -329,7 +338,7 @@ export default function DashboardPage() {
                   { label: 'Google - How Search Works', url: 'https://www.google.com/search/howsearchworks/' },
                   { label: 'Google - Helpful Content System', url: 'https://developers.google.com/search/updates/helpful-content-update' },
                   { label: 'Stanford IR Book - TF-IDF', url: 'https://nlp.stanford.edu/IR-book/html/htmledition/tf-idf-weighting-1.html' },
-                  { label: 'Яндекс - Алгоритм Королёв (нейросети и смысл)', url: 'https://yandex.ru/company/technologies/korolev/' },
+                  { label: lang === 'ru' ? 'Яндекс - Алгоритм Королёв (нейросети и смысл)' : 'Yandex — Korolyov algorithm (neural networks and meaning)', url: 'https://yandex.ru/company/technologies/korolev/' },
                 ],
               }}
             />
