@@ -378,7 +378,7 @@ export function AppSidebar() {
             <SidebarGroupLabel className="flex items-center gap-2">
               <span>{lang === 'ru' ? 'РЕКЛАМА' : 'ADVERTISING'}</span>
               <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/30 tracking-wide">
-                Новое
+                {lang === 'ru' ? 'Новое' : 'New'}
               </span>
             </SidebarGroupLabel>
           )}
@@ -449,7 +449,7 @@ export function AppSidebar() {
             <SidebarGroupLabel className="flex items-center gap-2">
               <span>{lang === 'ru' ? 'АНАЛИТИКА' : 'ANALYTICS'}</span>
               <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/30 tracking-wide">
-                Новое
+                {lang === 'ru' ? 'Новое' : 'New'}
               </span>
             </SidebarGroupLabel>
           )}
