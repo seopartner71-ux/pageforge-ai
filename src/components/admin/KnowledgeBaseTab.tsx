@@ -1,3 +1,4 @@
+import { useLang } from '@/contexts/LangContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,8 @@ async function parseTxt(file: File): Promise<string> {
 }
 
 export function KnowledgeBaseTab() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const [docs, setDocs] = useState<KbDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
@@ -89,11 +92,11 @@ export function KnowledgeBaseTab() {
 
   const upload = async () => {
     if (!file || !title.trim()) {
-      toast.error('Укажите название и выберите файл');
+      toast.error(tx("Укажите название и выберите файл", "Enter a title and select a file"));
       return;
     }
     setBusy(true);
-    setProgress('Извлекаю текст…');
+    setProgress(tx("Извлекаю текст…", "Extracting text\u2026"));
     try {
       let text = '';
       let sourceType = 'manual';
@@ -102,7 +105,7 @@ export function KnowledgeBaseTab() {
       if (ext === 'pdf')      { text = await parsePdf(file);  sourceType = 'pdf'; }
       else if (ext === 'docx'){ text = await parseDocx(file); sourceType = 'docx'; }
       else if (ext === 'txt' || ext === 'md') { text = await parseTxt(file); sourceType = 'txt'; }
-      else throw new Error('Поддерживаются только PDF, DOCX, TXT, MD');
+      else throw new Error(tx("Поддерживаются только PDF, DOCX, TXT, MD", "Only PDF, DOCX, TXT and MD are supported"));
 
       if (text.length < 100) throw new Error(`Извлечено слишком мало текста (${text.length} символов)`);
 
@@ -122,7 +125,7 @@ export function KnowledgeBaseTab() {
       void refresh();
     } catch (e: any) {
       console.error(e);
-      toast.error(e?.message || 'Ошибка загрузки');
+      toast.error(e?.message || tx("Ошибка загрузки", "Upload failed"));
       setProgress('');
     } finally {
       setBusy(false);
@@ -133,7 +136,7 @@ export function KnowledgeBaseTab() {
     if (!confirm(`Удалить «${title}» и все её чанки?`)) return;
     const { error } = await supabase.from('kb_documents').delete().eq('id', id);
     if (error) { toast.error(error.message); return; }
-    toast.success('Удалено');
+    toast.success(tx("Удалено", "Deleted"));
     void refresh();
   };
 
@@ -143,34 +146,34 @@ export function KnowledgeBaseTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Upload className="w-4 h-4" />
-            Загрузить документ в базу знаний Copilot
+            {tx("Загрузить документ в базу знаний Copilot", "Upload a document to the Copilot knowledge base")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="kb-title" className="text-xs">Название *</Label>
+              <Label htmlFor="kb-title" className="text-xs">{tx("Название *", "Title *")}</Label>
               <Input
                 id="kb-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Например: SEO 2026 (Дмитрий Севальнев)"
+                placeholder={tx("Например: SEO 2026 (Дмитрий Севальнев)", "For example: SEO 2026 (Dmitry Sevalnev)")}
                 disabled={busy}
               />
             </div>
             <div>
-              <Label htmlFor="kb-author" className="text-xs">Автор (опц.)</Label>
+              <Label htmlFor="kb-author" className="text-xs">{tx("Автор (опц.)", "Author (optional)")}</Label>
               <Input
                 id="kb-author"
                 value={author}
                 onChange={(e) => setAuthor(e.target.value)}
-                placeholder="Автор / источник"
+                placeholder={tx("Автор / источник", "Author / source")}
                 disabled={busy}
               />
             </div>
           </div>
           <div>
-            <Label htmlFor="kb-file" className="text-xs">Файл (PDF / DOCX / TXT / MD)</Label>
+            <Label htmlFor="kb-file" className="text-xs">{tx("Файл (PDF / DOCX / TXT / MD)", "File (PDF / DOCX / TXT / MD)")}</Label>
             <Input
               id="kb-file"
               type="file"
@@ -191,10 +194,10 @@ export function KnowledgeBaseTab() {
           )}
           <Button onClick={upload} disabled={busy || !file || !title.trim()} className="gap-2">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            {busy ? 'Обработка…' : 'Загрузить'}
+            {busy ? tx("Обработка…", "Processing\u2026") : tx("Загрузить", "Upload")}
           </Button>
           <p className="text-[11px] text-muted-foreground">
-            Файл парсится в браузере, в базу уходит чистый текст. Большие PDF (200+ страниц) могут обрабатываться 30–60 сек.
+            {tx("Файл парсится в браузере, в базу уходит чистый текст. Большие PDF (200+ страниц) могут обрабатываться 30–60 сек.", "The file is parsed in your browser; only text is stored. Large PDFs (200+ pages) may take 30\u201360 seconds.")}
           </p>
         </CardContent>
       </Card>
@@ -210,7 +213,7 @@ export function KnowledgeBaseTab() {
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
           ) : docs.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">База знаний пуста - загрузите первый документ</p>
+            <p className="text-sm text-muted-foreground text-center py-8">{tx("База знаний пуста - загрузите первый документ", "The knowledge base is empty \u2014 upload your first document")}</p>
           ) : (
             <div className="space-y-2">
               {docs.map((d) => (
@@ -223,7 +226,7 @@ export function KnowledgeBaseTab() {
                         {d.author && <span>{d.author}</span>}
                         <Badge variant="outline" className="text-[10px] py-0 h-4 uppercase">{d.source_type}</Badge>
                         <span className="font-mono">{d.total_chunks} чанков</span>
-                        <span>{new Date(d.created_at).toLocaleDateString('ru')}</span>
+                        <span>{new Date(d.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU')}</span>
                       </div>
                     </div>
                   </div>

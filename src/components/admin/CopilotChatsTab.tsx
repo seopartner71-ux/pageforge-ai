@@ -1,3 +1,4 @@
+import { useLang } from '@/contexts/LangContext';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, MessageSquare, User as UserIcon, Bot, Search, RefreshCw } from 'lucide-react';
@@ -39,6 +40,8 @@ const intentColor: Record<string, string> = {
 };
 
 export function CopilotChatsTab() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const [loading, setLoading] = useState(true);
   const [msgs, setMsgs] = useState<CopilotMsg[]>([]);
   const [profiles, setProfiles] = useState<Record<string, ProfileLite>>({});
@@ -113,10 +116,10 @@ export function CopilotChatsTab() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-primary" /> Диалоги с Data Copilot
+            <MessageSquare className="w-5 h-5 text-primary" /> {tx("Диалоги с Data Copilot", "Data Copilot conversations")}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Все запросы пользователей к ИИ-консультанту: интенты, ответы, тикеты в поддержку.
+            {tx("Все запросы пользователей к ИИ-консультанту: интенты, ответы, тикеты в поддержку.", "User requests to the AI consultant: intents, responses and support tickets.")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -125,12 +128,12 @@ export function CopilotChatsTab() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по email или тексту…"
+              placeholder={tx("Поиск по email или тексту…", "Search by email or text\u2026")}
               className="pl-8 h-9 w-64"
             />
           </div>
           <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
-            <RefreshCw className="w-3.5 h-3.5" /> Обновить
+            <RefreshCw className="w-3.5 h-3.5" /> {tx("Обновить", "Refresh")}
           </Button>
         </div>
       </div>
@@ -140,7 +143,7 @@ export function CopilotChatsTab() {
         <div className="col-span-4 border-r border-border/60 max-h-[640px] overflow-y-auto">
           {sessions.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
-              Пока нет диалогов с Copilot.
+              {tx("Пока нет диалогов с Copilot.", "No Copilot conversations yet.")}
             </div>
           ) : (
             sessions.map((s) => {
@@ -157,7 +160,7 @@ export function CopilotChatsTab() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[13px] font-medium text-foreground truncate">{s.email}</span>
                     <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                      {new Date(s.lastAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(s.lastAt).toLocaleString(lang === 'en' ? 'en-GB' : 'ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-1">
@@ -179,7 +182,7 @@ export function CopilotChatsTab() {
         {/* Просмотр сессии */}
         <div className="col-span-8 max-h-[640px] overflow-y-auto bg-background">
           {!active ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">Выберите диалог слева</div>
+            <div className="p-8 text-center text-sm text-muted-foreground">{tx("Выберите диалог слева", "Select a conversation on the left")}</div>
           ) : (
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between border-b border-border/40 pb-2 mb-2">
@@ -200,7 +203,7 @@ export function CopilotChatsTab() {
                       <div className="text-[12px] whitespace-pre-wrap leading-relaxed">{m.text}</div>
                       <div className="flex items-center gap-1.5 mt-1.5">
                         <span className="text-[9px] font-mono opacity-60">
-                          {new Date(m.created_at).toLocaleTimeString('ru-RU')}
+                          {new Date(m.created_at).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'ru-RU')}
                         </span>
                         {m.intent && (
                           <span className={`text-[9px] font-mono px-1 rounded border ${intentColor[m.intent] ?? 'bg-muted'}`}>

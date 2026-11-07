@@ -1,3 +1,4 @@
+import { useLang } from '@/contexts/LangContext';
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -6,6 +7,8 @@ import { Loader2, Users, FileBarChart2, CheckCircle2, Clock, TrendingUp, AlertCi
 import { Badge } from '@/components/ui/badge';
 
 export function AdminOverviewTab() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<{
     totalUsers: number; pendingUsers: number; approvedUsers: number;
@@ -77,7 +80,7 @@ export function AdminOverviewTab() {
         const k = a.created_at.slice(0, 10);
         if (k in analysesDays) analysesDays[k]++;
       });
-      const fmt = (k: string) => new Date(k).toLocaleDateString('ru', { day: '2-digit', month: 'short' });
+      const fmt = (k: string) => new Date(k).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU', { day: '2-digit', month: 'short' });
       const chartUsers = Object.entries(usersDays).map(([date, count]) => ({ date: fmt(date), count }));
       const chartAnalyses = Object.entries(analysesDays).map(([date, count]) => ({ date: fmt(date), count }));
 
@@ -132,12 +135,12 @@ export function AdminOverviewTab() {
     <div className="space-y-6">
       {/* KPI grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <StatCard label="Всего пользователей" value={data.totalUsers} icon={Users} accent="blue" />
-        <StatCard label="Новых за 7д" value={data.newUsers7d} delta={{ value: userDelta }} icon={TrendingUp} accent="green" />
-        <StatCard label="Активных (30д)" value={data.activeUsers30d} icon={UserCheck} accent="teal" hint={`${data.totalUsers > 0 ? Math.round(data.activeUsers30d / data.totalUsers * 100) : 0}% базы`} />
-        <StatCard label="Ожидают одобрения" value={data.pendingUsers} icon={AlertCircle} accent="amber" hint={`${approvalRate}% одобрено`} />
-        <StatCard label="Анализов всего" value={data.totalAnalyses} icon={FileBarChart2} accent="violet" />
-        <StatCard label="За 7 дней" value={data.analyses7d} delta={{ value: analysisDelta }} icon={Zap} accent="pink" />
+        <StatCard label={tx("Всего пользователей", "Total users")} value={data.totalUsers} icon={Users} accent="blue" />
+        <StatCard label={tx("Новых за 7д", "New in 7 days")} value={data.newUsers7d} delta={{ value: userDelta }} icon={TrendingUp} accent="green" />
+        <StatCard label={tx("Активных (30д)", "Active (30 days)")} value={data.activeUsers30d} icon={UserCheck} accent="teal" hint={`${data.totalUsers > 0 ? Math.round(data.activeUsers30d / data.totalUsers * 100) : 0}% базы`} />
+        <StatCard label={tx("Ожидают одобрения", "Pending approval")} value={data.pendingUsers} icon={AlertCircle} accent="amber" hint={`${approvalRate}% одобрено`} />
+        <StatCard label={tx("Анализов всего", "Total analyses")} value={data.totalAnalyses} icon={FileBarChart2} accent="violet" />
+        <StatCard label={tx("За 7 дней", "Over 7 days")} value={data.analyses7d} delta={{ value: analysisDelta }} icon={Zap} accent="pink" />
       </div>
 
       {/* Charts */}
@@ -145,7 +148,7 @@ export function AdminOverviewTab() {
         <div className="rounded-lg border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Users className="w-4 h-4 text-primary" /> Регистрации (30 дней)
+              <Users className="w-4 h-4 text-primary" /> {tx("Регистрации (30 дней)", "Registrations (30 days)")}
             </h3>
             <Badge variant="secondary" className="text-[10px]">30D</Badge>
           </div>
@@ -154,7 +157,7 @@ export function AdminOverviewTab() {
         <div className="rounded-lg border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <FileBarChart2 className="w-4 h-4 text-primary" /> Анализы (30 дней)
+              <FileBarChart2 className="w-4 h-4 text-primary" /> {tx("Анализы (30 дней)", "Analyses (30 days)")}
             </h3>
             <Badge variant="secondary" className="text-[10px]">30D</Badge>
           </div>
@@ -165,26 +168,26 @@ export function AdminOverviewTab() {
       {/* Health + Top domains */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="rounded-lg border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Здоровье анализов</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-4">{tx("Здоровье анализов", "Analysis health")}</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-xs text-muted-foreground">Завершено</span>
+                <span className="text-xs text-muted-foreground">{tx("Завершено", "Completed")}</span>
               </div>
               <span className="text-sm font-semibold tabular-nums text-foreground">{data.completed}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-amber-500" />
-                <span className="text-xs text-muted-foreground">В процессе</span>
+                <span className="text-xs text-muted-foreground">{tx("В процессе", "In progress")}</span>
               </div>
               <span className="text-sm font-semibold tabular-nums text-foreground">{data.inProgress}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-rose-500" />
-                <span className="text-xs text-muted-foreground">С ошибкой</span>
+                <span className="text-xs text-muted-foreground">{tx("С ошибкой", "Failed")}</span>
               </div>
               <span className="text-sm font-semibold tabular-nums text-foreground">{data.failed}</span>
             </div>
@@ -194,7 +197,7 @@ export function AdminOverviewTab() {
                 <span className="text-sm font-semibold tabular-nums text-emerald-500">{successRate}%</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" /> Ср. длительность</span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" /> {tx("Ср. длительность", "Avg. duration")}</span>
                 <span className="text-sm font-semibold tabular-nums text-foreground">{data.avgDurationSec}s</span>
               </div>
             </div>
@@ -203,10 +206,10 @@ export function AdminOverviewTab() {
 
         <div className="lg:col-span-2 rounded-lg border border-border bg-card p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Globe className="w-4 h-4 text-primary" /> Топ анализируемых доменов
+            <Globe className="w-4 h-4 text-primary" /> {tx("Топ анализируемых доменов", "Most analysed domains")}
           </h3>
           {data.topDomains.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Нет данных</p>
+            <p className="text-xs text-muted-foreground">{tx("Нет данных", "No data")}</p>
           ) : (
             <div className="space-y-2.5">
               {data.topDomains.map((d, i) => {

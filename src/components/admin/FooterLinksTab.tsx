@@ -1,3 +1,4 @@
+import { useLang } from '@/contexts/LangContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -7,6 +8,8 @@ import { Loader2, Save, Plus, Trash2, Link2 } from 'lucide-react';
 import type { FooterLink } from '@/hooks/useFooterLinks';
 
 export function FooterLinksTab() {
+  const { lang } = useLang();
+  const tx = (ru: string, en: string) => lang === 'en' ? en : ru;
   const { toast } = useToast();
   const [links, setLinks] = useState<FooterLink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,9 +50,9 @@ export function FooterLinksTab() {
 
     setSaving(false);
     if (error) {
-      toast({ title: 'Ошибка сохранения', description: error.message, variant: 'destructive' });
+      toast({ title: tx("Ошибка сохранения", "Save failed"), description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Ссылки футера обновлены ✓' });
+      toast({ title: tx("Ссылки футера обновлены ✓", "Footer links updated \u2713") });
       setLinks(cleaned);
     }
   };
@@ -60,10 +63,10 @@ export function FooterLinksTab() {
     <div className="space-y-4 max-w-3xl">
       <div>
         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <Link2 className="w-4 h-4 text-primary" /> Ссылки в футере
+          <Link2 className="w-4 h-4 text-primary" /> {tx("Ссылки в футере", "Footer links")}
         </h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Управляйте URL и анкорами ссылок, которые отображаются в футере лендинга.
+          {tx("Управляйте URL и анкорами ссылок, которые отображаются в футере лендинга.", "Manage URLs and link text displayed in the landing page footer.")}
         </p>
       </div>
 
@@ -71,8 +74,8 @@ export function FooterLinksTab() {
         {links.map((link, i) => (
           <div key={i} className="glass-card p-4 grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 items-end">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Анкор</label>
-              <Input value={link.label} onChange={e => update(i, { label: e.target.value })} placeholder="Системное SEO" />
+              <label className="text-xs text-muted-foreground mb-1 block">{tx("Анкор", "Link text")}</label>
+              <Input value={link.label} onChange={e => update(i, { label: e.target.value })} placeholder={tx("Системное SEO", "Systematic SEO")} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">URL</label>
@@ -85,7 +88,7 @@ export function FooterLinksTab() {
                 onChange={e => update(i, { newTab: e.target.checked })}
                 className="w-4 h-4 accent-primary"
               />
-              Новое окно
+              {tx("Новое окно", "New window")}
             </label>
             <Button variant="outline" size="icon" onClick={() => remove(i)} className="text-destructive">
               <Trash2 className="w-4 h-4" />
@@ -93,17 +96,17 @@ export function FooterLinksTab() {
           </div>
         ))}
         {links.length === 0 && (
-          <p className="text-sm text-muted-foreground italic py-4 text-center">Нет ссылок. Добавьте первую.</p>
+          <p className="text-sm text-muted-foreground italic py-4 text-center">{tx("Нет ссылок. Добавьте первую.", "No links yet. Add the first one.")}</p>
         )}
       </div>
 
       <div className="flex gap-2">
         <Button variant="outline" onClick={add} className="gap-2">
-          <Plus className="w-4 h-4" /> Добавить ссылку
+          <Plus className="w-4 h-4" /> {tx("Добавить ссылку", "Add link")}
         </Button>
         <Button onClick={save} disabled={saving} className="btn-gradient border-0 gap-2">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Сохранить
+          {tx("Сохранить", "Save")}
         </Button>
       </div>
     </div>
