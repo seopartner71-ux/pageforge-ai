@@ -24,8 +24,8 @@ import { supabase } from '@/integrations/supabase/client';
 const PIE_COLORS = ['hsl(var(--primary))', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#6B7280'];
 
 export default function AliceVisibilityPage() {
-  const [brand, setBrand] = useState('Ренессанс Косметик');
-  const [domain, setDomain] = useState('ren-cosm.ru');
+  const [brand, setBrand] = useState('');
+  const [domain, setDomain] = useState('');
   const [data, setData] = useState<AliceParsed | null>(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -35,7 +35,7 @@ export default function AliceVisibilityPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(file: File) {
-    if (!domain.trim()) { toast.error('Укажите домен бренда'); return; }
+    if (!domain.trim() || !brand.trim()) { toast.error('Укажите название и домен бренда'); return; }
     setLoading(true);
     setGeoPlan('');
     try {
@@ -399,7 +399,7 @@ export default function AliceVisibilityPage() {
                     </h4>
                     <div className="flex flex-wrap gap-1.5">
                       {viewRow.citedDomains.map((d) => (
-                        <Badge key={d} variant={d.includes(domain.toLowerCase()) ? 'default' : 'secondary'}>
+                        <Badge key={d} variant={d === data?.domain || d.endsWith('.' + data?.domain) ? 'default' : 'secondary'}>
                           {d}
                         </Badge>
                       ))}
