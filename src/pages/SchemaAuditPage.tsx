@@ -610,7 +610,6 @@ export default function SchemaAuditPage() {
     setError(null);
     setMultiResults(valid.map(v => ({ type: v.type, url: v.url, status: 'pending' })));
     try {
-      await supabase.auth.refreshSession();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast({ title: 'Сессия истекла', description: 'Войдите снова', variant: 'destructive' });
@@ -697,7 +696,6 @@ export default function SchemaAuditPage() {
     }, 2500);
 
     try {
-      await supabase.auth.refreshSession();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast({ title: 'Сессия истекла', description: 'Войдите снова', variant: 'destructive' });
