@@ -71,16 +71,43 @@ function urlDomain(url: string): string {
 const SOURCE_TYPES: { type: string; label: string; test: RegExp }[] = [
   { type: 'marketplace', label: 'Маркетплейс', test: /ozon|wildberries|amazon|ebay|aliexpress|yandex\.market|sbermegamarket|lamoda|detmir/i },
   { type: 'ugc',         label: 'UGC / Отзывы', test: /reddit|pikabu|quora|otzovik|irecommend|otzyvy|forum/i },
-  { type: 'media',       label: 'Медиа / СМИ', test: /vc\.ru|habr|rb\.ru|kp\.ru|forbes|tass|ria|lenta|kommersant|cosmo|elle/i },
+  { type: 'media',       label: 'Медиа / СМИ', test: /vc\.ru|habr|rb\.ru|kp\.ru|forbes|tass|ria\.ru|lenta|kommersant|cosmo|\belle\b/i },
   { type: 'aggregator',  label: 'Агрегатор',  test: /sravni|price|compare|2gis|zoon|yell|orgpage/i },
   { type: 'content',     label: 'Контент / Блог', test: /blog|wiki|medium|substack|dzen|livejournal/i },
   { type: 'store',       label: 'Магазин',    test: /shop|store|magazin/i },
-  { type: 'brand',       label: 'Бренд / Сайт компании', test: /.*/ },
 ];
 
+/** Robust number parse: "1 234", "1\u00a0234", "1,234" -> 1234 */
+export function toNum(v: unknown): number {
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  const s = String(v ?? '').replace(/[\s\u00a0\u202f]/g, '').replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+
+/** Exact domain or its subdomain (not substring: "notren-cosm.ru" != "ren-cosm.ru") */
+export function isBrandDomain(d: string, brandDomain: string): boolean {
+  if (!brandDomain) return false;
+  return d === brandDomain || d.endsWith('.' + brandDomain);
+}
+
+/** Brand mention tolerant to Russian word endings: "Ренессанс Косметика/Косметикой" */
+export function mentionsBrand(text: string, brand: string, brandDomain: string): boolean {
+  const t = text.toLowerCase().replace(/ё/g, 'е');
+  if (brandDomain && t.includes(brandDomain)) return true;
+  const sld = brandDomain.split('.')[0];
+  if (sld && sld.length >= 4 && new RegExp(`(^|[^a-z0-9-])${sld.replace(/[-]/g, '\\-')}([^a-z0-9-]|$)`).test(t)) return true;
+  const words = brand.toLowerCase().replace(/ё/g, 'е').split(/[^a-zа-я0-9]+/i).filter(Boolean);
+  if (!words.length) return false;
+  const stems = words.map((w) => (w.length >= 6 ? w.slice(0, -2) : w.length >= 4 ? w.slice(0, -1) : w));
+  const re = new RegExp(stems.map((st) => st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[a-zа-я]{0,4}').join('[\\s\\-«»"\']+'), 'i');
+  return re.test(t);
+}
+
 function categorize(domain: string): { type: string; label: string } {
-  for (const t of SOURCE_TYPES) if (t.test.test(domain)) return { type: t.type, label: t.label };
-  return { type: 'other', label: 'Прочее' };
+  const parts = domain.split('.').join(' ');
+  for (const t of SOURCE_TYPES) if (t.test.test(parts) || t.test.test(domain)) return { type: t.type, label: t.label };
+  return { type: 'other', label: 'Сайты компаний / прочее' };
 }
 
 export async function parseAliceXlsx(file: File, brand: string, brandDomain: string): Promise<AliceParsed> {
@@ -89,9 +116,12 @@ export async function parseAliceXlsx(file: File, brand: string, brandDomain: str
   // Prefer first sheet named "Алиса" / "Alisa" / first
   const sheetName = wb.SheetNames.find((n) => /алис|alis/i.test(n)) || wb.SheetNames[0];
   const ws = wb.Sheets[sheetName];
-  const raw = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' });
+  // Skip title rows above the real header (Yandex exports often have them)
+  const matrix = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' });
+  const headerIdx = Math.max(0, matrix.findIndex((r) => r.some((c: any) => /^(запрос|query|keyword)$/i.test(String(c).trim()))));
+  const raw = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '', range: headerIdx });
 
-  const cleanDomain = brandDomain.replace(/^https?:\/\//, '').replace(/^www\./, '').toLowerCase();
+  const cleanDomain = brandDomain.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '').toLowerCase();
   const cleanBrand = (brand || '').toLowerCase();
 
   const rows: AliceRow[] = raw
@@ -106,9 +136,9 @@ export async function parseAliceXlsx(file: File, brand: string, brandDomain: str
       const query = String(qKey ? r[qKey] : '').trim();
       if (!query) return null;
 
-      const frequency = Number(freqKey ? r[freqKey] : 0) || 0;
-      const exactFrequency = Number(exactKey ? r[exactKey] : 0) || 0;
-      const phraseFrequency = Number(phraseKey ? r[phraseKey] : 0) || 0;
+      const frequency = toNum(freqKey ? r[freqKey] : 0);
+      const exactFrequency = toNum(exactKey ? r[exactKey] : 0);
+      const phraseFrequency = toNum(phraseKey ? r[phraseKey] : 0);
       const aiAnswer = String(aiKey ? r[aiKey] : '');
       const srcText = String(srcKey ? r[srcKey] : '');
       const sources = srcText
@@ -119,12 +149,10 @@ export async function parseAliceXlsx(file: File, brand: string, brandDomain: str
       const citations = extractCitations(aiAnswer);
       const citedDomains = [...new Set([...citations.map((c) => urlDomain(c.url)), ...sources.map(urlDomain)])].filter(Boolean);
 
-      const lcAnswer = aiAnswer.toLowerCase();
-      const brandMentioned =
-        (cleanBrand && lcAnswer.includes(cleanBrand)) ||
-        citedDomains.some((d) => d.includes(cleanDomain)) ||
-        lcAnswer.includes(cleanDomain);
-      const brandCited = citedDomains.some((d) => d.includes(cleanDomain));
+      // strip markdown links so URL text of competitors doesn't count as a mention
+      const plainAnswer = aiAnswer.replace(/\]\((https?:[^)]+)\)/g, ']');
+      const brandCited = citedDomains.some((d) => isBrandDomain(d, cleanDomain));
+      const brandMentioned = brandCited || mentionsBrand(plainAnswer, cleanBrand, cleanDomain);
 
       return {
         query, frequency, exactFrequency, phraseFrequency,
@@ -138,7 +166,7 @@ export async function parseAliceXlsx(file: File, brand: string, brandDomain: str
   const totalFrequency = rows.reduce((s, r) => s + r.frequency, 0);
   const totalExact = rows.reduce((s, r) => s + r.exactFrequency, 0);
   const brandMentions = rows.filter((r) => r.brandMentioned).length;
-  const brandCitations = rows.reduce((s, r) => s + r.citedDomains.filter((d) => d.includes(cleanDomain)).length, 0);
+  const brandCitations = rows.reduce((s, r) => s + r.citedDomains.filter((d) => isBrandDomain(d, cleanDomain)).length, 0);
   const totalCitations = rows.reduce((s, r) => s + r.citedDomains.length, 0);
 
   // Domain counts
@@ -147,7 +175,7 @@ export async function parseAliceXlsx(file: File, brand: string, brandDomain: str
     for (const d of r.citedDomains) domainCount.set(d, (domainCount.get(d) || 0) + 1);
   }
   const topDomains = [...domainCount.entries()]
-    .map(([domain, count]) => ({ domain, count, isBrand: domain.includes(cleanDomain) }))
+    .map(([domain, count]) => ({ domain, count, isBrand: isBrandDomain(domain, cleanDomain) }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 25);
 
@@ -155,7 +183,7 @@ export async function parseAliceXlsx(file: File, brand: string, brandDomain: str
   const typeCount = new Map<string, { type: string; label: string; count: number }>();
   for (const r of rows) {
     for (const d of r.citedDomains) {
-      const c = categorize(d);
+      const c = isBrandDomain(d, cleanDomain) ? { type: 'own', label: 'Ваш сайт' } : categorize(d);
       const prev = typeCount.get(c.type) || { type: c.type, label: c.label, count: 0 };
       prev.count++;
       typeCount.set(c.type, prev);
