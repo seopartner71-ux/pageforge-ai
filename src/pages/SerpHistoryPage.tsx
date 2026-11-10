@@ -161,7 +161,6 @@ export default function SerpHistoryPage() {
     setLoading(true);
     setData(null);
     try {
-      await supabase.auth.refreshSession();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error('Сессия истекла'); setLoading(false); return; }
 

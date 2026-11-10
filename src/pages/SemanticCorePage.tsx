@@ -440,7 +440,6 @@ export default function SemanticCorePage() {
 
     try {
       // Ensure fresh session token before invoking edge function
-      await supabase.auth.refreshSession();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast.error('Сессия истекла, войдите снова');
