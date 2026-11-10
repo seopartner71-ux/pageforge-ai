@@ -33,9 +33,9 @@ export interface AliceParsed {
 
 const COL_ALIASES: Record<keyof Omit<AliceRow, 'citations' | 'citedDomains' | 'brandMentioned' | 'brandCited'>, string[]> = {
   query: ['запрос', 'query', 'keyword'],
-  frequency: ['частотность', 'frequency', 'wordstat'],
-  exactFrequency: ['"!частотность"', '!частотность', 'exact'],
-  phraseFrequency: ['"[!частотность]"', '[!частотность]', 'phrase'],
+  frequency: ['частотность', 'базовая частотность', 'frequency', 'wordstat'],
+  exactFrequency: ['"!частотность"', '!частотность', 'точная частотность', 'exact'],
+  phraseFrequency: ['"[!частотность]"', '[!частотность]', 'очень точная частотность', 'phrase'],
   aiAnswer: ['ответ ии', 'ответ', 'answer', 'ai answer'],
   sources: ['источники', 'sources'],
 };
@@ -121,6 +121,15 @@ export async function parseAliceXlsx(file: File, brand: string, brandDomain: str
   const headerIdx = Math.max(0, matrix.findIndex((r) => r.some((c: any) => /^(запрос|query|keyword)$/i.test(String(c).trim()))));
   const raw = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '', range: headerIdx });
 
+  if (raw.length) {
+    const first = raw[0];
+    if (!findKey(first, COL_ALIASES.aiAnswer) && !findKey(first, COL_ALIASES.sources)) {
+      throw new Error(
+        'В файле нет колонок «Ответ ИИ» и «Источники» — это обычная выгрузка ключевых слов/позиций, а не ответов Алисы. ' +
+        'Без текстов ответов Алисы посчитать упоминания бренда нельзя: загрузите выгрузку с ответами ИИ.'
+      );
+    }
+  }
   const cleanDomain = brandDomain.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '').toLowerCase();
   const cleanBrand = (brand || '').toLowerCase();
 
